@@ -59,14 +59,66 @@ When in doubt → record as `dead-suspected` here, do **not** delete.
 
 ## Findings
 
-> Curated findings are added by US-23.2–23.7 as each area is swept. The raw
-> detector baseline captured at US-23.1 is in the appendix below — later stories
-> triage it into curated rows here (confirming dead vs. dynamic-use, assigning
-> severity/effort), and append the hardcodes/anti-patterns they find.
+> Curated findings, triaged from the US-23.1 detector baseline (appendix) and
+> later sweeps. Each row names the owning Epic 23 story (deletions) or `epic-24`
+> (improvements).
+
+### Dead code — confirmed deletion candidates (triaged in US-23.5)
+
+The contract audit (US-23.5) confirmed **none** of these cross a documented
+contract seam, so the owning story can delete them safely.
 
 | area | file:line | category | severity | effort | owner-story | note |
 |---|---|---|---|---|---|---|
-| _(populated by US-23.2–23.7)_ | | | | | | |
+| frontend | `types.ts` `ActivityPoint` | dead-suspected | low | low | US-23.4 | exported type, 0 consumers, no backend source / no contract doc — FE-orphan |
+| frontend | `types.ts` `CanonicalLedgerRecord` | dead-suspected | low | low | US-23.4 | exported type, FE-orphan (no backend source, no contract doc) |
+| frontend | `types.ts` `ReconciliationCheck` | dead-suspected | low | low | US-23.4 | FE mirror of a backend type with **no FE consumer**; backend `reconciliation.py` keeps its own — delete the FE mirror only |
+| frontend | `types.ts` `DiagnosticsPayload` | dead-suspected | low | low | US-23.4 | exported type, FE-orphan |
+| frontend | `types.ts` `ExposureEnginePayload` | dead-suspected | low | low | US-23.4 | exported type, FE-orphan |
+| frontend | `src/app/featureFlags.ts` | dead-suspected | med | low | US-23.4 | whole file unimported (knip) |
+| frontend | `src/app/portfolioState.ts` | dead-suspected | med | low | US-23.4 | whole file unimported (knip) |
+| frontend | `CurrentFactorSnapshotCard.tsx` | dead-suspected | med | low | US-23.4 | whole file unimported (knip) — not rendered anywhere |
+| frontend | `DashboardPerformanceChart.tsx` | dead-suspected | med | low | US-23.4 | whole file unimported (knip) |
+| frontend | `SectorDonutCard.tsx` | dead-suspected | med | low | US-23.4 | whole file unimported (knip) |
+| frontend | `historyTruth.ts` | dead-suspected | low | low | US-23.4 | whole file unimported (knip) |
+| frontend | `investorEconomics.ts` | dead-suspected | low | low | US-23.4 | whole file unimported (knip) |
+| frontend | `src/app/portfolioDb.ts` `getPortfolioDatabaseName` | dead-suspected | low | low | US-23.4 | exported fn, 0 consumers |
+| tests | `portfolioFixtures.ts` `createDiagnosticsFixture`, `createIb2026/Ff2026ImportedDashboardFixture`, `createImportedBaselineFixture` | dead-suspected | low | low | US-23.6 | exported fixture factories, never imported |
+| cross | `ImportAdmissionReviewDispositionV1` (BE `schemas/import_bootstrap.py`; FE `types.ts` + `portfolioWorkspaceStorage.ts` sanitizers; `import-admission-fields.md`) | dead-suspected | med | med | US-23.4 (FE) + US-23.2 (BE) | **The canonical cross-seam dead case** (US-22.2 close-out): no producer, no consumer; persistence sanitizers self-reference it so `knip` does NOT flag it. Remove FE plumbing first (with persisted-state safety checks), then BE schema, then reconcile the contract doc. Not deletable by a single story — coordinate. |
+| backend/analytics-schemas | `analytics/attribution.py` (imports `WINDOW_MIN_OBSERVATIONS`, `_series_to_returns`) | dead-suspected | low | low | US-23.2 | ruff F401 unused imports |
+| backend/analytics-schemas | `analytics/risk.py` (import `FactorRiskContribution`; locals `target`/`top_shared`/`alpha_annualized`/`specific_risk`/`collinearity_warnings`) | dead-suspected | med | med | US-23.2 | ruff F401/F841 + vulture — some unused locals may be a computed-but-dropped result; confirm intent (dead vs bug) before deleting |
+| backend/analytics-schemas | `schemas/reconciliation.py` (imports `LedgerRecord`, `ImportedPortfolioSnapshot`) | dead-suspected | low | low | US-23.2 | ruff F401 unused imports |
+| backend/services-routes | `services/dashboard_history_engine.py` local `allow_exact_slice_benchmark_return_output` | dead-suspected | low | low | US-23.3 | ruff F841 unused local |
+| backend/services-routes | `importers/freedom24.py` locals `isin`, `realized_pnl`, `account` | dead-suspected | low | low | US-23.3 | ruff F841 — parsed-but-dropped; confirm not a missing-field bug |
+| tests | test-file unused imports (`pytest`/`Path`/`math`) + unused locals (`test_analytics.py`, `test_market_data_fallback.py`, `test_yfinance_client.py`, `test_exposure_engine.py` unreachable-after-return) | dead-suspected | low | low | US-23.6 | ruff + vulture; test hygiene |
+
+### Over-exported (live, not dead) — low priority
+
+71 exported types/functions are **used in-file but never imported elsewhere**
+(knip "unused exports") — e.g. the response-shape mirrors composed inside
+`types.ts` (`ExposureRunMetadata`, `DiagnosticsProvenance`, `DailyPortfolioState`,
+…) and `portfolioDb`/`portfolioWorkspaceStorage` helpers. These are **not dead**;
+the `export` keyword is merely unnecessary. **owner US-23.4** (optional
+de-export; low priority — harmless, and some are transitively dead once the
+confirmed-dead types above are removed, so re-run `knip` iteratively).
+
+### Hardcodes / anti-patterns (→ Epic 24)
+
+| area | file:line | category | severity | effort | owner-story | note |
+|---|---|---|---|---|---|---|
+| _(appended by US-23.2/23.3/23.4/23.6 as smells are found)_ | | | | | | |
+
+### Contract audit result (US-23.5)
+
+A three-way audit (backend Pydantic schemas ↔ `types.ts`/`workspaceTypes.ts` ↔
+`docs/contracts/*.md`) found **no type-level drift**: every CamelCase identifier
+referenced in the contract docs resolves to a live schema class, a live TS type,
+or is a UI component / prose word in a "UI display" column (not a type
+reference). No stale contract rows, no dangling documented types. The only
+mismatches are the FE-dead types above (no backend source / no consumer), which
+are FE-only and flagged to US-23.4 — deleting them does **not** break any
+documented seam. Contract docs are accurate as-is; no reconciliation edits
+required.
 
 ---
 
