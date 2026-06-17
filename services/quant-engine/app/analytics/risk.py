@@ -21,7 +21,6 @@ from app.schemas.reconciliation import (
     LookThroughConstituent,
     LookThroughSectorExposure,
     LookThroughSource,
-    MarketOverlapConstituent,
     MarketOverlapSummary,
     PositionRiskContributionItem,
     PortfolioRiskContribution,
@@ -268,7 +267,6 @@ def _compute_implementation_fit(definition: FactorDefinition, mapping: UcitsCand
 def _apply_mapping_hard_caps(definition: FactorDefinition, mapping: UcitsCandidateMapping, raw_score_pct: float) -> tuple[float, str | None]:
     asset_class = _asset_class_for_definition(definition)
     exposure = (mapping.asset_exposure or "").lower()
-    target = definition.target_exposure.lower()
     cap: float | None = None
     reason: str | None = None
 
@@ -657,7 +655,6 @@ def build_market_overlap_summary(
       instead of zero-like placeholders, because a true zero-overlap conclusion would be misleading
     """
     portfolio_weights = {item.symbol: item.portfolio_weight for item in lookthrough_constituents}
-    portfolio_names = {item.symbol: item.name for item in lookthrough_constituents}
 
     if not portfolio_weights:
         return MarketOverlapSummary(
@@ -692,17 +689,6 @@ def build_market_overlap_summary(
         )
 
     shared_symbols = sorted(set(portfolio_weights) & set(benchmark_weights))
-    top_shared = [
-        MarketOverlapConstituent(
-            symbol=symbol,
-            name=portfolio_names.get(symbol, benchmark_names.get(symbol, symbol)),
-            portfolio_weight=round(portfolio_weights[symbol], 4),
-            benchmark_weight=round(benchmark_weights[symbol], 4),
-            overlap_weight=round(min(portfolio_weights[symbol], benchmark_weights[symbol]), 4),
-        )
-        for symbol in sorted(shared_symbols, key=lambda item: min(portfolio_weights[item], benchmark_weights[item]), reverse=True)
-    ]
-
     overlap_weight = sum(min(portfolio_weights[symbol], benchmark_weights[symbol]) for symbol in shared_symbols)
     all_symbols = sorted(set(portfolio_weights) | set(benchmark_weights))
     active_share = 0.5 * sum(abs(portfolio_weights.get(symbol, 0.0) - benchmark_weights.get(symbol, 0.0)) for symbol in all_symbols)
@@ -1360,16 +1346,13 @@ def build_statistical_factor_model(daily_states: list, factor_histories: dict[st
 
     y = [portfolio_returns[date] for date in common_dates]
     factor_series = {factor: [factor_returns[proxy][date] for date in common_dates] for factor, proxy in active_factors}
-    # Global orthogonalization is used only for the full-period model (alpha, specific risk,
-    # current snapshot). Rolling windows re-orthogonalize per-window so that factors are
-    # uncorrelated within each estimation window (see docs/finance/financial-methodology.md).
-    orthogonalized_factors = _orthogonalize_factor_series(active_factors, factor_series)
-    coefficients, residuals, r_squared = _fit_factor_model(y, orthogonalized_factors)
-    alpha_annualized = coefficients[0] * 252 * 100
-    specific_risk = _calculate_annualized_volatility(residuals) * 100 if len(residuals) >= 2 else None
-    collinearity_warnings = _build_factor_collinearity_warnings(common_dates, factor_series, window=60)
-    # Pass raw (non-orthogonalized) factor series to the rolling functions — orthogonalization
-    # is performed inside _build_rolling_factor_loadings on each window slice.
+    # Rolling windows re-orthogonalize per-window so that factors are uncorrelated within each
+    # estimation window (see docs/finance/financial-methodology.md). Pass raw (non-orthogonalized)
+    # factor series to the rolling functions — orthogonalization is performed inside
+    # _build_rolling_factor_loadings on each window slice.
+    # (No full-period OLS fit here: a global intercept ("alpha") + absolute specific-risk were
+    # computed-but-never-surfaced and removed in Epic 23 — methodology forbids labelling the OLS
+    # intercept "alpha"; the model exposes specific_risk_share + the rolling snapshot instead.)
     raw_factor_data = [(factor, proxy, factor_series[factor]) for factor, proxy in active_factors]
     rolling_loadings = _build_rolling_factor_loadings(common_dates, y, raw_factor_data, window=20)
     rolling_loadings_60d = _build_rolling_factor_loadings(common_dates, y, raw_factor_data, window=60)
@@ -1564,27 +1547,6 @@ def _infer_sector_from_resolved_pair(left_resolved: str, right_resolved: str) ->
     if any(token in resolved for token in ["DBC", "ICOM", "SGLD", "ISLN", "SLV"]):
         return "Commodities"
     return None
-
-
-def _orthogonalize_factor_series(active_factors: list[tuple[str, str]], factor_series: dict[str, list[float]]) -> list[tuple[str, str, list[float]]]:
-    orthogonalized_factors: list[tuple[str, str, list[float]]] = []
-    for factor, proxy in active_factors:
-        values = factor_series[factor]
-        if not orthogonalized_factors:
-            orthogonalized_factors.append((factor, proxy, values))
-            continue
-
-        design_matrix = [[1.0] + [prior_values[index] for _, _, prior_values in orthogonalized_factors] for index in range(len(values))]
-        coefficients = _least_squares(design_matrix, values, ridge_lambda=1e-5)
-        fitted = [_dot(row, coefficients) for row in design_matrix]
-        residualized = [actual - expected for actual, expected in zip(values, fitted, strict=False)]
-        if not any(abs(value) > 1e-12 for value in residualized):
-            orthogonalized_factors.append((factor, proxy, values))
-            continue
-        orthogonalized_factors.append((factor, proxy, residualized))
-    return orthogonalized_factors
-
-
 
 
 def _orthogonalize_factors_window(raw_factors: list[tuple[str, str, list[float]]]) -> list[tuple[str, str, list[float]]]:

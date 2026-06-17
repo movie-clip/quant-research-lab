@@ -104,26 +104,27 @@ confirmed-dead types above are removed, so re-run `knip` iteratively).
 
 ### Hardcodes / anti-patterns + latent bugs (→ Epic 24)
 
-**⚠ Latent bugs surfaced by the dead-code sweep (US-23.2/23.3).** These are
-F841 "unused local" findings that are **NOT dead code** — they are computed/
-parsed values silently dropped before the return. The removal protocol's
-"confirm intent" step correctly prevented deleting them; they need a *decision*
-(wire in or confirm removal), which is Epic 24, not a deletion here.
+**risk.py F841 findings — investigated and RESOLVED as dead code (not bugs).**
+A close read against `docs/finance/financial-methodology.md` showed these were
+**dead leftover computations**, not missing outputs, so they were removed (see
+"Removed" below). Crucially, the methodology (§Statistical Factor Model,
+"Residual must never be labeled 'alpha'… never 'alpha_pct'") **forbids
+surfacing** the OLS intercept — so "fixing" `alpha_annualized` by exposing it
+would have *violated* methodology. The project was never unstable: none of these
+affected any computed/returned value (they were discarded locals).
 
 | area | file:line | category | severity | effort | owner-story | note |
 |---|---|---|---|---|---|---|
-| backend/analytics | `analytics/risk.py:1368-1370` `alpha_annualized`, `specific_risk`, `collinearity_warnings` | anti-pattern (dropped output) | **high** | med | epic-24 | Computed full-period model outputs (Jensen's alpha annualized, idiosyncratic/specific risk, collinearity warnings) — the comment at :1363 says they belong to "the full-period model (alpha, specific risk, current snapshot)" but they are **never used / not in `StatisticalFactorModel`**. Likely missing response fields, not dead. Confirm vs methodology before any change. |
-| backend/analytics | `analytics/risk.py:695` `top_shared` | anti-pattern (dropped output) | med | med | epic-24 | A built `MarketOverlapConstituent[]` (top shared portfolio∩benchmark holdings) computed then discarded — likely a market-overlap output that should be surfaced. |
-| backend/analytics | `analytics/risk.py:271` `target` | anti-pattern (dropped value) | low | low | epic-24 | `definition.target_exposure.lower()` computed in `_apply_mapping_hard_caps` then unused — dead leftover or missing cap logic; confirm. |
-| backend/importers | `importers/freedom24.py:138,221,266` `isin`, `realized_pnl`, `account` | anti-pattern (parsed-but-dropped) | med | low | epic-24 | Broker-statement fields parsed then dropped — potential missing-data (e.g. realized P&L, account). Confirm whether each should be captured. |
-| backend/services | `services/dashboard_history_engine.py` `allow_exact_slice_benchmark_return_output` | dead-suspected/anti-pattern | low | low | epic-24 | F841 unused local — confirm dead vs dropped flag. |
+| backend/importers | `importers/freedom24.py:138,221,266` `isin`, `realized_pnl`, `account` | dead-suspected / parsed-but-dropped | med | low | US-23.3 | Broker-statement fields parsed then dropped — confirm dead vs missing-data (realized P&L / account) before removal. Not yet touched. |
+| backend/services | `services/dashboard_history_engine.py` `allow_exact_slice_benchmark_return_output` | dead-suspected | low | low | US-23.3 | F841 unused local (param-shadow) — confirm dead vs dropped flag. Not yet touched. |
 
-> _(More appended by US-23.4/23.6 as FE/test smells are found.)_
+> _(More appended by US-23.3/23.4/23.6 as remaining smells are found.)_
 
 ### Removed (completed)
 
 - **US-23.4** (frontend, this pass): deleted 6 unimported files (`featureFlags.ts`, `portfolioState.ts`, `CurrentFactorSnapshotCard.tsx`, `SectorDonutCard.tsx`, `historyTruth.ts`, `investorEconomics.ts`); 5 dead types (`ActivityPoint`, `CanonicalLedgerRecord`, `ReconciliationCheck`, `DiagnosticsPayload`, `ExposureEnginePayload`); dead helper `getPortfolioDatabaseName`. knip: 7→1 unused files, 65→60 types, 22→21 exports. tsc + suite green.
-- **US-23.2** (backend, this pass): removed 5 F401 unused imports (`attribution.py`, `risk.py`, `reconciliation.py`).
+- **US-23.2** (backend): removed 5 F401 unused imports (`attribution.py`, `risk.py`, `reconciliation.py`).
+- **US-23.2** (backend, risk.py dead-computation sweep — investigated, confirmed not bugs): removed the dead full-period OLS block in `_build_statistical_factor_model` (the global `_orthogonalize_factor_series` call + `_fit_factor_model` fit + the discarded `alpha_annualized` / `specific_risk` / `collinearity_warnings` locals — none reached the `StatisticalFactorModel` response; methodology forbids surfacing the "alpha"); the dead `top_shared` `MarketOverlapConstituent[]` build in the market-overlap summary (superseded by `top_overweights`/`top_underweights`); the dead `target` local in `_apply_mapping_hard_caps`. Cascade: also removed the now-orphaned `_orthogonalize_factor_series` function, the `portfolio_names` local, and the dead `MarketOverlapConstituent` schema class (no TS/contract/test consumer). **Output-neutral** — goldens unchanged, full suite green; also drops a wasted full-period OLS fit per analysis.
 
 ### Remaining (deferred within Epic 23)
 
