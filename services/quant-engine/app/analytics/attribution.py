@@ -30,11 +30,9 @@ from app.analytics.risk import (
     FACTOR_KEY_MAP,
     FACTOR_PROXY_MAP,
     ROLLING_RIDGE_FLOOR,
-    WINDOW_MIN_OBSERVATIONS,
     _fit_factor_model,
     _orthogonalize_factors_window,
     _selected_history_return_series,
-    _series_to_returns,
 )
 from app.schemas.attribution import (
     AttributionSeriesEntry,

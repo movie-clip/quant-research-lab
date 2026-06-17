@@ -102,11 +102,33 @@ the `export` keyword is merely unnecessary. **owner US-23.4** (optional
 de-export; low priority — harmless, and some are transitively dead once the
 confirmed-dead types above are removed, so re-run `knip` iteratively).
 
-### Hardcodes / anti-patterns (→ Epic 24)
+### Hardcodes / anti-patterns + latent bugs (→ Epic 24)
+
+**⚠ Latent bugs surfaced by the dead-code sweep (US-23.2/23.3).** These are
+F841 "unused local" findings that are **NOT dead code** — they are computed/
+parsed values silently dropped before the return. The removal protocol's
+"confirm intent" step correctly prevented deleting them; they need a *decision*
+(wire in or confirm removal), which is Epic 24, not a deletion here.
 
 | area | file:line | category | severity | effort | owner-story | note |
 |---|---|---|---|---|---|---|
-| _(appended by US-23.2/23.3/23.4/23.6 as smells are found)_ | | | | | | |
+| backend/analytics | `analytics/risk.py:1368-1370` `alpha_annualized`, `specific_risk`, `collinearity_warnings` | anti-pattern (dropped output) | **high** | med | epic-24 | Computed full-period model outputs (Jensen's alpha annualized, idiosyncratic/specific risk, collinearity warnings) — the comment at :1363 says they belong to "the full-period model (alpha, specific risk, current snapshot)" but they are **never used / not in `StatisticalFactorModel`**. Likely missing response fields, not dead. Confirm vs methodology before any change. |
+| backend/analytics | `analytics/risk.py:695` `top_shared` | anti-pattern (dropped output) | med | med | epic-24 | A built `MarketOverlapConstituent[]` (top shared portfolio∩benchmark holdings) computed then discarded — likely a market-overlap output that should be surfaced. |
+| backend/analytics | `analytics/risk.py:271` `target` | anti-pattern (dropped value) | low | low | epic-24 | `definition.target_exposure.lower()` computed in `_apply_mapping_hard_caps` then unused — dead leftover or missing cap logic; confirm. |
+| backend/importers | `importers/freedom24.py:138,221,266` `isin`, `realized_pnl`, `account` | anti-pattern (parsed-but-dropped) | med | low | epic-24 | Broker-statement fields parsed then dropped — potential missing-data (e.g. realized P&L, account). Confirm whether each should be captured. |
+| backend/services | `services/dashboard_history_engine.py` `allow_exact_slice_benchmark_return_output` | dead-suspected/anti-pattern | low | low | epic-24 | F841 unused local — confirm dead vs dropped flag. |
+
+> _(More appended by US-23.4/23.6 as FE/test smells are found.)_
+
+### Removed (completed)
+
+- **US-23.4** (frontend, this pass): deleted 6 unimported files (`featureFlags.ts`, `portfolioState.ts`, `CurrentFactorSnapshotCard.tsx`, `SectorDonutCard.tsx`, `historyTruth.ts`, `investorEconomics.ts`); 5 dead types (`ActivityPoint`, `CanonicalLedgerRecord`, `ReconciliationCheck`, `DiagnosticsPayload`, `ExposureEnginePayload`); dead helper `getPortfolioDatabaseName`. knip: 7→1 unused files, 65→60 types, 22→21 exports. tsc + suite green.
+- **US-23.2** (backend, this pass): removed 5 F401 unused imports (`attribution.py`, `risk.py`, `reconciliation.py`).
+
+### Remaining (deferred within Epic 23)
+
+- **US-23.4**: `DashboardPerformanceChart.tsx` (coupled to a dead `vi.mock` + suspense test + hoisted state in `App.test.tsx` — remove together; → coordinate US-23.6); the **disposition plumbing** (persisted-state sanitizers in `portfolioWorkspaceStorage.ts` + `ImportAdmissionReviewDispositionV1` type/field — needs saved-workspace migration safety, do as a focused slice); the **60 over-exported live types** (optional de-export, low priority — re-run knip iteratively); dead fixture factories in `portfolioFixtures.ts` (→ US-23.6).
+- **US-23.2/23.3**: the F841 latent bugs above are routed to **Epic 24** (decisions, not deletions); the disposition **backend schema** removal waits on the FE removal.
 
 ### Contract audit result (US-23.5)
 
