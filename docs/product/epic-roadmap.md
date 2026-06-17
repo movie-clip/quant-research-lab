@@ -22,9 +22,9 @@ no behaviour change, no smell fixes (those are Epic 24).
 | Story | Title | Status |
 |---|---|---|
 | US-23.1 | Detection tooling + tech-debt register + removal protocol | Done |
-| US-23.2 | Backend sweep — analytics, schemas, domain, instruments | Next phase |
-| US-23.3 | Backend sweep — services, routes, clients, core, importers | Next phase |
-| US-23.4 | Frontend sweep — app & features | Next phase |
+| US-23.2 | Backend sweep — analytics, schemas, domain, instruments | In progress |
+| US-23.3 | Backend sweep — services, routes, clients, core, importers | In progress |
+| US-23.4 | Frontend sweep — app & features | In progress |
 | US-23.5 | Contract & schema↔type↔docs drift reconciliation | Done |
 | US-23.6 | Tests, fixtures & golden-pipeline hygiene | Next phase |
 | US-23.7 | Scripts, tooling & docs reconciliation | Next phase |
