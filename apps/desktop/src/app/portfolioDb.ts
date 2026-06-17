@@ -27,10 +27,6 @@ const _legacyStoreNames = [
 let databasePromise: Promise<IDBDatabase> | null = null
 let openDatabaseHandle: IDBDatabase | null = null
 
-export function getPortfolioDatabaseName() {
-  return databaseName
-}
-
 export function getIndexedDb() {
   return globalThis.indexedDB
 }

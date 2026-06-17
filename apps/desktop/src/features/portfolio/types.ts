@@ -1,47 +1,3 @@
-export type ReconciliationCheck = {
-  name: string
-  expected: number | null
-  actual: number | null
-  difference: number | null
-  passed: boolean
-  detail: string
-}
-
-export type ActivityPoint = {
-  month: string
-  buys: number
-  sells: number
-  dividends: number
-  withholding_tax: number
-  interest: number
-  fees: number
-  deposits: number
-  withdrawals: number
-  net_cash_flow: number
-}
-
-export type CanonicalLedgerRecord = {
-  date: string
-  entry_type: string
-  account_bucket: 'TRADE' | 'INCOME' | 'EXPENSE' | 'TRANSFER'
-  symbol: string | null
-  description: string | null
-  signed_quantity: number | null
-  quantity: number | null
-  price: number | null
-  gross_amount: number | null
-  net_amount: number | null
-  cash_effect: number
-  asset_currency: string | null
-  cash_currency: string
-  affects_positions: boolean
-  affects_cash: boolean
-  fee: number | null
-  tax: number | null
-  source_section: string
-  source_line: string | null
-}
-
 export type ImportedStatementImporter = 'interactive_brokers' | 'freedom24' | 'espp' | 'multi_broker'
 
 export type ImportedStatementRecord = {
@@ -1097,35 +1053,6 @@ export type ImportAdmissionReviewDispositionV1 = {
   snapshot_fingerprint: string
   admission_summary_fingerprint: string
   evidence_summary: ImportAdmissionCheckEvidenceSummaryV1
-}
-
-export type ExposureEnginePayload = {
-  snapshot: ImportedSnapshot
-  overview: PortfolioOverview
-  lookthrough: LookThroughOverview
-  lookthrough_sector_exposure: LookThroughSectorExposure[]
-  market_overlap: MarketOverlapSummary
-}
-
-export type DiagnosticsPayload = {
-  snapshot: ImportedSnapshot
-  availability: DiagnosticsAvailability
-  run_metadata: DiagnosticsRunMetadata
-  drawdown_summary: DiagnosticsDrawdownSummary
-  volatility_summary: DiagnosticsVolatilitySummary
-  risk_concentration_summary: DiagnosticsRiskConcentrationSummary
-  risk_summary: PortfolioRiskSummary
-  rolling_risk: RollingRiskPoint[]
-  relative_risk: RelativeRiskSummary
-  volatility_regime: VolatilityRegimePayload
-  factor_exposures: FactorExposurePoint[]
-  factor_shift_diagnostics: FactorShiftDiagnostics
-  risk_contribution_breakdown: RiskContributionBreakdown
-  model_reliability: ModelReliabilitySnapshot
-  factor_registry: FactorRegistryEntry[]
-  factor_methodology: string | null
-  statistical_factor_model: StatisticalFactorModel
-  stress_scenarios: StressScenarioResult[]
 }
 
 export type ImportedBootstrapResponse = {

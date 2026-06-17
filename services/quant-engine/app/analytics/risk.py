@@ -16,7 +16,6 @@ from app.schemas.reconciliation import (
     FactorShiftDiagnosticsPayload,
     FactorShiftSnapshot,
     FactorProxyDefinition,
-    FactorRiskContribution,
     FactorRiskContributionItem,
     FactorExposurePoint,
     LookThroughConstituent,
