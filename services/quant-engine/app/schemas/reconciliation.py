@@ -138,14 +138,6 @@ class RollingRiskPoint(BaseModel):
     correlation_252d: float | None = None
 
 
-class MarketOverlapConstituent(BaseModel):
-    symbol: str
-    name: str
-    portfolio_weight: float
-    benchmark_weight: float
-    overlap_weight: float
-
-
 class BenchmarkRelativePositioningCue(BaseModel):
     symbol: str
     name: str
