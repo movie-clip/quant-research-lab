@@ -128,8 +128,51 @@ affected any computed/returned value (they were discarded locals).
 
 ### Remaining (deferred within Epic 23)
 
-- **US-23.4**: `DashboardPerformanceChart.tsx` (coupled to a dead `vi.mock` + suspense test + hoisted state in `App.test.tsx` — remove together; → coordinate US-23.6); the **disposition plumbing** (persisted-state sanitizers in `portfolioWorkspaceStorage.ts` + `ImportAdmissionReviewDispositionV1` type/field — needs saved-workspace migration safety, do as a focused slice); the **60 over-exported live types** (optional de-export, low priority — re-run knip iteratively); dead fixture factories in `portfolioFixtures.ts` (→ US-23.6).
-- **US-23.2/23.3**: the F841 latent bugs above are routed to **Epic 24** (decisions, not deletions); the disposition **backend schema** removal waits on the FE removal.
+- **US-23.4 — empty feature dirs (resolved, not dead):** `src/features/market-data/` and `src/features/settings/` contain **only a `README.md`** each — intentional placeholders for unbuilt features (part of the documented repo layout in `CLAUDE.md`). Not dead code; left as-is (AC3 "documented").
+- **US-23.4 — `DashboardPerformanceChart.tsx` (deferred → US-23.6):** the file is unimported (knip) but coupled to dead test scaffolding in `App.test.tsx` — a `vi.hoisted` mock-state (`dashboardPerformanceChartMock`, line ~18), a `vi.mock(...)` (line ~31), a reset (line ~446), and a 30-line suspense test (lines ~1040-1065) that may encode real App-suspense-boundary intent. Remove file + scaffolding together when doing App.test.tsx hygiene (US-23.6).
+- **US-23.4 — over-exported live types (low priority):** ~60 `types.ts`/`workspaceTypes.ts` exports are used in-file but never imported elsewhere → optional de-export (or leave). Re-run `knip` iteratively after the disposition removal.
+
+### ⚑ Ready-to-execute: disposition-plumbing removal (the marquee cross-seam dead case)
+
+The `ImportAdmissionReviewDispositionV1` subsystem has **no producer and no
+consumer** (US-22.2 close-out): no UI calls any disposition save; the README
+calls it "optional desktop-local metadata". Blast radius **fully mapped and
+contained** — but it is a ~250-line cross-file change to the **persistence
+layer + a 726-line test file (77 disposition lines / 14 blocks) + the BE
+schema**, so it must be done as **its own focused slice** with the workspace
+save/load round-trip tests as the gate (do NOT rush it — persistence stability).
+
+Closed removal set (no external/production users — verified via grep + knip):
+- `apps/desktop/src/app/portfolioWorkspaceStorage.ts`: the disposition **save
+  function** (calls `assertValidImportAdmissionReviewDispositionForSave`, writes
+  `admissionReviewDispositions`); `assertValidImportAdmissionReviewDispositionForSave`;
+  the 8 sanitize/canonicalize/match helpers (`sanitizeAdmissionEvidenceValue`,
+  `canonicalizeAdmissionEvidenceValue`, `canonicalizeImportAdmissionEvidenceSummary`,
+  `buildCurrentImportAdmissionCheckEvidence`, `importAdmissionEvidenceSummariesMatch`,
+  `sanitizeImportAdmissionEvidenceSummary`, `sanitizeImportAdmissionReviewDisposition`,
+  `sanitizeImportAdmissionReviewDispositions`); the type aliases
+  `CanonicalImportAdmissionEvidenceSummary` / `ImportAdmissionCheckV1` /
+  `NonPassImportAdmissionCheckV1`; the `admissionReviewDispositions` handling in
+  `buildPersistedImportedSource` + `sanitizeImportedNodeSource`; the import of
+  `ImportAdmissionReviewDispositionV1`. **The whole fingerprint subsystem**
+  (`canonicalizeForFingerprint`, `buildDeterministicImportAdmissionFingerprint`,
+  `buildImportSnapshotFingerprint`, `buildImportAdmissionSummaryFingerprint`)
+  exists only to build disposition fields and is used only by the test → remove
+  with it.
+- `workspaceTypes.ts`: the `admissionReviewDispositions` field + the
+  `ImportAdmissionReviewDispositionV1` import.
+- `types.ts`: `ImportAdmissionReviewDispositionV1` + `ImportAdmissionCheckEvidenceSummaryV1`.
+- `portfolioWorkspaceStorage.test.ts`: the disposition fixtures + ~14 disposition/
+  fingerprint test blocks (keep the non-disposition workspace round-trip tests).
+- `App.test.tsx`: the `admissionReviewDispositions` lines in the `buildImportedSource` helper.
+- **BE (US-23.2 coordinate):** `schemas/import_bootstrap.py` —
+  `ImportAdmissionReviewDispositionV1`, `ImportAdmissionReviewEvidenceSummaryV1`,
+  `ImportAdmissionReviewDisposition` enum (+ their `test_import_admission.py` refs).
+- **Persisted-state safety:** dropping the read-path sanitizer means a saved
+  workspace's `admissionReviewDispositions` is simply not carried forward on load
+  (no crash); confirm with a saved-workspace load round-trip test.
+
+- **US-23.2/23.3:** the F841 items above (freedom24 / dashboard_history_engine) await US-23.3; the disposition BE schema waits on the FE removal.
 
 ### Contract audit result (US-23.5)
 
