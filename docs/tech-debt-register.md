@@ -88,7 +88,7 @@ contract seam, so the owning story can delete them safely.
 | backend/analytics-schemas | `analytics/attribution.py` (imports `WINDOW_MIN_OBSERVATIONS`, `_series_to_returns`) | dead-suspected | low | low | US-23.2 | ruff F401 unused imports |
 | backend/analytics-schemas | `analytics/risk.py` (import `FactorRiskContribution`; locals `target`/`top_shared`/`alpha_annualized`/`specific_risk`/`collinearity_warnings`) | dead-suspected | med | med | US-23.2 | ruff F401/F841 + vulture — some unused locals may be a computed-but-dropped result; confirm intent (dead vs bug) before deleting |
 | backend/analytics-schemas | `schemas/reconciliation.py` (imports `LedgerRecord`, `ImportedPortfolioSnapshot`) | dead-suspected | low | low | US-23.2 | ruff F401 unused imports |
-| backend/services-routes | `services/dashboard_history_engine.py` local `allow_exact_slice_benchmark_return_output` | dead-suspected | low | low | US-23.3 | ruff F841 unused local |
+| backend/services-routes | `services/dashboard_history_engine.py` local `allow_exact_slice_benchmark_return_output` | dead-suspected | low | low | US-23.3 | ruff F841 unused local. **RESOLVED (US-23.3): removed** — confirmed dead duplicate (live gating is the per-range call). |
 | backend/services-routes | `importers/freedom24.py` locals `isin`, `realized_pnl`, `account` | dead-suspected | low | low | US-23.3 | ruff F841 — parsed-but-dropped; confirm not a missing-field bug |
 | tests | test-file unused imports (`pytest`/`Path`/`math`) + unused locals (`test_analytics.py`, `test_market_data_fallback.py`, `test_yfinance_client.py`, `test_exposure_engine.py` unreachable-after-return) | dead-suspected | low | low | US-23.6 | ruff + vulture; test hygiene |
 
@@ -115,8 +115,8 @@ affected any computed/returned value (they were discarded locals).
 
 | area | file:line | category | severity | effort | owner-story | note |
 |---|---|---|---|---|---|---|
-| backend/importers | `importers/freedom24.py:138,221,266` `isin`, `realized_pnl`, `account` | dead-suspected / parsed-but-dropped | med | low | US-23.3 | Broker-statement fields parsed then dropped — confirm dead vs missing-data (realized P&L / account) before removal. Not yet touched. |
-| backend/services | `services/dashboard_history_engine.py` `allow_exact_slice_benchmark_return_output` | dead-suspected | low | low | US-23.3 | F841 unused local (param-shadow) — confirm dead vs dropped flag. Not yet touched. |
+| backend/importers | `importers/freedom24.py:138,221,266` `isin`, `realized_pnl`, `account` | dead-suspected / parsed-but-dropped | med | low | US-23.3 | Broker-statement fields parsed then dropped. **RESOLVED (US-23.3): investigated vs schema, kept under `# noqa: F841` + re-catalogued** in the US-23.3 section above (`isin` = real data gap, `realized_pnl` = unmodeled scope, `account` = benign). Not deleted (evidence preserved). |
+| backend/services | `services/dashboard_history_engine.py` `allow_exact_slice_benchmark_return_output` | dead-suspected | low | low | US-23.3 | F841 unused local. **RESOLVED (US-23.3): removed** as a dead duplicate (not a dropped-flag bug — the live gating is the per-range call). |
 
 > _(More appended by US-23.3/23.4/23.6 as remaining smells are found.)_
 
@@ -161,11 +161,42 @@ config* findings, not dead code.
 | backend/analytics-schemas | `instruments/registry.py:45-48,180-261` | hardcode / fragile-coupling | low | med | epic-24 | Hardcoded instrument reference data (futures `tick_size`/`point_value`/`multiplier`; ETF→sector defs) plus a keyword-substring sector classifier (`get_sector` fallback chain ~209-242). Reference data is acceptable (documented in the `fmp-data` skill); the keyword classifier is the fragile part. |
 | backend/analytics-schemas | `schemas/correlation.py:13`, `intra_correlation.py:22,24`, `provenance.py:21`, `distribution.py:31` | magic-number (documented) | low | low | epic-24 | Window/lookback `Field` defaults (`252`, `60`, `15`, `30`). Sensible, validated (`ge=`) defaults — listed for completeness; consider a shared windows config if they ever need to align. |
 
+#### US-23.3 catalog — `services/` + `api/` + `clients/` + `core/` + `importers/` (recorded, not fixed → Epic 24)
+
+Wiring-tier sweep (AC4). Detectors after the US-23.3 removal are **clean**
+(`ruff F401/F811/F841` pass; `vulture --min-confidence 80` finds no whole-program
+dead routes/methods/classes in these trees). Dead code removed this pass: the
+discarded duplicate `allow_exact_slice_benchmark_return_output` computation in
+`dashboard_history_engine.py` (the live gating is the per-range call at ~L676 →
+`_compute_visible_summary`). The 3 Freedom24 parsed-but-dropped locals were
+**kept** with reasoned `# noqa: F841` (preserving the statement-layout map + the
+data-gap evidence) rather than deleted. `core/` is exemplary (all config is
+settings-driven with named defaults) — no findings.
+
+| area | file:line | category | severity | effort | owner-story | note |
+|---|---|---|---|---|---|---|
+| backend/services-routes | `importers/freedom24.py:138` (`isin`) | parsed-but-dropped / data-gap | med | med | epic-24 | Freedom24 parses position ISIN but never flows it through; `ImportedInstrument.isin` **is** modeled (populated for IBKR per US-19.2) → real coverage gap, not pure dead code. Kept under `# noqa: F841`. |
+| backend/services-routes | `importers/freedom24.py:221` (`realized_pnl`) | parsed-but-dropped / scope | med | med | epic-24 | Freedom24 parses per-trade realized P&L but `ImportedLedgerEntry` has no realized-P&L field — financial data dropped by a (likely intentional) modeling-scope decision. Kept under `# noqa: F841`; revisit whether the product should capture it. |
+| backend/services-routes | `importers/freedom24.py:266` (`account`) | parsed-but-dropped | low | low | epic-24 | Per-line account identity parsed then dropped; account is modeled at statement level (`ImportedStatement.account_id`), so the per-line drop is benign. Kept under `# noqa: F841`. |
+| backend/services-routes | `importers/freedom24.py` (positional parsing, ~50 sites) | fragile-coupling | high | high | epic-24 | The whole parser is fixed-offset positional PDF reading: `page_texts[3]`, `index = 10` start, `lines[index + 1..8]`, `lines[next_index + N]`, etc., with no structural validation. Any Freedom24 statement-layout change silently mis-parses. The dominant wiring smell in this tier; lower-volume variants in `interactive_brokers.py` / `espp.py`. |
+| backend/services-routes | `importers/freedom24.py:146,223,238` | hardcode | low | low | epic-24 | Inline currency whitelist `{"USD","EUR","GBP"}`; `.replace(".US","")` symbol-suffix stripping; hardcoded `currency="USD"` on grouped trades. |
+| backend/services-routes | `clients/fmp.py:33` | magic-number | med | low | epic-24 | `httpx.Client(timeout=30.0)` — HTTP timeout hardcoded; everything else in the client (TTLs, rate limit, base URL) is settings-driven — this should be too. |
+| backend/services-routes | `clients/fmp.py:183` | hardcode / fragile-coupling | med | low | epic-24 | `get_etf_holders` hardcodes the full URL `https://financialmodelingprep.com/api/v3/etf-holder/{symbol}` — the only endpoint that bypasses the settings-driven `self.base_url` (`/stable`). Host + `api/v3` version pinned inline. |
+| backend/services-routes | `clients/fmp.py:248` | magic-number | low | low | epic-24 | `limit: int = 500` screener default inline. |
+| backend/services-routes | `services/{exposure,stress,drift,drawdown}_engine.py` (`'SPY'`) | hardcode / duplication | low | low | epic-24 | Default benchmark `"SPY"` hardcoded in ≥4 engines (`exposure_engine.py:36`, `stress_engine.py:64`, `drift_engine.py:80`, `drawdown_engine.py:118`) + `SnapshotAnalysisRequest` default — a single `DEFAULT_BENCHMARK` constant would consolidate. |
+| backend/services-routes | `services/exposure_engine.py:251` | magic-number | med | low | epic-24 | `loaded_weight >= 99.0` ETF-holdings coverage threshold gates `verified` vs `degraded` — undocumented literal driving a trust decision. |
+| backend/services-routes | `services/stress_engine.py:36`, `drawdown_engine.py:52`, `attribution_engine.py` | duplication | med | med | epic-24 | The lookback heuristic `math.ceil(window * 1.6) + 30` is re-implemented in ≥3 engines (the `build-story` skill says reuse one `_lookback_calendar_days`). Should be a single shared helper/constant. |
+| backend/services-routes | `services/drawdown_engine.py:34`, `analytics/distribution.py:23`, `analytics/correlation.py` | duplication | low | low | epic-24 | `_MIN_OBSERVATIONS = 20` (min daily observations) defined independently in ≥3 modules. |
+| backend/services-routes | `services/portfolio_proof.py:1264` | magic-number | low | low | epic-24 | `_terminal_totals_match(... tolerance: float = 0.01)` — reconciliation tolerance inline (cf. the `0.25` cash tolerance in `analytics/reconciliation.py`). |
+| backend/services-routes | `services/statement_importer.py:190` | magic-number | low | low | epic-24 | Percent→fraction `/100` conversion inline in the TWR compounding loop. |
+| backend/services-routes | `core/` (settings/cache/symbols) | (good hygiene — no action) | — | — | — | Noted as the positive baseline: `settings.py` keeps all config in named `Field(default=…)` (TTLs `300`/`86400`, rate-limit `250`, base URL, artifact dirs); `cache.py` is clean; `symbols.py` `DEFAULT_SYMBOL_RULES` is documented reference data (`fmp-data` skill). The `except Exception: # noqa: BLE001` fail-closed handlers in `fmp.py`/`yfinance_client.py` are intentional (per story Notes) — not smells. |
+
 ### Removed (completed)
 
 - **US-23.4** (frontend, this pass): deleted 6 unimported files (`featureFlags.ts`, `portfolioState.ts`, `CurrentFactorSnapshotCard.tsx`, `SectorDonutCard.tsx`, `historyTruth.ts`, `investorEconomics.ts`); 5 dead types (`ActivityPoint`, `CanonicalLedgerRecord`, `ReconciliationCheck`, `DiagnosticsPayload`, `ExposureEnginePayload`); dead helper `getPortfolioDatabaseName`. knip: 7→1 unused files, 65→60 types, 22→21 exports. tsc + suite green.
 - **US-23.2** (backend): removed 5 F401 unused imports (`attribution.py`, `risk.py`, `reconciliation.py`).
 - **US-23.2** (backend, risk.py dead-computation sweep — investigated, confirmed not bugs): removed the dead full-period OLS block in `_build_statistical_factor_model` (the global `_orthogonalize_factor_series` call + `_fit_factor_model` fit + the discarded `alpha_annualized` / `specific_risk` / `collinearity_warnings` locals — none reached the `StatisticalFactorModel` response; methodology forbids surfacing the "alpha"); the dead `top_shared` `MarketOverlapConstituent[]` build in the market-overlap summary (superseded by `top_overweights`/`top_underweights`); the dead `target` local in `_apply_mapping_hard_caps`. Cascade: also removed the now-orphaned `_orthogonalize_factor_series` function, the `portfolio_names` local, and the dead `MarketOverlapConstituent` schema class (no TS/contract/test consumer). **Output-neutral** — goldens unchanged, full suite green; also drops a wasted full-period OLS fit per analysis.
+- **US-23.3** (backend, services/api/clients/core/importers): removed the dead **duplicate** `allow_exact_slice_benchmark_return_output` computation in `dashboard_history_engine.py` (top-level `run` path) — investigated and confirmed dead: the result was discarded while the **live** gating is the per-range call (`~L676` → `_compute_visible_summary`); benchmark withholding at `_withhold_benchmark_return_series` is independent and unchanged. **Output-neutral** — goldens unchanged, full suite green; drops a wasted function call per dashboard run. The 3 Freedom24 F841 locals (`isin`/`realized_pnl`/`account`) were investigated against the schema and **kept** under reasoned `# noqa: F841` (parsed-but-dropped: `isin` is a real coverage gap, `realized_pnl` is unmodeled, `account` is benign) rather than deleted — see the US-23.3 catalog above. `vulture --min-confidence 80` finds no whole-program dead symbols in these five trees.
 
 ### Remaining (deferred within Epic 23)
 
@@ -224,7 +255,7 @@ Closed removal set (no external/production users — verified via grep + knip):
   workspace's `admissionReviewDispositions` is simply not carried forward on load
   (no crash); confirm with a saved-workspace load round-trip test.
 
-- **US-23.2/23.3:** the F841 items above (freedom24 / dashboard_history_engine) await US-23.3; the disposition BE schema waits on the FE removal.
+- **US-23.2/23.3:** the F841 items above (freedom24 / dashboard_history_engine) were resolved in US-23.3 (dashboard duplicate removed; freedom24 locals kept under reasoned `# noqa` + catalogued); the disposition BE schema was removed in US-23.9.
 
 ### Contract audit result (US-23.5)
 
