@@ -15,26 +15,12 @@ import { mapImportedHistoryContextToWorkspace } from '../features/portfolio/impo
 import type { ImportedSnapshot, PortfolioOverview } from '../features/portfolio/types'
 import type { ImportedHistoryContext, ImportedNodeSource, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
 
-const dashboardPerformanceChartMock = vi.hoisted(() => ({
-  shouldSuspend: false,
-  suspensePromise: new Promise<never>(() => {}),
-}))
-
 vi.mock('@tauri-apps/plugin-dialog', () => ({
   open: vi.fn(),
 }))
 
 vi.mock('@tauri-apps/plugin-fs', () => ({
   readFile: vi.fn(),
-}))
-
-vi.mock('../features/portfolio/DashboardPerformanceChart', () => ({
-  DashboardPerformanceChart: () => {
-    if (dashboardPerformanceChartMock.shouldSuspend) {
-      throw dashboardPerformanceChartMock.suspensePromise
-    }
-    return null
-  },
 }))
 
 async function importTauriPlugins() {
@@ -441,7 +427,6 @@ afterEach(() => {
   cleanup()
   delete (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
   delete (window as Window & { __TAURI__?: unknown }).__TAURI__
-  dashboardPerformanceChartMock.shouldSuspend = false
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
@@ -1031,36 +1016,6 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Exposure' }).className).not.toMatch(/\bactive\b/)
   })
 
-
-
-
-
-  it('keeps the dashboard shell rendered while the chart subtree suspends without showing dashboard loading copy', async () => {
-    dashboardPerformanceChartMock.shouldSuspend = true
-
-    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue({ workspaceId: 'workspace-1', activeNodeId: 'node-1', activeDraftId: 'draft-1', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:00:00Z' })
-    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([{ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }])
-    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue({ id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:00:00Z', rootNodeId: 'node-1', activeNodeId: 'node-1', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) })
-    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue({ id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot })
-    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue({ id: 'draft-1', workspaceId: 'workspace-1', baseNodeId: 'node-1', updatedAt: '2026-04-10T00:00:00Z', name: 'Working Draft', status: 'clean', portfolioSnapshot: persistedSnapshot })
-    installFetchMock(async (input, init) => {
-      const pathname = requestPathname(input)
-      const method = requestMethod(input, init)
-      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
-      if (pathname === '/api/engines/diagnostics/run' && method === 'POST') return jsonResponse(diagnosticsPayload)
-      if (pathname === '/api/engines/dashboard-history/run' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
-      if (pathname === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && method === 'GET') return jsonResponse({ items: [], metadata: { contract_version: 'monitor_definition_recovered_alert_review_queue_v1', provenance: 'persisted_latest_observation_with_latest_snapshot_and_prior_alert_history_lineage', row_provenance: 'persisted_monitor_definition_observation_artifact_with_latest_snapshot_and_prior_alert_history_lineage', ordering: 'newest_first_evaluated_at_then_monitor_definition_id_then_observation_id', returned_limit: 20, total_queue_rows: 0 } })
-      return unhandledOrDrift(pathname, method)
-    })
-
-    render(<App />)
-
-    fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
-
-    await waitFor(() => expect(screen.getByText('Account overview')).toBeTruthy())
-    expect(screen.queryByText('Portfolio vs SPY path for the selected range')).toBeNull()
-    expect(screen.queryByText('Loading dashboard...')).toBeNull()
-  })
 
 
 

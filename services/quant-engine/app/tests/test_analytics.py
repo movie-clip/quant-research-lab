@@ -1,5 +1,4 @@
 from datetime import date, datetime, timedelta
-from pathlib import Path
 
 import pytest
 
@@ -31,7 +30,7 @@ from app.schemas.imports import (
 )
 from app.schemas.dashboard_history import DashboardHistoryEngineRequest
 from app.schemas.diagnostics import DiagnosticsEngineRequest
-from app.schemas.exposure import ExposureAvailability, ExposureConcentrationItem, ExposureCurrentStateConcentration, ExposureProvenance, ExposureResult, ExposureRunMetadata
+from app.schemas.exposure import ExposureAvailability, ExposureCurrentStateConcentration, ExposureProvenance, ExposureResult, ExposureRunMetadata
 from app.schemas.exposure import ExposureRunReproducibilityMetadata, ExposureRunSourceStatus
 from app.schemas.portfolio_engine import PortfolioCashBalanceSnapshot, PortfolioHistoryContext, PortfolioPositionSnapshot
 from app.schemas.reconciliation import DailyPortfolioState, DailyStatePosition, PerformancePoint, PortfolioRiskSummary
@@ -4058,7 +4057,6 @@ def test_run_imported_dashboard_history_returns_unavailable_when_benchmark_histo
 
 
 def test_build_portfolio_risk_summary_and_position_contributions() -> None:
-    snapshot = _sample_snapshot()
     benchmark_rows = [
         {"date": "2025-01-02", "price": 100.0},
         {"date": "2025-01-03", "price": 101.0},
@@ -4069,13 +4067,6 @@ def test_build_portfolio_risk_summary_and_position_contributions() -> None:
         DailyPortfolioState(date="2025-01-03", cash={"USD": 0.0}, positions=[], total_market_value=1010.0, total_portfolio_value=1010.0),
         DailyPortfolioState(date="2025-01-04", cash={"USD": 0.0}, positions=[], total_market_value=1030.2, total_portfolio_value=1030.2),
     ]
-    price_histories = {
-        "AAPL": [
-            {"date": "2025-01-02", "price": 100.0},
-            {"date": "2025-01-03", "price": 101.0},
-            {"date": "2025-01-04", "price": 103.02},
-        ]
-    }
 
     summary = build_portfolio_risk_summary(daily_states, benchmark_rows, "SPY")
     rolling = build_rolling_risk_series(daily_states, benchmark_rows)
@@ -6518,7 +6509,6 @@ def test_ff2026_dashboard_truth_values_match_imported_history_and_overview(mocke
     # returns.  The benchmark (SPY) rows just need to be non-empty and without
     # adjClose so benchmark_path = "price_return_only".
     import datetime as _dt
-    import math as _math
 
     _FF2026_VTI_KEY_PRICES: dict[str, float] = {
         "2025-12-01": 334.66,

@@ -7,7 +7,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
-import pytest
 
 from app.clients.yfinance_client import YFinanceClient
 from app.core.cache import JsonFileCache

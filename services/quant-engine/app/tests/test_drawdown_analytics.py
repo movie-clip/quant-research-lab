@@ -308,8 +308,7 @@ def test_decompose_caps_top_n_at_5_and_aggregates_rest_as_other_contribution() -
     assert trust == "synthetic"
     assert len(top) == 5
     # Top 5 by abs(contribution): -7, -6, -5, -4, -3 (each scaled by weight).
-    top_returns = [round(c.contribution_pct / weight / 100 * (-100), 2) for c in top]
-    # Approximately the return percents −7 to −3 in some order — just check the set.
+    # Check the contribution set directly (the per-return intermediate was unused).
     assert {round(c.contribution_pct, 4) for c in top} == {
         round(weight * -i, 4) for i in range(3, 8)
     }

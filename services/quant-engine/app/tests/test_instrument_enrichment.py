@@ -5,10 +5,9 @@ so we pass a tiny mock object instead of a real `MarketDataService`.
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import datetime
 from typing import Any
 
-import pytest
 
 from app.schemas.imports import (
     ImportedInstrument,
