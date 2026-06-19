@@ -321,7 +321,6 @@ function buildImportedSource(input: {
   historyContext?: ImportedHistoryContext | null
   importedHistorySnapshot?: ImportedSnapshot | null
   admissionSummary?: ImportedNodeSource['admissionSummary']
-  admissionReviewDispositions?: ImportedNodeSource['admissionReviewDispositions']
 }): ImportedNodeSource {
   const source: ImportedNodeSource = {
     importedFileNames: input.importedFileNames,
@@ -331,7 +330,6 @@ function buildImportedSource(input: {
     historySource: buildHistorySource(input.historyContext ?? null, input.importedHistorySnapshot ?? null),
   }
   if (input.admissionSummary !== undefined) source.admissionSummary = input.admissionSummary
-  if (input.admissionReviewDispositions !== undefined) source.admissionReviewDispositions = input.admissionReviewDispositions
   return source
 }
 const ib2026HistoryContext = mapImportedHistoryContextToWorkspace(ib2026BootstrapPayload.history_context)
