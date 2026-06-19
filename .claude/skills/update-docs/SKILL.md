@@ -127,7 +127,7 @@ Get current test totals from the last verify-story run.
 Edit `docs/product/current-product-state.md` if the story added a new
 user-visible surface:
 
-- New tab → unlikely (product is fixed at 2 tabs) — flag for human if so
+- New tab → unlikely (product has three tabs: Dashboard, Exposure, Risk) — flag for human if so
 - New card / panel / chart / table within a tab → add a bullet under the
   relevant tab's section
 - New backend route → add to the API surface list

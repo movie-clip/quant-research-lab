@@ -75,7 +75,9 @@ trust-state logic:
 |---|---|
 | `services/quant-engine/app/analytics/correlation.py` | Pearson, beta, R² scalars |
 | `services/quant-engine/app/analytics/attribution.py` | Factor return attribution |
-| `services/quant-engine/app/analytics/risk.py` | Rolling factor model, volatility, drawdown, rolling risk series |
+| `services/quant-engine/app/analytics/risk.py` | Rolling factor model, volatility, rolling risk series |
+| `services/quant-engine/app/analytics/drawdown.py` | Underwater curve, drawdown episodes, per-position contributors (Risk tab) |
+| `services/quant-engine/app/analytics/distribution.py` | Return histogram, percentiles, VaR/CVaR, distribution shape (Risk tab) |
 | `services/quant-engine/app/analytics/drift.py` | Portfolio vs benchmark drift |
 | `services/quant-engine/app/analytics/exposure.py` | Sector / look-through composition |
 | `services/quant-engine/app/analytics/portfolio.py` | TWR, money-weighted return |

@@ -1,18 +1,20 @@
 ---
 name: ui-polish
-description: Use when building or polishing a UI component on the Exposure tab — particularly a new analytics card. Triggers when the user says "make this look right", "polish the card", "this needs to look production-ready", "build a card for this new analytic UI-wise", or when build-story auto-delegates the UI slice of a frontend ticket. Provides the design tokens, primitives, chart defaults, and accessibility baseline established in Epic 12 (US-12.1–12.3). The output is a card that compiles, passes the design-system audit, and visually matches the existing Exposure-tab surface without further review.
+description: Use when building or polishing a UI component on the Exposure or Risk tab — particularly a new analytics card. Triggers when the user says "make this look right", "polish the card", "this needs to look production-ready", "build a card for this new analytic UI-wise", or when build-story auto-delegates the UI slice of a frontend ticket. Provides the design tokens, primitives, chart defaults, and accessibility baseline established in Epic 12 (US-12.1–12.3). The output is a card that compiles, passes the design-system audit, and visually matches the existing card surface without further review.
 ---
 
 # UI Polish
 
 This skill is the reference for building the next analytics card on the
-Exposure tab. The design system was extracted across Epic 12
+Exposure or Risk tab. The design system was extracted across Epic 12
 (US-12.1–US-12.3) from the four cards shipped in Epics 9 and 11. This skill
 codifies what was learned so the next card doesn't need a polish pass.
 
-**Scope:** the Exposure tab cards and any future card-shaped surface in the
-desktop app. The Dashboard tab and the Concentration Pack are explicitly
-*not* migrated to the design system (see "Migration notes" at the end).
+**Scope:** the Exposure tab cards, the Risk tab cards (Epic 13 — Stress /
+Drawdown / VaR & Distribution, built on these same primitives), and any future
+card-shaped surface in the desktop app. The Dashboard tab and the Concentration
+Pack are explicitly *not* migrated to the design system (see "Migration notes"
+at the end).
 
 ## The cycle this skill plugs into
 
@@ -294,7 +296,7 @@ run. If your card fails any of these, the build is red.
 
 | Test | What it catches |
 |---|---|
-| `no_literal_hex_colors_in_card_files` | A literal `#0aff1c` in `DriftBenchmarkPanel.tsx` / `IndexedReturnChart.tsx` / `RollingCorrelationChart.tsx` / `FactorAttributionCard.tsx` / `BenchmarkCorrelationTable.tsx`. **Fix:** use a token. Escape hatch: `// design-system: escape-hatch: <reason>` immediately above the literal. |
+| `no_literal_hex_colors_in_card_files` | A literal `#0aff1c` in any audited card file (the `ALL_CARD_FILES` list in `designSystem.audit.test.ts` — currently the six Exposure cards plus `DataSourcesPanel` / `CacheControlCard` / `ImportAdmissionReviewCard`; read the constant rather than trusting a copy here). **Fix:** use a token. Escape hatch: `// design-system: escape-hatch: <reason>` immediately above the literal. |
 | `no_literal_pixel_values_in_inline_style_props` | `marginBottom: 12` or `padding: '8px 0'` literals on margin/padding/gap/fontSize/borderRadius style keys. **Fix:** use spacing tokens (`var(--space-md)` etc.). Same escape hatch. |
 | `trust_badge_primitive_imported_in_all_badge_rendering_cards` | A card that should render a Synthetic badge doesn't import `<TrustBadge>`. **Fix:** import + use the primitive. |
 | `synthetic_label_string_is_single_source_of_truth` | The literal string `"Synthetic"` (capital S, JSX text content) appears in any file other than `TrustBadge.tsx`. **Fix:** use `<TrustBadge type="synthetic" />`. |
@@ -321,9 +323,14 @@ plain visual consistency. Do not:
 
 ## Migration notes
 
-The design system covers the Exposure tab's four new cards
-(DriftBenchmarkPanel + IndexedReturnChart, RollingCorrelationChart,
-FactorAttributionCard, BenchmarkCorrelationTable). It does **not** cover:
+The design system covers the Exposure tab cards (DriftBenchmarkPanel +
+IndexedReturnChart, RollingCorrelationChart, FactorAttributionCard,
+BenchmarkCorrelationTable, FactorDriftSummaryCard, IntraCorrelationHeatmap),
+the Risk tab cards (StressScenariosCard, DrawdownAnalyticsCard, the VaR &
+Distribution card — Epic 13), and the admin/control cards (DataSourcesPanel,
+CacheControlCard, ImportAdmissionReviewCard). The `ALL_CARD_FILES` constant in
+`designSystem.audit.test.ts` is the authoritative audited-surface list. It does
+**not** cover:
 
 - **Concentration Pack** in `ExposurePanel.tsx` — uses
   `.dashboard-summary`, `.compact-summary-grid`, `.concentration-pack-*`
