@@ -135,7 +135,7 @@ def _parse_positions(page_texts: list[str], as_of_date: date) -> list[ImportedPo
             index += 1
             continue
 
-        isin = lines[index + 1].strip()
+        isin = lines[index + 1].strip()  # noqa: F841 — parsed-but-dropped; ISIN is modeled on ImportedInstrument but not yet flowed from Freedom24 positions (data gap → Epic 24, tech-debt-register)
         account = lines[index + 2].strip()
         asset_type = lines[index + 3].strip()
         beginning_balance = _normalize_number(lines[index + 4])
@@ -218,7 +218,7 @@ def _parse_transactions(page_texts: list[str], grouped_trade_date: date) -> list
         quantity = _normalize_number(lines[index + 4])
         price = _normalize_number(lines[index + 5])
         amount = _normalize_number(lines[index + 6])
-        realized_pnl = _normalize_number(lines[index + 7])
+        realized_pnl = _normalize_number(lines[index + 7])  # noqa: F841 — parsed-but-dropped; realized P&L is not modeled in ImportedLedgerEntry (scope decision → Epic 24, tech-debt-register)
         fee = _normalize_number(lines[index + 8])
         symbol = ticker.replace(".US", "")
         gross_amount = -amount if direction == "Buy" else amount
@@ -263,7 +263,7 @@ def _parse_cash_movements(page_texts: list[str], grouped_trade_date: date) -> li
         if parsed_date is None or next_index + 2 >= len(lines):
             index += 1
             continue
-        account = lines[next_index].strip()
+        account = lines[next_index].strip()  # noqa: F841 — parsed-but-dropped; account identity is modeled at statement level (ImportedStatement.account_id), per-line value intentionally unused (→ Epic 24, tech-debt-register)
         amount = _normalize_number(lines[next_index + 1])
         currency = lines[next_index + 2].strip()
         description_parts: list[str] = []

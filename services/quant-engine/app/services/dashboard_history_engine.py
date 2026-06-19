@@ -492,12 +492,6 @@ def run_imported_dashboard_history(
             history_end_date=None,
             benchmark_symbol=resolved_benchmark_symbol,
         )
-    allow_exact_slice_benchmark_return_output = _allow_exact_slice_benchmark_return_output(
-        performance_points=raw_performance_series,
-        admitted_portfolio_twr_scope=admitted_portfolio_twr_scope,
-        benchmark_return_basis_contract=return_basis_contract.benchmark_path,
-        source_performance_series=raw_performance_series,
-    )
     performance_series = _withhold_benchmark_return_series(raw_performance_series)
     benchmark_history_status = _build_dashboard_benchmark_history_status(benchmark_rows)
     monthly_returns_suppressed = any(state.total_portfolio_value < 0 for state in daily_states)
