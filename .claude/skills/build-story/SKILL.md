@@ -42,16 +42,21 @@ quant-research → write-story → build-story → write-tests → verify-story 
 
 ## The product (current shipped state)
 
-Two tabs only: **Dashboard** and **Exposure**. The Exposure tab currently shows:
+Three tabs: **Dashboard**, **Exposure**, and **Risk**. (`docs/product/current-product-state.md`
+is the canonical inventory — read it if scope is unclear.)
 
-- Drift vs benchmark panel (top) — with indexed return chart and 5-window cards
-- Look-Through summary + Top constituents
-- Concentration pack (positions, sectors)
-- Factor attribution card (chart + period table)
-- Rolling correlation & beta chart (dual-axis)
-- Multi-benchmark correlation table (5 benchmarks: SPY/QQQ/GLD/IEF/VT)
+- **Dashboard** — portfolio performance history: TWR + sub-windows, benchmark
+  comparison, monthly returns grid, risk metrics, investor economics, factor-model snapshot.
+- **Exposure** — current composition: vs-Market drift panel (top, indexed return chart
+  + 5-window cards), rolling correlation & beta chart (dual-axis), concentration pack,
+  factor attribution card (chart + period table), Factor Drift Summary card (Epic 16),
+  multi-benchmark correlation table (SPY/QQQ/GLD/IEF/VT), intra-portfolio correlation
+  heatmap (Epic 17).
+- **Risk** (Epic 13) — pre-decision risk-budget views: Stress Scenarios card,
+  Drawdown Analytics card (underwater curve + top-5 episodes + Epic 15 contributors
+  drawer), VaR & Distribution card.
 
-Backend route prefixes: `/engines/exposure`, `/engines/diagnostics`, `/engines/dashboard-history`, `/engines/drift`, `/engines/attribution`, `/engines/correlation`, `/imports`, `/market-data`, `/health`.
+Backend route prefixes: `/engines/exposure`, `/engines/diagnostics`, `/engines/dashboard-history`, `/engines/drift`, `/engines/attribution`, `/engines/correlation`, `/engines/stress`, `/engines/drawdown`, `/engines/distribution`, `/engines/provenance`, `/portfolios/import`, `/market-data`, `/cache`, `/health` (registered in `app/api/main.py`).
 
 If a story implies a feature outside this surface, surface that as a scope concern before implementing.
 

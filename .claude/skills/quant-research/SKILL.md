@@ -58,6 +58,8 @@ proposing related work** — duplication is a much worse smell than coupling.
 | `app/analytics/correlation.py` | Pearson ρ, beta, R² scalar helpers; used by multi-benchmark engine | Need a new pairwise-stat helper — extend in place |
 | `app/analytics/attribution.py` | Factor-return decomposition (per-factor contribution + residual) | Already covers factor attribution |
 | `app/analytics/drift.py` | Portfolio vs benchmark drift (1m/3m/6m/12m/since-import + indexed series) | Already covers drift windows |
+| `app/analytics/drawdown.py` | Underwater curve + drawdown episodes + per-position contributors (Risk tab) | Already covers drawdown analytics |
+| `app/analytics/distribution.py` | Return histogram + percentiles + VaR/CVaR + distribution shape (Risk tab) | Already covers VaR & distribution |
 | `app/analytics/exposure.py` | Sector + look-through composition | Already covers ownership composition |
 | `app/services/<name>_engine.py` | Wires market data → pure analytics. Use `MarketDataService`. |
 | `app/services/attribution_engine.py` | Has the `_lookback_calendar_days(window) = ceil(window*1.6)+30` heuristic + uses `_build_synthetic_snapshot_history_states` from `diagnostics_engine.py` — reuse for any new windowed synthetic-history analytic |
@@ -72,7 +74,7 @@ file. Don't shoehorn into `risk.py`.
 Before writing anything, check:
 
 1. **Is the concept already partially implemented?** Read `docs/product/current-product-state.md` and `docs/finance/financial-methodology.md`. If a closely related formula exists, the brief should extend it rather than duplicate it.
-2. **Which tab does this belong to?** Dashboard = portfolio economics over time. Exposure = holdings composition + market co-movement.
+2. **Which tab does this belong to?** Dashboard = portfolio economics over time. Exposure = holdings composition + market co-movement. Risk (Epic 13) = pre-decision risk-budget views (stress scenarios, drawdown analytics, VaR & distribution).
 3. **Is there an obvious truth-class conflict?** Anything that applies current holdings to historical prices is *synthetic*. Anything from the broker statement is *broker truth*. Never mix in one metric.
 4. **Is the scope one epic or many?** If the idea naturally decomposes into 3+ independent user-visible capabilities, plan it as one epic with multiple stories. If it is a single coherent feature, it may be one or two stories.
 
