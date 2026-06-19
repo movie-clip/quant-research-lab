@@ -120,6 +120,47 @@ affected any computed/returned value (they were discarded locals).
 
 > _(More appended by US-23.3/23.4/23.6 as remaining smells are found.)_
 
+#### US-23.2 catalog — `analytics/` + `schemas/` + `domain/` + `instruments/` (recorded, not fixed → Epic 24)
+
+Exhaustive hardcode / magic-number / anti-pattern sweep of the four pure-logic
+modules (AC4). **Nothing fixed here** (Epic 23 is deletions-only); each row is an
+Epic 24 candidate. Detectors (`ruff F401/F811/F841`, `vulture --min-confidence 80`)
+are **clean** on all four trees after the prior dead-code pass — these are *style /
+config* findings, not dead code.
+
+**Latent bugs (hardcoded calendar year — highest priority):**
+
+| area | file:line | category | severity | effort | owner-story | note |
+|---|---|---|---|---|---|---|
+| backend/analytics-schemas | `analytics/activity.py:24` | anti-pattern / latent-bug | high | low | epic-24 | `if entry.date.year != 2025:` — the activity summary **silently drops every ledger entry not dated 2025**. Breaks for any 2026+ statement. Should derive the year from the statement period, not a literal. |
+| backend/analytics-schemas | `analytics/reconciliation.py:24` | anti-pattern / latent-bug | high | low | epic-24 | `candidate.date.year == 2025` in the withholding-tax reconciliation filter — same hardcoded-year class as activity.py; non-2025 withholding entries are excluded. |
+
+**Hardcodes / magic numbers / fragile coupling:**
+
+| area | file:line | category | severity | effort | owner-story | note |
+|---|---|---|---|---|---|---|
+| backend/analytics-schemas | `analytics/reconciliation.py:10` | hardcode / fragile-coupling | med | low | epic-24 | `fx_rates.get("EURUSD", 1.0)` — hardcoded FX pair key + 1.0 fallback bakes in an EUR-base assumption; multi-currency statements silently use 1.0. |
+| backend/analytics-schemas | `analytics/reconciliation.py:63` | magic-number | med | low | epic-24 | `abs(difference) <= 0.25` — undocumented cash-reconciliation tolerance (0.25 units). No named constant, no citation. |
+| backend/analytics-schemas | `domain/ledger.py:67-92` | fragile-coupling | med | med | epic-24 | Broker-statement section labels hardcoded into the domain layer ("Trades", "Deposits & Withdrawals", "Dividends", "Income Summary", "Cash deposits/ withdrawals", "Withholding Tax", "Account Summary", "Fees", "Other Fees", "Commissions"). IBKR/Freedom24 statement format leaks into ledger classification; a label rename silently mis-classifies entries. |
+| backend/analytics-schemas | `domain/ledger.py` + analytics (`activity.py:12-19`, etc.) | missing-abstraction | low | med | epic-24 | Entry-type strings (`BUY`/`SELL`/`DIVIDEND`/`INTEREST`/`FEE`/`WITHHOLDING_TAX`/`DEPOSIT`/`WITHDRAWAL`) used as a pseudo-enum across domain + analytics with no shared `Literal`/`Enum` — typo-prone, no single source of truth. |
+| backend/analytics-schemas | `domain/ledger.py:158` & `schemas/portfolio.py:9,19` & `portfolio_engine.py` | hardcode | low | low | epic-24 | `"USD"` default base/trade currency repeated across schema defaults + ledger; assumes USD when base currency is absent. |
+| backend/analytics-schemas | `analytics/risk.py:138-142` (`STRESS_SCENARIOS`) | hardcode | med | med | epic-24 | Three stress-scenario factor-shock vectors (Broad Market Selloff / Rates Down Risk-On / Inflation Reacceleration) hardcoded inline as a tuple-of-dicts. Surfaced on the Risk tab; methodology-documented but the shock magnitudes are inline data, not a reviewable config. |
+| backend/analytics-schemas | `analytics/risk.py:196,232-233,241,248,256,264` | magic-number | med | high | epic-24 | Mapping-match composite scoring weights inline across `_compute_*` (e.g. `0.60/0.25/0.15`; equity `0.65/0.35` & `0.45/0.30/0.25`; bond `0.40/0.25/0.20/0.15`; commodity `0.50/0.30/0.20`; structure `0.35/0.25/0.20/0.20`; implementation `0.40/0.30/0.20/0.10`). No named weights / config; tuning requires editing code. |
+| backend/analytics-schemas | `analytics/risk.py:275-288` | magic-number | med | low | epic-24 | Mapping hard-cap ceilings (`50.0/45.0/60.0/25.0/70.0`) + reason strings inline in `_apply_mapping_hard_caps`. |
+| backend/analytics-schemas | `analytics/risk.py:293-304,335-470,1055-1064` | magic-number | med | high | epic-24 | Dense inline score literals across the mapping-quality scoring helpers (`_mapping_match_label` thresholds 90/80/65/50; `_index_match_score`, `_style_sector_similarity_score`, the bond/commodity/structure/implementation `_*_fit_score` families, `_cost_fit_score` quality map, `_mapping_quality_score` 0.95/0.82/0.68/0.50). A large rubric encoded as scattered literals. |
+| backend/analytics-schemas | `analytics/risk.py:1485-1499,1537-1549` | hardcode / fragile-coupling | med | med | epic-24 | Sector inference from hardcoded proxy-ticker lists (`_infer_sector_from_sources`, `_infer_sector_from_resolved_pair`): e.g. `["XLF"]→Financials`, `["ITA","PPA"]→Defense`, `["BIL","VGSH"]→Fixed Income`. Duplicated across two functions; overlaps the `InstrumentRegistry` sector source of truth. |
+| backend/analytics-schemas | `analytics/risk.py:1262-1267` | magic-number | low | low | epic-24 | Volatility-regime percentile cutoffs inline (`< 0.30` calm, `<= 0.80` normal, else stressed). |
+| backend/analytics-schemas | `analytics/risk.py:1331` | magic-number | low | low | epic-24 | `len(common_dates) < 10` minimum-history gate for the factor model — undocumented literal (distinct from the named `WINDOW_MIN_OBSERVATIONS`). |
+| backend/analytics-schemas | `analytics/risk.py:750-751,1441` | magic-number | low | low | epic-24 | Top-N display slices hardcoded: top over/under-weights `[:5]`, top shared constituents `[:15]`. |
+| backend/analytics-schemas | `analytics/risk.py:1038,1040-1052` | hardcode | low | med | epic-24 | `build_factor_exposures` hardcodes the growth-tilt sector composition and the full factor-exposure label/description/basis list inline. |
+| backend/analytics-schemas | `analytics/risk.py:122-136` | magic-number (documented) | low | low | epic-24 | Module-level threshold constants are **named** (`COLLINEARITY_WARNING_THRESHOLD=0.85`, `SHIFT_FLAG_20D_THRESHOLD=0.25`, `SHIFT_FLAG_60D_THRESHOLD=0.35`, `STABILITY_GAP_THRESHOLD=0.30`, `VOLATILITY_RATIO_FLAG_THRESHOLD=1.2`, `WINDOW_MIN_OBSERVATIONS`, `ROLLING_RIDGE_FLOOR`) — good practice; listed for completeness. Only gap: no academic/methodology citation beside each value. |
+| backend/analytics-schemas | `analytics/rebalance.py:51,83` | magic-number | low | low | epic-24 | `target_equity_weight=0.9`, `tolerance=0.05` default rebalance params inline (repeated in two functions). |
+| backend/analytics-schemas | `analytics/drawdown.py:353` | magic-number | low | low | epic-24 | `abs(residual_pct) < 0.001` decomposition-residual epsilon inline (also `top_n` cap at :157). |
+| backend/analytics-schemas | `analytics/distribution.py:67-71` | magic-number | low | low | epic-24 | Percentile fractions inline (`0.05/0.10/0.50/0.90/0.95`). Contract-defined and keyed; `_MIN_OBSERVATIONS`/`_DEFAULT_HISTOGRAM_BINS` are already named constants — low concern. |
+| backend/analytics-schemas | `analytics/correlation.py:70,123` | magic-number (documented) | low | low | epic-24 | `min_observations: int = 20` default (matches the methodology min-observations); param-exposed and documented — listed for completeness. |
+| backend/analytics-schemas | `instruments/registry.py:45-48,180-261` | hardcode / fragile-coupling | low | med | epic-24 | Hardcoded instrument reference data (futures `tick_size`/`point_value`/`multiplier`; ETF→sector defs) plus a keyword-substring sector classifier (`get_sector` fallback chain ~209-242). Reference data is acceptable (documented in the `fmp-data` skill); the keyword classifier is the fragile part. |
+| backend/analytics-schemas | `schemas/correlation.py:13`, `intra_correlation.py:22,24`, `provenance.py:21`, `distribution.py:31` | magic-number (documented) | low | low | epic-24 | Window/lookback `Field` defaults (`252`, `60`, `15`, `30`). Sensible, validated (`ge=`) defaults — listed for completeness; consider a shared windows config if they ever need to align. |
+
 ### Removed (completed)
 
 - **US-23.4** (frontend, this pass): deleted 6 unimported files (`featureFlags.ts`, `portfolioState.ts`, `CurrentFactorSnapshotCard.tsx`, `SectorDonutCard.tsx`, `historyTruth.ts`, `investorEconomics.ts`); 5 dead types (`ActivityPoint`, `CanonicalLedgerRecord`, `ReconciliationCheck`, `DiagnosticsPayload`, `ExposureEnginePayload`); dead helper `getPortfolioDatabaseName`. knip: 7→1 unused files, 65→60 types, 22→21 exports. tsc + suite green.
