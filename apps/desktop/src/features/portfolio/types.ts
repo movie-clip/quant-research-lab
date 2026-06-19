@@ -1032,29 +1032,6 @@ export type ImportAdmissionSummaryV1 = {
   }
 }
 
-export type ImportAdmissionCheckEvidenceSummaryV1 = {
-  status: Exclude<ImportAdmissionSummaryV1['checks'][number]['status'], 'pass'>
-  trust_impact: ImportAdmissionSummaryV1['checks'][number]['trust_impact']
-  message: string
-  affected_fields: string[]
-  observed?: { label: string; value: number | string | null } | null
-  comparison?: { label: string; value: number | string | null } | null
-  delta?: number | null
-  currency?: string | null
-}
-
-export type ImportAdmissionReviewDispositionV1 = {
-  schema_version: 'import_admission_review_disposition_v1'
-  check_id: string
-  disposition: 'accepted_known_exception' | 'needs_source_correction' | 'deferred'
-  rationale: string
-  reviewed_at: string
-  reviewer_label: string
-  snapshot_fingerprint: string
-  admission_summary_fingerprint: string
-  evidence_summary: ImportAdmissionCheckEvidenceSummaryV1
-}
-
 export type ImportedBootstrapResponse = {
   snapshot: ImportedSnapshot
   overview: PortfolioOverview

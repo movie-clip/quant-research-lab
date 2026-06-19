@@ -134,15 +134,24 @@ affected any computed/returned value (they were discarded locals).
 - **US-23.4 — suspected-unused CSS tokens (verify before removing):** `styles.css` defines 82 custom-property tokens; a crude `var()`-reference scan flags 7 with no direct reference — `--bg`, `--panel-3`, `--space-2xl`, `--font-body`, `--font-heading-sm`, `--opacity-unavailable`, `--color-line-benchmark`. **Not removed** — several are documented *design-scale* tokens (ui-polish contract) kept for completeness, and `--color-line-benchmark`/`--opacity-unavailable` may be referenced indirectly (class-based / JS string). A careful CSS pass (keep `designSystem.audit.test.ts` green; check class + string refs) owns these. Low value.
 - **US-23.4 — FE anti-patterns:** none of note. Post-Epic-12 the Exposure cards use the design tokens/primitives consistently (the audit enforces it); the legacy Concentration Pack / Dashboard CSS classes are a *known, intentionally-deferred* migration (ui-polish migration notes), not catalogued here.
 
-### ⚑ Ready-to-execute: disposition-plumbing removal (the marquee cross-seam dead case)
+### ✅ Removed (US-23.9): disposition-plumbing removal (the marquee cross-seam dead case)
 
-The `ImportAdmissionReviewDispositionV1` subsystem has **no producer and no
-consumer** (US-22.2 close-out): no UI calls any disposition save; the README
-calls it "optional desktop-local metadata". Blast radius **fully mapped and
-contained** — but it is a ~250-line cross-file change to the **persistence
+**Status: DONE (2026-06-19, US-23.9).** The entire closed removal set below was
+removed across the seam, gated by the workspace save/load round-trip tests. A
+pre-US-23.9 workspace's `admissionReviewDispositions` blob is now dropped on
+read (field absent, no throw, storage not rewritten) — proven by the regression
+"drops a legacy admissionReviewDispositions blob on read without rewriting
+storage" in `portfolioWorkspaceStorage.test.ts`. The `import-admission-fields.md`
+contract was reconciled (subsystem → "Removed" note). 234 frontend + backend
+green; ruff/knip clean; no new vulture findings; tsc clean; goldens untouched.
+
+The `ImportAdmissionReviewDispositionV1` subsystem had **no producer and no
+consumer** (US-22.2 close-out): no UI called any disposition save; the README
+called it "optional desktop-local metadata". Blast radius was **fully mapped and
+contained** — a ~250-line cross-file change to the **persistence
 layer + a 726-line test file (77 disposition lines / 14 blocks) + the BE
-schema**, so it must be done as **its own focused slice** with the workspace
-save/load round-trip tests as the gate (do NOT rush it — persistence stability).
+schema** — so it was done as **its own focused slice** with the workspace
+save/load round-trip tests as the gate.
 
 Closed removal set (no external/production users — verified via grep + knip):
 - `apps/desktop/src/app/portfolioWorkspaceStorage.ts`: the disposition **save

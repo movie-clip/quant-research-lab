@@ -1,8 +1,6 @@
 from datetime import UTC, date, datetime
 import math
 
-import pytest
-
 from app.schemas.imports import (
     ImportedCashBalance,
     ImportedInstrument,
@@ -11,7 +9,6 @@ from app.schemas.imports import (
     ImportedStatement,
     ImportedStatementTotals,
 )
-from app.schemas.import_bootstrap import ImportAdmissionReviewDispositionV1
 from app.services.import_admission import build_import_admission_summary
 from app.services.import_engine import build_import_bootstrap_from_snapshot
 
@@ -255,94 +252,6 @@ def test_import_admission_does_not_rewrite_imported_values() -> None:
     assert snapshot.model_dump(mode="json") == before
     assert response.snapshot.model_dump(mode="json") == before
     assert response.admission_summary.decision == "withheld"
-
-
-def test_import_admission_review_disposition_accepts_allowed_values() -> None:
-    evidence_summary = {
-        "status": "fail",
-        "trust_impact": "withheld",
-        "message": "Statement ending NAV differs from stock plus cash total.",
-        "affected_fields": ["statement_totals.ending_nav"],
-        "observed": {"label": "parsed_nav", "value": 300.0},
-        "comparison": {"label": "statement_nav", "value": 325.0},
-        "delta": -25.0,
-        "currency": "USD",
-    }
-
-    for disposition in ["accepted_known_exception", "needs_source_correction", "deferred"]:
-        review = ImportAdmissionReviewDispositionV1.model_validate({
-            "check_id": "nav_market_value_comparability",
-            "disposition": disposition,
-            "rationale": "Reviewed against the broker statement notes.",
-            "reviewed_at": datetime(2026, 4, 10, tzinfo=UTC),
-            "reviewer_label": "local reviewer",
-            "snapshot_fingerprint": "snapshot:abc",
-            "admission_summary_fingerprint": "admission:def",
-            "evidence_summary": evidence_summary,
-        })
-
-        assert review.schema_version == "import_admission_review_disposition_v1"
-        assert review.disposition == disposition
-
-
-def test_import_admission_review_disposition_requires_non_empty_rationale() -> None:
-    try:
-        ImportAdmissionReviewDispositionV1.model_validate({
-            "check_id": "nav_market_value_comparability",
-            "disposition": "deferred",
-            "rationale": "   ",
-            "reviewed_at": datetime(2026, 4, 10, tzinfo=UTC),
-            "reviewer_label": "local reviewer",
-            "snapshot_fingerprint": "snapshot:abc",
-            "admission_summary_fingerprint": "admission:def",
-            "evidence_summary": {
-                "status": "unavailable",
-                "trust_impact": "degraded",
-                "message": "Evidence unavailable.",
-            },
-        })
-    except ValueError as error:
-        assert "rationale" in str(error)
-    else:
-        raise AssertionError("blank rationale should fail validation")
-
-
-def test_import_admission_schema_rejects_non_finite_evidence_and_pass_review_status() -> None:
-    with pytest.raises(ValueError):
-        ImportAdmissionReviewDispositionV1.model_validate({
-            "check_id": "nav_market_value_comparability",
-            "disposition": "deferred",
-            "rationale": "Reviewed against the broker statement notes.",
-            "reviewed_at": datetime(2026, 4, 10, tzinfo=UTC),
-            "reviewer_label": "local reviewer",
-            "snapshot_fingerprint": "snapshot:abc",
-            "admission_summary_fingerprint": "admission:def",
-            "evidence_summary": {
-                "status": "warn",
-                "trust_impact": "degraded",
-                "message": "Non-finite evidence should not validate.",
-                "affected_fields": ["statement_totals.cash_total"],
-                "observed": {"label": "parsed_cash", "value": math.nan},
-                "delta": math.inf,
-            },
-        })
-
-    with pytest.raises(ValueError):
-        ImportAdmissionReviewDispositionV1.model_validate({
-            "check_id": "nav_market_value_comparability",
-            "disposition": "deferred",
-            "rationale": "Pass evidence is not reviewable.",
-            "reviewed_at": datetime(2026, 4, 10, tzinfo=UTC),
-            "reviewer_label": "local reviewer",
-            "snapshot_fingerprint": "snapshot:abc",
-            "admission_summary_fingerprint": "admission:def",
-            "evidence_summary": {
-                "status": "pass",
-                "trust_impact": "none",
-                "message": "Pass evidence should not validate.",
-                "affected_fields": [],
-            },
-        })
 
 
 def test_admission_flags_instrument_description_mismatch() -> None:

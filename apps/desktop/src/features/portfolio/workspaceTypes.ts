@@ -1,4 +1,4 @@
-import type { ImportAdmissionReviewDispositionV1, ImportAdmissionSummaryV1, ImportedStatementImporter, ImportedSnapshot } from './types'
+import type { ImportAdmissionSummaryV1, ImportedStatementImporter, ImportedSnapshot } from './types'
 
 export type PortfolioWorkspaceId = string
 export type PortfolioNodeId = string
@@ -71,7 +71,6 @@ export type ImportedNodeSource = {
   baseCurrency: string | null
   historySource: ImportedHistorySource
   admissionSummary?: ImportAdmissionSummaryV1 | null
-  admissionReviewDispositions?: Record<string, ImportAdmissionReviewDispositionV1>
 }
 
 export type PortfolioWorkspaceSource = ImportedNodeSource
