@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   DashboardHistoryInvestorEconomicsPartialUnlock,
   DashboardHistoryRunMetadata,
   DiagnosticsEngineResponse,
@@ -1304,14 +1304,6 @@ export function createImportedDashboardFixture(): ImportedDashboardSource {
   }
 }
 
-export function createIb2026ImportedDashboardFixture(): ImportedDashboardSource {
-  return cloneMutable(ib2026MutableDashboardFixture)
-}
-
-export function createFf2026ImportedDashboardFixture(): ImportedDashboardSource {
-  return cloneMutable(ff2026MutableDashboardFixture)
-}
-
 export function createIb2026ExposureEngineFixture(): ExposureEngineResponse {
   return {
     ...createExposureEngineFixture(),
@@ -1435,71 +1427,5 @@ export function createFf2026DiagnosticsEngineFixture(): DiagnosticsEngineRespons
       confidence: 'high',
     },
     risk_summary: cloneMutable(ff2026MutableDashboardFixture.risk_summary),
-  }
-}
-
-export function createImportedBaselineFixture(): ImportedBaselineSource {
-  const fixture = createImportedDashboardFixture()
-  return {
-    snapshot: fixture.snapshot,
-    overview: fixture.overview,
-  }
-}
-
-export function createDiagnosticsFixture(): DiagnosticsEngineResponse {
-  return {
-    snapshot: {
-      statement: { importer: 'interactive_brokers', account_id: 'U1', base_currency: 'USD', statement_period: '2025', page_count: 1 },
-      statements: [{ importer: 'interactive_brokers', account_id: 'U1', base_currency: 'USD', statement_period: '2025', page_count: 1, source_path: 'C:\\docs\\IB2025.pdf', detected_format: 'pdf', imported_at: '2026-04-10T00:00:00Z' }],
-      positions: [],
-      ledger_entries: [],
-      instruments: [],
-      cash_balances: [],
-    },
-    provenance: {
-      snapshot_basis: 'snapshot_request',
-      historical_basis: 'market_data_history',
-      history_truth_class: 'synthetic_history_derived',
-      price_basis: 'close',
-      note: 'Historical diagnostics are derived from synthetic snapshot-history states built from the current snapshot plus external market data. Benchmark and factor return histories remain unverified for adjusted-close or total-return equivalence in this diagnostics slice.',
-    },
-    run_metadata: createDiagnosticsRunMetadataFixture(),
-    drawdown_summary: { current_drawdown_pct: null, max_drawdown_pct: null },
-    volatility_summary: {
-      portfolio_volatility_pct: 18.2,
-      benchmark_volatility_pct: 12.4,
-      downside_volatility_pct: 10.1,
-      tracking_error_pct: 7.2,
-    },
-    risk_concentration_summary: {
-      top_1_factor_risk_share: 0.52,
-      top_3_factor_risk_share: 0.52,
-      top_1_position_risk_share: 0.55,
-      top_5_position_risk_share: 1,
-      factor_hhi: 0.27,
-      position_hhi: 0.51,
-    },
-    risk_summary: { benchmark_symbol: 'SPY', methodology: 'm', start_date: null, end_date: null, observations: 0, portfolio_beta: null, portfolio_correlation: null, r_squared: null, portfolio_volatility_pct: null, benchmark_volatility_pct: null },
-    rolling_risk: [],
-    relative_risk: { benchmark_symbol: 'SPY', tracking_error_pct: null, active_return_pct: null, information_ratio: null },
-    volatility_regime: { methodology: 'm', assumptions: { return_basis: 'time_weighted_daily_return', cash_flow_timing: 'external_cash_flow_applied_before_end_of_day_measurement', drawdown_basis: 'compounded_return_index', benchmark_basis: 'aligned_daily_price_return', downside_mar: 0, annualization_days: 252 }, rolling_series: [], snapshot: { realized_vol_20d: null, realized_vol_60d: null, realized_vol_252d: null, downside_vol_20d: null, downside_vol_60d: null, downside_vol_252d: null, benchmark_vol_20d: null, benchmark_vol_60d: null, benchmark_vol_252d: null, tracking_error_20d: null, tracking_error_60d: null, tracking_error_252d: null, current_drawdown_pct: null, max_drawdown_pct: null, vol_ratio_20_60: null, vol_ratio_20_252: null, current_20d_vol_percentile: null }, regime: { label: 'normal', confidence: 'low' } },
-    factor_exposures: [
-      { factor: 'Market', exposure: null, description: 'Historical broad-market beta versus SPY.', basis: 'historical_benchmark_relative' },
-      { factor: 'SPY Overlap', exposure: null, description: 'Look-through share of the portfolio that overlaps SPY constituents when benchmark holdings are available.', basis: 'benchmark_holdings_required' },
-      { factor: 'Growth Tilt', exposure: 0.42, description: 'Technology, communication services, and consumer discretionary sleeve weight.', basis: 'current_state' },
-      { factor: 'Technology Tilt', exposure: 0.4, description: 'Look-through allocation to technology equity and technology ETF exposure.', basis: 'current_state' },
-      { factor: 'Consumer Discretionary Tilt', exposure: 0.12, description: 'Look-through allocation to consumer discretionary equity and retail-cyclical exposure.', basis: 'current_state' },
-      { factor: 'Consumer Staples Tilt', exposure: 0.08, description: 'Look-through allocation to defensive consumer staples exposure.', basis: 'current_state' },
-      { factor: 'Health Care Tilt', exposure: 0.06, description: 'Look-through allocation to health care and biotechnology exposure.', basis: 'current_state' },
-      { factor: 'Utilities Tilt', exposure: 0.04, description: 'Look-through allocation to utilities and regulated-infrastructure exposure.', basis: 'current_state' },
-    ],
-    factor_shift_diagnostics: { methodology: 'm', snapshots: [{ key: 'market', label: 'Market', us_proxy: 'SPY', category: 'market', current_loading_20d: 1.1, current_loading_60d: 1.0, current_loading_252d: null, change_20d: 0.3, change_60d: null, abs_change_20d: 0.3, abs_change_60d: null, stability_gap_20d_60d: 0.1, stability_gap_60d_252d: null, available_windows_count: 2, shift_flag_20d: true, shift_flag_60d: false, stability_flag: false, collinearity_flag: false, volatility_flag: true, confidence: 'medium' }], largest_positive_shifts_20d: [{ key: 'market', label: 'Market', us_proxy: 'SPY', current_loading: 1.1, change_value: 0.3, absolute_change: 0.3 }], largest_negative_shifts_20d: [], largest_absolute_shifts_20d: [{ key: 'market', label: 'Market', us_proxy: 'SPY', current_loading: 1.1, change_value: 0.3, absolute_change: 0.3 }], largest_absolute_shifts_60d: [] },
-    risk_contribution_breakdown: { methodology: 'm', window_days: 60, observation_count: 60, status: 'ok', factor_contributions: [{ key: 'market', label: 'Market', us_proxy: 'SPY', loading: 1.1, factor_volatility: 12.4, variance_contribution: 0.0123, risk_share: 0.52 }], factor_total_variance: 0.0123, specific_variance: 0.0031, total_variance: 0.0154, factor_risk_share_total: 0.7987, specific_risk_share: 0.2013, residual_volatility: 8.4, position_contributions: [{ symbol: 'AAPL', weight: 0.5, volatility: 20.2, marginal_contribution: 0.0123, component_contribution: 0.0061, risk_share: 0.55 }], concentration: { top_1_factor_risk_share: 0.52, top_3_factor_risk_share: 0.52, top_1_position_risk_share: 0.55, top_5_position_risk_share: 1, factor_hhi: 0.27, position_hhi: 0.51 } },
-    model_reliability: { window_days: 60, observation_count: 60, r_squared: 0.66, residual_volatility: 8.4, collinearity_pair_count: 1, max_abs_factor_correlation: 0.89, factor_count_used: 5, missing_factor_count: 7, status: 'ok', confidence: 'medium', stability_score: 0.87 },
-    factor_registry: [],
-    factor_methodology: null,
-    statistical_factor_model: { status: 'partial', benchmark_symbol: 'SPY', windows: [], collinearity_diagnostics: [], current_factor_snapshot: [], insufficient_history: [], rolling_loadings_20d: [], rolling_loadings_60d: [], rolling_loadings_252d: [] },
-    stress_scenarios: [],
-    availability: { historical_sections_available: true, history_context_required: true, note: null, status: 'ok' },
   }
 }

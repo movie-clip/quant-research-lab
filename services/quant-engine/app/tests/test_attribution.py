@@ -10,7 +10,6 @@ from __future__ import annotations
 import datetime
 import json
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.analytics.attribution import (
@@ -18,7 +17,7 @@ from app.analytics.attribution import (
     build_factor_attribution,
 )
 from app.api.main import app
-from app.schemas.attribution import FactorAttributionRequest, FactorAttributionResponse
+from app.schemas.attribution import FactorAttributionRequest
 from app.schemas.reconciliation import DailyPortfolioState
 
 
