@@ -141,9 +141,8 @@ Dashboard may display import-admission evidence attached to imported bootstrap r
 | Admission decision | `admission_summary.decision` | read-only evidence for imported broker-truth; never mutates imported values or derived portfolio truth |
 | Trust level | `admission_summary.trust_level` | follows platform trust semantics and may only communicate verification/degradation/withholding/unavailability |
 | Check rows | `admission_summary.checks[*]` | observed/comparison/delta evidence must be finite numeric values when present; missing or non-finite evidence is unavailable/degraded, not fabricated |
-| Local review display | desktop-local `ImportAdmissionReviewDispositionV1` metadata | local-only reviewer notes for non-pass checks; non-mutating, read-only for Dashboard, and not persisted through any backend endpoint |
 
-Import admission is informational on Dashboard: workspace creation is non-blocking, review metadata cannot upgrade trust or change broker truth, and no backend persistence endpoint exists for local review dispositions.
+Import admission is informational on Dashboard: workspace creation is non-blocking and the read-only summary cannot upgrade trust or change broker truth. (The never-wired `ImportAdmissionReviewDispositionV1` reviewer-disposition plumbing was removed in US-23.9 — no producer, no consumer.)
 
 ## Field Inventory
 
