@@ -63,6 +63,28 @@ When in doubt → record as `dead-suspected` here, do **not** delete.
 > later sweeps. Each row names the owning Epic 23 story (deletions) or `epic-24`
 > (improvements).
 
+## Epic 24 backlog (consolidated — US-23.7)
+
+The improvement findings below (catalogued during US-23.2/23.3/23.6, never fixed
+in Epic 23) are consolidated here into a prioritized backlog, grouped to the
+proposed Epic 24 stories in `docs/product/prd/epic-24-codebase-improvement.md`.
+Priority = severity × (inverse) effort; the detailed, line-referenced rows live
+in the per-area catalogs further down.
+
+| Epic 24 story | Priority | Findings rolled up (see detail rows) |
+|---|---|---|
+| US-24.1 — hardcoded-year bugs | **High** (latent bug, low effort) | `analytics/activity.py:24`, `analytics/reconciliation.py:24` (year `2025` silently drops other-year ledger entries) |
+| US-24.2 — risk-model rubric & thresholds | High–Med | `analytics/risk.py` mapping-score weights (`:196,232-264`), hard-caps (`:275-288`), label thresholds + scoring helpers (`:293-470,1055-1064`), regime cutoffs (`:1262-1267`), `STRESS_SCENARIOS` (`:138-142`), min-history `:1331`; `exposure_engine.py:251` (`99.0` coverage threshold) |
+| US-24.3 — shared analytics constants | Med | lookback `ceil(window*1.6)+30` duplicated (`stress_engine.py:36`, `drawdown_engine.py:52`, `attribution_engine.py`); `_MIN_OBSERVATIONS=20` ×3; `"SPY"` default ×4 engines |
+| US-24.4 — importer parsing + ISIN gap | High–Med | Freedom24 positional parser (~50 fixed-offset sites); `freedom24.py:138` ISIN data gap (modeled on `ImportedInstrument`); `:221` realized-P&L modeling decision; `:146,223,238` inline currency/suffix hardcodes |
+| US-24.5 — decouple broker format from domain | Med | `domain/ledger.py:67-92` hardcoded statement section labels; entry-type pseudo-enum (`BUY/SELL/...`) lacks a shared `Literal`/`Enum` |
+| US-24.6 — market-data client config | Med | `clients/fmp.py:33` hardcoded `timeout=30.0`; `:183` hardcoded `etf-holder` v3 URL bypassing settings `base_url`; `:248` screener `limit=500` |
+| US-24.7 — minor hardcodes + de-export + test smells | Low–Med | `reconciliation.py:10,63` (EURUSD/tolerance), `statement_importer.py:190` (`/100`), `portfolio_proof.py:1264` (tolerance), `"USD"` default repetition; the ~60 over-exported live symbols (de-export → clears knip noise for the US-23.8 gate); hand-rolled test-builder duplication; the `build_position_risk_contributions` coverage gap |
+
+Anything not rolled up above is **low-severity / completeness-only** and may be
+folded into US-24.7 or left as documented. The two **High** rows (US-24.1 latent
+bugs) should lead Epic 24.
+
 ### Dead code — confirmed deletion candidates (triaged in US-23.5)
 
 The contract audit (US-23.5) confirmed **none** of these cross a documented

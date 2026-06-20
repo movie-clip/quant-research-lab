@@ -15,7 +15,7 @@ The project is split into a desktop application and a local quant engine.
 
 The desktop app should treat the quant engine as the source of truth for portfolio calculations.
 
-Import admission has a narrower split: the quant engine emits read-only `ImportAdmissionSummaryV1` evidence in imported bootstrap responses, while optional `ImportAdmissionReviewDispositionV1` reviewer dispositions remain desktop-local metadata only. There is no backend persistence endpoint for those dispositions, and neither the summary nor local dispositions mutate broker truth, admission state, trust level, imported values, derived portfolio truth, or workspace creation.
+Import admission has a narrower split: the quant engine emits read-only `ImportAdmissionSummaryV1` evidence in imported bootstrap responses. The summary never mutates broker truth, admission state, trust level, imported values, derived portfolio truth, or workspace creation. (The never-wired `ImportAdmissionReviewDispositionV1` reviewer-disposition plumbing was removed in US-23.9 — no producer, no consumer; see `docs/contracts/import-admission-fields.md`.)
 
 ## Core Architecture Rules
 
