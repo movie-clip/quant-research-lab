@@ -111,9 +111,6 @@ def _build_snapshot(positions: list[ImportedPosition], cash_balances: list[Impor
         ledger_entries=[],
     )
 
-    def get_company_profile(self, symbol: str, symbol_overrides=None):
-        return None
-
 
 def test_exposure_engine_builds_expected_shape_for_ib2026(mocker) -> None:
     snapshot = import_statements([str(STATEMENT_2026_PATH)])

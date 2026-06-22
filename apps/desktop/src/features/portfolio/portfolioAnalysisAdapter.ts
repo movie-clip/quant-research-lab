@@ -461,75 +461,9 @@ export function buildExposureFactorModel(result: Pick<ExposureAnalysis, 'benchma
   }
 }
 
-export function buildImportedExposureView(analysis: ImportedExposureSource): ExposureAnalysis {
-  return {
-    snapshot: analysis.snapshot,
-    provenance: analysis.provenance ?? null,
-    run_metadata: analysis.run_metadata ?? null,
-    diagnostics_run_metadata: analysis.diagnostics_run_metadata ?? null,
-    overview: analysis.overview,
-    lookthrough: analysis.lookthrough,
-    lookthrough_sector_exposure: analysis.lookthrough_sector_exposure,
-    market_overlap: analysis.market_overlap,
-    current_state_concentration: analysis.current_state_concentration,
-    risk_summary: analysis.risk_summary,
-    rolling_risk: analysis.rolling_risk,
-    relative_risk: analysis.relative_risk,
-    volatility_regime: analysis.volatility_regime,
-    factor_exposures: analysis.factor_exposures,
-    model_reliability: analysis.model_reliability,
-    factor_registry: analysis.factor_registry,
-    factor_methodology: analysis.factor_methodology,
-    statistical_factor_model: analysis.statistical_factor_model,
-    stress_scenarios: analysis.stress_scenarios,
-    benchmark: analysis.benchmark,
-    scenario_preview: analysis.scenario_preview ?? null,
-    exposure_availability: analysis.exposure_availability ?? null,
-    availability: analysis.availability ?? null,
-  }
-}
-
-export function buildImportedDashboardView(analysis: ImportedDashboardSource): DashboardAnalysis {
-  return {
-    snapshot: analysis.snapshot,
-    overview: analysis.overview,
-    risk_summary: analysis.risk_summary,
-    admission_summary: analysis.admission_summary ?? null,
-    performance_series: analysis.performance_series,
-    daily_states: analysis.daily_states,
-    source_status: analysis.source_status ?? null,
-    run_metadata: analysis.run_metadata ?? null,
-    range_metrics: analysis.range_metrics ?? null,
-  }
-}
-
 export function buildPortfolioBaselineView(analysis: ImportedBaselineSource): PortfolioBaselineView {
   return {
     snapshot: analysis.snapshot,
     overview: analysis.overview,
-  }
-}
-
-export function buildImportedDiagnosticsView(analysis: ImportedDiagnosticsSource): DiagnosticsEngineResponse {
-  return {
-    snapshot: analysis.snapshot,
-    provenance: analysis.provenance,
-    drawdown_summary: analysis.drawdown_summary,
-    volatility_summary: analysis.volatility_summary,
-    risk_concentration_summary: analysis.risk_concentration_summary,
-    risk_summary: analysis.risk_summary,
-    rolling_risk: analysis.rolling_risk,
-    relative_risk: analysis.relative_risk,
-    volatility_regime: analysis.volatility_regime,
-    factor_exposures: analysis.factor_exposures,
-    factor_shift_diagnostics: analysis.factor_shift_diagnostics,
-    risk_contribution_breakdown: analysis.risk_contribution_breakdown,
-    model_reliability: analysis.model_reliability,
-    factor_registry: analysis.factor_registry,
-    factor_methodology: analysis.factor_methodology,
-    statistical_factor_model: analysis.statistical_factor_model,
-    stress_scenarios: analysis.stress_scenarios,
-    run_metadata: analysis.run_metadata,
-    availability: analysis.availability,
   }
 }

@@ -32,25 +32,35 @@ Recommended future phase names:
 - `goldens`: regenerate or check generated cross-layer fixtures.
 - `backend`: run pytest.
 - `frontend`: run Vitest.
-- `frontend-typecheck`: run `npm run build` or `npx tsc --noEmit` if promoted into the canonical gate.
-- `deadcode`: run the dead-code detectors (see below); promoted to a zero-findings gate in US-23.8.
+- `frontend-typecheck`: `npx tsc --noEmit` — **now part of the canonical gate** (run by `run_all_tests.py`).
+- `deadcode`: the dead-code detectors (see below) — **an enforced zero-findings gate** since US-23.8.
 
-## Dead-Code Detection (Epic 23)
+## Dead-Code Detection (Epic 23) — enforced gate (US-23.8)
 
 The project carries a dead-code detection floor so unused code is caught, not
-re-accumulated. Tooling (dev-only, US-23.1):
+re-accumulated. As of **US-23.8 it is an enforced gate**: `scripts/run_all_tests.py`
+runs `python scripts/detect_deadcode.py --strict` (ruff + vulture + knip,
+zero-findings) plus `npx tsc --noEmit` as suite steps, so any newly-introduced
+dead code (or in-file unused local/param) **fails the run**. Tooling (dev-only,
+installed via `requirements-dev.txt` / `npm install`):
 
-- **Python** (`services/quant-engine/`): `ruff` (in-file unused — `F401`/`F811`/`F841`, configured in `ruff.toml`) + `vulture` (whole-program unused functions/classes/attributes, with a reasoned `vulture_allowlist.py` for dynamic-use false positives). Install via `requirements-dev.txt`.
-- **TypeScript** (`apps/desktop/`): `knip` (unused files/exports/types/dependencies — the cross-file dead-export class `tsc` can't see) + `tsconfig` `noUnusedLocals`/`noUnusedParameters` (in-file; **staged for US-23.8** — enabled once the cross-file sweeps clear the blockers).
+- **Python** (`services/quant-engine/`): `ruff` (in-file unused — `F401`/`F811`/`F841`, configured in `ruff.toml`) + `vulture` (whole-program unused functions/classes/attributes `--min-confidence 80`, with a reasoned `vulture_allowlist.py` for dynamic-use false positives). 
+- **TypeScript** (`apps/desktop/`): `knip` (unused files/exports/types/dependencies — the cross-file dead-export class `tsc` can't see; configured with `ignoreExportsUsedInFile: true` so a flagged export is used *nowhere*, not merely over-exported) + `tsconfig` `noUnusedLocals`/`noUnusedParameters` (in-file, enforced via the `tsc --noEmit` gate step).
 
-Run all detectors with `python scripts/detect_deadcode.py` (informational) or
-`--strict` (exit non-zero on any finding — the US-23.8 gate mode). Findings are
-catalogued in [`docs/tech-debt-register.md`](../tech-debt-register.md), which
-also carries the **removal protocol** (the "confirmed dead" checklist —
-beware dynamic/reflective use: route registration, pytest fixtures, Pydantic
-hooks, persisted-state sanitizers). **ESLint is deliberately not used** for this
-— `tsc` + `knip` cover the dead-code goal; ESLint's in-file `no-unused-vars` is
-redundant with `tsc` and misses unused exports/files.
+**Reading a failure:** the detector summary names which of ruff/vulture/knip
+found something and prints the `file:line`. If the symbol is genuinely dead →
+remove it. If it is a dynamic-use false positive (route registration, pytest
+fixtures, Pydantic/`field_validator` hooks, signature-match kwargs, persisted-
+state sanitizers, CLI entry-point scripts) → add a **reasoned** entry to
+`vulture_allowlist.py` (Python) or `knip.json` (TS). The allowlist is the
+integrity risk: **every entry must name why it is a false positive** — an
+unreasoned entry silently re-opens the door. Improvement findings (hardcodes /
+magic numbers / anti-patterns) are catalogued in
+[`docs/tech-debt-register.md`](../tech-debt-register.md) → Epic 24, not added to
+the allowlist. The register also carries the **removal protocol** (the "confirmed
+dead" checklist). **ESLint is deliberately not used** for this — `tsc` + `knip`
+cover the dead-code goal; ESLint's in-file `no-unused-vars` is redundant with
+`tsc` and misses unused exports/files.
 
 ## Test Layers
 
