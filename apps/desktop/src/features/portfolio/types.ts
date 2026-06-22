@@ -1168,13 +1168,6 @@ export type ImportedDiagnosticsSource = {
   stress_scenarios: StressScenarioResult[]
 }
 
-export type ImportedExposureFactorModelSource = {
-  benchmark: BenchmarkSummary | null
-  factor_methodology: string | null
-  factor_registry: FactorRegistryEntry[]
-  statistical_factor_model: StatisticalFactorModel
-}
-
 export type ExposureEngineResponse = {
   snapshot: ImportedSnapshot
   provenance: ExposureProvenance

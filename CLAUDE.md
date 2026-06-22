@@ -127,12 +127,20 @@ python scripts/manage_cache.py
 # runs the full suite. Commit the PDF + fixture + goldens together.
 python scripts/refresh_statement.py
 
-# Dead-code detectors (Epic 23). Informational today; US-23.8 makes it a
-# zero-findings gate in run_all_tests.py once the baseline is clean.
+# Dead-code gate (Epic 23 / US-23.8). ENFORCED: run_all_tests.py runs
+# `detect_deadcode.py --strict` (ruff + vulture + knip, zero-findings) + `tsc
+# --noEmit` as gate steps, so newly-introduced dead code FAILS the suite.
 #   pip install -r services/quant-engine/requirements-dev.txt   # ruff + vulture (one-time)
-python scripts/detect_deadcode.py            # ruff + vulture + knip summary
-python scripts/detect_deadcode.py --strict   # exit non-zero on any finding (gate mode)
-# Findings are catalogued in docs/tech-debt-register.md.
+python scripts/detect_deadcode.py            # ruff + vulture + knip summary (informational)
+python scripts/detect_deadcode.py --strict   # exit non-zero on any finding (the gate)
+# Reading a failure: the offending detector + file:line is printed. If the symbol
+# is genuinely dead → remove it. If it's a dynamic-use false positive (pytest
+# fixture, Pydantic/FastAPI hook, signature-match kwarg, persistence sanitizer,
+# CLI entry point), add a REASONED entry to services/quant-engine/vulture_allowlist.py
+# (Python) or apps/desktop/knip.json (TS) — every allowlist entry must name why.
+# knip uses `ignoreExportsUsedInFile: true`, so a flagged export is used NOWHERE
+# (truly dead), not merely over-exported. Improvement findings (hardcodes/magic
+# numbers) are catalogued in docs/tech-debt-register.md → Epic 24.
 ```
 
 ## Backend Conventions (`services/quant-engine/`)

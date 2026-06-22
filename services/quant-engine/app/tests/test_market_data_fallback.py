@@ -36,7 +36,7 @@ def test_yfinance_fallback_when_fmp_empty(svc):
     service, fmp, yf = svc
     fmp.get_historical_price_light.return_value = []  # FMP 402 / empty for every candidate
     yf.get_historical_price_light.side_effect = (
-        lambda sym, f, t: [{"symbol": sym, "date": "2024-01-02", "price": 95.0, "adjClose": 95.0}]
+        lambda sym, *_args: [{"symbol": sym, "date": "2024-01-02", "price": 95.0, "adjClose": 95.0}]
         if sym == "VUAA.L"
         else []
     )
@@ -94,7 +94,7 @@ def test_nonfinite_yfinance_rows_are_filtered_and_all_bad_falls_through(svc):
     yf.get_historical_price_light.side_effect = (
         # First candidate (VUAA.L): all-NaN → sanitized empty → falls through.
         # Second candidate (VUAA): one good row → returned.
-        lambda sym, f, t: [{"symbol": sym, "date": "2024-01-02", "price": float("nan"), "adjClose": float("nan")}]
+        lambda sym, *_args: [{"symbol": sym, "date": "2024-01-02", "price": float("nan"), "adjClose": float("nan")}]
         if sym == "VUAA.L"
         else [{"symbol": sym, "date": "2024-01-02", "price": 95.0, "adjClose": 95.0}]
     )

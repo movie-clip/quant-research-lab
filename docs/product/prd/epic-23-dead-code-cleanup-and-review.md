@@ -1,6 +1,6 @@
 # Epic 23 — Dead-Code Cleanup & Codebase Review
 
-**Status:** Active
+**Status:** Completed (2026-06-19)
 **Created:** 2026-06-12
 
 ## Problem

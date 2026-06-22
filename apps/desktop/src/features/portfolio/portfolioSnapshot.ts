@@ -172,7 +172,3 @@ export function getPortfolioSnapshotNetCapital(snapshot: PortfolioSnapshot) {
 export function getPortfolioSnapshotSectorCount(snapshot: PortfolioSnapshot) {
   return new Set(snapshot.positions.map((position) => position.sector ?? 'Unknown')).size
 }
-
-export function hashPortfolioSnapshot(snapshot: PortfolioSnapshot) {
-  return JSON.stringify(normalizePortfolioSnapshot(snapshot))
-}

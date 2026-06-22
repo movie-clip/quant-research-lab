@@ -19,6 +19,10 @@ def npm_command() -> str:
     return "npm.cmd" if os.name == "nt" else "npm"
 
 
+def npx_command() -> str:
+    return "npx.cmd" if os.name == "nt" else "npx"
+
+
 def check_environment() -> list[str]:
     errors: list[str] = []
     if not BACKEND_DIR.exists():
@@ -76,6 +80,20 @@ def run_all_tests() -> None:
         "Run desktop tests",
         [npm_command(), "test"],
         FRONTEND_DIR,
+    )
+    run_step(
+        "Type-check desktop (tsc --noEmit)",
+        [npx_command(), "tsc", "--noEmit"],
+        FRONTEND_DIR,
+    )
+    # Dead-code gate (US-23.8): ruff + vulture (backend) + knip (frontend),
+    # zero-tolerance vs the committed allowlists. Fails the run on any finding so
+    # newly-introduced dead code can't re-accumulate. Static + offline (consistent
+    # with the US-21.1 network guard).
+    run_step(
+        "Dead-code gate (ruff + vulture + knip, zero-findings)",
+        [sys.executable, str(ROOT / "scripts" / "detect_deadcode.py"), "--strict"],
+        ROOT,
     )
     print("All tests passed.")
 

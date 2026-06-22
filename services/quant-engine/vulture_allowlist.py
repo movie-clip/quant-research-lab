@@ -15,6 +15,11 @@ would silently re-open the door, so additions require a reason here.
 _dynamic_context = None
 _dynamic_context.__context  # `model_post_init(self, __context)` hook parameter
 
+# Signature-match kwarg: the FakeTicker.history(...) stub in test_yfinance_client
+# mirrors yfinance's `Ticker.history(start, end, auto_adjust=...)`; the client
+# calls it by keyword, so the parameter name must stay even though the fake ignores it.
+_dynamic_context.auto_adjust
+
 # NOTE: pytest fixtures (autouse fixtures in conftest.py: _clear_cache_memory,
 # _disable_yfinance_fallback, _mock_*_engine_market_data, _check_dashboard_goldens_freshness),
 # `field_validator`/`model_validator` methods, and FastAPI route handler functions
