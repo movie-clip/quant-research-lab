@@ -1,6 +1,6 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-06-19 (Epic 23 **complete** — dead-code cleanup & codebase review; Epic 24 — Codebase Improvement is the next backlog epic; Epics 13/18/19/20/21/22 complete).*
+*Living execution snapshot. Updated: 2026-06-19 (Epic 24 — Codebase Improvement **active**; Epic 23 — dead-code cleanup & codebase review complete; Epics 13/18/19/20/21/22 complete).*
 
 ---
 
@@ -56,16 +56,38 @@ the dead-code goal; ESLint's in-file `no-unused-vars` is redundant with `tsc`.)
 
 ---
 
-## Next Epic (Backlog): Epic 24 — Codebase Improvement
+## Active Epic: Epic 24 — Codebase Improvement
 
 **PRD:** [`docs/product/prd/epic-24-codebase-improvement.md`](product/prd/epic-24-codebase-improvement.md)
 
 Seeded by Epic 23 (US-23.7) from the consolidated "Epic 24 backlog" in
 `docs/tech-debt-register.md`. Fixes the catalogued hardcodes / magic numbers /
-fragile coupling / latent bugs as deliberate, reviewed, behaviour-aware changes
-(the complement to Epic 23's deletions). 7 proposed stories, led by the two
-hardcoded calendar-year `2025` latent bugs (US-24.1). **Not started** — stories
-to be authored via `write-story` when picked up.
+fragile coupling / latent bugs as deliberate, reviewed, **behaviour-aware**
+changes (the complement to Epic 23's deletions). Every change keeps the
+deterministic suite green and updates methodology / contract docs when a
+surfaced value becomes a named, documented constant.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-24.1 | Fix hardcoded-year ledger filters (latent bugs) | Done |
+| US-24.2 | Extract the risk-model scoring rubric & thresholds | Backlog |
+| US-24.3 | De-duplicate shared analytics constants | Backlog |
+| US-24.4 | Harden importer parsing + flow the ISIN gap | Backlog |
+| US-24.5 | Decouple broker format from the domain | Backlog |
+| US-24.6 | Market-data client config hygiene | Backlog |
+| US-24.7 | Reconcile minor hardcodes + de-export + test smells | Backlog |
+
+Recommended order: US-24.1 first (highest-impact latent bugs, low effort), then
+US-24.2/24.3 (the analytics-constant work), then US-24.4/24.5/24.6, with US-24.7
+the low-severity tail. Stories are authored via `write-story` as each is picked up.
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-06-19 | US-24.1 | **Fixed the two hardcoded calendar-year `2025` latent bugs** (the register's only High-severity entries). Removed `if entry.date.year != 2025` from `analytics/activity.py` `build_activity_series` (which silently dropped every non-2025 ledger entry → empty activity for 2026+ statements) and `and candidate.date.year == 2025` from `analytics/reconciliation.py` `_negative_withholding_total` (which reconciled non-2025 withholding against `0`). Removal — not "derive the year" — because the snapshot ledger is already period-scoped and the sibling reconciliation actuals (dividends/fees/interest/deposits) never year-filtered; the `%Y-%m` bucketing handles any span. **Behaviour-neutral for 2025** (all-2025 fixtures → identical output; `dashboardGoldens.ts` untouched). Added 4 `test_analytics.py` regressions (2026 non-empty activity, 2025-unchanged pin, 2026 withholding reconciles, multi-year span). Methodology doc gained a "Statement reconciliation & activity scoping" rule; register rows marked Resolved. Full suite + dead-code gate green; tsc clean. |
 
 ---
 

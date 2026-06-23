@@ -1,6 +1,6 @@
 # Epic 24 — Codebase Improvement
 
-**Status:** Backlog
+**Status:** Active (started 2026-06-19)
 **Created:** 2026-06-19
 **Seeded by:** Epic 23 (US-23.7), from `docs/tech-debt-register.md`
 

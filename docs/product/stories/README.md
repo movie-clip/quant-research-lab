@@ -18,7 +18,17 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
-### Epic 23 — Dead-Code Cleanup & Codebase Review (active)
+### Epic 24 — Codebase Improvement (active)
+
+PRD: [`prd/epic-24-codebase-improvement.md`](../prd/epic-24-codebase-improvement.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-24.1](US-24.1-fix-hardcoded-year-ledger-filters.md) | Fix the hardcoded calendar-year ledger filters (latent bugs) | Remove the `year == 2025` filters in `activity.py` / `reconciliation.py` so non-2025 statements work; 2025 goldens unchanged | Done |
+
+---
+
+### Epic 23 — Dead-Code Cleanup & Codebase Review (complete)
 
 PRD: [`prd/epic-23-dead-code-cleanup-and-review.md`](../prd/epic-23-dead-code-cleanup-and-review.md)
 

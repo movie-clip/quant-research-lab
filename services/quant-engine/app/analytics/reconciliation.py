@@ -21,7 +21,7 @@ def _negative_withholding_total(snapshot: ImportedPortfolioSnapshot) -> float:
         [
             candidate
             for candidate in ledger
-            if candidate.entry_type == "WITHHOLDING_TAX" and candidate.date.year == 2025
+            if candidate.entry_type == "WITHHOLDING_TAX"
         ],
         key=lambda item: (item.date, item.symbol or "", item.gross_amount or 0),
     ):

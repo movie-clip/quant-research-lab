@@ -56,6 +56,9 @@ Import admission rule:
 - `ImportAdmissionSummaryV1` is read-only reconciliation evidence for imported broker snapshots; it does not mutate broker truth, trust levels, admission state, imported values, or workspace creation
 - numeric admission evidence must be finite-only; non-finite imported numeric inputs become unavailable/degraded evidence rather than serialized `NaN` or `Infinity`
 
+Statement reconciliation & activity scoping rule:
+- the statement reconciliation summary (`build_reconciliation_summary`) and the monthly activity series (`build_activity_series`) are scoped to the **imported statement(s)' ledger** as produced by `snapshot_to_ledger` — there is no hardcoded calendar year; the activity series buckets every ledger entry by its own `YYYY-MM`, and each reconciliation actual (dividends, withholding tax, fees, interest, deposits) sums the whole ledger for the imported period (US-24.1). A statement from any year (2025, 2026, …) is reconciled against its own totals.
+
 ## Market Data Basis
 
 The project uses historical price series, benchmark series, ETF holdings, and security metadata supplied through `MarketDataService`.
