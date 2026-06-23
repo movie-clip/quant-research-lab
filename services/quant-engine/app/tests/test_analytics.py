@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta
 import pytest
 
 from app.analytics import risk as risk_module
+from app.analytics.activity import build_activity_series
 from app.analytics.portfolio_imports import (
     apply_simulated_trades_to_state,
     build_performance_summary,
@@ -5315,6 +5316,91 @@ def test_build_reconciliation_summary_passes_matching_totals() -> None:
 
     assert summary.passed is True
     assert all(check.passed for check in summary.checks)
+
+
+def _ledger_only_snapshot(
+    ledger_entries: list[ImportedLedgerEntry],
+    *,
+    statement_period: str = "2026",
+    statement_totals: ImportedStatementTotals | None = None,
+) -> ImportedPortfolioSnapshot:
+    """Minimal snapshot carrying just the ledger (+ optional totals) to exercise
+    build_activity_series / build_reconciliation_summary (US-24.1 regressions)."""
+    return ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 1, 1),
+            source_path="sample.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period=statement_period,
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=statement_totals,
+        instruments=[],
+        cash_balances=[],
+        positions=[],
+        ledger_entries=ledger_entries,
+    )
+
+
+def test_build_activity_series_includes_non_2025_entries() -> None:
+    # US-24.1 regression: a 2026 statement previously returned [] because of a
+    # hardcoded `entry.date.year != 2025` filter.
+    snapshot = _ledger_only_snapshot([
+        ImportedLedgerEntry(entry_type="DIVIDEND", trade_date=date(2026, 5, 1), symbol="AAPL", gross_amount=40.0, net_amount=40.0, currency="USD", source_section="Dividends"),
+        ImportedLedgerEntry(entry_type="WITHHOLDING_TAX", trade_date=date(2026, 5, 1), symbol="AAPL", gross_amount=-8.0, net_amount=-8.0, currency="USD", source_section="Withholding Tax"),
+    ])
+
+    points = build_activity_series(snapshot)
+
+    assert [point.month for point in points] == ["2026-05"]
+    assert points[0].dividends == 40.0
+    assert points[0].withholding_tax == 8.0
+
+
+def test_build_activity_series_unchanged_for_2025_sample() -> None:
+    # Behaviour-neutral pin: the existing 2025 fixture produces the same buckets
+    # with or without the removed year filter.
+    by_month = {point.month: point for point in build_activity_series(_sample_snapshot())}
+
+    assert set(by_month) == {"2025-01", "2025-06", "2025-07", "2025-08"}
+    assert by_month["2025-06"].dividends == 50.0
+    assert by_month["2025-06"].withholding_tax == 10.0
+    assert by_month["2025-07"].interest == 5.0
+    assert by_month["2025-08"].fees == 2.0
+    assert by_month["2025-01"].deposits == 100.0
+
+
+def test_reconciliation_withholding_total_for_non_2025_statement() -> None:
+    # US-24.1 regression: the withholding-tax actual previously summed only 2025
+    # entries, so a 2026 statement reconciled against 0.
+    snapshot = _ledger_only_snapshot(
+        [ImportedLedgerEntry(entry_type="WITHHOLDING_TAX", trade_date=date(2026, 6, 1), symbol="AAPL", gross_amount=-12.0, net_amount=-12.0, currency="USD", source_section="Withholding Tax")],
+        statement_totals=ImportedStatementTotals(withholding_tax_total=12.0),
+    )
+
+    summary = build_reconciliation_summary(snapshot)
+    withholding_check = next(check for check in summary.checks if check.name == "withholding_tax_total")
+
+    assert withholding_check.actual == 12.0
+    assert withholding_check.passed is True
+
+
+def test_build_activity_series_spans_multiple_years() -> None:
+    # A stacked statement spanning 2025-2026: every year's months are represented.
+    snapshot = _ledger_only_snapshot([
+        ImportedLedgerEntry(entry_type="DEPOSIT", trade_date=date(2025, 12, 1), gross_amount=100.0, net_amount=100.0, currency="USD", source_section="Deposits & Withdrawals"),
+        ImportedLedgerEntry(entry_type="DEPOSIT", trade_date=date(2026, 1, 5), gross_amount=200.0, net_amount=200.0, currency="USD", source_section="Deposits & Withdrawals"),
+    ])
+
+    points = build_activity_series(snapshot)
+
+    assert [point.month for point in points] == ["2025-12", "2026-01"]
+    assert points[0].deposits == 100.0
+    assert points[1].deposits == 200.0
 
 
 def test_rebalance_trade_application_updates_state() -> None:

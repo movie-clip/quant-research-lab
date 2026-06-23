@@ -21,8 +21,6 @@ def build_activity_series(snapshot: ImportedPortfolioSnapshot) -> list[Portfolio
     )
 
     for entry in ledger:
-        if entry.date.year != 2025:
-            continue
         month = entry.date.strftime("%Y-%m")
         amount = entry.cash_effect
         if entry.entry_type in {"BUY", "FEE", "WITHHOLDING_TAX", "WITHDRAWAL"}:

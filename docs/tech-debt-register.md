@@ -73,7 +73,7 @@ in the per-area catalogs further down.
 
 | Epic 24 story | Priority | Findings rolled up (see detail rows) |
 |---|---|---|
-| US-24.1 — hardcoded-year bugs | **High** (latent bug, low effort) | `analytics/activity.py:24`, `analytics/reconciliation.py:24` (year `2025` silently drops other-year ledger entries) |
+| US-24.1 — hardcoded-year bugs | ✅ **RESOLVED (US-24.1)** | `analytics/activity.py`, `analytics/reconciliation.py` — the hardcoded `year == 2025` filters were removed (the snapshot ledger already scopes the period); non-2025 statements now reconcile correctly. 2025 goldens unchanged; 4 regression tests added. |
 | US-24.2 — risk-model rubric & thresholds | High–Med | `analytics/risk.py` mapping-score weights (`:196,232-264`), hard-caps (`:275-288`), label thresholds + scoring helpers (`:293-470,1055-1064`), regime cutoffs (`:1262-1267`), `STRESS_SCENARIOS` (`:138-142`), min-history `:1331`; `exposure_engine.py:251` (`99.0` coverage threshold) |
 | US-24.3 — shared analytics constants | Med | lookback `ceil(window*1.6)+30` duplicated (`stress_engine.py:36`, `drawdown_engine.py:52`, `attribution_engine.py`); `_MIN_OBSERVATIONS=20` ×3; `"SPY"` default ×4 engines |
 | US-24.4 — importer parsing + ISIN gap | High–Med | Freedom24 positional parser (~50 fixed-offset sites); `freedom24.py:138` ISIN data gap (modeled on `ImportedInstrument`); `:221` realized-P&L modeling decision; `:146,223,238` inline currency/suffix hardcodes |
@@ -154,8 +154,8 @@ config* findings, not dead code.
 
 | area | file:line | category | severity | effort | owner-story | note |
 |---|---|---|---|---|---|---|
-| backend/analytics-schemas | `analytics/activity.py:24` | anti-pattern / latent-bug | high | low | epic-24 | `if entry.date.year != 2025:` — the activity summary **silently drops every ledger entry not dated 2025**. Breaks for any 2026+ statement. Should derive the year from the statement period, not a literal. |
-| backend/analytics-schemas | `analytics/reconciliation.py:24` | anti-pattern / latent-bug | high | low | epic-24 | `candidate.date.year == 2025` in the withholding-tax reconciliation filter — same hardcoded-year class as activity.py; non-2025 withholding entries are excluded. |
+| backend/analytics-schemas | `analytics/activity.py:24` | anti-pattern / latent-bug | high | low | epic-24 | `if entry.date.year != 2025:` — the activity summary **silently drops every ledger entry not dated 2025**. Breaks for any 2026+ statement. **RESOLVED (US-24.1): filter removed** (the `%Y-%m` bucketing + the snapshot-scoped ledger handle the period). |
+| backend/analytics-schemas | `analytics/reconciliation.py:24` | anti-pattern / latent-bug | high | low | epic-24 | `candidate.date.year == 2025` in the withholding-tax reconciliation filter — same hardcoded-year class as activity.py; non-2025 withholding entries are excluded. **RESOLVED (US-24.1): filter removed** (now consistent with the sibling dividends/fees/interest/deposit actuals, which never year-filtered). |
 
 **Hardcodes / magic numbers / fragile coupling:**
 
