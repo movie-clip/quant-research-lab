@@ -1,3 +1,4 @@
+import dataclasses
 from datetime import date, datetime, timedelta
 
 import pytest
@@ -15,6 +16,7 @@ from app.analytics.portfolio_imports import (
 )
 from app.analytics.risk import DEFAULT_FACTOR_DEFINITIONS, build_etf_overlap_pairs, build_factor_exposures, build_factor_registry, build_factor_shift_diagnostics, build_lookthrough_exposure, build_lookthrough_sector_exposure, build_market_overlap_summary, build_model_reliability_snapshot, build_portfolio_risk_summary, build_relative_risk_summary, build_risk_contribution_breakdown, build_rolling_risk_series, build_statistical_factor_model, build_stress_scenarios, build_volatility_regime_payload, is_history_series_verified_adjusted, select_history_price_series, selected_history_price_map
 from app.analytics.risk import apply_return_basis_status_to_factor_model, apply_return_basis_status_to_model_reliability
+from app.analytics.risk import _apply_mapping_hard_caps, _classify_volatility_regime, _mapping_match_label
 from app.core.symbols import canonicalize_symbol
 from app.domain.ledger import reconstruct_position_lots, snapshot_to_ledger
 from app.engine.portfolio_state import PortfolioStateEngine
@@ -35,6 +37,7 @@ from app.schemas.exposure import ExposureAvailability, ExposureCurrentStateConce
 from app.schemas.exposure import ExposureRunReproducibilityMetadata, ExposureRunSourceStatus
 from app.schemas.portfolio_engine import PortfolioCashBalanceSnapshot, PortfolioHistoryContext, PortfolioPositionSnapshot
 from app.schemas.reconciliation import DailyPortfolioState, DailyStatePosition, PerformancePoint, PortfolioRiskSummary
+from app.schemas.reconciliation import SnapshotItem, StatisticalFactorModel, VolatilitySnapshot
 from app.schemas.reconciliation import LookThroughConstituent, LookThroughOverview, LookThroughSource, MarketOverlapSummary, PortfolioOverview
 from app.services.dashboard_history_engine import (
     _allow_future_exact_slice_excess_return_output,
@@ -5401,6 +5404,90 @@ def test_build_activity_series_spans_multiple_years() -> None:
     assert [point.month for point in points] == ["2025-12", "2026-01"]
     assert points[0].deposits == 100.0
     assert points[1].deposits == 200.0
+
+
+# ── US-24.2: golden-master pins for the risk-model scoring rubric & thresholds ──
+# These assert the CURRENT computed values so the constant-extraction refactor is
+# provably behaviour-neutral (a transposed weight/threshold/shock fails loudly).
+
+def test_factor_mapping_score_pcts_are_pinned() -> None:
+    registry = {factor.key: factor for factor in build_factor_registry()}
+
+    assert registry["market"].primary_mapping.match_summary.score_pct == 94.2
+    assert registry["market"].primary_mapping.match_summary.label == "Exact / Best Match"
+    assert registry["rates_tlt"].primary_mapping.match_summary.score_pct == 95.5
+    assert registry["rates_ief"].primary_mapping.match_summary.score_pct == 91.7
+    assert registry["growth"].primary_mapping.match_summary.score_pct == 94.9
+    assert registry["growth"].primary_mapping.match_summary.score_status == "degraded"
+
+
+def test_mapping_match_label_thresholds_are_pinned() -> None:
+    assert _mapping_match_label(90.0) == "Exact / Best Match"
+    assert _mapping_match_label(89.9) == "Strong Match"
+    assert _mapping_match_label(80.0) == "Strong Match"
+    assert _mapping_match_label(79.9) == "Usable Proxy"
+    assert _mapping_match_label(65.0) == "Usable Proxy"
+    assert _mapping_match_label(64.9) == "Loose Proxy"
+    assert _mapping_match_label(50.0) == "Loose Proxy"
+    assert _mapping_match_label(49.9) == "Poor Match"
+    assert _mapping_match_label(None) is None
+
+
+def test_mapping_hard_cap_ceilings_are_pinned() -> None:
+    credit = next(definition for definition in DEFAULT_FACTOR_DEFINITIONS if definition.key == "credit")
+    non_corporate = dataclasses.replace(credit.primary_mapping, asset_exposure="US Treasuries 7-10yr")
+
+    assert _apply_mapping_hard_caps(credit, non_corporate, 88.0) == (45.0, "bond_credit_sleeve_mismatch")
+    # A well-matched mapping is never capped (raw score passes through unchanged).
+    assert _apply_mapping_hard_caps(credit, credit.primary_mapping, 88.0) == (88.0, None)
+
+
+def test_volatility_regime_cutoffs_are_pinned() -> None:
+    def regime(percentile: float) -> str:
+        snapshot = VolatilitySnapshot(current_20d_vol_percentile=percentile, realized_vol_20d=10.0, realized_vol_60d=10.0)
+        return _classify_volatility_regime(snapshot).label
+
+    assert regime(0.10) == "calm"
+    assert regime(0.299) == "calm"
+    assert regime(0.30) == "normal"
+    assert regime(0.80) == "normal"
+    assert regime(0.801) == "stressed"
+    assert regime(0.90) == "stressed"
+
+
+def test_stress_scenario_shocks_are_pinned() -> None:
+    # Market loading 1.0 (all other factors absent) isolates each scenario's
+    # Market shock, so the projection pins the shock constant directly.
+    item = SnapshotItem(
+        key="market", label="Market", category="market", us_proxy="SPY", latest_loading=1.0,
+        target_exposure="x", primary_mapping=None, alternative_mappings=[], ucits_examples=[],
+        mapping_quality="high", description="d",
+    )
+    model = StatisticalFactorModel(
+        status="ok", benchmark_symbol="SPY", windows=[], rolling_loadings_20d=[],
+        rolling_loadings_60d=[], rolling_loadings_252d=[], current_factor_snapshot=[item],
+        collinearity_diagnostics=[], insufficient_history=[],
+    )
+
+    projections = {scenario.name: scenario.estimated_return_pct for scenario in build_stress_scenarios(model)}
+
+    assert projections["Broad Market Selloff"] == -10.0
+    assert projections["Rates Down Risk-On"] == 3.0
+    assert projections["Inflation Reacceleration"] == -2.0
+
+
+def test_factor_model_minimum_shared_history_is_pinned() -> None:
+    def status_for(n_rows: int) -> str:
+        start = date(2025, 1, 1)
+        rows = [{"date": (start + timedelta(days=offset)).isoformat(), "price": float(100 + offset)} for offset in range(n_rows)]
+        states = [
+            DailyPortfolioState(date=(start + timedelta(days=offset)).isoformat(), cash={"USD": 0.0}, positions=[], total_market_value=float(1000 + offset * 4), total_portfolio_value=float(1000 + offset * 4))
+            for offset in range(n_rows)
+        ]
+        return build_statistical_factor_model(states, {definition.us_proxy: rows for definition in DEFAULT_FACTOR_DEFINITIONS}, "SPY").status
+
+    assert status_for(10) == "insufficient_history"   # 9 shared return dates < minimum
+    assert status_for(11) != "insufficient_history"   # 10 shared return dates >= minimum
 
 
 def test_rebalance_trade_application_updates_state() -> None:

@@ -142,6 +142,76 @@ STRESS_SCENARIOS: tuple[tuple[str, dict[str, float], str], ...] = (
 )
 
 
+# ── Factor-mapping scoring rubric & classification thresholds (US-24.2) ───────
+# Tunable POLICY constants for the metadata-only factor→UCITS mapping quality
+# score and the volatility-regime / factor-model classification. The mapping
+# composite/sub-weights and hard-cap ceilings are internal heuristics with **no
+# academic basis** — tune them only as a reviewed policy change. The leaf
+# per-token match scores inside the `_*_score` helpers are the rubric body and
+# stay inline (US-24.2 out-of-scope). Values are unchanged from the pre-extraction
+# code; `test_analytics.py::*_are_pinned` golden-masters them.
+
+# Composite: score_pct = 100 * (exposure*W_EXPOSURE + structure*W_STRUCTURE + implementation*W_IMPLEMENTATION)
+MAPPING_SCORE_EXPOSURE_WEIGHT = 0.60
+MAPPING_SCORE_STRUCTURE_WEIGHT = 0.25
+MAPPING_SCORE_IMPLEMENTATION_WEIGHT = 0.15
+
+# Equity exposure-match sub-weights (no holdings overlap → 2-term form; with overlap → 3-term form).
+EQUITY_EXPOSURE_INDEX_WEIGHT = 0.65
+EQUITY_EXPOSURE_STYLE_SECTOR_WEIGHT = 0.35
+EQUITY_EXPOSURE_INDEX_WEIGHT_WITH_OVERLAP = 0.45
+EQUITY_EXPOSURE_HOLDINGS_OVERLAP_WEIGHT = 0.30
+EQUITY_EXPOSURE_STYLE_SECTOR_WEIGHT_WITH_OVERLAP = 0.25
+
+# Bond exposure-match sub-weights.
+BOND_EXPOSURE_DURATION_WEIGHT = 0.40
+BOND_EXPOSURE_MATURITY_BUCKET_WEIGHT = 0.25
+BOND_EXPOSURE_CREDIT_QUALITY_WEIGHT = 0.20
+BOND_EXPOSURE_ISSUER_CURVE_WEIGHT = 0.15
+
+# Commodity exposure-match sub-weights.
+COMMODITY_EXPOSURE_BASKET_WEIGHT = 0.50
+COMMODITY_EXPOSURE_ROLL_METHOD_WEIGHT = 0.30
+COMMODITY_EXPOSURE_COLLATERAL_WEIGHT = 0.20
+
+# Structure-fit sub-weights.
+STRUCTURE_FIT_HEDGE_WEIGHT = 0.35
+STRUCTURE_FIT_DISTRIBUTION_WEIGHT = 0.25
+STRUCTURE_FIT_UCITS_WEIGHT = 0.20
+STRUCTURE_FIT_CURRENCY_WEIGHT = 0.20
+
+# Implementation-fit sub-weights.
+IMPLEMENTATION_FIT_LIQUIDITY_WEIGHT = 0.40
+IMPLEMENTATION_FIT_HISTORY_WEIGHT = 0.30
+IMPLEMENTATION_FIT_COST_WEIGHT = 0.20
+IMPLEMENTATION_FIT_AVAILABILITY_WEIGHT = 0.10
+
+# Hard-cap ceilings (score_pct upper bounds) applied when a mapping mismatches.
+MAPPING_HARD_CAP_REGION_MISMATCH = 50.0
+MAPPING_HARD_CAP_CREDIT_SLEEVE_MISMATCH = 45.0
+MAPPING_HARD_CAP_DURATION_BUCKET_MISMATCH = 60.0
+MAPPING_HARD_CAP_ASSET_CLASS_MISMATCH = 25.0
+MAPPING_HARD_CAP_HEDGE_STATUS_MISMATCH = 70.0
+
+# Mapping-match label thresholds (score_pct → human label).
+MAPPING_LABEL_EXACT_THRESHOLD = 90
+MAPPING_LABEL_STRONG_THRESHOLD = 80
+MAPPING_LABEL_USABLE_THRESHOLD = 65
+MAPPING_LABEL_LOOSE_THRESHOLD = 50
+
+# Mapping-quality → score maps (used by _mapping_quality_score / _cost_fit_score).
+MAPPING_QUALITY_SCORES: dict[str, float] = {"high": 0.95, "medium-high": 0.82, "medium": 0.68, "low": 0.50}
+MAPPING_COST_FIT_SCORES: dict[str, float] = {"high": 0.90, "medium-high": 0.78, "medium": 0.62, "low": 0.40}
+MAPPING_COST_FIT_DEFAULT = 0.50
+
+# Volatility-regime percentile cutoffs (current 20d-vol percentile → regime).
+VOLATILITY_REGIME_CALM_MAX_PERCENTILE = 0.30    # percentile < this → "calm"
+VOLATILITY_REGIME_NORMAL_MAX_PERCENTILE = 0.80  # <= this → "normal"; above → "stressed"
+
+# Minimum shared daily-return observations required to fit a statistical factor model.
+FACTOR_MODEL_MIN_SHARED_OBSERVATIONS = 10
+
+
 class HoldingsMarketData(Protocol):
     def get_etf_holdings(self, symbol: str, symbol_overrides: dict[str, list[str]] | None = None) -> tuple[str | None, list[dict]]: ...
     def get_company_profile(self, symbol: str, symbol_overrides: dict[str, list[str]] | None = None) -> dict | None: ...
@@ -193,7 +263,7 @@ def _compute_mapping_match_summary(definition: FactorDefinition, mapping: UcitsC
             components=components,
         )
 
-    raw_score_pct = 100 * ((0.60 * (exposure_match or 0.0)) + (0.25 * (structure_fit or 0.0)) + (0.15 * (implementation_fit or 0.0)))
+    raw_score_pct = 100 * ((MAPPING_SCORE_EXPOSURE_WEIGHT * (exposure_match or 0.0)) + (MAPPING_SCORE_STRUCTURE_WEIGHT * (structure_fit or 0.0)) + (MAPPING_SCORE_IMPLEMENTATION_WEIGHT * (implementation_fit or 0.0)))
     capped_score_pct, hard_cap_reason = _apply_mapping_hard_caps(definition, mapping, raw_score_pct)
     status = "degraded" if _metadata_mode_is_degraded(mapping) else "ok"
     score_pct = round(max(0.0, min(100.0, capped_score_pct)), 1)
@@ -229,8 +299,8 @@ def _compute_exposure_match_equity(definition: FactorDefinition, mapping: UcitsC
     style_sector_similarity = _style_sector_similarity_score(definition, mapping)
 
     if holdings_overlap is None:
-        return _clamp((0.65 * index_match) + (0.35 * style_sector_similarity))
-    return _clamp((0.45 * index_match) + (0.30 * holdings_overlap) + (0.25 * style_sector_similarity))
+        return _clamp((EQUITY_EXPOSURE_INDEX_WEIGHT * index_match) + (EQUITY_EXPOSURE_STYLE_SECTOR_WEIGHT * style_sector_similarity))
+    return _clamp((EQUITY_EXPOSURE_INDEX_WEIGHT_WITH_OVERLAP * index_match) + (EQUITY_EXPOSURE_HOLDINGS_OVERLAP_WEIGHT * holdings_overlap) + (EQUITY_EXPOSURE_STYLE_SECTOR_WEIGHT_WITH_OVERLAP * style_sector_similarity))
 
 
 def _compute_exposure_match_bond(definition: FactorDefinition, mapping: UcitsCandidateMapping) -> float:
@@ -238,14 +308,14 @@ def _compute_exposure_match_bond(definition: FactorDefinition, mapping: UcitsCan
     maturity_bucket_match = _maturity_bucket_match_score(definition, mapping)
     credit_quality_match = _credit_quality_match_score(definition, mapping)
     issuer_curve_match = _issuer_curve_match_score(definition, mapping)
-    return _clamp((0.40 * duration_match) + (0.25 * maturity_bucket_match) + (0.20 * credit_quality_match) + (0.15 * issuer_curve_match))
+    return _clamp((BOND_EXPOSURE_DURATION_WEIGHT * duration_match) + (BOND_EXPOSURE_MATURITY_BUCKET_WEIGHT * maturity_bucket_match) + (BOND_EXPOSURE_CREDIT_QUALITY_WEIGHT * credit_quality_match) + (BOND_EXPOSURE_ISSUER_CURVE_WEIGHT * issuer_curve_match))
 
 
 def _compute_exposure_match_commodity(definition: FactorDefinition, mapping: UcitsCandidateMapping) -> float:
     basket_match = _commodity_basket_match_score(definition, mapping)
     roll_method_match = _commodity_roll_method_score(definition, mapping)
     collateral_structure_match = _commodity_collateral_structure_score(definition, mapping)
-    return _clamp((0.50 * basket_match) + (0.30 * roll_method_match) + (0.20 * collateral_structure_match))
+    return _clamp((COMMODITY_EXPOSURE_BASKET_WEIGHT * basket_match) + (COMMODITY_EXPOSURE_ROLL_METHOD_WEIGHT * roll_method_match) + (COMMODITY_EXPOSURE_COLLATERAL_WEIGHT * collateral_structure_match))
 
 
 def _compute_structure_fit(definition: FactorDefinition, mapping: UcitsCandidateMapping) -> float:
@@ -253,7 +323,7 @@ def _compute_structure_fit(definition: FactorDefinition, mapping: UcitsCandidate
     distribution_fit = _distribution_fit_score(definition, mapping)
     ucits_fit = _ucits_fit_score(mapping)
     currency_share_class_fit = _currency_share_class_fit_score(mapping)
-    return _clamp((0.35 * hedge_status_fit) + (0.25 * distribution_fit) + (0.20 * ucits_fit) + (0.20 * currency_share_class_fit))
+    return _clamp((STRUCTURE_FIT_HEDGE_WEIGHT * hedge_status_fit) + (STRUCTURE_FIT_DISTRIBUTION_WEIGHT * distribution_fit) + (STRUCTURE_FIT_UCITS_WEIGHT * ucits_fit) + (STRUCTURE_FIT_CURRENCY_WEIGHT * currency_share_class_fit))
 
 
 def _compute_implementation_fit(definition: FactorDefinition, mapping: UcitsCandidateMapping) -> float:
@@ -261,7 +331,7 @@ def _compute_implementation_fit(definition: FactorDefinition, mapping: UcitsCand
     history_fit = _history_fit_score(definition, mapping)
     cost_fit = _cost_fit_score(definition, mapping)
     availability_fit = _availability_fit_score(definition, mapping)
-    return _clamp((0.40 * liquidity_fit) + (0.30 * history_fit) + (0.20 * cost_fit) + (0.10 * availability_fit))
+    return _clamp((IMPLEMENTATION_FIT_LIQUIDITY_WEIGHT * liquidity_fit) + (IMPLEMENTATION_FIT_HISTORY_WEIGHT * history_fit) + (IMPLEMENTATION_FIT_COST_WEIGHT * cost_fit) + (IMPLEMENTATION_FIT_AVAILABILITY_WEIGHT * availability_fit))
 
 
 def _apply_mapping_hard_caps(definition: FactorDefinition, mapping: UcitsCandidateMapping, raw_score_pct: float) -> tuple[float, str | None]:
@@ -272,20 +342,20 @@ def _apply_mapping_hard_caps(definition: FactorDefinition, mapping: UcitsCandida
 
     if asset_class == "equity":
         if not _contains_any(exposure, _equity_exposure_tokens(definition)):
-            cap, reason = 50.0, "region_or_market_mismatch"
+            cap, reason = MAPPING_HARD_CAP_REGION_MISMATCH, "region_or_market_mismatch"
     elif asset_class == "bond":
         if definition.key == "credit" and "corporate" not in exposure:
-            cap, reason = 45.0, "bond_credit_sleeve_mismatch"
+            cap, reason = MAPPING_HARD_CAP_CREDIT_SLEEVE_MISMATCH, "bond_credit_sleeve_mismatch"
         elif definition.key == "rates_tlt" and not _contains_any(exposure, ("20+", "20yr", "20+yr")):
-            cap, reason = 60.0, "bond_duration_bucket_mismatch"
+            cap, reason = MAPPING_HARD_CAP_DURATION_BUCKET_MISMATCH, "bond_duration_bucket_mismatch"
         elif definition.key == "rates_ief" and not _contains_any(exposure, ("7-10", "7-10yr", "7-10 year")):
-            cap, reason = 60.0, "bond_duration_bucket_mismatch"
+            cap, reason = MAPPING_HARD_CAP_DURATION_BUCKET_MISMATCH, "bond_duration_bucket_mismatch"
     elif asset_class == "commodity":
         if definition.key == "commodities" and "commodit" not in exposure:
-            cap, reason = 25.0, "asset_class_mismatch"
+            cap, reason = MAPPING_HARD_CAP_ASSET_CLASS_MISMATCH, "asset_class_mismatch"
 
     if definition.key in {"rates_ief", "rates_tlt"} and mapping.currency_hedged is True:
-        cap, reason = 70.0, "hedge_status_mismatch"
+        cap, reason = MAPPING_HARD_CAP_HEDGE_STATUS_MISMATCH, "hedge_status_mismatch"
 
     return (min(raw_score_pct, cap), reason) if cap is not None else (raw_score_pct, None)
 
@@ -293,13 +363,13 @@ def _apply_mapping_hard_caps(definition: FactorDefinition, mapping: UcitsCandida
 def _mapping_match_label(score_pct: float | None) -> str | None:
     if score_pct is None:
         return None
-    if score_pct >= 90:
+    if score_pct >= MAPPING_LABEL_EXACT_THRESHOLD:
         return "Exact / Best Match"
-    if score_pct >= 80:
+    if score_pct >= MAPPING_LABEL_STRONG_THRESHOLD:
         return "Strong Match"
-    if score_pct >= 65:
+    if score_pct >= MAPPING_LABEL_USABLE_THRESHOLD:
         return "Usable Proxy"
-    if score_pct >= 50:
+    if score_pct >= MAPPING_LABEL_LOOSE_THRESHOLD:
         return "Loose Proxy"
     return "Poor Match"
 
@@ -457,13 +527,7 @@ def _history_fit_score(definition: FactorDefinition, mapping: UcitsCandidateMapp
 
 
 def _cost_fit_score(definition: FactorDefinition, mapping: UcitsCandidateMapping) -> float:
-    quality_cost_map = {
-        "high": 0.90,
-        "medium-high": 0.78,
-        "medium": 0.62,
-        "low": 0.40,
-    }
-    return quality_cost_map.get(mapping.mapping_quality, 0.50)
+    return MAPPING_COST_FIT_SCORES.get(mapping.mapping_quality, MAPPING_COST_FIT_DEFAULT)
 
 
 def _availability_fit_score(definition: FactorDefinition, mapping: UcitsCandidateMapping) -> float:
@@ -1053,15 +1117,7 @@ def build_factor_exposures(
 
 
 def _mapping_quality_score(mapping_quality: str) -> float | None:
-    if mapping_quality == "high":
-        return 0.95
-    if mapping_quality == "medium-high":
-        return 0.82
-    if mapping_quality == "medium":
-        return 0.68
-    if mapping_quality == "low":
-        return 0.50
-    return None
+    return MAPPING_QUALITY_SCORES.get(mapping_quality)
 
 
 def _build_factor_registry_payload() -> list[FactorProxyDefinition]:
@@ -1259,9 +1315,9 @@ def _classify_volatility_regime(snapshot: VolatilitySnapshot) -> RegimeAssessmen
     percentile = snapshot.current_20d_vol_percentile
     if percentile is None:
         return RegimeAssessment(label="normal", confidence="low")
-    if percentile < 0.30:
+    if percentile < VOLATILITY_REGIME_CALM_MAX_PERCENTILE:
         label = "calm"
-    elif percentile <= 0.80:
+    elif percentile <= VOLATILITY_REGIME_NORMAL_MAX_PERCENTILE:
         label = "normal"
     else:
         label = "stressed"
@@ -1328,7 +1384,7 @@ def build_statistical_factor_model(daily_states: list, factor_histories: dict[st
     common_dates = sorted(set(portfolio_returns).intersection(*[set(values) for values in factor_returns.values() if values]))
     active_factors = [(factor, proxy) for factor, proxy in FACTOR_PROXY_MAP.items() if factor_returns.get(proxy)]
 
-    if len(common_dates) < 10 or not active_factors:
+    if len(common_dates) < FACTOR_MODEL_MIN_SHARED_OBSERVATIONS or not active_factors:
         empty_snapshot: list[SnapshotItem] = []
         return StatisticalFactorModel(
             status="insufficient_history",

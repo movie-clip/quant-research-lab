@@ -25,6 +25,7 @@ PRD: [`prd/epic-24-codebase-improvement.md`](../prd/epic-24-codebase-improvement
 | Story | Title | Scope | Status |
 |---|---|---|---|
 | [US-24.1](US-24.1-fix-hardcoded-year-ledger-filters.md) | Fix the hardcoded calendar-year ledger filters (latent bugs) | Remove the `year == 2025` filters in `activity.py` / `reconciliation.py` so non-2025 statements work; 2025 goldens unchanged | Done |
+| [US-24.2](US-24.2-extract-risk-model-rubric-constants.md) | Extract the risk-model scoring rubric & thresholds into named constants | Lift `risk.py` mapping-score weights / hard-caps / thresholds / regime cutoffs + the coverage threshold into documented constants; behaviour-neutral (goldens unchanged) | Done |
 
 ---
 

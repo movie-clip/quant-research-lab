@@ -312,6 +312,16 @@ Implementation:
 - `services/quant-engine/app/analytics/risk.py`
 - `factor_model_methodology()`
 
+Named policy constants (US-24.2): the model/classification thresholds live as
+named constants at the top of `risk.py` rather than inline literals —
+`FACTOR_MODEL_MIN_SHARED_OBSERVATIONS` (minimum shared daily-return observations
+to fit a model; below it the model is `insufficient_history`), the
+`VOLATILITY_REGIME_*_PERCENTILE` cutoffs (current-20d-vol percentile → calm /
+normal / stressed), and the factor→UCITS mapping-quality rubric weights/hard-caps/
+label thresholds. These are **documented policy/heuristic values, not academically
+derived** — tune them only as a reviewed change; no value changed in the US-24.2
+extraction (golden-master-pinned in `test_analytics.py`).
+
 ### Per-window orthogonalization (corrected methodology — US-9.4)
 
 Gram-Schmidt orthogonalization is performed **within each rolling window**, not

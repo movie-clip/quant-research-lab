@@ -72,7 +72,7 @@ surfaced value becomes a named, documented constant.
 | Story | Title | Status |
 |---|---|---|
 | US-24.1 | Fix hardcoded-year ledger filters (latent bugs) | Done |
-| US-24.2 | Extract the risk-model scoring rubric & thresholds | Backlog |
+| US-24.2 | Extract the risk-model scoring rubric & thresholds | Done |
 | US-24.3 | De-duplicate shared analytics constants | Backlog |
 | US-24.4 | Harden importer parsing + flow the ISIN gap | Backlog |
 | US-24.5 | Decouple broker format from the domain | Backlog |
@@ -87,6 +87,7 @@ the low-severity tail. Stories are authored via `write-story` as each is picked 
 
 | Date | Story | What shipped |
 |---|---|---|
+| 2026-06-19 | US-24.2 | **Extracted the risk-model scoring rubric & thresholds into named, documented constants** (behaviour-neutral). Lifted the factor→UCITS mapping-quality composite/sub-weights, hard-cap ceilings + reasons, `_mapping_match_label` thresholds, the `_mapping_quality_score`/`_cost_fit_score` quality maps, the volatility-regime percentile cutoffs, and the factor-model `FACTOR_MODEL_MIN_SHARED_OBSERVATIONS` floor into a documented `# ── Factor-mapping scoring rubric ──` constants block in `risk.py`; plus `BENCHMARK_HOLDINGS_VERIFIED_COVERAGE_PCT` in `exposure_engine.py`. Each constant carries a one-line rationale ("heuristic, no academic basis" where applicable — **no fabricated citations**). **Pin-tests-first discipline:** added 6 exact-value golden-master tests (`test_analytics.py`) capturing the *current* score_pcts/labels/hard-caps/regime-cutoffs/stress-projections/min-history before the extraction, so a transposed weight fails loudly. Behaviour-neutral — `dashboardGoldens.ts` untouched; 141 analytics+exposure tests green; full suite + dead-code gate green; tsc clean. The leaf per-token `_*_score` rubric literals stay inline (deferred, low value). Methodology doc + register updated. |
 | 2026-06-19 | US-24.1 | **Fixed the two hardcoded calendar-year `2025` latent bugs** (the register's only High-severity entries). Removed `if entry.date.year != 2025` from `analytics/activity.py` `build_activity_series` (which silently dropped every non-2025 ledger entry → empty activity for 2026+ statements) and `and candidate.date.year == 2025` from `analytics/reconciliation.py` `_negative_withholding_total` (which reconciled non-2025 withholding against `0`). Removal — not "derive the year" — because the snapshot ledger is already period-scoped and the sibling reconciliation actuals (dividends/fees/interest/deposits) never year-filtered; the `%Y-%m` bucketing handles any span. **Behaviour-neutral for 2025** (all-2025 fixtures → identical output; `dashboardGoldens.ts` untouched). Added 4 `test_analytics.py` regressions (2026 non-empty activity, 2025-unchanged pin, 2026 withholding reconciles, multi-year span). Methodology doc gained a "Statement reconciliation & activity scoping" rule; register rows marked Resolved. Full suite + dead-code gate green; tsc clean. |
 
 ---

@@ -27,6 +27,11 @@ from app.services.portfolio_snapshot_builder import build_imported_snapshot_from
 
 EXPOSURE_DATASET_VERSION = "market_data_service_v1"
 
+# Benchmark-holdings coverage threshold (US-24.2): the loaded constituent weight
+# (sum of weightPercentage) must reach this % for the benchmark-holdings status to
+# be "verified"; below it (but > 0) the status degrades. Heuristic policy value.
+BENCHMARK_HOLDINGS_VERIFIED_COVERAGE_PCT = 99.0
+
 
 def build_snapshot_from_exposure_request(request: PortfolioEngineRequest) -> ImportedPortfolioSnapshot:
     return build_imported_snapshot_from_request(request)
@@ -248,4 +253,4 @@ def _classify_benchmark_holdings_support(benchmark_holdings: list[dict]) -> Lite
     if loaded_weight <= 0:
         return "unavailable"
 
-    return "verified" if loaded_weight >= 99.0 else "degraded"
+    return "verified" if loaded_weight >= BENCHMARK_HOLDINGS_VERIFIED_COVERAGE_PCT else "degraded"
