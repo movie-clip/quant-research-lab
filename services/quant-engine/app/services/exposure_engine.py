@@ -1,5 +1,6 @@
 from typing import Literal
 
+from app.core.constants import DEFAULT_BENCHMARK_SYMBOL
 from app.analytics.portfolio_imports import build_portfolio_overview
 from app.analytics.risk import (
     build_lookthrough_exposure,
@@ -38,7 +39,7 @@ def build_snapshot_from_exposure_request(request: PortfolioEngineRequest) -> Imp
 
 
 def build_exposure_result(snapshot: ImportedPortfolioSnapshot, benchmark_symbol: str, symbol_overrides: dict[str, list[str]] | None = None) -> ExposureResult:
-    benchmark_symbol = benchmark_symbol or 'SPY'
+    benchmark_symbol = benchmark_symbol or DEFAULT_BENCHMARK_SYMBOL
     symbol_overrides = symbol_overrides or {}
     overview = build_portfolio_overview(snapshot)
 

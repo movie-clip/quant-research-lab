@@ -15,20 +15,14 @@ engine (which carries no ledger history).
 """
 from __future__ import annotations
 
-import math
 from datetime import date, timedelta
 
 from app.analytics.attribution import build_factor_attribution, _unavailable_response
 from app.analytics.risk import FACTOR_PROXY_MAP
 from app.schemas.attribution import FactorAttributionRequest, FactorAttributionResponse
+from app.core.constants import lookback_calendar_days
 from app.services.diagnostics_engine import _build_synthetic_snapshot_history_states
 from app.services.market_data import MarketDataService
-
-# Calendar-day lookback per trading-day count.  We multiply by 1.6 and add a
-# 30-day buffer to safely cover weekends, public holidays, and thin trading
-# periods.
-def _lookback_calendar_days(window: int) -> int:
-    return math.ceil(window * 1.6) + 30
 
 
 # Target span (trading days) of the cumulative-attribution time series shown on
@@ -45,7 +39,7 @@ def run_attribution_engine(request: FactorAttributionRequest) -> FactorAttributi
 
     Builds synthetic daily portfolio states (current holdings held constant
     backward in time) from market prices fetched over the last
-    _lookback_calendar_days(window) calendar days, then delegates to
+    lookback_calendar_days(window) calendar days, then delegates to
     build_factor_attribution().
 
     Returns attribution_status="unavailable" when:
@@ -70,7 +64,7 @@ def run_attribution_engine(request: FactorAttributionRequest) -> FactorAttributi
     # each rolling beta estimate uses, not how far back the chart starts).
     fetch_trading_days = ATTRIBUTION_DISPLAY_TRADING_DAYS + window
     history_start_date = (
-        date.today() - timedelta(days=_lookback_calendar_days(fetch_trading_days))
+        date.today() - timedelta(days=lookback_calendar_days(fetch_trading_days))
     ).isoformat()
 
     market_data = MarketDataService()

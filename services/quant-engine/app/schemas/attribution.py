@@ -4,13 +4,14 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.core.constants import DEFAULT_BENCHMARK_SYMBOL
 from app.schemas.imports import ImportedPortfolioSnapshot
 
 
 class FactorAttributionRequest(BaseModel):
     snapshot: ImportedPortfolioSnapshot
     window: Literal[20, 60, 252] = 60
-    benchmark_symbol: str = "SPY"
+    benchmark_symbol: str = DEFAULT_BENCHMARK_SYMBOL
 
 
 class FactorContributionPoint(BaseModel):

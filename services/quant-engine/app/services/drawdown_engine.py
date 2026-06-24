@@ -11,9 +11,9 @@ identification in docs/finance/financial-methodology.md.
 """
 from __future__ import annotations
 
-import math
 from datetime import date, timedelta
 
+from app.core.constants import DEFAULT_BENCHMARK_SYMBOL, MIN_DAILY_OBSERVATIONS, lookback_calendar_days
 from app.analytics.drawdown import (
     build_underwater_series,
     current_drawdown_pct,
@@ -28,11 +28,6 @@ from app.services.market_data import MarketDataService
 from app.services.portfolio_snapshot_builder import build_imported_snapshot_from_request
 
 
-# Minimum observations to compute a meaningful underwater curve. Matches the
-# correlation engine threshold and the methodology contract — fewer than this
-# yields trust='unavailable', never a degenerate curve.
-_MIN_OBSERVATIONS = 20
-
 # Cap on calendar-day fetch when the request specifies window=None ("Max").
 # 3000 days ≈ 8.2 years. Beyond this, factor stability concerns outweigh the
 # value of more data, and FMP cache misses become common. Kept as a module
@@ -41,15 +36,6 @@ _MAX_LOOKBACK_CALENDAR_DAYS = 3000
 
 # Top-N drawdown episodes shown in the UI. Fixed at 5 per US-13.2 scope.
 _TOP_N_EPISODES = 5
-
-
-def _lookback_calendar_days(window: int) -> int:
-    """Mirror of attribution_engine._lookback_calendar_days.
-
-    calendar_days = ceil(window * 1.6) + 30 — empirically covers weekends,
-    public holidays, and thin trading periods.
-    """
-    return math.ceil(window * 1.6) + 30
 
 
 def _empty_response(window_trading_days: int | None) -> DrawdownEngineResponse:
@@ -97,7 +83,7 @@ def run_drawdown_engine(request: DrawdownEngineRequest) -> DrawdownEngineRespons
     Returns trust='unavailable' when:
       - request has no positions
       - market data cannot be fetched for the lookback period
-      - fewer than _MIN_OBSERVATIONS daily underwater points result
+      - fewer than MIN_DAILY_OBSERVATIONS daily underwater points result
     """
     window = request.window_trading_days  # 252 | 756 | 1260 | None
 
@@ -111,11 +97,11 @@ def run_drawdown_engine(request: DrawdownEngineRequest) -> DrawdownEngineRespons
     if window is None:
         history_start = (today - timedelta(days=_MAX_LOOKBACK_CALENDAR_DAYS)).isoformat()
     else:
-        history_start = (today - timedelta(days=_lookback_calendar_days(window))).isoformat()
+        history_start = (today - timedelta(days=lookback_calendar_days(window))).isoformat()
     history_end = today.isoformat()
 
     market_data = MarketDataService()
-    benchmark_symbol = request.benchmark_symbol or "SPY"
+    benchmark_symbol = request.benchmark_symbol or DEFAULT_BENCHMARK_SYMBOL
     benchmark_rows = market_data.get_historical_prices(
         benchmark_symbol, history_start, history_end,
     )
@@ -134,13 +120,13 @@ def run_drawdown_engine(request: DrawdownEngineRequest) -> DrawdownEngineRespons
     )
 
     daily_returns = _compute_daily_returns(daily_states)
-    if len(daily_returns) < _MIN_OBSERVATIONS:
+    if len(daily_returns) < MIN_DAILY_OBSERVATIONS:
         return _empty_response(window)
 
     wealth_index = _build_wealth_index(daily_returns)
     underwater = build_underwater_series(wealth_index)
 
-    if len(underwater) < _MIN_OBSERVATIONS:
+    if len(underwater) < MIN_DAILY_OBSERVATIONS:
         return _empty_response(window)
 
     episodes = identify_drawdown_episodes(underwater, top_n=_TOP_N_EPISODES)

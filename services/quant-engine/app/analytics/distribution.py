@@ -15,12 +15,9 @@ from __future__ import annotations
 
 import statistics
 
+from app.core.constants import MIN_DAILY_OBSERVATIONS
 from app.schemas.distribution import HistogramBin
 
-
-# Minimum observations. Matches correlation engine threshold + methodology
-# Contract rule ("len(r) < 20: every metric returns null").
-_MIN_OBSERVATIONS = 20
 
 # Histogram default. Methodology: "bins = 30 (default)".
 _DEFAULT_HISTOGRAM_BINS = 30
@@ -57,10 +54,10 @@ def compute_percentiles(returns: list[float]) -> dict[str, float | None]:
     """Compute the canonical 5 percentiles (5 / 10 / 50 / 90 / 95).
 
     Returns a dict with string keys (matching the schema-field naming
-    convention). All values None when `len(returns) < _MIN_OBSERVATIONS`.
+    convention). All values None when `len(returns) < MIN_DAILY_OBSERVATIONS`.
     """
     keys = ("5", "10", "50", "90", "95")
-    if len(returns) < _MIN_OBSERVATIONS:
+    if len(returns) < MIN_DAILY_OBSERVATIONS:
         return {k: None for k in keys}
     sorted_returns = sorted(returns)
     return {
@@ -80,14 +77,14 @@ def compute_var(returns: list[float], confidence: float) -> float | None:
 
     VaR_α = -quantile(returns, 1 - α) * 100   (positive = loss in percent)
 
-    Returns None when `len(returns) < _MIN_OBSERVATIONS`.
+    Returns None when `len(returns) < MIN_DAILY_OBSERVATIONS`.
 
     NEVER clipped to a positive number — a NEGATIVE VaR is a meaningful
     signal that the window contained no loss days at the requested
     confidence ("the tail day was still positive"). Methodology Contract
     rule.
     """
-    if len(returns) < _MIN_OBSERVATIONS:
+    if len(returns) < MIN_DAILY_OBSERVATIONS:
         return None
     sorted_returns = sorted(returns)
     threshold = _quantile_linear(sorted_returns, 1.0 - confidence)
@@ -104,10 +101,10 @@ def compute_cvar(returns: list[float], confidence: float) -> float | None:
     (positive = loss in percent)
 
     Returns None when:
-      - `len(returns) < _MIN_OBSERVATIONS`
+      - `len(returns) < MIN_DAILY_OBSERVATIONS`
       - the tail (returns ≤ the quantile) contains fewer than 2 elements
     """
-    if len(returns) < _MIN_OBSERVATIONS:
+    if len(returns) < MIN_DAILY_OBSERVATIONS:
         return None
     sorted_returns = sorted(returns)
     threshold = _quantile_linear(sorted_returns, 1.0 - confidence)
@@ -127,7 +124,7 @@ def compute_distribution_shape(returns: list[float]) -> dict[str, float | None]:
       mean_pct, std_pct, skewness, kurtosis_excess
 
     Edge cases:
-      - len(returns) < _MIN_OBSERVATIONS: all four fields None
+      - len(returns) < MIN_DAILY_OBSERVATIONS: all four fields None
       - std == 0 (constant series): mean_pct and std_pct computed normally;
         skewness and kurtosis_excess return None
 
@@ -139,7 +136,7 @@ def compute_distribution_shape(returns: list[float]) -> dict[str, float | None]:
       kurtosis  = m_4 / m_2^2 - 3          (EXCESS, Fisher convention)
     """
     keys = ("mean_pct", "std_pct", "skewness", "kurtosis_excess")
-    if len(returns) < _MIN_OBSERVATIONS:
+    if len(returns) < MIN_DAILY_OBSERVATIONS:
         return {k: None for k in keys}
 
     mean = statistics.mean(returns)
@@ -186,14 +183,14 @@ def compute_histogram(
     the UI multiplies by 100 for display). The sum of `count` across all
     bins equals `len(returns)`.
 
-    Returns an empty list when `len(returns) < _MIN_OBSERVATIONS`.
+    Returns an empty list when `len(returns) < MIN_DAILY_OBSERVATIONS`.
 
     All values fall inside [min(returns), max(returns)]. The bin
     assignment uses half-open intervals [edge_i, edge_{i+1}) for all bins
     EXCEPT the last, which uses [edge_n-1, edge_n] (closed) so the max
     value lands in the final bin (matches numpy.histogram behaviour).
     """
-    if len(returns) < _MIN_OBSERVATIONS:
+    if len(returns) < MIN_DAILY_OBSERVATIONS:
         return []
 
     lo = min(returns)

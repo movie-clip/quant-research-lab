@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.core.constants import DEFAULT_BENCHMARK_SYMBOL
+
 
 LedgerEntryType = Literal[
     "BUY",
@@ -116,7 +118,7 @@ class SnapshotAnalysisCashBalance(BaseModel):
 
 
 class SnapshotAnalysisRequest(BaseModel):
-    benchmark_symbol: str = 'SPY'
+    benchmark_symbol: str = DEFAULT_BENCHMARK_SYMBOL
     base_currency: str | None = None
     statement_period: str | None = None
     imported_at: datetime | None = None

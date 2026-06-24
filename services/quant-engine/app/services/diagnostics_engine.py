@@ -1,5 +1,6 @@
 from typing import Literal
 
+from app.core.constants import DEFAULT_BENCHMARK_SYMBOL
 from app.analytics.risk import (
     COLLINEARITY_WARNING_THRESHOLD,
     FACTOR_PROXY_MAP,
@@ -800,14 +801,14 @@ def run_imported_diagnostics_engine(snapshot: ImportedPortfolioSnapshot, benchma
     if not history_dates:
         return build_unavailable_diagnostics_result(
             snapshot,
-            benchmark_symbol or 'SPY',
+            benchmark_symbol or DEFAULT_BENCHMARK_SYMBOL,
             snapshot_basis="imported_snapshot",
             reason="missing_imported_history_path",
         )
 
     history_start_date = min(history_dates)
     history_end_date = max(history_dates)
-    resolved_benchmark_symbol = benchmark_symbol or 'SPY'
+    resolved_benchmark_symbol = benchmark_symbol or DEFAULT_BENCHMARK_SYMBOL
     return _run_diagnostics_with_history(
         snapshot=snapshot,
         benchmark_symbol=resolved_benchmark_symbol,

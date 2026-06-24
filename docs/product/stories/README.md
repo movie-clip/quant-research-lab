@@ -26,6 +26,7 @@ PRD: [`prd/epic-24-codebase-improvement.md`](../prd/epic-24-codebase-improvement
 |---|---|---|---|
 | [US-24.1](US-24.1-fix-hardcoded-year-ledger-filters.md) | Fix the hardcoded calendar-year ledger filters (latent bugs) | Remove the `year == 2025` filters in `activity.py` / `reconciliation.py` so non-2025 statements work; 2025 goldens unchanged | Done |
 | [US-24.2](US-24.2-extract-risk-model-rubric-constants.md) | Extract the risk-model scoring rubric & thresholds into named constants | Lift `risk.py` mapping-score weights / hard-caps / thresholds / regime cutoffs + the coverage threshold into documented constants; behaviour-neutral (goldens unchanged) | Done |
+| [US-24.3](US-24.3-dedupe-shared-analytics-constants.md) | De-duplicate the shared analytics constants & lookback helper | One shared `app/core/constants.py` for `lookback_calendar_days` / `MIN_DAILY_OBSERVATIONS` / `DEFAULT_BENCHMARK_SYMBOL`; behaviour-neutral (goldens unchanged) | Done |
 
 ---
 

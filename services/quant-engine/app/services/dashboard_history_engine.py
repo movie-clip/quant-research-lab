@@ -1,5 +1,6 @@
 from typing import TypedDict, cast
 
+from app.core.constants import DEFAULT_BENCHMARK_SYMBOL
 from app.analytics.performance import build_daily_portfolio_states, build_true_performance_series
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.dashboard_history import (
@@ -379,7 +380,7 @@ def _withhold_benchmark_return_series(performance_series):
 
 def run_dashboard_history_engine(request: DashboardHistoryEngineRequest) -> DashboardHistoryResult:
     history_context = request.history_context
-    benchmark_symbol = request.benchmark_symbol or "SPY"
+    benchmark_symbol = request.benchmark_symbol or DEFAULT_BENCHMARK_SYMBOL
 
     if history_context is None or not history_context.history_start_date or not history_context.history_end_date:
         return _build_unavailable_dashboard_history_result(
@@ -410,7 +411,7 @@ def run_imported_dashboard_history(
     # don't depend on the live FMP cache. Production callers leave it None and
     # get a live MarketDataService.
     history_start_date, history_end_date = _derive_imported_history_window(snapshot)
-    resolved_benchmark_symbol = benchmark_symbol or "SPY"
+    resolved_benchmark_symbol = benchmark_symbol or DEFAULT_BENCHMARK_SYMBOL
     if not history_start_date or not history_end_date:
         return _build_unavailable_dashboard_history_result(
             input_imported_at=snapshot.statement.imported_at.isoformat() if snapshot.statement.imported_at is not None else None,

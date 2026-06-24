@@ -21,9 +21,9 @@ Formula (see docs/finance/financial-methodology.md §Multi-Benchmark Correlation
 """
 from __future__ import annotations
 
-import math
 from datetime import date, timedelta
 
+from app.core.constants import MIN_DAILY_OBSERVATIONS, lookback_calendar_days
 from app.analytics.correlation import beta as compute_beta
 from app.analytics.correlation import pearson as compute_pearson
 from app.analytics.correlation import r_squared as compute_r_squared
@@ -45,18 +45,6 @@ BENCHMARK_UNIVERSE: list[tuple[str, str]] = [
     ("VT",  "Global Equity"),
 ]
 
-# Minimum overlapping trading-day returns needed to produce a non-null result.
-_MIN_OBSERVATIONS = 20
-
-
-def _lookback_calendar_days(lookback_trading_days: int) -> int:
-    """Convert a trading-day lookback to a calendar-day fetch window.
-
-    Multiplies by 1.6 and adds a 30-day buffer to absorb weekends,
-    public holidays, and thin trading periods — same heuristic as the
-    attribution engine.
-    """
-    return math.ceil(lookback_trading_days * 1.6) + 30
 
 
 def _returns_from_price_series(price_by_date: dict[str, float], dates: list[str]) -> dict[str, float | None]:
@@ -81,7 +69,7 @@ def run_multi_benchmark_correlation(
 
     Returns MultiBenchmarkCorrelationResult with a BenchmarkStats row for each
     of the five benchmark proxies.  Individual fields are None when:
-    - fewer than _MIN_OBSERVATIONS overlapping trading days are available
+    - fewer than MIN_DAILY_OBSERVATIONS overlapping trading days are available
     - benchmark or portfolio price history cannot be fetched
     - portfolio has no positions
 
@@ -111,7 +99,7 @@ def run_multi_benchmark_correlation(
 
     history_end = date.today().isoformat()
     history_start = (
-        date.today() - timedelta(days=_lookback_calendar_days(lookback_days))
+        date.today() - timedelta(days=lookback_calendar_days(lookback_days))
     ).isoformat()
 
     market_data = MarketDataService()
@@ -180,7 +168,7 @@ def run_multi_benchmark_correlation(
         r_p = [portfolio_returns_by_date[d] for d in common_dates]
         r_b = [bench_returns_by_date[d] for d in common_dates]
 
-        if len(common_dates) < _MIN_OBSERVATIONS:
+        if len(common_dates) < MIN_DAILY_OBSERVATIONS:
             benchmark_stats.append(BenchmarkStats(
                 symbol=sym, label=label,
                 correlation=None, beta=None, r_squared=None,
@@ -189,7 +177,7 @@ def run_multi_benchmark_correlation(
             continue
 
         corr = compute_pearson(r_p, r_b)
-        b = compute_beta(r_p, r_b, min_observations=_MIN_OBSERVATIONS)
+        b = compute_beta(r_p, r_b, min_observations=MIN_DAILY_OBSERVATIONS)
         r2 = compute_r_squared(r_p, r_b)
 
         trust = "unavailable" if (corr is None and b is None and r2 is None) else "synthetic"
