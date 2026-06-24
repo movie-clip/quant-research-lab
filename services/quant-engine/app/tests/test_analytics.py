@@ -17,6 +17,7 @@ from app.analytics.portfolio_imports import (
 from app.analytics.risk import DEFAULT_FACTOR_DEFINITIONS, build_etf_overlap_pairs, build_factor_exposures, build_factor_registry, build_factor_shift_diagnostics, build_lookthrough_exposure, build_lookthrough_sector_exposure, build_market_overlap_summary, build_model_reliability_snapshot, build_portfolio_risk_summary, build_relative_risk_summary, build_risk_contribution_breakdown, build_rolling_risk_series, build_statistical_factor_model, build_stress_scenarios, build_volatility_regime_payload, is_history_series_verified_adjusted, select_history_price_series, selected_history_price_map
 from app.analytics.risk import apply_return_basis_status_to_factor_model, apply_return_basis_status_to_model_reliability
 from app.analytics.risk import _apply_mapping_hard_caps, _classify_volatility_regime, _mapping_match_label
+from app.core.constants import DEFAULT_BENCHMARK_SYMBOL, MIN_DAILY_OBSERVATIONS, lookback_calendar_days
 from app.core.symbols import canonicalize_symbol
 from app.domain.ledger import reconstruct_position_lots, snapshot_to_ledger
 from app.engine.portfolio_state import PortfolioStateEngine
@@ -5488,6 +5489,28 @@ def test_factor_model_minimum_shared_history_is_pinned() -> None:
 
     assert status_for(10) == "insufficient_history"   # 9 shared return dates < minimum
     assert status_for(11) != "insufficient_history"   # 10 shared return dates >= minimum
+
+
+# ── US-24.3: shared analytics constants (single source of truth) ──────────────
+
+def test_shared_lookback_calendar_days_values() -> None:
+    # ceil(window * 1.6) + 30 — the one heuristic the engines all share.
+    assert lookback_calendar_days(20) == 62
+    assert lookback_calendar_days(60) == 126
+    assert lookback_calendar_days(252) == 434
+
+
+def test_shared_constants_values() -> None:
+    assert MIN_DAILY_OBSERVATIONS == 20
+    assert DEFAULT_BENCHMARK_SYMBOL == "SPY"
+
+
+def test_schema_benchmark_default_still_serializes_to_spy() -> None:
+    # AC4: the field default now references DEFAULT_BENCHMARK_SYMBOL but the
+    # serialized contract default is unchanged.
+    from app.schemas.imports import SnapshotAnalysisRequest
+
+    assert SnapshotAnalysisRequest().benchmark_symbol == "SPY"
 
 
 def test_rebalance_trade_application_updates_state() -> None:

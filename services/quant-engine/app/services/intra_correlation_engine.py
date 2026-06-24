@@ -9,7 +9,7 @@ simple price return of its symbol over the window (current holdings applied to
 historical prices).  Results are never labelled "verified".
 
 Reuses the existing synthetic-history plumbing from correlation_engine.py
-(`_returns_from_price_series`, `_lookback_calendar_days`) and the pure
+(`_returns_from_price_series`, the shared `lookback_calendar_days`) and the pure
 analytics in analytics/correlation.py (`pearson` via `pairwise_correlation_matrix`).
 
 See docs/finance/financial-methodology.md §Intra-Portfolio Correlation.
@@ -30,16 +30,9 @@ from app.schemas.intra_correlation import (
     IntraCorrelationResult,
     PairStat,
 )
-from app.services.correlation_engine import (
-    _lookback_calendar_days,
-    _returns_from_price_series,
-)
+from app.core.constants import MIN_DAILY_OBSERVATIONS, lookback_calendar_days
+from app.services.correlation_engine import _returns_from_price_series
 from app.services.market_data import MarketDataService
-
-# Minimum overlapping trading-day returns needed for a non-null pair / a
-# holding to count as having "sufficient history".  Matches the multi-benchmark
-# engine's threshold.
-_MIN_OBSERVATIONS = 20
 
 
 def _extreme_pairs(
@@ -105,7 +98,7 @@ def run_intra_correlation(request: IntraCorrelationRequest) -> IntraCorrelationR
 
     history_end = date.today().isoformat()
     history_start = (
-        date.today() - timedelta(days=_lookback_calendar_days(lookback_days))
+        date.today() - timedelta(days=lookback_calendar_days(lookback_days))
     ).isoformat()
 
     market_data = MarketDataService()
@@ -135,7 +128,7 @@ def run_intra_correlation(request: IntraCorrelationRequest) -> IntraCorrelationR
         ret_by_date = _returns_from_price_series(price_by_date, valuation_dates)
         series = [ret_by_date.get(d) for d in valuation_dates]
         non_null = sum(1 for r in series if r is not None)
-        if non_null < _MIN_OBSERVATIONS:
+        if non_null < MIN_DAILY_OBSERVATIONS:
             excluded_symbols.append(sym)
             continue
         returns_by_symbol[sym] = series
@@ -156,7 +149,7 @@ def run_intra_correlation(request: IntraCorrelationRequest) -> IntraCorrelationR
         return _unavailable(excluded_symbols)
 
     matrix = pairwise_correlation_matrix(
-        returns_by_symbol, selected, min_observations=_MIN_OBSERVATIONS
+        returns_by_symbol, selected, min_observations=MIN_DAILY_OBSERVATIONS
     )
     avg = average_pairwise_correlation(matrix)
     most, least = _extreme_pairs(matrix, selected)
@@ -185,7 +178,7 @@ def run_intra_correlation(request: IntraCorrelationRequest) -> IntraCorrelationR
             portfolio_returns.append(None)
     non_null_portfolio = sum(1 for r in portfolio_returns if r is not None)
     portfolio_stdev = (
-        population_stdev(portfolio_returns) if non_null_portfolio >= _MIN_OBSERVATIONS else None
+        population_stdev(portfolio_returns) if non_null_portfolio >= MIN_DAILY_OBSERVATIONS else None
     )
 
     dr = diversification_ratio(weights, sigmas, portfolio_stdev)

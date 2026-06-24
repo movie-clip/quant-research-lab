@@ -24,6 +24,8 @@ from __future__ import annotations
 import math
 from typing import Sequence
 
+from app.core.constants import MIN_DAILY_OBSERVATIONS
+
 
 def pearson(
     r_p: Sequence[float | None],
@@ -67,7 +69,7 @@ def pearson(
 def beta(
     r_p: Sequence[float | None],
     r_b: Sequence[float | None],
-    min_observations: int = 20,
+    min_observations: int = MIN_DAILY_OBSERVATIONS,
 ) -> float | None:
     """Portfolio beta vs benchmark.
 
@@ -120,7 +122,7 @@ def r_squared(
 def pairwise_correlation_matrix(
     returns_by_symbol: dict[str, Sequence[float | None]],
     symbols: Sequence[str],
-    min_observations: int = 20,
+    min_observations: int = MIN_DAILY_OBSERVATIONS,
 ) -> list[list[float | None]]:
     """Symmetric holdings × holdings Pearson correlation matrix.
 

@@ -12,9 +12,9 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
+from app.core.constants import lookback_calendar_days
 from app.core.symbols import canonicalize_symbol
 from app.schemas.provenance import HoldingProvenance, ProvenanceRequest, ProvenanceResult
-from app.services.correlation_engine import _lookback_calendar_days
 from app.services.instrument_identity import detect_instrument_identity_mismatches
 from app.services.market_data import MarketDataService
 
@@ -39,7 +39,7 @@ def run_provenance(request: ProvenanceRequest) -> ProvenanceResult:
         )
 
     history_end = date.today().isoformat()
-    history_start = (date.today() - timedelta(days=_lookback_calendar_days(lookback_days))).isoformat()
+    history_start = (date.today() - timedelta(days=lookback_calendar_days(lookback_days))).isoformat()
     market_data = MarketDataService()
 
     holdings: list[HoldingProvenance] = []

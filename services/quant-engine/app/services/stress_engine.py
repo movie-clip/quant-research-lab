@@ -12,9 +12,9 @@ Methodology: see §Stress Scenarios in docs/finance/financial-methodology.md
 """
 from __future__ import annotations
 
-import math
 from datetime import date, timedelta
 
+from app.core.constants import DEFAULT_BENCHMARK_SYMBOL, lookback_calendar_days
 from app.analytics.risk import (
     FACTOR_PROXY_MAP,
     STRESS_SCENARIOS,
@@ -28,12 +28,10 @@ from app.services.market_data import MarketDataService
 from app.services.portfolio_snapshot_builder import build_imported_snapshot_from_request
 
 
-# Stress needs enough history for the 252-day rolling factor model to
-# produce stable loadings. Mirror the attribution-engine heuristic:
-#   calendar_days = ceil(window * 1.6) + 30
-# at window = 252 trading days → ~434 calendar days. Round up to ~14
-# months for safety.
-_STRESS_LOOKBACK_CALENDAR_DAYS = math.ceil(252 * 1.6) + 30
+# Stress needs enough history for the 252-day rolling factor model to produce
+# stable loadings; use the shared lookback heuristic at the 252-day window
+# (→ ~434 calendar days).
+_STRESS_LOOKBACK_CALENDAR_DAYS = lookback_calendar_days(252)
 
 
 def _build_unavailable_scenarios() -> list[StressScenarioResult]:
@@ -61,7 +59,7 @@ def _has_any_factor_loading(model) -> bool:
 
 def run_stress_engine(request: StressEngineRequest) -> StressEngineResponse:
     snapshot = build_imported_snapshot_from_request(request)
-    benchmark_symbol = request.benchmark_symbol or "SPY"
+    benchmark_symbol = request.benchmark_symbol or DEFAULT_BENCHMARK_SYMBOL
 
     # Empty portfolio: factor model cannot be fit; return unavailable
     # without burning a market-data fetch.

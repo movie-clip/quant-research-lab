@@ -843,7 +843,8 @@ Implementation:
 - `services/quant-engine/app/services/intra_correlation_engine.py` — orchestrates
   market-data fetch, per-symbol return series, matrix + summary assembly; derives
   σ_p from the constant-weight portfolio return series (Σ w_i r_i). Reuses
-  `_returns_from_price_series` and `_lookback_calendar_days` from `correlation_engine.py`
+  `_returns_from_price_series` from `correlation_engine.py` and the shared
+  `lookback_calendar_days` helper from `app/core/constants.py`
 - `POST /engines/correlation/intra` — route
 
 Contract rule:
@@ -990,7 +991,11 @@ r_t = (wealth_t - external_cash_flow_t) / wealth_{t-1} - 1
   cash-flow-neutral, consistent with §Portfolio Return Methodology.
   series r computed over the lookback window w trading days.
   w ∈ {60, 252, 504}; default w = 252.
-  calendar-day fetch = ceil(w * 1.6) + 30   (project standard heuristic)
+  calendar-day fetch = ceil(w * 1.6) + 30   (project standard heuristic;
+    the single `lookback_calendar_days` helper in `app/core/constants.py`, shared
+    by the attribution / correlation / distribution / drawdown / stress / provenance
+    engines — US-24.3. The flat 20-observation `unavailable` floor is the shared
+    `MIN_DAILY_OBSERVATIONS`; the default benchmark is `DEFAULT_BENCHMARK_SYMBOL`.)
 ```
 
 ### Percentiles

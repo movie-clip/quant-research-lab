@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Literal
 
+from app.core.constants import DEFAULT_BENCHMARK_SYMBOL
 from app.analytics.performance import build_daily_portfolio_states
 from app.analytics.risk import selected_history_price_map
 from app.schemas.drift import DriftEngineRequest, DriftResult, DriftWindow, DriftDailyPoint
@@ -77,7 +78,7 @@ def _build_daily_series(daily_states: list, benchmark_rows: list[dict]) -> list[
 
 def run_drift_engine(request: DriftEngineRequest) -> DriftResult:
     snapshot = build_imported_snapshot_from_request(request)
-    benchmark_symbol = request.benchmark_symbol or "SPY"
+    benchmark_symbol = request.benchmark_symbol or DEFAULT_BENCHMARK_SYMBOL
     market_data = MarketDataService()
 
     today = date.today()

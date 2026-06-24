@@ -11,9 +11,9 @@ docs/finance/financial-methodology.md.
 """
 from __future__ import annotations
 
-import math
 from datetime import date, timedelta
 
+from app.core.constants import DEFAULT_BENCHMARK_SYMBOL, MIN_DAILY_OBSERVATIONS, lookback_calendar_days
 from app.analytics.distribution import (
     compute_cvar,
     compute_distribution_shape,
@@ -25,22 +25,6 @@ from app.schemas.distribution import DistributionEngineRequest, DistributionEngi
 from app.services.diagnostics_engine import _build_synthetic_snapshot_history_states
 from app.services.market_data import MarketDataService
 from app.services.portfolio_snapshot_builder import build_imported_snapshot_from_request
-
-
-# Minimum observations to compute meaningful distribution statistics.
-# Matches the analytics module's threshold and the correlation engine
-# precedent — fewer than this yields trust='unavailable', never a
-# degenerate VaR.
-_MIN_OBSERVATIONS = 20
-
-
-def _lookback_calendar_days(window: int) -> int:
-    """Mirror of attribution_engine._lookback_calendar_days.
-
-    calendar_days = ceil(window * 1.6) + 30 — empirically covers weekends,
-    public holidays, and thin trading periods.
-    """
-    return math.ceil(window * 1.6) + 30
 
 
 def _empty_response(window: int) -> DistributionEngineResponse:
@@ -98,7 +82,7 @@ def run_distribution_engine(request: DistributionEngineRequest) -> DistributionE
     Returns trust='unavailable' when:
       - request has no positions
       - market data cannot be fetched for the lookback period
-      - fewer than _MIN_OBSERVATIONS daily returns result
+      - fewer than MIN_DAILY_OBSERVATIONS daily returns result
 
     Sanity invariant: cvar_95 ≥ var_95 (CVaR ≥ VaR by construction, Acerbi
     & Tasche). If violated, raises rather than emitting inconsistent data
@@ -113,11 +97,11 @@ def run_distribution_engine(request: DistributionEngineRequest) -> DistributionE
     snapshot = build_imported_snapshot_from_request(request)
 
     today = date.today()
-    history_start = (today - timedelta(days=_lookback_calendar_days(window))).isoformat()
+    history_start = (today - timedelta(days=lookback_calendar_days(window))).isoformat()
     history_end = today.isoformat()
 
     market_data = MarketDataService()
-    benchmark_symbol = request.benchmark_symbol or "SPY"
+    benchmark_symbol = request.benchmark_symbol or DEFAULT_BENCHMARK_SYMBOL
     benchmark_rows = market_data.get_historical_prices(
         benchmark_symbol, history_start, history_end,
     )
@@ -136,7 +120,7 @@ def run_distribution_engine(request: DistributionEngineRequest) -> DistributionE
     )
 
     returns = _compute_daily_returns(daily_states)
-    if len(returns) < _MIN_OBSERVATIONS:
+    if len(returns) < MIN_DAILY_OBSERVATIONS:
         return _empty_response(window)
 
     percentiles = compute_percentiles(returns)
