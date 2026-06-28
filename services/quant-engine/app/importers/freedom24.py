@@ -28,6 +28,20 @@ class Freedom24Preview:
 
 GROUPED_ENTRY_DAY = 1
 
+# ── Freedom24 statement format constants (US-24.4) ────────────────────────────
+# The Freedom24 PDF parser walks fixed page + line offsets; these name the format
+# assumptions that were previously inline literals across the parsers.
+_KNOWN_CURRENCIES = {"USD", "EUR", "GBP"}   # currencies that appear inline in the PDF
+_DEFAULT_CURRENCY = "USD"                   # assumed when a row omits its currency
+_US_SUFFIX = ".US"                          # Freedom24 appends this to US tickers (VTI.US → VTI)
+
+# Per-section page index within the extracted page-text list.
+_PAGE_POSITIONS = 3
+_PAGE_CASH_MOVEMENTS = 4
+_PAGE_TRANSACTIONS = 6
+_PAGE_COMMISSIONS = 7
+_PAGE_CASH_BALANCES = 9
+
 
 def _statement_grouped_date(period: str | None) -> date:
     if period is None:
@@ -43,7 +57,10 @@ def _extract_text_by_page(path: str | Path) -> list[str]:
 
 
 def _normalize_number(value: str) -> float:
-    cleaned = value.replace("USD", "").replace("EUR", "").replace("GBP", "").replace(" ", "").strip()
+    cleaned = value
+    for currency in _KNOWN_CURRENCIES:
+        cleaned = cleaned.replace(currency, "")
+    cleaned = cleaned.replace(" ", "").strip()
     return float(cleaned)
 
 
@@ -83,7 +100,7 @@ def preview_pdf_statement(path: str | Path) -> Freedom24Preview:
     return Freedom24Preview(
         account_id=account_id_match.group("account_id") if account_id_match else None,
         period=period,
-        base_currency=currency_match.group("currency") if currency_match else "USD",
+        base_currency=currency_match.group("currency") if currency_match else _DEFAULT_CURRENCY,
         page_count=len(page_texts),
     )
 
@@ -125,7 +142,7 @@ def _parse_statement_totals(page_texts: list[str]) -> ImportedStatementTotals:
 
 
 def _parse_positions(page_texts: list[str], as_of_date: date) -> list[ImportedPosition]:
-    lines = (page_texts[3] if len(page_texts) >= 4 else "").splitlines()
+    lines = (page_texts[_PAGE_POSITIONS] if len(page_texts) > _PAGE_POSITIONS else "").splitlines()
     positions: list[ImportedPosition] = []
     index = 10
 
@@ -135,44 +152,52 @@ def _parse_positions(page_texts: list[str], as_of_date: date) -> list[ImportedPo
             index += 1
             continue
 
-        isin = lines[index + 1].strip()  # noqa: F841 — parsed-but-dropped; ISIN is modeled on ImportedInstrument but not yet flowed from Freedom24 positions (data gap → Epic 24, tech-debt-register)
-        account = lines[index + 2].strip()
-        asset_type = lines[index + 3].strip()
-        beginning_balance = _normalize_number(lines[index + 4])
-        ending_balance = _normalize_number(lines[index + 5])
-        price_raw = lines[index + 6].strip()
-        currency_or_value = lines[index + 7].strip()
+        try:
+            # Record offset map: index+1 = ISIN (flowed to ImportedInstrument in
+            # _parse_instruments; positions don't model it), index+2 = account,
+            # index+3 = asset type, index+4..8 = balances / price / currency / value.
+            account = lines[index + 2].strip()
+            asset_type = lines[index + 3].strip()
+            beginning_balance = _normalize_number(lines[index + 4])
+            ending_balance = _normalize_number(lines[index + 5])
+            price_raw = lines[index + 6].strip()
+            currency_or_value = lines[index + 7].strip()
 
-        if currency_or_value in {"USD", "EUR", "GBP"} and index + 8 < len(lines):
-            currency = currency_or_value
-            market_value = _normalize_number(lines[index + 8])
-            close_price = _normalize_number(price_raw)
-            step = 9
-        else:
-            currency = "USD"
-            market_value = _normalize_number(currency_or_value)
-            close_price = _normalize_number(price_raw) if price_raw not in {"0", "0.00"} else 0.0
-            step = 8
-
-        if account.lower() == "trading" and asset_type.lower() == "funds" and ending_balance > 0:
-            symbol = ticker.replace(".US", "")
-            trade_delta = ending_balance - beginning_balance
-            if beginning_balance > 0 and trade_delta > 0:
-                cost_basis = round((trade_delta * close_price) + (beginning_balance * close_price), 2)
+            if currency_or_value in _KNOWN_CURRENCIES and index + 8 < len(lines):
+                currency = currency_or_value
+                market_value = _normalize_number(lines[index + 8])
+                close_price = _normalize_number(price_raw)
+                step = 9
             else:
-                cost_basis = round(ending_balance * close_price, 2)
-            positions.append(
-                ImportedPosition(
-                    as_of_date=as_of_date,
-                    symbol=symbol,
-                    quantity=ending_balance,
-                    cost_basis=cost_basis,
-                    close_price=close_price,
-                    market_value=market_value,
-                    unrealized_pnl=round(market_value - cost_basis, 2),
-                    currency=currency,
+                currency = _DEFAULT_CURRENCY
+                market_value = _normalize_number(currency_or_value)
+                close_price = _normalize_number(price_raw) if price_raw not in {"0", "0.00"} else 0.0
+                step = 8
+
+            if account.lower() == "trading" and asset_type.lower() == "funds" and ending_balance > 0:
+                symbol = ticker.replace(_US_SUFFIX, "")
+                trade_delta = ending_balance - beginning_balance
+                if beginning_balance > 0 and trade_delta > 0:
+                    cost_basis = round((trade_delta * close_price) + (beginning_balance * close_price), 2)
+                else:
+                    cost_basis = round(ending_balance * close_price, 2)
+                positions.append(
+                    ImportedPosition(
+                        as_of_date=as_of_date,
+                        symbol=symbol,
+                        quantity=ending_balance,
+                        cost_basis=cost_basis,
+                        close_price=close_price,
+                        market_value=market_value,
+                        unrealized_pnl=round(market_value - cost_basis, 2),
+                        currency=currency,
+                    )
                 )
-            )
+        except (ValueError, IndexError):
+            # Malformed record (layout drift / non-numeric where a number is
+            # expected): skip it and continue rather than aborting the whole import.
+            index += 1
+            continue
 
         index += step
 
@@ -180,7 +205,7 @@ def _parse_positions(page_texts: list[str], as_of_date: date) -> list[ImportedPo
 
 
 def _parse_cash_balances(page_texts: list[str]) -> list[ImportedCashBalance]:
-    lines = (page_texts[9] if len(page_texts) >= 10 else "").splitlines()
+    lines = (page_texts[_PAGE_CASH_BALANCES] if len(page_texts) > _PAGE_CASH_BALANCES else "").splitlines()
     balances: list[ImportedCashBalance] = []
     index = 7
 
@@ -190,21 +215,25 @@ def _parse_cash_balances(page_texts: list[str]) -> list[ImportedCashBalance]:
             index += 1
             continue
 
-        balances.append(
-            ImportedCashBalance(
-                currency=currency,
-                starting_cash=_normalize_number(lines[index + 1]),
-                ending_cash=_normalize_number(lines[index + 5]),
-                ending_settled_cash=_normalize_number(lines[index + 5]),
+        try:
+            balances.append(
+                ImportedCashBalance(
+                    currency=currency,
+                    starting_cash=_normalize_number(lines[index + 1]),
+                    ending_cash=_normalize_number(lines[index + 5]),
+                    ending_settled_cash=_normalize_number(lines[index + 5]),
+                )
             )
-        )
+        except (ValueError, IndexError):
+            index += 1
+            continue
         index += 6
 
     return balances
 
 
 def _parse_transactions(page_texts: list[str], grouped_trade_date: date) -> list[ImportedLedgerEntry]:
-    lines = (page_texts[6] if len(page_texts) >= 7 else "").splitlines()
+    lines = (page_texts[_PAGE_TRANSACTIONS] if len(page_texts) > _PAGE_TRANSACTIONS else "").splitlines()
     entries: list[ImportedLedgerEntry] = []
     index = 13
 
@@ -214,32 +243,37 @@ def _parse_transactions(page_texts: list[str], grouped_trade_date: date) -> list
             index += 1
             continue
 
-        direction = lines[index + 3].strip()
-        quantity = _normalize_number(lines[index + 4])
-        price = _normalize_number(lines[index + 5])
-        amount = _normalize_number(lines[index + 6])
-        realized_pnl = _normalize_number(lines[index + 7])  # noqa: F841 — parsed-but-dropped; realized P&L is not modeled in ImportedLedgerEntry (scope decision → Epic 24, tech-debt-register)
-        fee = _normalize_number(lines[index + 8])
-        symbol = ticker.replace(".US", "")
-        gross_amount = -amount if direction == "Buy" else amount
-        net_amount = gross_amount - fee
+        try:
+            direction = lines[index + 3].strip()
+            quantity = _normalize_number(lines[index + 4])
+            price = _normalize_number(lines[index + 5])
+            amount = _normalize_number(lines[index + 6])
+            # index + 7 = realized P&L — not modeled in ImportedLedgerEntry (deferred
+            # scope decision, US-24.4 / tech-debt-register); intentionally unused.
+            fee = _normalize_number(lines[index + 8])
+            symbol = ticker.replace(_US_SUFFIX, "")
+            gross_amount = -amount if direction == "Buy" else amount
+            net_amount = gross_amount - fee
 
-        entries.append(
-            ImportedLedgerEntry(
-                entry_type="BUY" if direction == "Buy" else "SELL",
-                trade_date=grouped_trade_date,
-                symbol=symbol,
-                description=f"Freedom24 grouped {direction.lower()} trade for statement period",
-                quantity=quantity,
-                price=price,
-                gross_amount=gross_amount,
-                net_amount=net_amount,
-                fee=fee,
-                currency="USD",
-                source_section="Transactions",
-                source_line=" | ".join(lines[index : index + 12]),
+            entries.append(
+                ImportedLedgerEntry(
+                    entry_type="BUY" if direction == "Buy" else "SELL",
+                    trade_date=grouped_trade_date,
+                    symbol=symbol,
+                    description=f"Freedom24 grouped {direction.lower()} trade for statement period",
+                    quantity=quantity,
+                    price=price,
+                    gross_amount=gross_amount,
+                    net_amount=net_amount,
+                    fee=fee,
+                    currency=_DEFAULT_CURRENCY,
+                    source_section="Transactions",
+                    source_line=" | ".join(lines[index : index + 12]),
+                )
             )
-        )
+        except (ValueError, IndexError):
+            index += 1
+            continue
 
         index += 12
 
@@ -247,7 +281,7 @@ def _parse_transactions(page_texts: list[str], grouped_trade_date: date) -> list
 
 
 def _parse_cash_movements(page_texts: list[str], grouped_trade_date: date) -> list[ImportedLedgerEntry]:
-    lines = (page_texts[4] if len(page_texts) >= 5 else "").splitlines()
+    lines = (page_texts[_PAGE_CASH_MOVEMENTS] if len(page_texts) > _PAGE_CASH_MOVEMENTS else "").splitlines()
     entries: list[ImportedLedgerEntry] = []
     index = 7
 
@@ -263,43 +297,48 @@ def _parse_cash_movements(page_texts: list[str], grouped_trade_date: date) -> li
         if parsed_date is None or next_index + 2 >= len(lines):
             index += 1
             continue
-        account = lines[next_index].strip()  # noqa: F841 — parsed-but-dropped; account identity is modeled at statement level (ImportedStatement.account_id), per-line value intentionally unused (→ Epic 24, tech-debt-register)
-        amount = _normalize_number(lines[next_index + 1])
-        currency = lines[next_index + 2].strip()
-        description_parts: list[str] = []
-        cursor = next_index + 3
-        while cursor < len(lines) and lines[cursor].strip() not in {"Dividends", "Taxes"} and not lines[cursor].strip().startswith("Total deposits/withdrawals"):
-            description_parts.append(lines[cursor].strip())
-            cursor += 1
-        description = " ".join(part for part in description_parts if part)
-        trade_date = date.fromisoformat(parsed_date)
-        if entry_type == "Dividends":
-            entries.append(
-                ImportedLedgerEntry(
-                    entry_type="DIVIDEND",
-                    trade_date=trade_date,
-                    description=description or "Freedom24 dividends",
-                    gross_amount=amount,
-                    net_amount=amount,
-                    currency=currency,
-                    source_section="Cash deposits/ withdrawals",
-                    source_line=" | ".join(lines[index:cursor]),
+        # next_index = account identity (modeled at statement level as
+        # ImportedStatement.account_id; the per-line value is intentionally unused).
+        try:
+            amount = _normalize_number(lines[next_index + 1])
+            currency = lines[next_index + 2].strip()
+            description_parts: list[str] = []
+            cursor = next_index + 3
+            while cursor < len(lines) and lines[cursor].strip() not in {"Dividends", "Taxes"} and not lines[cursor].strip().startswith("Total deposits/withdrawals"):
+                description_parts.append(lines[cursor].strip())
+                cursor += 1
+            description = " ".join(part for part in description_parts if part)
+            trade_date = date.fromisoformat(parsed_date)
+            if entry_type == "Dividends":
+                entries.append(
+                    ImportedLedgerEntry(
+                        entry_type="DIVIDEND",
+                        trade_date=trade_date,
+                        description=description or "Freedom24 dividends",
+                        gross_amount=amount,
+                        net_amount=amount,
+                        currency=currency,
+                        source_section="Cash deposits/ withdrawals",
+                        source_line=" | ".join(lines[index:cursor]),
+                    )
                 )
-            )
-        else:
-            entries.append(
-                ImportedLedgerEntry(
-                    entry_type="WITHHOLDING_TAX",
-                    trade_date=trade_date,
-                    description=description or "Freedom24 taxes",
-                    gross_amount=amount,
-                    net_amount=amount,
-                    tax=abs(amount),
-                    currency=currency,
-                    source_section="Cash deposits/ withdrawals",
-                    source_line=" | ".join(lines[index:cursor]),
+            else:
+                entries.append(
+                    ImportedLedgerEntry(
+                        entry_type="WITHHOLDING_TAX",
+                        trade_date=trade_date,
+                        description=description or "Freedom24 taxes",
+                        gross_amount=amount,
+                        net_amount=amount,
+                        tax=abs(amount),
+                        currency=currency,
+                        source_section="Cash deposits/ withdrawals",
+                        source_line=" | ".join(lines[index:cursor]),
+                    )
                 )
-            )
+        except (ValueError, IndexError):
+            index += 1
+            continue
 
         index = cursor
 
@@ -307,7 +346,7 @@ def _parse_cash_movements(page_texts: list[str], grouped_trade_date: date) -> li
 
 
 def _parse_commissions(page_texts: list[str], grouped_trade_date: date) -> list[ImportedLedgerEntry]:
-    lines = (page_texts[7] if len(page_texts) >= 8 else "").splitlines()
+    lines = (page_texts[_PAGE_COMMISSIONS] if len(page_texts) > _PAGE_COMMISSIONS else "").splitlines()
     if len(lines) < 10:
         return []
 
@@ -340,7 +379,7 @@ def _parse_commissions(page_texts: list[str], grouped_trade_date: date) -> list[
 
 
 def _parse_instruments(positions: list[ImportedPosition], page_texts: list[str]) -> list[ImportedInstrument]:
-    lines = (page_texts[3] if len(page_texts) >= 4 else "").splitlines()
+    lines = (page_texts[_PAGE_POSITIONS] if len(page_texts) > _PAGE_POSITIONS else "").splitlines()
     instruments: list[ImportedInstrument] = []
     index = 10
     position_symbols = {position.symbol for position in positions}
@@ -351,21 +390,25 @@ def _parse_instruments(positions: list[ImportedPosition], page_texts: list[str])
             index += 1
             continue
 
-        symbol = ticker.replace(".US", "")
-        isin = lines[index + 1].strip()
-        asset_type = lines[index + 3].strip()
-        if symbol in position_symbols:
-            instruments.append(
-                ImportedInstrument(
-                    symbol=symbol,
-                    description=ticker,
-                    isin=isin,
-                    listing_exchange="ITS",
-                    instrument_type="ETF" if asset_type.lower() == "funds" else asset_type.upper(),
-                    currency="USD",
+        try:
+            symbol = ticker.replace(_US_SUFFIX, "")
+            isin = lines[index + 1].strip()
+            asset_type = lines[index + 3].strip()
+            if symbol in position_symbols:
+                instruments.append(
+                    ImportedInstrument(
+                        symbol=symbol,
+                        description=ticker,
+                        isin=isin,
+                        listing_exchange="ITS",
+                        instrument_type="ETF" if asset_type.lower() == "funds" else asset_type.upper(),
+                        currency=_DEFAULT_CURRENCY,
+                    )
                 )
-            )
-        index += 9 if index + 8 < len(lines) and lines[index + 7].strip() in {"USD", "EUR", "GBP"} else 8
+        except (ValueError, IndexError):
+            index += 1
+            continue
+        index += 9 if index + 8 < len(lines) and lines[index + 7].strip() in _KNOWN_CURRENCIES else 8
 
     return instruments
 
