@@ -282,6 +282,52 @@ def test_import_freedom24_statement_returns_expected_snapshot() -> None:
     assert {entry.trade_date.isoformat() for entry in snapshot.ledger_entries} == {"2025-12-01", "2026-03-31", "2026-04-01"}
     assert any(entry.entry_type == "DIVIDEND" and entry.trade_date.isoformat() == "2026-03-31" for entry in snapshot.ledger_entries)
     assert any(entry.entry_type == "WITHHOLDING_TAX" and entry.trade_date.isoformat() == "2026-04-01" for entry in snapshot.ledger_entries)
+    # US-24.4: the Freedom24 ISIN already flows to ImportedInstrument; pin it so
+    # the hardcode-extraction can't regress it.
+    instruments_by_symbol = {instrument.symbol: instrument for instrument in snapshot.instruments}
+    assert instruments_by_symbol["VTI"].isin == "US9229087690"
+
+
+def test_freedom24_format_constants() -> None:
+    # US-24.4: the format hardcodes are named constants; pin their values so the
+    # extraction is provably behaviour-neutral.
+    from app.importers.freedom24 import _DEFAULT_CURRENCY, _KNOWN_CURRENCIES, _US_SUFFIX
+
+    assert _KNOWN_CURRENCIES == {"USD", "EUR", "GBP"}
+    assert _US_SUFFIX == ".US"
+    assert _DEFAULT_CURRENCY == "USD"
+
+
+def test_freedom24_parsers_skip_malformed_records_without_raising() -> None:
+    # US-24.4 AC1/AC3: a garbled record (non-numeric where a number is expected)
+    # is skipped and parsing continues — no exception, no fabricated/zero row.
+    from datetime import date
+
+    from app.importers.freedom24 import (
+        _PAGE_CASH_BALANCES,
+        _PAGE_POSITIONS,
+        _PAGE_TRANSACTIONS,
+        _parse_cash_balances,
+        _parse_positions,
+        _parse_transactions,
+    )
+
+    def _page(page_index: int, lines: list[str]) -> list[str]:
+        pages = ["" for _ in range(page_index + 1)]
+        pages[page_index] = "\n".join(lines)
+        return pages
+
+    # _parse_positions starts at line 10: a ticker followed by a garbled balance.
+    pos_lines = ["filler"] * 10 + ["VTI.US", "US123", "trading", "funds", "GARBAGE", "5", "10.0", "USD", "50.0"]
+    assert _parse_positions(_page(_PAGE_POSITIONS, pos_lines), date(2026, 1, 1)) == []
+
+    # _parse_transactions starts at line 13: a ticker with a garbled quantity.
+    txn_lines = ["filler"] * 13 + ["VTI.US", "x", "x", "Buy", "GARBAGE", "1", "2", "3", "4", "x", "x", "x"]
+    assert _parse_transactions(_page(_PAGE_TRANSACTIONS, txn_lines), date(2026, 1, 1)) == []
+
+    # _parse_cash_balances starts at line 7: a currency with a garbled balance.
+    cash_lines = ["filler"] * 7 + ["USD", "GARBAGE", "x", "x", "x", "x"]
+    assert _parse_cash_balances(_page(_PAGE_CASH_BALANCES, cash_lines)) == []
 
 
 def test_import_statement_surfaces_parser_errors_for_supported_broker_pdf() -> None:
