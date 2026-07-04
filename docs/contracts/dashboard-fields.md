@@ -197,6 +197,7 @@ Import admission is informational on Dashboard: workspace creation is non-blocki
 | Factor HHI / Position HHI | `diagnosticsAnalysis.risk_concentration_summary.{factor_hhi,position_hhi}` | `diagnosticsAnalysis` | `engine-derived`, synthetic-history basis | same as above | §Risk Contribution and Concentration; rendered as a raw ratio, no `%` |
 | Top-N Factor/Position Risk Share | `diagnosticsAnalysis.risk_concentration_summary.top_{1,3,5}_*_risk_share` | `diagnosticsAnalysis` | `engine-derived`, synthetic-history basis | same as above | **fields are 0-1 fractions** — the card multiplies by 100 before display (`formatShareAsPct`); do not append `%` to the raw value |
 | Risk contribution basis label | `run_metadata.section_trust.risk_contribution_path` | `diagnosticsAnalysis.run_metadata` | `engine-derived` | falls back to "Unavailable" | plain-text label distinct from the Exposure-tab `TrustBadge` primitive |
+| Information Ratio / Active Return (vs benchmark) | `diagnosticsAnalysis.relative_risk.{information_ratio,active_return_pct}` (Epic 25 / US-25.5) | `diagnosticsAnalysis` | `engine-derived`, synthetic-history basis | rows omitted entirely (not `n/a`) when `volatility_summary.tracking_error_pct` is `null` — mathematically dependent, per `financial-methodology.md` §Information Ratio; `n/a` per individually-null field otherwise | already computed in `risk.py` prior to this epic; this story only added the methodology section + UI row |
 
 ### Factor / Composition cards (pre-Epic-25, unchanged)
 

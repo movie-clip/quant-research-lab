@@ -377,6 +377,75 @@ Implementation:
 Contract rule:
 - benchmark-relative outputs may be computed internally but still withheld or suppressed at the contract boundary when trust attestation is weaker than required
 
+### Information Ratio
+
+Information Ratio (IR) measures risk-adjusted active return: how much excess
+return the portfolio generated per unit of active risk taken relative to the
+benchmark. It is the natural complement to tracking error — this project
+already computes both, over the same underlying paired daily-return series,
+but had never named the ratio in this document (documentation-traceability
+gap closed here; the code has existed since before this section was written).
+
+```text
+mean_active_return  = mean(active_return_t)   over all paired dates
+                       (active_return_t as defined in §Tracking error)
+
+information_ratio = (mean_active_return * 252) / tracking_error
+
+where:
+  tracking_error       = the annualized stdev of active_return_t (§Tracking error)
+  mean_active_return   = simple arithmetic mean of the daily active-return series
+                         (paired portfolio/benchmark dates only)
+  the numerator annualizes the daily mean by the trading-day count (252),
+  matching the denominator's annualization basis
+
+Interpretation:
+  IR > 0: positive risk-adjusted active return (out-performed per unit of
+          tracking error taken)
+  IR = 0: no active return, or active return exactly offset by its own noise
+  IR < 0: negative risk-adjusted active return (under-performed per unit of
+          tracking error taken)
+
+Edge cases:
+  fewer than 2 paired portfolio/benchmark daily returns: tracking_error = null,
+    information_ratio = null
+  tracking_error = 0 (active returns had zero variance — e.g. the portfolio
+    tracked the benchmark exactly every day): information_ratio = null
+    (division undefined, never fabricated as 0 or infinity)
+```
+
+Distinct from the schema's `active_return_pct` field (same `RelativeRiskSummary`
+struct): `active_return_pct` is the **compounded** portfolio return minus the
+compounded benchmark return over the whole window (a cumulative total-period
+figure), while the Information Ratio's numerator is the **annualized mean
+daily** active return (a per-day average, annualized). Both are legitimate
+but answer different questions — do not substitute one for the other in a UI
+label.
+
+Implementation:
+- `services/quant-engine/app/analytics/risk.py` — the function building
+  `RelativeRiskSummary` (paired-returns → `tracking_error_pct` /
+  `active_return_pct` / `information_ratio`)
+
+Academic precedent:
+- Grinold, R.C. & Kahn, R.N. (2000). *Active Portfolio Management*, 2nd ed.,
+  Ch. 6 (McGraw-Hill) — the canonical Information Ratio treatment (IR as the
+  central "quality of active management" statistic, IR = active return /
+  active risk).
+- Goodwin, T.H. (1998). "The Information Ratio." *Financial Analysts
+  Journal*, 54(4), 34–43 — practitioner-level treatment of computation
+  conventions and common pitfalls.
+
+Contract rule:
+- `information_ratio` and `active_return_pct` carry the same trust/
+  withholding semantics as `tracking_error_pct` in the same
+  `RelativeRiskSummary` struct: benchmark-relative refusal means these
+  fields may be `null` even when `availability.status = ok`, with
+  `run_metadata.investor_economics_status` as the authoritative explanation
+  (see `docs/contracts/diagnostics-fields.md`).
+- Never fabricate a ratio when `tracking_error = 0`; `null` is the only
+  correct output for that edge case.
+
 ## Statistical Factor Model
 
 The project implements a rolling ETF-proxy factor model.

@@ -53,8 +53,12 @@ export function RiskSummaryCard({ diagnosticsAnalysis }: RiskSummaryCardProps) {
     )
   }
 
-  const { volatility_summary: vol, drawdown_summary: dd, risk_concentration_summary: conc } = diagnosticsAnalysis
+  const { volatility_summary: vol, drawdown_summary: dd, risk_concentration_summary: conc, relative_risk: rel } = diagnosticsAnalysis
   const trust = sectionTrustLabel(diagnosticsAnalysis.run_metadata?.section_trust?.risk_contribution_path)
+  // Information Ratio / Active Return are mathematically dependent on tracking
+  // error (US-25.5 AC4) — only show them when tracking error itself is present,
+  // rather than rendering a coherence-breaking "n/a beside a real number" pair.
+  const showRelativeRisk = vol.tracking_error_pct != null
 
   return (
     <section className="summary-card risk-summary-card" aria-label="Risk Summary">
@@ -112,6 +116,18 @@ export function RiskSummaryCard({ diagnosticsAnalysis }: RiskSummaryCardProps) {
           <span className="stat-label">Top-5 Position Risk Share</span>
           <span className="benchmark-card-value">{formatShareAsPct(conc.top_5_position_risk_share)}</span>
         </div>
+        {showRelativeRisk && (
+          <>
+            <div className="benchmark-card-metric">
+              <span className="stat-label">Information Ratio</span>
+              <span className="benchmark-card-value">{formatRatio(rel.information_ratio)}</span>
+            </div>
+            <div className="benchmark-card-metric">
+              <span className="stat-label">Active Return (vs benchmark)</span>
+              <span className="benchmark-card-value">{formatPct(rel.active_return_pct)}</span>
+            </div>
+          </>
+        )}
       </div>
     </section>
   )

@@ -22,8 +22,9 @@ Shows portfolio performance history:
   same selected range; whole-card hidden (not zero-filled) when the reconstructed
   series is marked unreliable
 - **Risk Summary card** (Epic 25 / US-25.3): portfolio/benchmark/downside volatility,
-  tracking error, current/max drawdown, factor & position HHI, and top-N factor/
-  position risk share — sourced from the Diagnostics engine (not the withheld
+  tracking error, current/max drawdown, factor & position HHI, top-N factor/
+  position risk share, and Information Ratio + Active Return vs benchmark
+  (US-25.5) — sourced from the Diagnostics engine (not the withheld
   dashboard-history `max_drawdown_pct` path, which stays withheld under the
   investor-economics policy below)
 - **Rolling Factor Analysis card**: rolling factor loadings snapshot

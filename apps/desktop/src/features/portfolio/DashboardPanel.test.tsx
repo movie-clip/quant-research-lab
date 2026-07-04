@@ -410,6 +410,44 @@ describe('DashboardPanel', () => {
     expect(screen.queryByText('Portfolio Volatility')).toBeNull()
   })
 
+  // ─── US-25.5: Information Ratio ─────────────────────────────────────────────
+
+  it('renders Information Ratio and Active Return when relative_risk is populated', () => {
+    const diagnostics = createDiagnosticsEngineFixture()
+    diagnostics.relative_risk = { ...diagnostics.relative_risk, information_ratio: 0.42, active_return_pct: 3.5 }
+    render(<DashboardPanel result={null} diagnosticsAnalysis={diagnostics} />)
+
+    expect(screen.getByText('Information Ratio')).toBeTruthy()
+    expect(screen.getByText('0.420')).toBeTruthy()
+    expect(screen.getByText('Active Return (vs benchmark)')).toBeTruthy()
+    expect(screen.getByText('3.50%')).toBeTruthy()
+  })
+
+  it('renders n/a for Information Ratio and Active Return when each is individually null', () => {
+    const diagnostics = createDiagnosticsEngineFixture()
+    diagnostics.relative_risk = { ...diagnostics.relative_risk, information_ratio: null, active_return_pct: null }
+    render(<DashboardPanel result={null} diagnosticsAnalysis={diagnostics} />)
+
+    const irLabel = screen.getByText('Information Ratio')
+    const irRow = irLabel.closest('.benchmark-card-metric')
+    expect(irRow ? within(irRow as HTMLElement).getByText('n/a') : null).toBeTruthy()
+  })
+
+  it('omits Information Ratio and Active Return (not a second unavailable state) when tracking_error_pct is null', () => {
+    const diagnostics = createDiagnosticsEngineFixture()
+    diagnostics.volatility_summary = { ...diagnostics.volatility_summary, tracking_error_pct: null }
+    diagnostics.relative_risk = { ...diagnostics.relative_risk, information_ratio: 0.42, active_return_pct: 3.5 }
+    render(<DashboardPanel result={null} diagnosticsAnalysis={diagnostics} />)
+
+    // Card still renders normally (not the whole-card EmptyState) since
+    // historical_sections_available stays true; the two dependent rows
+    // are simply omitted rather than shown inconsistently.
+    expect(screen.getByText('Risk Summary')).toBeTruthy()
+    expect(screen.queryByText('Risk metrics unavailable')).toBeNull()
+    expect(screen.queryByText('Information Ratio')).toBeNull()
+    expect(screen.queryByText('Active Return (vs benchmark)')).toBeNull()
+  })
+
   it('renders EmptyState instead of crashing when volatility_summary/drawdown_summary/risk_concentration_summary are absent', () => {
     const partialDiagnostics = {
       ...createDiagnosticsEngineFixture(),

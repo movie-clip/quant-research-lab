@@ -28,6 +28,7 @@ PRD: [`prd/epic-25-dashboard-performance-risk-summary.md`](../prd/epic-25-dashbo
 | [US-25.2](US-25.2-dashboard-monthly-returns-grid.md) | Monthly returns grid card | Grid from `range_metrics[*].monthly_returns`; whole-card hide when `monthly_returns_reliable = false` | Done |
 | [US-25.3](US-25.3-dashboard-risk-metrics-card.md) | Risk metrics card (volatility, drawdown, concentration) | Sourced from the already-fetched `DiagnosticsResult`, not the withheld dashboard-history path | Done |
 | [US-25.4](US-25.4-epic-25-docs-closeout.md) | Docs close-out | Reconcile `dashboard-fields.md` + `current-product-state.md`; backfill HHI + Modified-Dietz formula sections in `financial-methodology.md` | Done |
+| [US-25.5](US-25.5-information-ratio-risk-summary-card.md) | Information Ratio on the Risk Summary card | Surface the already-computed `relative_risk.{information_ratio,active_return_pct}` (found unrendered during a project review); backfill the methodology section | Done |
 
 Recommended build order: 25.1 → 25.2 → 25.3 → 25.4.
 
