@@ -1,10 +1,10 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-07-04 (Epic 25 — Dashboard Performance & Risk Summary **active**; Epic 24 — Codebase Improvement active; Epic 23 — dead-code cleanup & codebase review complete; Epics 13/18/19/20/21/22 complete).*
+*Living execution snapshot. Updated: 2026-07-04 (Epic 25 — Dashboard Performance & Risk Summary **complete**; Epic 24 — Codebase Improvement active; Epic 23 — dead-code cleanup & codebase review complete; Epics 13/18/19/20/21/22 complete).*
 
 ---
 
-## Active Epic: Epic 25 — Dashboard Performance & Risk Summary
+## Completed Epic: Epic 25 — Dashboard Performance & Risk Summary
 
 **PRD:** [`docs/product/prd/epic-25-dashboard-performance-risk-summary.md`](product/prd/epic-25-dashboard-performance-risk-summary.md)
 
@@ -25,14 +25,15 @@ reconciliation pass.
 | US-25.1 | Performance & benchmark comparison card | Done |
 | US-25.2 | Monthly returns grid card | Done |
 | US-25.3 | Risk metrics card (volatility, drawdown, concentration) | Done |
-| US-25.4 | Docs close-out | Next phase |
+| US-25.4 | Docs close-out | Done |
 
-Recommended build order: 25.1 → 25.2 → 25.3 → 25.4 (docs last).
+Recommended build order: 25.1 → 25.2 → 25.3 → 25.4 (docs last). **All four stories shipped; Epic 25 is complete.**
 
 ### Slice log
 
 | Date | Story | What shipped |
 |---|---|---|
+| 2026-07-04 | US-25.4 | **Epic 25 docs close-out — closes the epic.** Corrected this story's own premise during implementation: `money_weighted_return_pct` is **Modified Dietz**, not IRR/XIRR, implemented in `app/analytics/performance.py` (not `app/analytics/portfolio.py` as originally assumed) — added §Money-Weighted Return to `financial-methodology.md` with the correct formula, edge cases, and Dietz (1966) + GIPS citations. Fleshed out §Risk Contribution and Concentration with the risk-share, top-N risk-share, and HHI formulas (Herfindahl 1950 / Hirschman 1964 citations), explicitly distinguishing the risk-contribution HHI from the separate current-state holdings HHI in `exposure_engine.py`. **Caught a real scale bug while cross-checking the methodology against the implementation:** `risk.py`'s `top_*_risk_share` fields are 0-1 fractions, but `RiskSummaryCard.tsx` (US-25.3) was rendering them with a bare `%` suffix (~100x too small); fixed with a dedicated `formatShareAsPct` formatter and corrected the test fixture. Rewrote `dashboard-fields.md`'s Field Inventory/Provider-Chain/Accuracy-Rules sections wholesale (the prior version described `draftSnapshot`/Allocation-Overview/`capitalChartData` helpers that no longer exist anywhere in the codebase — confirmed by grep) and `current-product-state.md`'s Dashboard bullet list (dropped the unsubstantiated "Sharpe-equivalent" line; no Sharpe ratio exists anywhere in the codebase). Docs-only + one bugfix; full `run_all_tests.py` green; `dashboardGoldens.ts` untouched. |
 | 2026-07-04 | US-25.3 | **Risk metrics card (volatility, drawdown, concentration).** New `RiskSummaryCard.tsx` on the Dashboard tab, sourced from the already-fetched `DiagnosticsResult` (`volatility_summary`, `drawdown_summary`, `risk_concentration_summary`) — deliberately not `DashboardHistoryResult.max_drawdown_pct`, which stays behind the investor-economics withholding policy. Threaded `diagnosticsAnalysis` (already held in `App.tsx` state) into `DashboardPanel` as a new prop. Trust shown as a plain-text label following `run_metadata.section_trust.risk_contribution_path`. **Hardening found by the full suite, not the story's own tests:** `App.test.tsx` exercises a real case where `diagnosticsAnalysis` is present but its `volatility_summary`/`drawdown_summary`/`risk_concentration_summary` sub-objects are absent — the card crashed on first render; fixed to fail closed to the EmptyState instead of trusting `availability` alone, with a dedicated regression test. Frontend-only, no backend/schema change. +6 `DashboardPanel.test.tsx` tests (31 total in the file); 249 frontend green; tsc clean; full `run_all_tests.py` (incl. dead-code gate) green; `dashboardGoldens.ts` untouched. |
 | 2026-07-04 | US-25.2 | **Monthly returns grid card.** New `MonthlyReturnsGrid.tsx` on the Dashboard tab: one cell per `range_metrics[selectedRange].monthly_returns[]` entry, signed `+X.XX%`/`−X.XX%` formatting (color + sign, never color-only), whole-card EmptyState when `monthly_returns_reliable = false` or `range_metrics` is absent. Refactored the shared range-selection state up from `PerformanceBenchmarkCard` (US-25.1) into `DashboardPanel`, which now renders one `WindowSelector` driving both cards so they can never show mismatched ranges. Frontend-only, no backend/schema change. +4 `DashboardPanel.test.tsx` tests (20 total in the file); 243 frontend green; tsc clean; full `run_all_tests.py` (incl. dead-code gate) green; `dashboardGoldens.ts` untouched. |
 | 2026-07-04 | US-25.1 | **Performance & benchmark comparison card.** New `PerformanceBenchmarkCard.tsx` on the Dashboard tab: indexed portfolio-vs-benchmark line chart (base 100, reuses the `IndexedReturnChart`/`normalizePerformanceSeries` rebasing convention) + a summary strip (Portfolio Value, Time-Weighted Return, Money-Weighted Return, Net Contributions) sourced from the already-computed `range_metrics[selectedRange].summary`; a range selector switches both without any new fetch (data already present in `result`). Trust reflected as a plain-text return-basis label per path (`return_basis_contract`), not the shared `TrustBadge` primitive — that primitive's synthetic/unavailable vocabulary doesn't fit dashboard-history's verified/price-return/unverified-proxy ladder (documented in the story's Notes). Deliberately never reads `max_drawdown_pct` (withheld investor-economics field; that's US-25.3's diagnostics-sourced card). Frontend-only, no backend/schema change. +6 `DashboardPanel.test.tsx` tests; 239 frontend green; tsc clean; full `run_all_tests.py` (incl. dead-code gate) green; `dashboardGoldens.ts` untouched. |

@@ -1,6 +1,6 @@
 # Current Product State
 
-*Canonical shipped-state inventory. Updated: 2026-06-01 (after Epic 13).*
+*Canonical shipped-state inventory. Updated: 2026-07-04 (after Epic 25).*
 
 ---
 
@@ -14,14 +14,35 @@ A local-first portfolio research tool. The researcher imports broker statements,
 
 ### Dashboard
 Shows portfolio performance history:
-- Time-weighted return for the full history and selected sub-windows
-- Benchmark comparison (vs SPY default, selectable)
-- Monthly returns grid
-- Risk metrics: max drawdown, volatility, Sharpe-equivalent
-- Investor economics (withheld when return-basis trust is insufficient)
-- Factor model snapshot (rolling factor loadings)
+- **Performance & Benchmark card** (Epic 25 / US-25.1): indexed portfolio-vs-benchmark
+  line chart (base 100) + summary strip (Portfolio Value, Time-Weighted Return,
+  Money-Weighted Return, Net Contributions) for a selectable range; return-basis
+  label per path (Verified / Price-return only / Unverified proxy / Unavailable)
+- **Monthly Returns grid** (Epic 25 / US-25.2): signed monthly return cells for the
+  same selected range; whole-card hidden (not zero-filled) when the reconstructed
+  series is marked unreliable
+- **Risk Summary card** (Epic 25 / US-25.3): portfolio/benchmark/downside volatility,
+  tracking error, current/max drawdown, factor & position HHI, and top-N factor/
+  position risk share — sourced from the Diagnostics engine (not the withheld
+  dashboard-history `max_drawdown_pct` path, which stays withheld under the
+  investor-economics policy below)
+- **Rolling Factor Analysis card**: rolling factor loadings snapshot
+- **Sector composition donut** and **Benchmark Positioning card**: current holdings
+  composition and benchmark-relative positioning
+
+Investor economics (TWR/benchmark/excess) is withheld by policy when
+return-basis trust is insufficient; only the narrow exact-slice allowlist in
+`docs/contracts/dashboard-fields.md` is admitted even then. The Risk Summary
+card is unaffected by this withholding — it sources drawdown from the
+separate Diagnostics path instead.
 
 Requires a history context (imported price history or synthetic from current holdings).
+
+*(Epic 25 restored this surface after finding that several prior UI refactors
+had progressively removed it from `DashboardPanel.tsx` without a corresponding
+docs update — the backend fields were fully computed, tested, and golden-pinned
+throughout, but had no rendering component. See
+`docs/product/prd/epic-25-dashboard-performance-risk-summary.md`.)*
 
 ### Exposure
 Shows current portfolio composition:

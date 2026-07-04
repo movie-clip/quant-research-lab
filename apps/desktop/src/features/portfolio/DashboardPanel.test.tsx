@@ -365,12 +365,14 @@ describe('DashboardPanel', () => {
   })
 
   it('renders HHI and risk-share fields from risk_concentration_summary', () => {
+    // top_*_risk_share fields are 0-1 fractions (see _sum_top_risk_shares in
+    // analytics/risk.py) — 0.425 means "42.50% of risk", not "0.43%".
     const diagnostics = createDiagnosticsEngineFixture()
     diagnostics.risk_concentration_summary = {
-      top_1_factor_risk_share: 42.5,
-      top_3_factor_risk_share: 70.1,
-      top_1_position_risk_share: 20.3,
-      top_5_position_risk_share: 55.6,
+      top_1_factor_risk_share: 0.425,
+      top_3_factor_risk_share: 0.701,
+      top_1_position_risk_share: 0.203,
+      top_5_position_risk_share: 0.556,
       factor_hhi: 0.312,
       position_hhi: 0.145,
     }

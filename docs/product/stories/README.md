@@ -18,7 +18,7 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
-### Epic 25 — Dashboard Performance & Risk Summary (active)
+### Epic 25 — Dashboard Performance & Risk Summary (complete)
 
 PRD: [`prd/epic-25-dashboard-performance-risk-summary.md`](../prd/epic-25-dashboard-performance-risk-summary.md)
 
@@ -27,7 +27,7 @@ PRD: [`prd/epic-25-dashboard-performance-risk-summary.md`](../prd/epic-25-dashbo
 | [US-25.1](US-25.1-dashboard-performance-benchmark-card.md) | Performance & benchmark comparison card | TWR index chart vs benchmark + summary strip (Portfolio Value/TWR/MWR/Net Contributions), sourced from existing `range_metrics`/`performance_series` | Done |
 | [US-25.2](US-25.2-dashboard-monthly-returns-grid.md) | Monthly returns grid card | Grid from `range_metrics[*].monthly_returns`; whole-card hide when `monthly_returns_reliable = false` | Done |
 | [US-25.3](US-25.3-dashboard-risk-metrics-card.md) | Risk metrics card (volatility, drawdown, concentration) | Sourced from the already-fetched `DiagnosticsResult`, not the withheld dashboard-history path | Done |
-| [US-25.4](US-25.4-epic-25-docs-closeout.md) | Docs close-out | Reconcile `dashboard-fields.md` + `current-product-state.md`; backfill HHI + MWR formula sections in `financial-methodology.md` | Next phase |
+| [US-25.4](US-25.4-epic-25-docs-closeout.md) | Docs close-out | Reconcile `dashboard-fields.md` + `current-product-state.md`; backfill HHI + Modified-Dietz formula sections in `financial-methodology.md` | Done |
 
 Recommended build order: 25.1 → 25.2 → 25.3 → 25.4.
 

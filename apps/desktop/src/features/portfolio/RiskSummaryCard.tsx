@@ -9,6 +9,13 @@ function formatRatio(value: number | null | undefined): string {
   return value == null ? 'n/a' : value.toFixed(3)
 }
 
+/** `top_*_risk_share` fields are 0-1 fractions (see `_sum_top_risk_shares` in
+ *  `analytics/risk.py`), unlike the `*_pct` volatility/drawdown fields which
+ *  are already percentage-scaled. Multiply by 100 here, not in the backend. */
+function formatShareAsPct(value: number | null | undefined): string {
+  return value == null ? 'n/a' : `${(value * 100).toFixed(2)}%`
+}
+
 /** Distinct vocabulary from the Exposure-tab `TrustBadge` (synthetic/unavailable) —
  *  diagnostics reports its own per-section verification ladder. */
 function sectionTrustLabel(trust: string | undefined): string {
@@ -91,19 +98,19 @@ export function RiskSummaryCard({ diagnosticsAnalysis }: RiskSummaryCardProps) {
         </div>
         <div className="benchmark-card-metric">
           <span className="stat-label">Top-1 Factor Risk Share</span>
-          <span className="benchmark-card-value">{formatPct(conc.top_1_factor_risk_share)}</span>
+          <span className="benchmark-card-value">{formatShareAsPct(conc.top_1_factor_risk_share)}</span>
         </div>
         <div className="benchmark-card-metric">
           <span className="stat-label">Top-3 Factor Risk Share</span>
-          <span className="benchmark-card-value">{formatPct(conc.top_3_factor_risk_share)}</span>
+          <span className="benchmark-card-value">{formatShareAsPct(conc.top_3_factor_risk_share)}</span>
         </div>
         <div className="benchmark-card-metric">
           <span className="stat-label">Top-1 Position Risk Share</span>
-          <span className="benchmark-card-value">{formatPct(conc.top_1_position_risk_share)}</span>
+          <span className="benchmark-card-value">{formatShareAsPct(conc.top_1_position_risk_share)}</span>
         </div>
         <div className="benchmark-card-metric">
           <span className="stat-label">Top-5 Position Risk Share</span>
-          <span className="benchmark-card-value">{formatPct(conc.top_5_position_risk_share)}</span>
+          <span className="benchmark-card-value">{formatShareAsPct(conc.top_5_position_risk_share)}</span>
         </div>
       </div>
     </section>

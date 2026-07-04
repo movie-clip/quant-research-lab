@@ -103,6 +103,62 @@ Implementation:
 - `services/quant-engine/app/analytics/risk.py`
 - `_portfolio_time_weighted_return_series(...)`
 
+## Money-Weighted Return (Modified Dietz)
+
+Money-weighted return measures the return actually experienced by the
+investor's capital, accounting for the size and timing of external cash
+flows — distinct from time-weighted return (§Portfolio Return Methodology),
+which measures the *manager's* return independent of when the investor added
+or withdrew capital.
+
+The project uses the **Modified Dietz method**: a closed-form, day-weighted
+approximation of money-weighted return that does not require an iterative
+IRR solve.
+
+```text
+money_weighted_return_pct = ((V_end - V_start - CF_total) / D) * 100
+
+where:
+  V_start      = total_portfolio_value of the first daily state
+  V_end        = total_portfolio_value of the last daily state
+  CF_total     = Σ external_cash_flow_i  over all states after the first
+  D            = V_start + Σ (external_cash_flow_i * w_i)   (the weighted capital base)
+  w_i          = (P - i - 1) / P
+                 for the i-th cash-flow state (0-based index among the
+                 flow-bearing states, i.e. all states after the first)
+  P            = max(N - 1, 1), N = number of daily states
+
+  w_i is the fraction of the period remaining after the flow occurred: a flow
+  on the first day after the start gets a weight close to 1 (invested for
+  nearly the whole period); a flow on the last day gets weight 0 (invested for
+  ~0 time). This is the standard day-weighted (as opposed to fixed 0.5
+  mid-point) Modified Dietz weighting.
+
+Edge cases:
+  fewer than 2 daily states: money_weighted_return_pct = null
+  D = 0: money_weighted_return_pct = null (division undefined)
+```
+
+Implementation:
+- `services/quant-engine/app/analytics/performance.py` —
+  `build_performance_summary(...)`
+
+Academic precedent:
+- Dietz, P.O. (1966), "Pension Fund Investment Performance — What Method to
+  Use When," *Financial Analysts Journal* 22(1): 83–89.
+- CFA Institute, *Global Investment Performance Standards (GIPS)* — Modified
+  Dietz Method guidance (day-weighted cash-flow variant).
+
+Contract rule:
+- `money_weighted_return_pct` carries the same trust/withholding semantics as
+  the rest of `PerformanceSummary` — see the dashboard-history investor-
+  economics partial-unlock contract in `docs/contracts/dashboard-fields.md`.
+- Never confuse this with IRR/XIRR: Modified Dietz is a linear approximation,
+  not an iterative internal-rate-of-return solve. It is exact only when cash
+  flows and returns are small/smooth within the period; for large flows near
+  a period boundary combined with high volatility, it can diverge from a true
+  IRR. This is a known, accepted limitation of the method, not a bug.
+
 ## Benchmark and Factor Return Methodology
 
 Benchmark and factor returns are built from price series using simple daily returns.
@@ -462,12 +518,88 @@ Consumer rule:
 
 The project reports position and factor risk contribution metrics plus concentration diagnostics.
 
+### Risk share
+
+Each position or factor's variance-based share of total portfolio risk.
+
+```text
+risk_share_i = variance_contribution_i / total_variance
+
+where:
+  variance_contribution_i = the position's (or factor's) contribution to
+                             total portfolio return variance (arithmetic
+                             decomposition of the covariance matrix / factor
+                             model residual variance)
+  total_variance           = total_variance_raw (positions) or
+                             factor_total_variance (factors) — the
+                             denominator matching the same decomposition
+  risk_share_i is a fraction in [0, 1] — NOT a percentage. Multiply by 100
+  only at the display layer.
+
+Edge cases:
+  total_variance <= 0, or variance_contribution_i is null: risk_share_i = null
+```
+
+### Top-N risk share
+
+```text
+top_N_risk_share = Σ (the N largest risk_share_i values, descending)
+
+Reported today: top_1 and top_3 for factors; top_1 and top_5 for positions.
+
+Edge case:
+  no valid (non-null) risk_share values: top_N_risk_share = null
+```
+
+### Herfindahl-Hirschman Index (HHI)
+
+A standard concentration index over the same risk_share distribution used
+above — one HHI for factors, one for positions.
+
+```text
+HHI = Σ_i (risk_share_i)^2   over all i with risk_share_i non-null
+
+Range: (0, 1]
+  HHI = 1     : all risk concentrated in a single position/factor
+  HHI = 1/n   : risk spread perfectly evenly across n positions/factors
+  lower HHI   : more diversified risk contribution
+
+Edge case:
+  no valid (non-null) risk_share values: HHI = null
+```
+
+This is the **risk-contribution** HHI (history-derived, synthetic-history
+trust class) — a distinct computation from the **current-state holdings**
+HHI reported on the Exposure tab (`exposure_engine.py` `position_hhi`, computed
+over portfolio *weights*, snapshot trust class, and used there to derive
+"Effective Holdings" = `1 / HHI`). Both use the same Σw² formula shape but
+over different inputs (risk share vs holdings weight) and different truth
+classes — do not conflate the two numbers even though they share a name.
+
 Implementation:
-- `services/quant-engine/app/analytics/risk.py`
+- `services/quant-engine/app/analytics/risk.py` — `_herfindahl_index(...)`,
+  `_sum_top_risk_shares(...)`
+- `services/quant-engine/app/services/exposure_engine.py` — the separate
+  current-state `position_hhi` (snapshot weights, not risk share)
+
+Academic precedent:
+- Herfindahl, O.C. (1950), "Concentration in the U.S. Steel Industry"
+  (doctoral dissertation, Columbia University).
+- Hirschman, A.O. (1964), "The Paternity of an Index," *American Economic
+  Review* 54(5): 761–762 (documents the index's independent origin in both
+  Hirschman 1945 and Herfindahl 1950; conventionally cited as either
+  "Herfindahl index" or "Herfindahl-Hirschman Index").
 
 Contract rule:
-- diagnostics-side concentration fields are history-derived risk concentration outputs
-- current-state holdings concentration remains a separate snapshot truth class in exposure contracts
+- diagnostics-side concentration fields (`risk_share`, top-N risk share, HHI)
+  are history-derived risk concentration outputs, synthetic-history trust
+  class — never verified.
+- current-state holdings concentration (`exposure_engine.py` `position_hhi`,
+  "Effective Holdings") remains a separate snapshot truth class in exposure
+  contracts; the two `position_hhi`-shaped numbers are not interchangeable.
+- `top_*_risk_share` and `*_hhi` fields are fractions in [0, 1]; UI consumers
+  must multiply by 100 before rendering a `%` suffix — never emit the raw
+  fraction with a `%` sign appended (that renders a value ~100x too small).
 
 ### Factor Loading Drift
 
