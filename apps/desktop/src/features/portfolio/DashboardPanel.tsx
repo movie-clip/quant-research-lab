@@ -1,5 +1,6 @@
 import type { DashboardAnalysis, ExposureAnalysis, ExposureFactorModelResponse } from './types'
 import { BenchmarkPositioningCard } from './BenchmarkPositioningCard'
+import { PerformanceBenchmarkCard } from './PerformanceBenchmarkCard'
 import { RollingFactorLoadingsCard } from './RollingFactorLoadingsCard'
 import { SectorPieCard } from './SectorPieCard'
 
@@ -119,6 +120,7 @@ export function DashboardPanel({
       </header>
 
       <div className="dashboard-shell-stack">
+        <PerformanceBenchmarkCard result={result} />
         <RollingFactorLoadingsCard result={exposureResult} factorModel={factorModel} />
         <div className="dashboard-composition-row">
           <SectorPieCard result={result} exposureResult={exposureResult} />

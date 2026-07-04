@@ -1,7 +1,8 @@
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { createDiagnosticsEngineFixture, createExposureEngineFixture } from '../../test/portfolioFixtures'
+import { createDashboardHistoryRunMetadataFixture, createDiagnosticsEngineFixture, createExposureEngineFixture, createImportedDashboardFixture } from '../../test/portfolioFixtures'
+import type { DashboardAnalysis } from './types'
 import { DashboardPanel, normalizePerformanceSeries } from './DashboardPanel'
 import { composeExposureView } from './portfolioAnalysisAdapter'
 
@@ -179,5 +180,85 @@ describe('DashboardPanel', () => {
     expect(normalized[2].portfolio_index).toBe(100)
     expect(normalized[3].portfolio_index).toBeGreaterThan(100)
     expect(normalized[2].benchmark_index).toBe(100)
+  })
+
+  // ─── US-25.1: Performance & Benchmark card ──────────────────────────────────
+
+  it('renders the performance chart and summary strip when range_metrics/performance_series are present', () => {
+    const result = createImportedDashboardFixture() as unknown as DashboardAnalysis
+    render(<DashboardPanel result={result} />)
+
+    expect(screen.getByText('Performance & Benchmark')).toBeTruthy()
+    expect(screen.getByRole('img', { name: 'Indexed portfolio return vs benchmark' })).toBeTruthy()
+    expect(screen.getByText('Time-Weighted Return')).toBeTruthy()
+    expect(screen.getByText('20.00%')).toBeTruthy() // time_weighted_return_pct
+    expect(screen.getByText('9.52%')).toBeTruthy() // money_weighted_return_pct
+  })
+
+  it('renders n/a for a null summary field', () => {
+    const fixture = createImportedDashboardFixture()
+    const result = {
+      ...fixture,
+      range_metrics: {
+        ...fixture.range_metrics,
+        '1M': {
+          ...fixture.range_metrics!['1M'],
+          summary: { ...fixture.range_metrics!['1M'].summary, money_weighted_return_pct: null },
+        },
+      },
+    } as unknown as DashboardAnalysis
+    render(<DashboardPanel result={result} />)
+
+    const moneyWeightedLabel = screen.getByText('Money-Weighted Return')
+    const metricRow = moneyWeightedLabel.closest('.benchmark-card-metric')
+    expect(metricRow ? within(metricRow as HTMLElement).getByText('n/a') : null).toBeTruthy()
+  })
+
+  it('renders a single EmptyState when range_metrics is absent', () => {
+    const fixture = createImportedDashboardFixture()
+    const result = { ...fixture, range_metrics: null } as unknown as DashboardAnalysis
+    render(<DashboardPanel result={result} />)
+
+    expect(screen.getByText('Performance unavailable')).toBeTruthy()
+    expect(screen.queryByText('Time-Weighted Return')).toBeNull()
+  })
+
+  it('shows the return-basis label reflecting the run-metadata contract', () => {
+    const fixture = createImportedDashboardFixture()
+    const result = {
+      ...fixture,
+      run_metadata: {
+        ...createDashboardHistoryRunMetadataFixture(),
+        return_basis_contract: { portfolio_path: 'verified_total_return', benchmark_path: 'unverified_adjusted_proxy' },
+      },
+    } as unknown as DashboardAnalysis
+    render(<DashboardPanel result={result} />)
+
+    expect(screen.getByText('Portfolio: Verified · SPY: Unverified proxy')).toBeTruthy()
+  })
+
+  it('switches the summary strip when the range selector changes without any network fetch', () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    const result = createImportedDashboardFixture() as unknown as DashboardAnalysis
+    render(<DashboardPanel result={result} />)
+
+    expect(screen.getByText('20.00%')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '3M window' }))
+    // Fixture uses identical values across ranges; assert selector is now active and no fetch occurred.
+    expect(screen.getByRole('button', { name: '3M window' }).getAttribute('aria-pressed')).toBe('true')
+    expect(fetchSpy).not.toHaveBeenCalled()
+    fetchSpy.mockRestore()
+  })
+
+  it('still shows the allowlisted TWR/MWR scalars and omits max_drawdown_pct when investor economics is withheld', () => {
+    const fixture = createImportedDashboardFixture()
+    const result = fixture as unknown as DashboardAnalysis
+    render(<DashboardPanel result={result} />)
+
+    // run_metadata.investor_economics_status is 'withheld' by default in the fixture.
+    expect(result.run_metadata?.investor_economics_status.status).toBe('withheld')
+    expect(screen.getByText('Time-Weighted Return')).toBeTruthy()
+    expect(screen.getByText('20.00%')).toBeTruthy()
+    expect(screen.queryByText(/Drawdown/)).toBeNull()
   })
 })

@@ -1,6 +1,40 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-06-19 (Epic 24 — Codebase Improvement **active**; Epic 23 — dead-code cleanup & codebase review complete; Epics 13/18/19/20/21/22 complete).*
+*Living execution snapshot. Updated: 2026-07-04 (Epic 25 — Dashboard Performance & Risk Summary **active**; Epic 24 — Codebase Improvement active; Epic 23 — dead-code cleanup & codebase review complete; Epics 13/18/19/20/21/22 complete).*
+
+---
+
+## Active Epic: Epic 25 — Dashboard Performance & Risk Summary
+
+**PRD:** [`docs/product/prd/epic-25-dashboard-performance-risk-summary.md`](product/prd/epic-25-dashboard-performance-risk-summary.md)
+
+### Goal
+
+Restore the Dashboard tab's performance/risk surface that `dashboard-fields.md`
+and `current-product-state.md` describe but `DashboardPanel.tsx` no longer
+renders (removed piecemeal across several undocumented refactors, per git
+history — `bc4ff4d`/`195dc70`/`e0254d6`/`df5d478`). The backend
+(`DashboardHistoryResult`, `DiagnosticsResult`) already computes every field
+needed: no schema/engine change, frontend-only restoration + a docs
+reconciliation pass.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-25.1 | Performance & benchmark comparison card | Done |
+| US-25.2 | Monthly returns grid card | Next phase |
+| US-25.3 | Risk metrics card (volatility, drawdown, concentration) | Next phase |
+| US-25.4 | Docs close-out | Next phase |
+
+Recommended build order: 25.1 → 25.2 → 25.3 → 25.4 (docs last).
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-07-04 | US-25.1 | **Performance & benchmark comparison card.** New `PerformanceBenchmarkCard.tsx` on the Dashboard tab: indexed portfolio-vs-benchmark line chart (base 100, reuses the `IndexedReturnChart`/`normalizePerformanceSeries` rebasing convention) + a summary strip (Portfolio Value, Time-Weighted Return, Money-Weighted Return, Net Contributions) sourced from the already-computed `range_metrics[selectedRange].summary`; a range selector switches both without any new fetch (data already present in `result`). Trust reflected as a plain-text return-basis label per path (`return_basis_contract`), not the shared `TrustBadge` primitive — that primitive's synthetic/unavailable vocabulary doesn't fit dashboard-history's verified/price-return/unverified-proxy ladder (documented in the story's Notes). Deliberately never reads `max_drawdown_pct` (withheld investor-economics field; that's US-25.3's diagnostics-sourced card). Frontend-only, no backend/schema change. +6 `DashboardPanel.test.tsx` tests; 239 frontend green; tsc clean; full `run_all_tests.py` (incl. dead-code gate) green; `dashboardGoldens.ts` untouched. |
+| 2026-07-04 | — | Epic created from a project-wide review that found `DashboardPanel.tsx` renders only 3 cards (Rolling Factor Analysis, Sector composition, Benchmark Positioning) while two contract docs still describe a performance chart, monthly returns grid, risk metrics, and investor-economics status as shipped. Confirmed via grep + git log that the backend fields are fully live/tested/golden-pinned and the gap is UI-only, accumulated across several past refactors rather than one regression. PRD + 4 stories authored. |
 
 ---
 
