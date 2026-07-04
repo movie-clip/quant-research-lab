@@ -1,10 +1,8 @@
-import { useState } from 'react'
 import { CartesianGrid, Line, LineChart, ReferenceLine, Tooltip, XAxis, YAxis } from 'recharts'
 import type { DashboardAnalysis, DashboardRangeMetrics } from './types'
 import { ChartShell } from '../../app/primitives/ChartShell'
 import { defaultAxisTickStyle, defaultChartGrid, defaultMinTickGap, defaultTooltipContentStyle } from '../../app/primitives/chartDefaults'
 import { EmptyState } from '../../app/primitives/EmptyState'
-import { WindowSelector } from '../../app/primitives/WindowSelector'
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -68,15 +66,15 @@ function buildIndexedSeries(perf: DashboardAnalysis['performance_series']): Inde
 
 type PerformanceBenchmarkCardProps = {
   result: DashboardAnalysis | null
+  /** Range key selected by the shared selector in `DashboardPanel` (e.g. '1M', 'YTD').
+   *  Owned by the parent so this card and `MonthlyReturnsGrid` stay in sync (US-25.2). */
+  activeRange: string | null
 }
 
-export function PerformanceBenchmarkCard({ result }: PerformanceBenchmarkCardProps) {
+export function PerformanceBenchmarkCard({ result, activeRange }: PerformanceBenchmarkCardProps) {
   const rangeMetrics = result?.range_metrics ?? null
-  const rangeKeys = rangeMetrics ? Object.keys(rangeMetrics) : []
-  const [selectedRange, setSelectedRange] = useState<string>(rangeKeys[0] ?? '')
-  const activeRange = rangeKeys.includes(selectedRange) ? selectedRange : rangeKeys[0]
 
-  if (!result || !rangeMetrics || !activeRange) {
+  if (!result || !rangeMetrics || !activeRange || !rangeMetrics[activeRange]) {
     return (
       <section className="summary-card performance-benchmark-card" aria-label="Performance & Benchmark">
         <p className="panel-label">Performance & Benchmark</p>
@@ -99,9 +97,6 @@ export function PerformanceBenchmarkCard({ result }: PerformanceBenchmarkCardPro
     <section className="summary-card performance-benchmark-card" aria-label="Performance & Benchmark">
       <div className="benchmark-card-header">
         <p className="panel-label">Performance & Benchmark</p>
-        {rangeKeys.length > 1 && (
-          <WindowSelector options={rangeKeys} value={activeRange} onChange={setSelectedRange} />
-        )}
       </div>
 
       <p className="helper" style={{ marginTop: 'var(--space-xs)' }}>

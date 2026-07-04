@@ -261,4 +261,75 @@ describe('DashboardPanel', () => {
     expect(screen.getByText('20.00%')).toBeTruthy()
     expect(screen.queryByText(/Drawdown/)).toBeNull()
   })
+
+  // ─── US-25.2: Monthly Returns grid ──────────────────────────────────────────
+
+  it('renders one cell per month with signed, 2-decimal formatting', () => {
+    const fixture = createImportedDashboardFixture()
+    const result = {
+      ...fixture,
+      range_metrics: {
+        ...fixture.range_metrics,
+        '1M': {
+          ...fixture.range_metrics!['1M'],
+          monthly_returns: [
+            { month: '2025-01', return_pct: 3.456 },
+            { month: '2025-02', return_pct: -1.2 },
+          ],
+        },
+      },
+    } as unknown as DashboardAnalysis
+    render(<DashboardPanel result={result} />)
+
+    expect(screen.getByText('+3.46%')).toBeTruthy()
+    expect(screen.getByText('−1.20%')).toBeTruthy()
+  })
+
+  it('hides the grid and shows an EmptyState when monthly_returns_reliable is false', () => {
+    const fixture = createImportedDashboardFixture()
+    const result = {
+      ...fixture,
+      range_metrics: {
+        ...fixture.range_metrics,
+        '1M': { ...fixture.range_metrics!['1M'], monthly_returns_reliable: false },
+      },
+    } as unknown as DashboardAnalysis
+    render(<DashboardPanel result={result} />)
+
+    expect(screen.getByText('Monthly returns unavailable')).toBeTruthy()
+    expect(screen.queryByText('2025-01')).toBeNull()
+  })
+
+  it('shows an EmptyState when range_metrics is absent', () => {
+    const fixture = createImportedDashboardFixture()
+    const result = { ...fixture, range_metrics: null } as unknown as DashboardAnalysis
+    render(<DashboardPanel result={result} />)
+
+    const grid = screen.getByLabelText('Monthly Returns')
+    expect(within(grid).getByText('Monthly returns unavailable')).toBeTruthy()
+  })
+
+  it('updates the grid when the shared range selector changes', () => {
+    const fixture = createImportedDashboardFixture()
+    const result = {
+      ...fixture,
+      range_metrics: {
+        ...fixture.range_metrics,
+        '1M': {
+          ...fixture.range_metrics!['1M'],
+          monthly_returns: [{ month: '2025-01', return_pct: 1 }],
+        },
+        '3M': {
+          ...fixture.range_metrics!['3M'],
+          monthly_returns: [{ month: '2025-03', return_pct: 2 }],
+        },
+      },
+    } as unknown as DashboardAnalysis
+    render(<DashboardPanel result={result} />)
+
+    expect(screen.getByText('+1.00%')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '3M window' }))
+    expect(screen.getByText('+2.00%')).toBeTruthy()
+    expect(screen.queryByText('+1.00%')).toBeNull()
+  })
 })
