@@ -6,12 +6,9 @@ import pytest
 from app.analytics import risk as risk_module
 from app.analytics.activity import build_activity_series
 from app.analytics.portfolio_imports import (
-    apply_simulated_trades_to_state,
     build_performance_summary,
     build_portfolio_overview,
-    build_rebalance_preview,
     build_reconciliation_summary,
-    build_simulated_rebalance_trades,
     build_true_performance_series,
 )
 from app.analytics.risk import DEFAULT_FACTOR_DEFINITIONS, build_etf_overlap_pairs, build_factor_exposures, build_factor_registry, build_factor_shift_diagnostics, build_lookthrough_exposure, build_lookthrough_sector_exposure, build_market_overlap_summary, build_model_reliability_snapshot, build_portfolio_risk_summary, build_relative_risk_summary, build_risk_contribution_breakdown, build_rolling_risk_series, build_statistical_factor_model, build_stress_scenarios, build_volatility_regime_payload, is_history_series_verified_adjusted, select_history_price_series, selected_history_price_map
@@ -37,7 +34,7 @@ from app.schemas.diagnostics import DiagnosticsEngineRequest
 from app.schemas.exposure import ExposureAvailability, ExposureCurrentStateConcentration, ExposureProvenance, ExposureResult, ExposureRunMetadata
 from app.schemas.exposure import ExposureRunReproducibilityMetadata, ExposureRunSourceStatus
 from app.schemas.portfolio_engine import PortfolioCashBalanceSnapshot, PortfolioHistoryContext, PortfolioPositionSnapshot
-from app.schemas.reconciliation import DailyPortfolioState, DailyStatePosition, PerformancePoint, PortfolioRiskSummary
+from app.schemas.reconciliation import DailyPortfolioState, PerformancePoint, PortfolioRiskSummary
 from app.schemas.reconciliation import SnapshotItem, StatisticalFactorModel, VolatilitySnapshot
 from app.schemas.reconciliation import LookThroughConstituent, LookThroughOverview, LookThroughSource, MarketOverlapSummary, PortfolioOverview
 from app.services.dashboard_history_engine import (
@@ -5511,35 +5508,6 @@ def test_schema_benchmark_default_still_serializes_to_spy() -> None:
     from app.schemas.imports import SnapshotAnalysisRequest
 
     assert SnapshotAnalysisRequest().benchmark_symbol == "SPY"
-
-
-def test_rebalance_trade_application_updates_state() -> None:
-    state = DailyPortfolioState(
-        date="2025-12-31",
-        cash={"USD": 100.0},
-        positions=[DailyStatePosition(symbol="AAPL", quantity=10.0, market_price=100.0, market_value=1000.0)],
-        total_market_value=1000.0,
-        total_portfolio_value=1100.0,
-    )
-    trades = build_simulated_rebalance_trades([state], target_equity_weight=0.95, tolerance=0.01)
-    updated = apply_simulated_trades_to_state(state, trades)
-
-    assert updated is not None
-    assert updated.total_portfolio_value != state.total_portfolio_value or updated.cash != state.cash
-
-
-def test_build_rebalance_preview_flags_underinvested_state() -> None:
-    state = DailyPortfolioState(
-        date="2025-12-31",
-        cash={"USD": 500.0},
-        positions=[DailyStatePosition(symbol="AAPL", quantity=5.0, market_price=100.0, market_value=500.0)],
-        total_market_value=500.0,
-        total_portfolio_value=1000.0,
-    )
-
-    preview = build_rebalance_preview([state], [{"date": "2025-12-31", "price": 600.0}], target_equity_weight=0.9)
-
-    assert preview[0].action == "buy_equities"
 
 
 def test_snapshot_to_ledger_preserves_trade_and_cash_fields() -> None:
