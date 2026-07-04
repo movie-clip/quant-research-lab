@@ -544,21 +544,3 @@ class DailyPortfolioState(BaseModel):
     total_market_value: float
     total_portfolio_value: float
     external_cash_flow: float = 0.0
-
-
-class RebalancePoint(BaseModel):
-    date: str
-    portfolio_value: float
-    benchmark_price: float | None
-    target_equity_weight: float
-    actual_equity_weight: float
-    action: str
-
-
-class SimulatedTrade(BaseModel):
-    date: str
-    action: str
-    symbol: str
-    quantity: float
-    reference_price: float | None
-    estimated_cash_impact: float | None
