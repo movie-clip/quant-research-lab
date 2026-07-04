@@ -743,6 +743,117 @@ Contract rule:
 - See `docs/contracts/factor-drift-fields.md` for the field-level inventory and
   UI rendering rules.
 
+## Currency Exposure
+
+*Research brief, not yet implemented — see the story list in
+`docs/product/prd/epic-26-currency-exposure-and-risk.md`. Documented here per
+the project's methodology-traceability guardrail: a formula must exist here
+**before** any implementer builds against it, not after.*
+
+The project holds no explicit view of how much of a portfolio is denominated
+in a currency other than its base currency. `ImportedPosition.currency` and
+`ImportedStatement.base_currency` are already captured on every import (no
+new import-format change needed), but nothing aggregates or displays them.
+A portfolio with meaningful non-base-currency holdings (e.g. UCITS ETFs
+traded in EUR/GBP, per the project's documented UCITS support) carries
+currency risk the researcher cannot currently see anywhere on any tab.
+
+### Currency exposure by weight (snapshot)
+
+```text
+currency_weight_c = Σ_i (market_value_i)  for all holdings i with currency_i = c
+                     ────────────────────────────────────────────────────────
+                     Σ_j market_value_j    (all holdings j, all currencies)
+
+where:
+  currency_i      = ImportedPosition.currency (already imported; not derived)
+  base_currency   = ImportedStatement.base_currency
+  non_base_weight = 1 − currency_weight_{base_currency}
+
+Edge cases:
+  a position with currency = null: excluded from both numerator and
+    denominator (never assumed base-currency; that would understate real
+    non-base exposure) — surfaced as an "unclassified" residual weight so
+    the total still reconciles to 100%
+  base_currency = null: currency_weight is still computable per currency,
+    but non_base_weight cannot be computed (no baseline to compare against)
+    → non_base_weight = null
+```
+
+This is a **snapshot analytics** truth class (current holdings only, no
+historical prices, no market data fetch) — the same class as sector
+exposure. It requires no new data source: `currency` and `base_currency` are
+already present on every `ImportedPortfolioSnapshot`.
+
+Implementation target:
+- `services/quant-engine/app/analytics/<name>.py` (new file — this is a
+  distinct concern from sector/look-through exposure, which lives in
+  `risk.py`; per the `quant-research` skill's own guidance, a genuinely new
+  concern gets its own file rather than growing `risk.py` further)
+
+Academic precedent:
+- Solnik, B. (1974). "Why not diversify internationally rather than
+  domestically?" *Financial Analysts Journal*, 30(4), 48–54 — foundational
+  treatment of currency as a distinct risk dimension in a multi-currency
+  portfolio.
+- Eun, C.S. & Resnick, B.G. (1988). "Exchange rate uncertainty, forward
+  contracts, and international portfolio selection." *Journal of Finance*,
+  43(1), 197–215.
+
+Contract rule:
+- Currency exposure by weight is `snapshot analytics` trust class — never
+  `verified` (it reflects the imported statement's own position-currency
+  fields, which are broker-truth-adjacent but not independently verified
+  against a market-data source), never `synthetic`.
+- A `null` position currency is never coerced to the base currency; it is
+  reported as its own "unclassified" bucket so the weights still sum to 100%
+  without silently understating real FX exposure.
+
+### Currency risk contribution (historical, stretch — not scoped for MVP)
+
+A second, harder question — *how much of my portfolio's historical return
+volatility came from currency moves versus the underlying security's local
+return* — requires decomposing each non-base-currency holding's
+base-currency return into a local-return leg and an FX-return leg:
+
+```text
+r_i_base(t)  ≈  r_i_local(t) + r_fx_c(t) + (r_i_local(t) × r_fx_c(t))
+
+where:
+  r_i_local(t) = holding i's daily return in its own trading currency
+                 (local-currency price return)
+  r_fx_c(t)    = daily return of the FX pair converting currency c to
+                 base_currency on day t
+  the cross term (r_i_local × r_fx_c) is the second-order interaction;
+  conventionally small for daily returns and often dropped in practitioner
+  approximations, but should be retained here per the project's "no
+  fabricated simplification" posture unless proven negligible for this
+  portfolio's actual holdings
+
+Portfolio-level currency contribution to variance requires the full
+covariance structure between local-return legs and FX-return legs across all
+non-base holdings — this is materially more complex than the weight-based
+snapshot above (a return-attribution problem, not a composition problem) and
+is explicitly deferred; see PRD non-goals.
+```
+
+Data requirement: `MarketDataService.get_fx_history(pair, from_date, to_date)`
+already exists (thin wrapper over `get_historical_prices`) but has zero
+callers today — this story would be its first real consumer, so its FMP
+symbol-resolution behavior for FX pairs must be verified empirically before
+committing to this formula (unverified as of this brief).
+
+Academic precedent:
+- Ankrim, E.M. & Hensel, C.R. (1994). "Curency Hedging: A Test for
+  Consistency and Efficiency." *Journal of Portfolio Management*, 20(2),
+  35–41 — the standard local-return/currency-return decomposition
+  (sometimes called the "Ankrim-Hensel" currency attribution model).
+
+This subsection exists to document the harder problem's shape for a future
+story; it is **not** ready to implement (the interaction-term and portfolio-
+variance-decomposition questions above are open) and must not be built
+against without a follow-up brief that resolves them.
+
 ## Stress Scenarios
 
 Stress scenario returns are estimated from current factor exposures.

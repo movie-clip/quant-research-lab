@@ -1,6 +1,24 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-07-04 (Epic 25 — Dashboard Performance & Risk Summary **complete**; Epic 24 — Codebase Improvement active; Epic 23 — dead-code cleanup & codebase review complete; Epics 13/18/19/20/21/22 complete).*
+*Living execution snapshot. Updated: 2026-07-04 (Epic 25 — Dashboard Performance & Risk Summary **complete**; Epic 24 — Codebase Improvement active; Epic 26 — Currency Exposure & Risk **backlog** (research brief only); Epic 23 — dead-code cleanup & codebase review complete; Epics 13/18/19/20/21/22 complete).*
+
+---
+
+## Backlog Epic: Epic 26 — Currency Exposure & Risk
+
+**PRD:** [`docs/product/prd/epic-26-currency-exposure-and-risk.md`](product/prd/epic-26-currency-exposure-and-risk.md)
+
+Research brief only — not yet ticketed. A project-wide review found the
+project has no view of portfolio currency exposure despite already importing
+`ImportedPosition.currency`/`ImportedStatement.base_currency` on every
+statement. `financial-methodology.md` gained a §Currency Exposure section
+(snapshot weight-by-currency formula, ready to implement) and a
+§Currency Risk Contribution subsection (historical FX-return decomposition,
+explicitly documented as **not** ready — the interaction-term and portfolio-
+variance-decomposition questions are open, and
+`MarketDataService.get_fx_history` — which exists but has zero callers today
+— needs empirical verification before any engine work begins). Run
+`write-story` against the PRD's US-26.1 when this epic is picked up.
 
 ---
 
