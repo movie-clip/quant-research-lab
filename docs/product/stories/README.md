@@ -43,6 +43,7 @@ PRD: [`prd/epic-24-codebase-improvement.md`](../prd/epic-24-codebase-improvement
 | [US-24.2](US-24.2-extract-risk-model-rubric-constants.md) | Extract the risk-model scoring rubric & thresholds into named constants | Lift `risk.py` mapping-score weights / hard-caps / thresholds / regime cutoffs + the coverage threshold into documented constants; behaviour-neutral (goldens unchanged) | Done |
 | [US-24.3](US-24.3-dedupe-shared-analytics-constants.md) | De-duplicate the shared analytics constants & lookback helper | One shared `app/core/constants.py` for `lookback_calendar_days` / `MIN_DAILY_OBSERVATIONS` / `DEFAULT_BENCHMARK_SYMBOL`; behaviour-neutral (goldens unchanged) | Done |
 | [US-24.4](US-24.4-harden-freedom24-importer-parsing.md) | Harden the Freedom24 importer parsing + extract its hardcodes | Fail-safe positional parsing (skip malformed → no crash); extract format hardcodes to named constants; correct the (non-real) ISIN-gap; FF2026 fixture pinned | Done |
+| [US-24.8](US-24.8-harden-ibkr-espp-importer-parsing.md) | Harden the IBKR importer parsing (fail-safe) | Deferred US-24.4 follow-up: guard post-match numeric/date conversions in `interactive_brokers.py` so a malformed field degrades instead of crashing the whole import; `espp.py` investigated and found not to need it | Done |
 
 ---
 

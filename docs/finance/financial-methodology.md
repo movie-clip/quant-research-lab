@@ -57,12 +57,27 @@ Import admission rule:
 - numeric admission evidence must be finite-only; non-finite imported numeric inputs become unavailable/degraded evidence rather than serialized `NaN` or `Infinity`
 
 Importer resilience rule:
-- the PDF importers (Freedom24 today) parse statements by fixed line offsets and
-  are **fail-safe**: a malformed/non-numeric record is skipped and parsing
-  continues, so a layout drift yields a *partial* snapshot rather than a crash or
-  a silently mis-parsed value (US-24.4). A dropped record is never fabricated or
-  zero-filled — it simply does not appear, and the resulting totals gap surfaces
-  through the statement reconciliation below.
+- the PDF importers are **fail-safe**: a malformed/non-numeric record is
+  skipped and parsing continues, so a layout drift yields a *partial*
+  snapshot rather than a crash or a silently mis-parsed value. A dropped
+  record is never fabricated or zero-filled — it simply does not appear, and
+  the resulting totals gap surfaces through the statement reconciliation
+  below.
+- Freedom24 (US-24.4): parses by fixed line offsets; a malformed record
+  raises `IndexError`/`ValueError` which is caught per-record.
+- Interactive Brokers (US-24.8): parses by regex match, which is already
+  fail-safe for "is this a record at all" (`if not match: continue`); the
+  fix here guards the layer *after* a match — a captured numeric/date group
+  that matches the shape but fails `float()`/`datetime.strptime()` (e.g. a
+  corrupted `"1.2.3"` token, an invalid calendar day) degrades that one
+  field/record instead of raising.
+- ESPP: investigated for the same class of gap (US-24.8) and found **not
+  reachable** — every numeric regex group in this importer uses the strict
+  shape `[\d,]+\.\d+`, which cannot capture a value that fails `float()`
+  after comma-stripping. No code change was made; adding a guard against an
+  unreachable failure would be unjustified complexity. ESPP's existing
+  hard-fail when the statement structure doesn't match at all (it is scoped
+  to one specific statement shape) remains the correct behavior.
 
 Statement reconciliation & activity scoping rule:
 - the statement reconciliation summary (`build_reconciliation_summary`) and the monthly activity series (`build_activity_series`) are scoped to the **imported statement(s)' ledger** as produced by `snapshot_to_ledger` — there is no hardcoded calendar year; the activity series buckets every ledger entry by its own `YYYY-MM`, and each reconciliation actual (dividends, withholding tax, fees, interest, deposits) sums the whole ledger for the imported period (US-24.1). A statement from any year (2025, 2026, …) is reconciled against its own totals.

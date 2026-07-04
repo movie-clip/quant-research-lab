@@ -330,6 +330,33 @@ def test_freedom24_parsers_skip_malformed_records_without_raising() -> None:
     assert _parse_cash_balances(_page(_PAGE_CASH_BALANCES, cash_lines)) == []
 
 
+def test_ibkr_statement_totals_degrade_malformed_field_without_raising() -> None:
+    # US-24.8 AC1: the regex shape ([\d,.-]+) can match a non-numeric value
+    # (e.g. multiple decimal points); that one field degrades to None instead
+    # of raising and aborting the whole import.
+    from app.importers.interactive_brokers import _parse_statement_totals
+
+    page_texts = ["Cash 100.00 1.2.3 0.00 5.00"]
+    totals = _parse_statement_totals(page_texts)
+    assert totals.cash_total is None
+
+
+def test_ibkr_period_end_date_degrades_to_none_on_invalid_calendar_date() -> None:
+    # US-24.8 AC2: a period string that matches the shape regex but fails
+    # datetime.strptime (invalid month name / day) returns None so the
+    # caller's fallback date applies, rather than raising.
+    from app.importers.interactive_brokers import _parse_period_end_date
+
+    assert _parse_period_end_date("January 1, 2026 - Blorpuary 99, 2026") is None
+
+
+def test_ibkr_import_2026_golden_values_unchanged() -> None:
+    # US-24.8 AC5: hardening is behaviour-neutral for a valid statement.
+    snapshot = import_interactive_brokers_statement(STATEMENT_2026_PATH)
+    assert snapshot.statement_totals is not None
+    assert snapshot.statement.importer == "interactive_brokers"
+
+
 def test_import_statement_surfaces_parser_errors_for_supported_broker_pdf() -> None:
     with pytest.raises(ValueError) as exc_info:
         import_statement(DOCS_DIR / "FF2026.pdf")
