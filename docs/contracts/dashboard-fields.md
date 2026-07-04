@@ -17,17 +17,32 @@ For each visible Dashboard value, we want a traceable chain:
 
 ## Current Root Sources
 
-Dashboard currently renders from two root inputs:
+*Rewritten 2026-07-04 (Epic 25 / US-25.4) to match the shipped `DashboardPanel.tsx` — the
+prior version of this section described an "Allocation Overview" draft editor and
+capital-path/MWR-chart helpers that no longer exist anywhere in the codebase
+(grep-verified). Epic 25 was created specifically because this doc had drifted
+from the shipped component; see `docs/product/prd/epic-25-dashboard-performance-risk-summary.md`.*
+
+Dashboard currently renders from three root inputs, all passed as props to
+`DashboardPanel` from `apps/desktop/src/app/App.tsx`:
 
 1. `result: DashboardAnalysis`
-   - produced in `apps/desktop/src/app/App.tsx`
-   - cards, performance chart, drawdown, MWR, monthly returns, and imported metadata are sourced from this path
-   - for imported nodes, history may come from `runImportedDashboardHistory(...)`
-   - for snapshot-only or variant paths, history may come from `runDashboardHistoryEngine(...)` or degrade to unavailable
+   - imported metadata (statement/account/loaded-file labels), `performance_series`,
+     and `range_metrics` are sourced from this path
+   - for imported nodes, history comes from `runImportedDashboardHistory(...)`
+   - for snapshot-only or variant paths, history may come from
+     `runDashboardHistoryEngine(...)` or degrade to unavailable
+2. `exposureResult: ExposureAnalysis | null` and `factorModel: ExposureFactorModelResponse | null`
+   - power `RollingFactorLoadingsCard`, `SectorPieCard`, and `BenchmarkPositioningCard`
+3. `diagnosticsAnalysis: DiagnosticsEngineResponse | null` (Epic 25 / US-25.3)
+   - powers `RiskSummaryCard` (`volatility_summary`, `drawdown_summary`,
+     `risk_concentration_summary`) — a separate fetch/state from `result`,
+     threaded into `DashboardPanel` alongside `exposureResult`/`factorModel`
 
-2. `draftSnapshot: PortfolioSnapshot | null`
-   - sourced from the active working draft or opened node snapshot in `apps/desktop/src/app/App.tsx`
-   - Allocation Overview, sector pie, sector drilldown, draft capital check, and editable holdings come from this path
+There is no longer a draft-editing surface on the Dashboard tab (no
+`draftSnapshot`, no editable Allocation Overview) — sector composition is a
+read-only donut (`SectorPieCard`), and holdings editing does not exist on this
+tab today.
 
 Broker source-of-truth statement formats in active use today:
 
@@ -151,61 +166,46 @@ Import admission is informational on Dashboard: workspace creation is non-blocki
 | UI field | Current UI/provider source | App state source | Truth class | Unavailable rule | Notes |
 | --- | --- | --- | --- | --- | --- |
 | Broker badge | `formatBrokerLabel(result.snapshot.statement.importer)` in `apps/desktop/src/features/portfolio/DashboardPanel.tsx` | `analysis.snapshot.statement.importer` | `broker-truth` | if importer missing, current code still falls back to Interactive Brokers label logic; should eventually render explicit unknown | covered by IB2026 and FF2026 golden tests |
-| Dashboard source badge | `dashboardSourceLabel(result.source_status?.performance_history)` | `analysis.source_status.performance_history` | `engine-derived` | if missing, badge may be absent | covered by IB2026 and FF2026 golden tests |
 | Loaded file(s) | `formatLoadedStatements(result, lastImportedFileNames)` | `analysis.snapshot.statements` first, fallback `lastImportedFileNames` | `broker-truth` | if no statements and no fallback files, omit | covered by IB2026 and FF2026 golden tests |
 | Restored on launch | `restoredSession` | App local state | not financial | n/a | session/UI state only |
-| Account id | `result.snapshot.statement.account_id` | `analysis.snapshot.statement.account_id` | `broker-truth` | if null, UI shows `Unknown` | covered by IB2026 and FF2026 golden tests |
-| Statement period | `result.snapshot.statement.statement_period` | `analysis.snapshot.statement.statement_period` | `broker-truth` | if null, UI shows `Statement period unavailable` | covered by IB2026 and FF2026 golden tests |
-| Combined statement count | `result.snapshot.statements.length` | `analysis.snapshot.statements` | `broker-truth` | if one statement, suffix hidden | imported multi-statement metadata |
 
-### Summary cards
+### Performance & Benchmark card (Epic 25 / US-25.1)
 
 | UI field | Current UI/provider source | App state source | Truth class | Unavailable rule | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Portfolio Value | `resolveDisplayedPortfolioValue(result, selectedRangeMetrics.summary.end_value, latestPerf?.portfolio_value)` | `analysis.snapshot.statement_totals.ending_nav`, `analysis.range_metrics`, `analysis.daily_states`, `analysis.performance_series` | `broker-truth` for imported snapshots when statement ending NAV exists, otherwise `engine-derived` | if no history and no statement ending NAV, render `n/a` | covered by IB2026 and FF2026 golden tests plus ending-NAV override regression |
-| Start value | `selectedRangeMetrics.summary.start_value` | `analysis.range_metrics[selectedRange].summary.start_value` | `engine-derived` | if backend range metrics are unavailable, render `n/a` | covered by IB2026 and FF2026 golden tests; this is the visible-range anchor, not always statement starting NAV |
-| Time-Weighted Return | `selectedRangeMetrics.summary.time_weighted_return_pct` | `analysis.range_metrics[selectedRange].summary.time_weighted_return_pct` | `engine-derived` | if backend range metrics are unavailable, or investor-economics outputs are intentionally withheld for the run, render `n/a` | this value may be `null` even when daily history exists; covered by IB2026 and FF2026 golden tests |
-| Net Contributions | `selectedRangeMetrics.summary.net_contributions` | `analysis.range_metrics[selectedRange].summary.net_contributions` | `engine-derived` | if backend range metrics are unavailable, render `n/a` | covered by IB2026 and FF2026 golden tests |
+| Indexed chart (portfolio vs benchmark) | `PerformanceBenchmarkCard.tsx` `buildIndexedSeries(result.performance_series)` | `analysis.performance_series` | `engine-derived` | if no non-null series points, render `EmptyState` | base-100 rebasing per §Indexed Return Series |
+| Return-basis label | `returnBasisLabel(run_metadata.return_basis_contract.{portfolio_path,benchmark_path})` | `analysis.run_metadata.return_basis_contract` | `engine-derived` | falls back to "Unavailable" for any contract value outside the known enum | plain-text label, not the Exposure-tab `TrustBadge` primitive (different vocabulary — see US-25.1 story Notes) |
+| Portfolio Value | `range_metrics[activeRange].summary.end_value` | `analysis.range_metrics` | `engine-derived` | `n/a` if `range_metrics` absent or the field is `null` | |
+| Time-Weighted Return | `range_metrics[activeRange].summary.time_weighted_return_pct` | `analysis.range_metrics` | `engine-derived` | `n/a` if `range_metrics` absent or the field is `null`, incl. when investor-economics is withheld and this scalar isn't in the allowlist | see §Money-Weighted Return / dashboard-history withholding rule below |
+| Money-Weighted Return | `range_metrics[activeRange].summary.money_weighted_return_pct` | `analysis.range_metrics` | `engine-derived` | `n/a` if `range_metrics` absent or the field is `null` | Modified Dietz method, §Money-Weighted Return |
+| Net Contributions | `range_metrics[activeRange].summary.net_contributions` | `analysis.range_metrics` | `engine-derived` | `n/a` if `range_metrics` absent | |
+| Range selector | `WindowSelector` in `DashboardPanel.tsx`, state lifted there (US-25.2) | keys of `analysis.range_metrics` | not financial | selector hidden when fewer than 2 ranges | shared with `MonthlyReturnsGrid` so both cards always show the same range |
 
-### Performance section
-
-| UI field | Current UI/provider source | App state source | Truth class | Unavailable rule | Notes |
-| --- | --- | --- | --- | --- | --- |
-| Performance title | selected by `performanceView` | local UI state + available performance path | not financial | n/a | presentational |
-| Monthly-return status | `dashboardSourceLabel(result.source_status?.monthly_returns)` | `analysis.source_status.monthly_returns` | `engine-derived` | hide label if status missing | covered by IB2026 and FF2026 golden tests |
-| TWR chart path | `normalizedPerf` / `performancePathData` | `analysis.performance_series` | `engine-derived` | if no visible performance path, show empty state panel | current display transform from engine points |
-| Benchmark chart path | `normalizedPerf` / `performancePathData` | `analysis.performance_series` | `engine-derived` | if no visible performance path, show empty state panel | benchmark is currently SPY for imported dashboard history |
-| MWR chart path | `capitalChartData` and visible states used when `performanceView === 'mwr'` | `analysis.daily_states` | `engine-derived` | if no visible states, show empty state panel | portfolio growth path for selected range |
-| Capital Path chart | `capitalChartData` | `analysis.daily_states` | `engine-derived` | if no visible states, show empty state panel | contribution base vs portfolio value |
-| Empty-state message | `!hasPerformance` | absence of `analysis.performance_series` or `analysis.daily_states` | `unavailable-required` | must show empty/unavailable rather than fake chart | current behavior is correct direction |
-
-### Allocation Overview and editable draft section
+### Monthly Returns Grid (Epic 25 / US-25.2)
 
 | UI field | Current UI/provider source | App state source | Truth class | Unavailable rule | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Sector allocation pie | `buildSectorAllocationFromSnapshot(nextDraftSnapshot)` | `draftSnapshot` and local `sectorDraft` edits | `draft-derived` | if no positions, show empty state | visible, but IB2026 tests currently assert labels/state rather than SVG geometry |
-| Sector allocation percentages | `sectorAllocation[].weight` | `draftSnapshot` and `sectorDraft` | `draft-derived` | if no positions, omit/list empty | covered by IB2026 and FF2026 golden tests for key sector labels |
-| Sector drilldown holdings | `selectedSectorPositions` | `draftSnapshot` and local `sectorDraft` | `draft-derived` | if no sector selected or no positions, show empty state | covered by IB2026 and FF2026 golden tests for broker-specific drilldowns |
-| Holding market values | `position.market_value` in draft rows | `draftSnapshot` and local `sectorDraft` | `draft-derived` | if missing, should remain explicit editable value | editable draft only |
-| Holding weights inside selected sector | `(position.market_value / editedNetCapital) * 100` | `draftSnapshot` and local `sectorDraft` | `draft-derived` | if edited capital is zero, current code shows `0.00%` | covered by IB2026 and FF2026 golden tests for broker-specific holdings |
-| Draft Capital Check | `remainingCapital` | `draftSnapshot` and local `sectorDraft` | `draft-derived` | if no draft snapshot, currently derives from zero | covered by IB2026 and FF2026 golden tests |
-| Leverage ratio | `leverageRatio` | `draftSnapshot` and local `sectorDraft` | `draft-derived` | if base capital is zero, current code shows `0.00x` | covered by IB2026 golden tests via Draft Capital Check helper |
-| Locked-on sector helper | `lockedSector` | local UI state | not financial | n/a | covered by IB2026 interaction tests |
+| Monthly return cells | `MonthlyReturnsGrid.tsx`, one cell per `range_metrics[activeRange].monthly_returns[]` | `analysis.range_metrics` | `engine-derived` | whole-card `EmptyState` when `range_metrics` absent | signed `+X.XX%`/`−X.XX%` (color + sign, not color alone) |
+| Monthly returns hidden-state | `!metrics.monthly_returns_reliable` | `analysis.range_metrics[activeRange].monthly_returns_reliable` | `unavailable-required` | whole-card `EmptyState`, never individually-suppressed cells | must hide unstable monthly data rather than show plausible garbage |
 
-### Lower summary cards
+### Risk Summary card (Epic 25 / US-25.3)
 
 | UI field | Current UI/provider source | App state source | Truth class | Unavailable rule | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Drawdown | `selectedRangeMetrics.max_drawdown_pct` | `analysis.range_metrics[selectedRange].max_drawdown_pct` | `engine-derived` | if backend range metrics are unavailable, or investor-economics outputs are intentionally withheld for the run, render `n/a` | this value may be `null` even when daily history exists; covered by IB2026 and FF2026 golden tests |
-| Money-Weighted Return | `selectedRangeMetrics.summary.money_weighted_return_pct` | `analysis.range_metrics[selectedRange].summary.money_weighted_return_pct` | `engine-derived` | if backend range metrics are unavailable, render `n/a` | covered by IB2026 and FF2026 golden tests |
+| Portfolio / Benchmark / Downside Volatility, Tracking Error | `RiskSummaryCard.tsx` from `diagnosticsAnalysis.volatility_summary` | `diagnosticsAnalysis` (separate App.tsx state, not `analysis`) | `engine-derived`, synthetic-history basis | `n/a` per null field; whole-card `EmptyState` if `diagnosticsAnalysis` or any of its three summary sub-objects is absent | §Volatility and Relative Risk |
+| Current / Max Drawdown | `diagnosticsAnalysis.drawdown_summary` | `diagnosticsAnalysis` | `engine-derived`, synthetic-history basis | same as above | **Deliberately not** `DashboardHistoryResult.max_drawdown_pct` (that field stays withheld under the investor-economics policy below); diagnostics' drawdown is a separate, unwithheld path — see US-25.3 story Context |
+| Factor HHI / Position HHI | `diagnosticsAnalysis.risk_concentration_summary.{factor_hhi,position_hhi}` | `diagnosticsAnalysis` | `engine-derived`, synthetic-history basis | same as above | §Risk Contribution and Concentration; rendered as a raw ratio, no `%` |
+| Top-N Factor/Position Risk Share | `diagnosticsAnalysis.risk_concentration_summary.top_{1,3,5}_*_risk_share` | `diagnosticsAnalysis` | `engine-derived`, synthetic-history basis | same as above | **fields are 0-1 fractions** — the card multiplies by 100 before display (`formatShareAsPct`); do not append `%` to the raw value |
+| Risk contribution basis label | `run_metadata.section_trust.risk_contribution_path` | `diagnosticsAnalysis.run_metadata` | `engine-derived` | falls back to "Unavailable" | plain-text label distinct from the Exposure-tab `TrustBadge` primitive |
+| Information Ratio / Active Return (vs benchmark) | `diagnosticsAnalysis.relative_risk.{information_ratio,active_return_pct}` (Epic 25 / US-25.5) | `diagnosticsAnalysis` | `engine-derived`, synthetic-history basis | rows omitted entirely (not `n/a`) when `volatility_summary.tracking_error_pct` is `null` — mathematically dependent, per `financial-methodology.md` §Information Ratio; `n/a` per individually-null field otherwise | already computed in `risk.py` prior to this epic; this story only added the methodology section + UI row |
 
-### Monthly Returns section
+### Factor / Composition cards (pre-Epic-25, unchanged)
 
-| UI field | Current UI/provider source | App state source | Truth class | Unavailable rule | Notes |
-| --- | --- | --- | --- | --- | --- |
-| Monthly return month labels | `selectedRangeMetrics.monthly_returns[].month` | `analysis.range_metrics[selectedRange].monthly_returns` | `engine-derived` | hide whole grid when backend range metrics are absent or marked unreliable | covered by IB2026 and FF2026 golden tests |
-| Monthly return percentages | `item.returnPct.toFixed(2)` from `selectedRangeMetrics.monthly_returns` | `analysis.range_metrics[selectedRange].monthly_returns` | `engine-derived` | hide whole grid when backend range metrics are absent or marked unreliable | covered by IB2026 and FF2026 golden tests |
-| Monthly returns hidden-state panel | `!selectedRangeMetrics.monthly_returns_reliable` | `analysis.range_metrics[selectedRange].monthly_returns_reliable` | `unavailable-required` | must hide unstable monthly cards rather than show plausible garbage | covered by unstable-history regression tests |
+| UI field | Current UI/provider source | App state source | Truth class | Notes |
+| --- | --- | --- | --- | --- |
+| Rolling Factor Analysis | `RollingFactorLoadingsCard.tsx` | `exposureResult`, `factorModel` | `engine-derived`, synthetic-history basis | unchanged by Epic 25 |
+| Sector composition donut | `SectorPieCard.tsx` | `result`, `exposureResult` | `engine-derived` | unchanged by Epic 25; replaced the earlier editable Allocation Overview draft (no longer present anywhere in the codebase) |
+| Benchmark Positioning | `BenchmarkPositioningCard.tsx` | `exposureResult` | `engine-derived` | unchanged by Epic 25 |
 
 ## Current Provider Chain By Section
 
@@ -213,56 +213,45 @@ Import admission is informational on Dashboard: workspace creation is non-blocki
 
 - UI: `DashboardPanel.tsx`
 - App state: `analysis.snapshot`
-- Adapter: `buildImportedDashboardView(...)` or `composeDashboardAnalysisWithHistory(...)`
+- Adapter: `composeDashboardAnalysisWithHistory(...)`
 - Engine source:
   - imported nodes: import bootstrap snapshot plus `runImportedDashboardHistory(...)`
   - snapshot-only nodes: `runDashboardHistoryEngine(...)` when supported
 - origin truth: imported statement snapshot, ultimately from broker statement parsing
 
-### Performance cards and chart values
+### Performance & Monthly Returns (Epic 25 / US-25.1, US-25.2)
 
-- UI: `normalizePerformanceSeries(...)`, `resolveDisplayedPortfolioValue(...)`, and backend-driven `range_metrics` selection in `DashboardPanel.tsx`
-- App state: `analysis.range_metrics`, `analysis.daily_states`, `analysis.performance_series`, `analysis.source_status`
+- UI: `PerformanceBenchmarkCard.tsx`, `MonthlyReturnsGrid.tsx`, shared range state in `DashboardPanel.tsx`
+- App state: `analysis.range_metrics`, `analysis.performance_series`, `analysis.run_metadata`
 - Adapter: `composeDashboardAnalysisWithHistory(...)`
-- Engine source:
-  - imported nodes: `runImportedDashboardHistory(...)`
-  - snapshot-only nodes: `runDashboardHistoryEngine(...)` or unavailable
-- origin truth:
-  - imported path: broker-truth replay plus engine-derived path math
-  - imported path becomes `unavailable` if benchmark history or usable symbol price history is missing
-  - snapshot path: currently limited; must be unavailable when not trustworthy
+- Engine source: `runImportedDashboardHistory(...)` or `runDashboardHistoryEngine(...)`
+- origin truth: imported path is broker-truth replay plus engine-derived path math; becomes `unavailable` if benchmark history or usable symbol price history is missing
 
-### Allocation Overview and draft editing
+### Risk Summary (Epic 25 / US-25.3)
 
-- UI: `buildSectorAllocationFromSnapshot(...)`, `buildEditableSectorDraftFromSnapshot(...)`, `buildSnapshotFromSectorDraft(...)`
-- App state: `draftSnapshot`, `sectorDraft`
-- Adapter: local snapshot builder only
-- Engine source: none at render time; this is local draft state
-- origin truth: persisted `PortfolioSnapshot`, optionally modified in memory by the user before saving
+- UI: `RiskSummaryCard.tsx`
+- App state: `diagnosticsAnalysis` (separate state from `analysis`, threaded into `DashboardPanel` as its own prop)
+- Adapter: none — reads `DiagnosticsEngineResponse` fields directly
+- Engine source: `runDiagnosticsEngine(...)` or `runImportedDiagnosticsEngine(...)`
+- origin truth: synthetic-history (current holdings applied to historical prices), independent of the dashboard-history investor-economics withholding policy
 
 ## Current Accuracy Rules
 
 1. Imported nodes may render broker-truth history.
 2. Variants and snapshot-only paths must be correct or unavailable.
-3. Allocation Overview is a draft editor and should be treated as draft-derived, not historical truth.
-4. If cards/chart/history come from one snapshot and allocation comes from another snapshot, Dashboard is internally inconsistent and that is a bug.
-5. If a history-based field cannot be supported faithfully, the UI must render `n/a`, hide the unstable cards, or show an unavailable panel.
-6. Imported history replay is only trustworthy when the broker snapshot and required market-data support are both present; otherwise the result must degrade to `unavailable`.
-7. Dashboard-history withholding is distinct from unavailability: when `run_metadata.investor_economics_status` is `withheld`, history may still be present, but only the explicit allowlisted exact-slice scalars described in `run_metadata.investor_economics_partial_unlock` may appear; only exact-slice `range_metrics[*].summary.excess_return_pct` joins `time_weighted_return_pct` and exact-slice `benchmark_return_pct`, while `max_drawdown_pct` and other non-allowlisted investor-economics outputs must stay `null`/hidden.
-
-## Immediate Follow-up Targets
-
-1. Keep App-level regressions in place for imported base/imported child snapshot/child variant transitions so broker-truth history is only shown on direct imported nodes.
-2. Add any remaining visual-state coverage gaps that are still untested, such as sector-pie empty-state presentation details rather than just labels and fallback text.
-3. Tighten the remaining unavailable behavior so missing history never falls back to misleading zero-like values.
+3. If cards/chart/history come from one snapshot and composition cards come from another snapshot, Dashboard is internally inconsistent and that is a bug.
+4. If a history-based field cannot be supported faithfully, the UI must render `n/a`, hide the unstable cards, or show an unavailable panel.
+5. Imported history replay is only trustworthy when the broker snapshot and required market-data support are both present; otherwise the result must degrade to `unavailable`.
+6. Dashboard-history withholding is distinct from unavailability: when `run_metadata.investor_economics_status` is `withheld`, history may still be present, but only the explicit allowlisted exact-slice scalars described in `run_metadata.investor_economics_partial_unlock` may appear; only exact-slice `range_metrics[*].summary.excess_return_pct` joins `time_weighted_return_pct` and exact-slice `benchmark_return_pct`, while `max_drawdown_pct` and other non-allowlisted investor-economics outputs must stay `null`/hidden on the Performance card. `RiskSummaryCard` sidesteps this by sourcing drawdown from the separate, unwithheld diagnostics path instead.
+7. `risk_concentration_summary.top_*_risk_share` fields are 0-1 fractions, not percentages — a consumer that renders them with a bare `%` suffix without multiplying by 100 is wrong by a factor of ~100 (this exact bug was caught and fixed during US-25.4).
 
 ## Current Coverage Status
 
-- `apps/desktop/src/features/portfolio/DashboardPanel.test.tsx` now covers both IB2026 and FF2026 imported golden values, plus account metadata fallbacks, statement period fallbacks, draft capital helper values, broker-specific sector drilldowns, unstable-history states, empty draft allocation states, and the contract that missing backend `range_metrics` renders `n/a` instead of triggering local financial recomputation.
-- `apps/desktop/src/app/App.test.tsx` now covers imported-base restore for both IB2026 and FF2026, imported child-snapshot open, variant-to-imported-base switching, and imported-child-variant restore where history cards must remain unavailable instead of reusing imported broker-truth dashboard history; restore regressions also assert that missing backend `range_metrics` stays unavailable in the UI.
-- persisted restore/open-node flows are now `historySource`-only, and App-level regressions verify that direct imported nodes can still use imported replay while descendant variants inherit only history context and therefore keep unavailable history cards when replay would be untrustworthy.
+- `apps/desktop/src/features/portfolio/DashboardPanel.test.tsx` covers both IB2026/FF2026 imported golden values, account metadata fallbacks, statement period fallbacks, the Epic-25 Performance/Monthly-Returns/Risk-Summary cards (chart + summary strip, `n/a` rendering, EmptyStates, shared range-selector sync, investor-economics withholding, diagnostics-sourced drawdown vs the withheld dashboard-history value, defensive handling of partially-absent diagnostics sub-objects), and the contract that missing backend `range_metrics` renders `n/a` instead of triggering local financial recomputation.
+- `apps/desktop/src/app/App.test.tsx` covers imported-base restore for both IB2026 and FF2026, imported child-snapshot open, variant-to-imported-base switching, and imported-child-variant restore where history cards must remain unavailable instead of reusing imported broker-truth dashboard history; restore regressions also assert that missing backend `range_metrics` stays unavailable in the UI.
+- persisted restore/open-node flows are `historySource`-only, and App-level regressions verify that direct imported nodes can still use imported replay while descendant variants inherit only history context and therefore keep unavailable history cards when replay would be untrustworthy.
 - new workspace/node persistence is `historySource`-only; older local workspace caches are invalidated by the IndexedDB version/reset path rather than being reconstructed into dashboard history state.
 - `apps/desktop/src/test/dashboardGoldens.ts` is generated from backend output for both brokers and uses normalized import timestamps so fixture regeneration does not create timestamp-only diffs; broker-specific desktop imports flow through `apps/desktop/src/test/ib2026DashboardGolden.ts` and `apps/desktop/src/test/ff2026DashboardGolden.ts`.
 - diagnostics/exposure availability semantics remain requirement-oriented: `history_context_required` describes whether the historical sections fundamentally depend on history context, so it can remain `true` even when those sections are successfully available.
-- backend route coverage now includes mixed-broker `IB2026.pdf` + `FF2026.pdf` bootstrap/history-context validation plus imported-route unavailable regressions for empty or unsupported benchmark/symbol market-data conditions.
-- backend analytics coverage now includes direct `FF2026.pdf` imported dashboard truth assertions for summary metrics, monthly returns, and overview composition, similar in spirit to the stronger `IB2026` truth path.
+- backend route coverage includes mixed-broker `IB2026.pdf` + `FF2026.pdf` bootstrap/history-context validation plus imported-route unavailable regressions for empty or unsupported benchmark/symbol market-data conditions.
+- backend analytics coverage includes direct `FF2026.pdf` imported dashboard truth assertions for summary metrics, monthly returns, and overview composition, similar in spirit to the stronger `IB2026` truth path.

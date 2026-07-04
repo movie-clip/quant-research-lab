@@ -57,12 +57,27 @@ Import admission rule:
 - numeric admission evidence must be finite-only; non-finite imported numeric inputs become unavailable/degraded evidence rather than serialized `NaN` or `Infinity`
 
 Importer resilience rule:
-- the PDF importers (Freedom24 today) parse statements by fixed line offsets and
-  are **fail-safe**: a malformed/non-numeric record is skipped and parsing
-  continues, so a layout drift yields a *partial* snapshot rather than a crash or
-  a silently mis-parsed value (US-24.4). A dropped record is never fabricated or
-  zero-filled — it simply does not appear, and the resulting totals gap surfaces
-  through the statement reconciliation below.
+- the PDF importers are **fail-safe**: a malformed/non-numeric record is
+  skipped and parsing continues, so a layout drift yields a *partial*
+  snapshot rather than a crash or a silently mis-parsed value. A dropped
+  record is never fabricated or zero-filled — it simply does not appear, and
+  the resulting totals gap surfaces through the statement reconciliation
+  below.
+- Freedom24 (US-24.4): parses by fixed line offsets; a malformed record
+  raises `IndexError`/`ValueError` which is caught per-record.
+- Interactive Brokers (US-24.8): parses by regex match, which is already
+  fail-safe for "is this a record at all" (`if not match: continue`); the
+  fix here guards the layer *after* a match — a captured numeric/date group
+  that matches the shape but fails `float()`/`datetime.strptime()` (e.g. a
+  corrupted `"1.2.3"` token, an invalid calendar day) degrades that one
+  field/record instead of raising.
+- ESPP: investigated for the same class of gap (US-24.8) and found **not
+  reachable** — every numeric regex group in this importer uses the strict
+  shape `[\d,]+\.\d+`, which cannot capture a value that fails `float()`
+  after comma-stripping. No code change was made; adding a guard against an
+  unreachable failure would be unjustified complexity. ESPP's existing
+  hard-fail when the statement structure doesn't match at all (it is scoped
+  to one specific statement shape) remains the correct behavior.
 
 Statement reconciliation & activity scoping rule:
 - the statement reconciliation summary (`build_reconciliation_summary`) and the monthly activity series (`build_activity_series`) are scoped to the **imported statement(s)' ledger** as produced by `snapshot_to_ledger` — there is no hardcoded calendar year; the activity series buckets every ledger entry by its own `YYYY-MM`, and each reconciliation actual (dividends, withholding tax, fees, interest, deposits) sums the whole ledger for the imported period (US-24.1). A statement from any year (2025, 2026, …) is reconciled against its own totals.
@@ -102,6 +117,62 @@ daily_return_t = ((total_portfolio_value_t - external_cash_flow_t) / total_portf
 Implementation:
 - `services/quant-engine/app/analytics/risk.py`
 - `_portfolio_time_weighted_return_series(...)`
+
+## Money-Weighted Return (Modified Dietz)
+
+Money-weighted return measures the return actually experienced by the
+investor's capital, accounting for the size and timing of external cash
+flows — distinct from time-weighted return (§Portfolio Return Methodology),
+which measures the *manager's* return independent of when the investor added
+or withdrew capital.
+
+The project uses the **Modified Dietz method**: a closed-form, day-weighted
+approximation of money-weighted return that does not require an iterative
+IRR solve.
+
+```text
+money_weighted_return_pct = ((V_end - V_start - CF_total) / D) * 100
+
+where:
+  V_start      = total_portfolio_value of the first daily state
+  V_end        = total_portfolio_value of the last daily state
+  CF_total     = Σ external_cash_flow_i  over all states after the first
+  D            = V_start + Σ (external_cash_flow_i * w_i)   (the weighted capital base)
+  w_i          = (P - i - 1) / P
+                 for the i-th cash-flow state (0-based index among the
+                 flow-bearing states, i.e. all states after the first)
+  P            = max(N - 1, 1), N = number of daily states
+
+  w_i is the fraction of the period remaining after the flow occurred: a flow
+  on the first day after the start gets a weight close to 1 (invested for
+  nearly the whole period); a flow on the last day gets weight 0 (invested for
+  ~0 time). This is the standard day-weighted (as opposed to fixed 0.5
+  mid-point) Modified Dietz weighting.
+
+Edge cases:
+  fewer than 2 daily states: money_weighted_return_pct = null
+  D = 0: money_weighted_return_pct = null (division undefined)
+```
+
+Implementation:
+- `services/quant-engine/app/analytics/performance.py` —
+  `build_performance_summary(...)`
+
+Academic precedent:
+- Dietz, P.O. (1966), "Pension Fund Investment Performance — What Method to
+  Use When," *Financial Analysts Journal* 22(1): 83–89.
+- CFA Institute, *Global Investment Performance Standards (GIPS)* — Modified
+  Dietz Method guidance (day-weighted cash-flow variant).
+
+Contract rule:
+- `money_weighted_return_pct` carries the same trust/withholding semantics as
+  the rest of `PerformanceSummary` — see the dashboard-history investor-
+  economics partial-unlock contract in `docs/contracts/dashboard-fields.md`.
+- Never confuse this with IRR/XIRR: Modified Dietz is a linear approximation,
+  not an iterative internal-rate-of-return solve. It is exact only when cash
+  flows and returns are small/smooth within the period; for large flows near
+  a period boundary combined with high volatility, it can diverge from a true
+  IRR. This is a known, accepted limitation of the method, not a bug.
 
 ## Benchmark and Factor Return Methodology
 
@@ -306,6 +377,75 @@ Implementation:
 Contract rule:
 - benchmark-relative outputs may be computed internally but still withheld or suppressed at the contract boundary when trust attestation is weaker than required
 
+### Information Ratio
+
+Information Ratio (IR) measures risk-adjusted active return: how much excess
+return the portfolio generated per unit of active risk taken relative to the
+benchmark. It is the natural complement to tracking error — this project
+already computes both, over the same underlying paired daily-return series,
+but had never named the ratio in this document (documentation-traceability
+gap closed here; the code has existed since before this section was written).
+
+```text
+mean_active_return  = mean(active_return_t)   over all paired dates
+                       (active_return_t as defined in §Tracking error)
+
+information_ratio = (mean_active_return * 252) / tracking_error
+
+where:
+  tracking_error       = the annualized stdev of active_return_t (§Tracking error)
+  mean_active_return   = simple arithmetic mean of the daily active-return series
+                         (paired portfolio/benchmark dates only)
+  the numerator annualizes the daily mean by the trading-day count (252),
+  matching the denominator's annualization basis
+
+Interpretation:
+  IR > 0: positive risk-adjusted active return (out-performed per unit of
+          tracking error taken)
+  IR = 0: no active return, or active return exactly offset by its own noise
+  IR < 0: negative risk-adjusted active return (under-performed per unit of
+          tracking error taken)
+
+Edge cases:
+  fewer than 2 paired portfolio/benchmark daily returns: tracking_error = null,
+    information_ratio = null
+  tracking_error = 0 (active returns had zero variance — e.g. the portfolio
+    tracked the benchmark exactly every day): information_ratio = null
+    (division undefined, never fabricated as 0 or infinity)
+```
+
+Distinct from the schema's `active_return_pct` field (same `RelativeRiskSummary`
+struct): `active_return_pct` is the **compounded** portfolio return minus the
+compounded benchmark return over the whole window (a cumulative total-period
+figure), while the Information Ratio's numerator is the **annualized mean
+daily** active return (a per-day average, annualized). Both are legitimate
+but answer different questions — do not substitute one for the other in a UI
+label.
+
+Implementation:
+- `services/quant-engine/app/analytics/risk.py` — the function building
+  `RelativeRiskSummary` (paired-returns → `tracking_error_pct` /
+  `active_return_pct` / `information_ratio`)
+
+Academic precedent:
+- Grinold, R.C. & Kahn, R.N. (2000). *Active Portfolio Management*, 2nd ed.,
+  Ch. 6 (McGraw-Hill) — the canonical Information Ratio treatment (IR as the
+  central "quality of active management" statistic, IR = active return /
+  active risk).
+- Goodwin, T.H. (1998). "The Information Ratio." *Financial Analysts
+  Journal*, 54(4), 34–43 — practitioner-level treatment of computation
+  conventions and common pitfalls.
+
+Contract rule:
+- `information_ratio` and `active_return_pct` carry the same trust/
+  withholding semantics as `tracking_error_pct` in the same
+  `RelativeRiskSummary` struct: benchmark-relative refusal means these
+  fields may be `null` even when `availability.status = ok`, with
+  `run_metadata.investor_economics_status` as the authoritative explanation
+  (see `docs/contracts/diagnostics-fields.md`).
+- Never fabricate a ratio when `tracking_error = 0`; `null` is the only
+  correct output for that edge case.
+
 ## Statistical Factor Model
 
 The project implements a rolling ETF-proxy factor model.
@@ -462,12 +602,88 @@ Consumer rule:
 
 The project reports position and factor risk contribution metrics plus concentration diagnostics.
 
+### Risk share
+
+Each position or factor's variance-based share of total portfolio risk.
+
+```text
+risk_share_i = variance_contribution_i / total_variance
+
+where:
+  variance_contribution_i = the position's (or factor's) contribution to
+                             total portfolio return variance (arithmetic
+                             decomposition of the covariance matrix / factor
+                             model residual variance)
+  total_variance           = total_variance_raw (positions) or
+                             factor_total_variance (factors) — the
+                             denominator matching the same decomposition
+  risk_share_i is a fraction in [0, 1] — NOT a percentage. Multiply by 100
+  only at the display layer.
+
+Edge cases:
+  total_variance <= 0, or variance_contribution_i is null: risk_share_i = null
+```
+
+### Top-N risk share
+
+```text
+top_N_risk_share = Σ (the N largest risk_share_i values, descending)
+
+Reported today: top_1 and top_3 for factors; top_1 and top_5 for positions.
+
+Edge case:
+  no valid (non-null) risk_share values: top_N_risk_share = null
+```
+
+### Herfindahl-Hirschman Index (HHI)
+
+A standard concentration index over the same risk_share distribution used
+above — one HHI for factors, one for positions.
+
+```text
+HHI = Σ_i (risk_share_i)^2   over all i with risk_share_i non-null
+
+Range: (0, 1]
+  HHI = 1     : all risk concentrated in a single position/factor
+  HHI = 1/n   : risk spread perfectly evenly across n positions/factors
+  lower HHI   : more diversified risk contribution
+
+Edge case:
+  no valid (non-null) risk_share values: HHI = null
+```
+
+This is the **risk-contribution** HHI (history-derived, synthetic-history
+trust class) — a distinct computation from the **current-state holdings**
+HHI reported on the Exposure tab (`exposure_engine.py` `position_hhi`, computed
+over portfolio *weights*, snapshot trust class, and used there to derive
+"Effective Holdings" = `1 / HHI`). Both use the same Σw² formula shape but
+over different inputs (risk share vs holdings weight) and different truth
+classes — do not conflate the two numbers even though they share a name.
+
 Implementation:
-- `services/quant-engine/app/analytics/risk.py`
+- `services/quant-engine/app/analytics/risk.py` — `_herfindahl_index(...)`,
+  `_sum_top_risk_shares(...)`
+- `services/quant-engine/app/services/exposure_engine.py` — the separate
+  current-state `position_hhi` (snapshot weights, not risk share)
+
+Academic precedent:
+- Herfindahl, O.C. (1950), "Concentration in the U.S. Steel Industry"
+  (doctoral dissertation, Columbia University).
+- Hirschman, A.O. (1964), "The Paternity of an Index," *American Economic
+  Review* 54(5): 761–762 (documents the index's independent origin in both
+  Hirschman 1945 and Herfindahl 1950; conventionally cited as either
+  "Herfindahl index" or "Herfindahl-Hirschman Index").
 
 Contract rule:
-- diagnostics-side concentration fields are history-derived risk concentration outputs
-- current-state holdings concentration remains a separate snapshot truth class in exposure contracts
+- diagnostics-side concentration fields (`risk_share`, top-N risk share, HHI)
+  are history-derived risk concentration outputs, synthetic-history trust
+  class — never verified.
+- current-state holdings concentration (`exposure_engine.py` `position_hhi`,
+  "Effective Holdings") remains a separate snapshot truth class in exposure
+  contracts; the two `position_hhi`-shaped numbers are not interchangeable.
+- `top_*_risk_share` and `*_hhi` fields are fractions in [0, 1]; UI consumers
+  must multiply by 100 before rendering a `%` suffix — never emit the raw
+  fraction with a `%` sign appended (that renders a value ~100x too small).
 
 ### Factor Loading Drift
 
@@ -526,6 +742,117 @@ Contract rule:
   fails closed (EmptyState) when the window has insufficient history.
 - See `docs/contracts/factor-drift-fields.md` for the field-level inventory and
   UI rendering rules.
+
+## Currency Exposure
+
+*Research brief, not yet implemented — see the story list in
+`docs/product/prd/epic-26-currency-exposure-and-risk.md`. Documented here per
+the project's methodology-traceability guardrail: a formula must exist here
+**before** any implementer builds against it, not after.*
+
+The project holds no explicit view of how much of a portfolio is denominated
+in a currency other than its base currency. `ImportedPosition.currency` and
+`ImportedStatement.base_currency` are already captured on every import (no
+new import-format change needed), but nothing aggregates or displays them.
+A portfolio with meaningful non-base-currency holdings (e.g. UCITS ETFs
+traded in EUR/GBP, per the project's documented UCITS support) carries
+currency risk the researcher cannot currently see anywhere on any tab.
+
+### Currency exposure by weight (snapshot)
+
+```text
+currency_weight_c = Σ_i (market_value_i)  for all holdings i with currency_i = c
+                     ────────────────────────────────────────────────────────
+                     Σ_j market_value_j    (all holdings j, all currencies)
+
+where:
+  currency_i      = ImportedPosition.currency (already imported; not derived)
+  base_currency   = ImportedStatement.base_currency
+  non_base_weight = 1 − currency_weight_{base_currency}
+
+Edge cases:
+  a position with currency = null: excluded from both numerator and
+    denominator (never assumed base-currency; that would understate real
+    non-base exposure) — surfaced as an "unclassified" residual weight so
+    the total still reconciles to 100%
+  base_currency = null: currency_weight is still computable per currency,
+    but non_base_weight cannot be computed (no baseline to compare against)
+    → non_base_weight = null
+```
+
+This is a **snapshot analytics** truth class (current holdings only, no
+historical prices, no market data fetch) — the same class as sector
+exposure. It requires no new data source: `currency` and `base_currency` are
+already present on every `ImportedPortfolioSnapshot`.
+
+Implementation target:
+- `services/quant-engine/app/analytics/<name>.py` (new file — this is a
+  distinct concern from sector/look-through exposure, which lives in
+  `risk.py`; per the `quant-research` skill's own guidance, a genuinely new
+  concern gets its own file rather than growing `risk.py` further)
+
+Academic precedent:
+- Solnik, B. (1974). "Why not diversify internationally rather than
+  domestically?" *Financial Analysts Journal*, 30(4), 48–54 — foundational
+  treatment of currency as a distinct risk dimension in a multi-currency
+  portfolio.
+- Eun, C.S. & Resnick, B.G. (1988). "Exchange rate uncertainty, forward
+  contracts, and international portfolio selection." *Journal of Finance*,
+  43(1), 197–215.
+
+Contract rule:
+- Currency exposure by weight is `snapshot analytics` trust class — never
+  `verified` (it reflects the imported statement's own position-currency
+  fields, which are broker-truth-adjacent but not independently verified
+  against a market-data source), never `synthetic`.
+- A `null` position currency is never coerced to the base currency; it is
+  reported as its own "unclassified" bucket so the weights still sum to 100%
+  without silently understating real FX exposure.
+
+### Currency risk contribution (historical, stretch — not scoped for MVP)
+
+A second, harder question — *how much of my portfolio's historical return
+volatility came from currency moves versus the underlying security's local
+return* — requires decomposing each non-base-currency holding's
+base-currency return into a local-return leg and an FX-return leg:
+
+```text
+r_i_base(t)  ≈  r_i_local(t) + r_fx_c(t) + (r_i_local(t) × r_fx_c(t))
+
+where:
+  r_i_local(t) = holding i's daily return in its own trading currency
+                 (local-currency price return)
+  r_fx_c(t)    = daily return of the FX pair converting currency c to
+                 base_currency on day t
+  the cross term (r_i_local × r_fx_c) is the second-order interaction;
+  conventionally small for daily returns and often dropped in practitioner
+  approximations, but should be retained here per the project's "no
+  fabricated simplification" posture unless proven negligible for this
+  portfolio's actual holdings
+
+Portfolio-level currency contribution to variance requires the full
+covariance structure between local-return legs and FX-return legs across all
+non-base holdings — this is materially more complex than the weight-based
+snapshot above (a return-attribution problem, not a composition problem) and
+is explicitly deferred; see PRD non-goals.
+```
+
+Data requirement: `MarketDataService.get_fx_history(pair, from_date, to_date)`
+already exists (thin wrapper over `get_historical_prices`) but has zero
+callers today — this story would be its first real consumer, so its FMP
+symbol-resolution behavior for FX pairs must be verified empirically before
+committing to this formula (unverified as of this brief).
+
+Academic precedent:
+- Ankrim, E.M. & Hensel, C.R. (1994). "Curency Hedging: A Test for
+  Consistency and Efficiency." *Journal of Portfolio Management*, 20(2),
+  35–41 — the standard local-return/currency-return decomposition
+  (sometimes called the "Ankrim-Hensel" currency attribution model).
+
+This subsection exists to document the harder problem's shape for a future
+story; it is **not** ready to implement (the interaction-term and portfolio-
+variance-decomposition questions above are open) and must not be built
+against without a follow-up brief that resolves them.
 
 ## Stress Scenarios
 

@@ -2570,6 +2570,35 @@ select.path-input option {
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+.monthly-returns-cells {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 8px;
+}
+
+.monthly-returns-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.monthly-returns-month {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(248, 251, 254, 0.6);
+}
+
+.monthly-returns-value {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 .factor-chart-toolbar {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -48,10 +48,16 @@ def _parse_period_end_date(period: str | None) -> date | None:
         return None
 
     match = re.search(r"-\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})$", period)
-    if match:
-        return datetime.strptime(match.group(1), "%B %d, %Y").date()
+    if not match:
+        return None
 
-    return None
+    try:
+        return datetime.strptime(match.group(1), "%B %d, %Y").date()
+    except ValueError:
+        # Matched the shape but not a real date (e.g. a corrupted month
+        # name): fall through to the caller's fallback date rather than
+        # crash the import (US-24.8).
+        return None
 
 
 def detect_statement_format(path: str | Path) -> str:
@@ -147,16 +153,30 @@ def _parse_statement_totals(page_texts: list[str]) -> ImportedStatementTotals:
         if line.startswith("Time Weighted Rate of Return"):
             pct = line.removeprefix("Time Weighted Rate of Return").strip().removesuffix("%")
             if pct:
-                totals.time_weighted_return_pct = float(pct)
+                try:
+                    totals.time_weighted_return_pct = float(pct)
+                except ValueError:
+                    # Malformed percentage token (layout drift): leave the field
+                    # at its default rather than crash the whole import (US-24.8).
+                    pass
         for field, pattern in line_patterns.items():
             match = re.match(pattern, line)
             if match:
-                setattr(totals, field, abs(_parse_number(match.group("value"))))
+                try:
+                    setattr(totals, field, abs(_parse_number(match.group("value"))))
+                except ValueError:
+                    # The regex matched but the captured group still wasn't a
+                    # valid number (e.g. stray character): skip this one field
+                    # rather than abort the entire import (US-24.8).
+                    continue
 
     usd_fx = 1.0
     eur_match = re.search(r"EUR 0\.00 0\.00 1\.0353 (?P<rate>[\d.]+)", full_text)
     if eur_match:
-        totals.fx_rates["EURUSD"] = float(eur_match.group("rate"))
+        try:
+            totals.fx_rates["EURUSD"] = float(eur_match.group("rate"))
+        except ValueError:
+            pass
     totals.fx_rates["USDUSD"] = usd_fx
 
     return totals
@@ -267,13 +287,20 @@ def _parse_trades(page_texts: list[str]) -> list[ImportedLedgerEntry]:
             match = pattern.match(combined)
             pending_trade = None
             if match and current_currency:
-                quantity = _parse_number(match.group("quantity"))
-                gross_amount = _parse_number(match.group("proceeds"))
-                fee = abs(_parse_number(match.group("fee")))
+                try:
+                    quantity = _parse_number(match.group("quantity"))
+                    gross_amount = _parse_number(match.group("proceeds"))
+                    fee = abs(_parse_number(match.group("fee")))
+                    trade_date = _parse_date(match.group("trade_date"))
+                except ValueError:
+                    # Regex matched but a captured group wasn't actually valid
+                    # (e.g. a calendar-invalid date the pattern's digit shape
+                    # allowed through): skip this record, keep parsing (US-24.8).
+                    continue
                 entries.append(
                     ImportedLedgerEntry(
                         entry_type="BUY" if quantity > 0 else "SELL",
-                        trade_date=_parse_date(match.group("trade_date")),
+                        trade_date=trade_date,
                         symbol=match.group("symbol").strip(),
                         description=f"IB trade {match.group('time')}",
                         quantity=abs(quantity),
@@ -294,13 +321,17 @@ def _parse_trades(page_texts: list[str]) -> list[ImportedLedgerEntry]:
 
         match = pattern.match(_normalize_trade_line(line))
         if match and current_currency:
-            quantity = _parse_number(match.group("quantity"))
-            gross_amount = _parse_number(match.group("proceeds"))
-            fee = abs(_parse_number(match.group("fee")))
+            try:
+                quantity = _parse_number(match.group("quantity"))
+                gross_amount = _parse_number(match.group("proceeds"))
+                fee = abs(_parse_number(match.group("fee")))
+                trade_date = _parse_date(match.group("trade_date"))
+            except ValueError:
+                continue
             entries.append(
                 ImportedLedgerEntry(
                     entry_type="BUY" if quantity > 0 else "SELL",
-                    trade_date=_parse_date(match.group("trade_date")),
+                    trade_date=trade_date,
                     symbol=match.group("symbol").strip(),
                     description=f"IB trade {match.group('time')}",
                     quantity=abs(quantity),
@@ -357,12 +388,18 @@ def _parse_simple_cash_section(page_texts: list[str], heading: str, entry_type: 
         if not match:
             continue
 
-        amount = _parse_number(match.group("amount"))
+        try:
+            amount = _parse_number(match.group("amount"))
+            trade_date = _parse_date(match.group("trade_date"))
+        except ValueError:
+            # Regex matched but a captured group wasn't actually valid: skip
+            # this record, keep parsing the rest of the section (US-24.8).
+            continue
         symbol_match = re.match(r"^(?P<symbol>[^()]+)\(", match.group("description"))
         entries.append(
             ImportedLedgerEntry(
                 entry_type=entry_type,
-                trade_date=_parse_date(match.group("trade_date")),
+                trade_date=trade_date,
                 symbol=symbol_match.group("symbol").strip() if symbol_match else None,
                 description=match.group("description"),
                 gross_amount=amount,
@@ -396,11 +433,15 @@ def _parse_deposits_and_withdrawals(page_texts: list[str]) -> list[ImportedLedge
         if not match or current_currency is None:
             continue
 
-        amount = _parse_number(match.group("amount"))
+        try:
+            amount = _parse_number(match.group("amount"))
+            trade_date = _parse_date(match.group("trade_date"))
+        except ValueError:
+            continue
         entries.append(
             ImportedLedgerEntry(
                 entry_type="DEPOSIT" if amount >= 0 else "WITHDRAWAL",
-                trade_date=_parse_date(match.group("trade_date")),
+                trade_date=trade_date,
                 description=match.group("description"),
                 gross_amount=amount,
                 net_amount=amount,

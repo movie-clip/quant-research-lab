@@ -1,7 +1,12 @@
-import type { DashboardAnalysis, ExposureAnalysis, ExposureFactorModelResponse } from './types'
+import { useState } from 'react'
+import type { DashboardAnalysis, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse } from './types'
 import { BenchmarkPositioningCard } from './BenchmarkPositioningCard'
+import { MonthlyReturnsGrid } from './MonthlyReturnsGrid'
+import { PerformanceBenchmarkCard } from './PerformanceBenchmarkCard'
+import { RiskSummaryCard } from './RiskSummaryCard'
 import { RollingFactorLoadingsCard } from './RollingFactorLoadingsCard'
 import { SectorPieCard } from './SectorPieCard'
+import { WindowSelector } from '../../app/primitives/WindowSelector'
 
 function formatLoadedFilesLabel(statementCount: number, loadedStatementsLabel: string | null) {
   if (!loadedStatementsLabel) return null
@@ -48,6 +53,7 @@ type DashboardPanelProps = {
   result: DashboardAnalysis | null
   exposureResult?: ExposureAnalysis | null
   factorModel?: ExposureFactorModelResponse | null
+  diagnosticsAnalysis?: DiagnosticsEngineResponse | null
   importing?: boolean
   importError?: string | null
   lastImportedFileNames?: string[]
@@ -62,6 +68,7 @@ export function DashboardPanel({
   result,
   exposureResult = null,
   factorModel = null,
+  diagnosticsAnalysis = null,
   importing = false,
   importError = null,
   lastImportedFileNames = [],
@@ -74,6 +81,12 @@ export function DashboardPanel({
   const statementCount = (result?.snapshot?.statements?.length ?? 0) || lastImportedFileNames.length
   const loadedStatementsLabel = formatLoadedStatements(result, lastImportedFileNames)
   const loadedFilesLabel = formatLoadedFilesLabel(statementCount, loadedStatementsLabel)
+
+  // Shared range selection for PerformanceBenchmarkCard + MonthlyReturnsGrid (US-25.2):
+  // both cards read the same selected range so switching it never desyncs the two views.
+  const rangeKeys = result?.range_metrics ? Object.keys(result.range_metrics) : []
+  const [selectedRange, setSelectedRange] = useState<string>(rangeKeys[0] ?? '')
+  const activeRange = rangeKeys.includes(selectedRange) ? selectedRange : (rangeKeys[0] ?? null)
 
   function renderHeaderActions() {
     if (!(onImportPortfolio || onAppendStatement || onClearImportedSession || onResetLocalDatabase)) return null
@@ -119,6 +132,12 @@ export function DashboardPanel({
       </header>
 
       <div className="dashboard-shell-stack">
+        {rangeKeys.length > 1 && (
+          <WindowSelector options={rangeKeys} value={activeRange ?? rangeKeys[0]} onChange={setSelectedRange} />
+        )}
+        <PerformanceBenchmarkCard result={result} activeRange={activeRange} />
+        <MonthlyReturnsGrid result={result} activeRange={activeRange} />
+        <RiskSummaryCard diagnosticsAnalysis={diagnosticsAnalysis} />
         <RollingFactorLoadingsCard result={exposureResult} factorModel={factorModel} />
         <div className="dashboard-composition-row">
           <SectorPieCard result={result} exposureResult={exposureResult} />

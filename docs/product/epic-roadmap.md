@@ -1,6 +1,65 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-06-19 (Epic 24 — Codebase Improvement **active**; Epic 23 — dead-code cleanup & codebase review complete; Epics 13/18/19/20/21/22 complete).*
+*Living execution snapshot. Updated: 2026-07-04 (Epic 25 — Dashboard Performance & Risk Summary **complete**; Epic 24 — Codebase Improvement active; Epic 26 — Currency Exposure & Risk **backlog** (research brief only); Epic 23 — dead-code cleanup & codebase review complete; Epics 13/18/19/20/21/22 complete).*
+
+---
+
+## Backlog Epic: Epic 26 — Currency Exposure & Risk
+
+**PRD:** [`docs/product/prd/epic-26-currency-exposure-and-risk.md`](product/prd/epic-26-currency-exposure-and-risk.md)
+
+Research brief only — not yet ticketed. A project-wide review found the
+project has no view of portfolio currency exposure despite already importing
+`ImportedPosition.currency`/`ImportedStatement.base_currency` on every
+statement. `financial-methodology.md` gained a §Currency Exposure section
+(snapshot weight-by-currency formula, ready to implement) and a
+§Currency Risk Contribution subsection (historical FX-return decomposition,
+explicitly documented as **not** ready — the interaction-term and portfolio-
+variance-decomposition questions are open, and
+`MarketDataService.get_fx_history` — which exists but has zero callers today
+— needs empirical verification before any engine work begins). Run
+`write-story` against the PRD's US-26.1 when this epic is picked up.
+
+---
+
+## Completed Epic: Epic 25 — Dashboard Performance & Risk Summary
+
+**PRD:** [`docs/product/prd/epic-25-dashboard-performance-risk-summary.md`](product/prd/epic-25-dashboard-performance-risk-summary.md)
+
+### Goal
+
+Restore the Dashboard tab's performance/risk surface that `dashboard-fields.md`
+and `current-product-state.md` describe but `DashboardPanel.tsx` no longer
+renders (removed piecemeal across several undocumented refactors, per git
+history — `bc4ff4d`/`195dc70`/`e0254d6`/`df5d478`). The backend
+(`DashboardHistoryResult`, `DiagnosticsResult`) already computes every field
+needed: no schema/engine change, frontend-only restoration + a docs
+reconciliation pass.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-25.1 | Performance & benchmark comparison card | Done |
+| US-25.2 | Monthly returns grid card | Done |
+| US-25.3 | Risk metrics card (volatility, drawdown, concentration) | Done |
+| US-25.4 | Docs close-out | Done |
+| US-25.5 | Information Ratio on the Risk Summary card | Done |
+
+Recommended build order: 25.1 → 25.2 → 25.3 → 25.4 (docs last). US-25.5 was
+added afterward from a separate quant-research pass and picked up as an
+Epic 25 addendum since it extends the same US-25.3 card.
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-07-04 | US-25.5 | **Information Ratio on the Risk Summary card.** A `quant-research` pass on "what risk-adjusted return metrics are missing" found `RelativeRiskSummary.information_ratio`/`.active_return_pct` were **already fully computed** in `risk.py` and already flowing into `DiagnosticsResult.relative_risk` — contract-documented, but with no `financial-methodology.md` section and no UI consumer anywhere (the same "computed but never surfaced" pattern as the rest of Epic 25). Added a §Information Ratio methodology section (Grinold & Kahn 2000; Goodwin 1998 citations) that explicitly distinguishes the IR's annualized-mean-daily active return from the schema's separate compounded `active_return_pct`. Added two rows to `RiskSummaryCard.tsx` (US-25.3) reading the already-fetched `diagnosticsAnalysis.relative_risk` — no new fetch, prop, or schema change. The two rows are omitted (not `n/a`) when `tracking_error_pct` is null, since they're mathematically dependent on it. Frontend + docs only. +3 `DashboardPanel.test.tsx` tests (32 total); full `run_all_tests.py` green; tsc clean; goldens untouched. |
+| 2026-07-04 | US-25.4 | **Epic 25 docs close-out — closes the epic.** Corrected this story's own premise during implementation: `money_weighted_return_pct` is **Modified Dietz**, not IRR/XIRR, implemented in `app/analytics/performance.py` (not `app/analytics/portfolio.py` as originally assumed) — added §Money-Weighted Return to `financial-methodology.md` with the correct formula, edge cases, and Dietz (1966) + GIPS citations. Fleshed out §Risk Contribution and Concentration with the risk-share, top-N risk-share, and HHI formulas (Herfindahl 1950 / Hirschman 1964 citations), explicitly distinguishing the risk-contribution HHI from the separate current-state holdings HHI in `exposure_engine.py`. **Caught a real scale bug while cross-checking the methodology against the implementation:** `risk.py`'s `top_*_risk_share` fields are 0-1 fractions, but `RiskSummaryCard.tsx` (US-25.3) was rendering them with a bare `%` suffix (~100x too small); fixed with a dedicated `formatShareAsPct` formatter and corrected the test fixture. Rewrote `dashboard-fields.md`'s Field Inventory/Provider-Chain/Accuracy-Rules sections wholesale (the prior version described `draftSnapshot`/Allocation-Overview/`capitalChartData` helpers that no longer exist anywhere in the codebase — confirmed by grep) and `current-product-state.md`'s Dashboard bullet list (dropped the unsubstantiated "Sharpe-equivalent" line; no Sharpe ratio exists anywhere in the codebase). Docs-only + one bugfix; full `run_all_tests.py` green; `dashboardGoldens.ts` untouched. |
+| 2026-07-04 | US-25.3 | **Risk metrics card (volatility, drawdown, concentration).** New `RiskSummaryCard.tsx` on the Dashboard tab, sourced from the already-fetched `DiagnosticsResult` (`volatility_summary`, `drawdown_summary`, `risk_concentration_summary`) — deliberately not `DashboardHistoryResult.max_drawdown_pct`, which stays behind the investor-economics withholding policy. Threaded `diagnosticsAnalysis` (already held in `App.tsx` state) into `DashboardPanel` as a new prop. Trust shown as a plain-text label following `run_metadata.section_trust.risk_contribution_path`. **Hardening found by the full suite, not the story's own tests:** `App.test.tsx` exercises a real case where `diagnosticsAnalysis` is present but its `volatility_summary`/`drawdown_summary`/`risk_concentration_summary` sub-objects are absent — the card crashed on first render; fixed to fail closed to the EmptyState instead of trusting `availability` alone, with a dedicated regression test. Frontend-only, no backend/schema change. +6 `DashboardPanel.test.tsx` tests (31 total in the file); 249 frontend green; tsc clean; full `run_all_tests.py` (incl. dead-code gate) green; `dashboardGoldens.ts` untouched. |
+| 2026-07-04 | US-25.2 | **Monthly returns grid card.** New `MonthlyReturnsGrid.tsx` on the Dashboard tab: one cell per `range_metrics[selectedRange].monthly_returns[]` entry, signed `+X.XX%`/`−X.XX%` formatting (color + sign, never color-only), whole-card EmptyState when `monthly_returns_reliable = false` or `range_metrics` is absent. Refactored the shared range-selection state up from `PerformanceBenchmarkCard` (US-25.1) into `DashboardPanel`, which now renders one `WindowSelector` driving both cards so they can never show mismatched ranges. Frontend-only, no backend/schema change. +4 `DashboardPanel.test.tsx` tests (20 total in the file); 243 frontend green; tsc clean; full `run_all_tests.py` (incl. dead-code gate) green; `dashboardGoldens.ts` untouched. |
+| 2026-07-04 | US-25.1 | **Performance & benchmark comparison card.** New `PerformanceBenchmarkCard.tsx` on the Dashboard tab: indexed portfolio-vs-benchmark line chart (base 100, reuses the `IndexedReturnChart`/`normalizePerformanceSeries` rebasing convention) + a summary strip (Portfolio Value, Time-Weighted Return, Money-Weighted Return, Net Contributions) sourced from the already-computed `range_metrics[selectedRange].summary`; a range selector switches both without any new fetch (data already present in `result`). Trust reflected as a plain-text return-basis label per path (`return_basis_contract`), not the shared `TrustBadge` primitive — that primitive's synthetic/unavailable vocabulary doesn't fit dashboard-history's verified/price-return/unverified-proxy ladder (documented in the story's Notes). Deliberately never reads `max_drawdown_pct` (withheld investor-economics field; that's US-25.3's diagnostics-sourced card). Frontend-only, no backend/schema change. +6 `DashboardPanel.test.tsx` tests; 239 frontend green; tsc clean; full `run_all_tests.py` (incl. dead-code gate) green; `dashboardGoldens.ts` untouched. |
+| 2026-07-04 | — | Epic created from a project-wide review that found `DashboardPanel.tsx` renders only 3 cards (Rolling Factor Analysis, Sector composition, Benchmark Positioning) while two contract docs still describe a performance chart, monthly returns grid, risk metrics, and investor-economics status as shipped. Confirmed via grep + git log that the backend fields are fully live/tested/golden-pinned and the gap is UI-only, accumulated across several past refactors rather than one regression. PRD + 4 stories authored. |
 
 ---
 
@@ -78,15 +137,19 @@ surfaced value becomes a named, documented constant.
 | US-24.5 | Decouple broker format from the domain | Backlog |
 | US-24.6 | Market-data client config hygiene | Backlog |
 | US-24.7 | Reconcile minor hardcodes + de-export + test smells | Backlog |
+| US-24.8 | Harden the IBKR importer parsing (fail-safe) | Done |
 
 Recommended order: US-24.1 first (highest-impact latent bugs, low effort), then
 US-24.2/24.3 (the analytics-constant work), then US-24.4/24.5/24.6, with US-24.7
 the low-severity tail. Stories are authored via `write-story` as each is picked up.
+US-24.8 (the deferred US-24.4 importer-hardening follow-up) was picked up out of
+order alongside a broader codebase review.
 
 ### Slice log
 
 | Date | Story | What shipped |
 |---|---|---|
+| 2026-07-04 | US-24.8 | **Hardened the IBKR importer parsing (fail-safe).** Investigation corrected this story's original two-importer premise: `interactive_brokers.py` and `espp.py` are already regex-`match()`-guarded (unlike Freedom24's raw offset walk), so the real gap was narrower — a captured numeric/date group can match the shape but fail the subsequent `float()`/`datetime.strptime()` conversion, with no guard between that and `import_statement`. Fixed in `interactive_brokers.py`: `_parse_statement_totals`'s per-field loop (+ TWR/EURUSD parses), `_parse_period_end_date` (catches `ValueError`, returns `None` so the existing `2025-12-31` fallback applies), and the record-append blocks in `_parse_trades`/`_parse_simple_cash_section`/`_parse_deposits_and_withdrawals` now degrade one field/record instead of raising. **`espp.py` investigated and left unchanged** — every numeric regex group there uses the strict `[\d,]+\.\d+` shape, which cannot capture a value `float()` will reject, so there was no reachable failure to guard (confirmed by trying to construct one and failing). Behaviour-neutral for valid statements (IB2026 golden import unchanged). +3 `test_importer.py` tests. Methodology "Importer resilience rule" extended to both importers + the ESPP investigation note; tech-debt register row marked Resolved (IBKR) / Investigated-not-needed (ESPP). Full suite + dead-code gate green; tsc clean; goldens untouched. |
 | 2026-06-24 | US-24.4 | **Hardened the Freedom24 importer + extracted its format hardcodes.** Investigation first **corrected the register's premise**: the "Freedom24 ISIN data gap" was a misread — `_parse_instruments` already flows ISIN to `ImportedInstrument.isin` (now pinned by an FF2026 assertion); the `_parse_positions` `isin` copy was dead offset-walk code. Made all 5 positional parsers **fail-safe** — a malformed/non-numeric record is skipped and parsing continues (a layout drift → partial snapshot surfaced by reconciliation, never a crash or fabricated/zero row). Extracted the inline format hardcodes (currency whitelist / `.US` suffix / default currency / the magic page indices) to named constants; removed the 3 dead parsed-but-dropped locals (`isin`/`realized_pnl`/`account`, now documented offset comments). **Behaviour-neutral for valid statements** — the FF2026.pdf golden-master test is byte-identical (+ a new ISIN + constants pin + a malformed-input degradation test). `realized_pnl` stays unmodeled (schema change deferred). Methodology gained an "Importer resilience rule"; register rows corrected/Resolved. Full suite + dead-code gate green; goldens untouched. |
 | 2026-06-24 | US-24.3 | **De-duplicated the three copy-pasted analytics defaults** into a single `app/core/constants.py` (the lowest layer, so `schemas` can import it without a cycle): `lookback_calendar_days(window)` (= `ceil(window*1.6)+30`), `MIN_DAILY_OBSERVATIONS` (= `20`), `DEFAULT_BENCHMARK_SYMBOL` (= `"SPY"`). Replaced the duplicate `_lookback_calendar_days` in **6** engines (attribution / correlation / distribution / drawdown / stress / provenance + intra-correlation — two more consumers than the original catalog noted), the flat `_MIN_OBSERVATIONS=20` across the distribution/correlation/drawdown/intra engines + the `analytics/distribution.py`/`analytics/correlation.py` modules, and ~10 `"SPY"` defaults (3 schema field defaults + the engine `or "SPY"` fallbacks). **Behaviour-neutral** — values unchanged, `dashboardGoldens.ts` untouched, full suite + dead-code gate green; the distinct `WINDOW_MIN_OBSERVATIONS` (OLS buffer) and `attribution.min_observations=window` were deliberately **not** merged. Added 3 shared-module tests; methodology doc + register updated. |
 | 2026-06-19 | US-24.2 | **Extracted the risk-model scoring rubric & thresholds into named, documented constants** (behaviour-neutral). Lifted the factor→UCITS mapping-quality composite/sub-weights, hard-cap ceilings + reasons, `_mapping_match_label` thresholds, the `_mapping_quality_score`/`_cost_fit_score` quality maps, the volatility-regime percentile cutoffs, and the factor-model `FACTOR_MODEL_MIN_SHARED_OBSERVATIONS` floor into a documented `# ── Factor-mapping scoring rubric ──` constants block in `risk.py`; plus `BENCHMARK_HOLDINGS_VERIFIED_COVERAGE_PCT` in `exposure_engine.py`. Each constant carries a one-line rationale ("heuristic, no academic basis" where applicable — **no fabricated citations**). **Pin-tests-first discipline:** added 6 exact-value golden-master tests (`test_analytics.py`) capturing the *current* score_pcts/labels/hard-caps/regime-cutoffs/stress-projections/min-history before the extraction, so a transposed weight fails loudly. Behaviour-neutral — `dashboardGoldens.ts` untouched; 141 analytics+exposure tests green; full suite + dead-code gate green; tsc clean. The leaf per-token `_*_score` rubric literals stay inline (deferred, low value). Methodology doc + register updated. |

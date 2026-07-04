@@ -53,19 +53,39 @@ proposing related work** — duplication is a much worse smell than coupling.
 
 | Module | What lives here | Don't propose to extend if … |
 |---|---|---|
-| `app/analytics/portfolio.py` | TWR, money-weighted return, portfolio value series | Already covers basic returns |
-| `app/analytics/risk.py` | Volatility, drawdown, rolling factor model, rolling-risk series (correlation/beta vs primary benchmark) | Already covers primary-benchmark rolling stats |
-| `app/analytics/correlation.py` | Pearson ρ, beta, R² scalar helpers; used by multi-benchmark engine | Need a new pairwise-stat helper — extend in place |
+| `app/analytics/performance.py` | TWR (`build_true_performance_series`), money-weighted return (Modified Dietz, `build_performance_summary`), enriched positions | Already covers basic returns |
+| `app/analytics/risk.py` | Volatility, drawdown, rolling factor model, rolling-risk series (correlation/beta vs primary benchmark), risk contribution + concentration (risk-share, top-N risk-share, HHI), relative risk (tracking error, Information Ratio), **and** sector/look-through exposure (`build_lookthrough_exposure`, `build_lookthrough_sector_exposure`) — this file is the largest module by far and covers far more than its name suggests; grep it before assuming a metric doesn't exist | Already covers primary-benchmark rolling stats, risk-contribution concentration, and sector/look-through composition |
+| `app/analytics/correlation.py` | Pearson ρ, beta, R², pairwise correlation matrix, diversification ratio, effective number of bets; used by both the multi-benchmark engine and the intra-portfolio-correlation engine (`services/intra_correlation_engine.py`) | Need a new pairwise-stat helper — extend in place |
 | `app/analytics/attribution.py` | Factor-return decomposition (per-factor contribution + residual) | Already covers factor attribution |
-| `app/analytics/drift.py` | Portfolio vs benchmark drift (1m/3m/6m/12m/since-import + indexed series) | Already covers drift windows |
 | `app/analytics/drawdown.py` | Underwater curve + drawdown episodes + per-position contributors (Risk tab) | Already covers drawdown analytics |
 | `app/analytics/distribution.py` | Return histogram + percentiles + VaR/CVaR + distribution shape (Risk tab) | Already covers VaR & distribution |
-| `app/analytics/exposure.py` | Sector + look-through composition | Already covers ownership composition |
+| `app/analytics/activity.py` | Monthly ledger activity series, holdings timeline | Already covers activity/timeline reconstruction |
+| `app/analytics/reconciliation.py` | Statement reconciliation checks (cash, NAV, withholding) | This is import-admission territory, not a new-metric target |
+| `app/analytics/overview.py` | `build_portfolio_overview` — current-holdings snapshot summary | Already covers basic snapshot overview |
+| `app/services/drift_engine.py` | Portfolio vs benchmark drift (1m/3m/6m/12m/since-import + indexed series) — **no separate `analytics/drift.py`**; the drift computation lives directly in the service | Already covers drift windows |
 | `app/services/<name>_engine.py` | Wires market data → pure analytics. Use `MarketDataService`. |
-| `app/services/attribution_engine.py` | Has the `_lookback_calendar_days(window) = ceil(window*1.6)+30` heuristic + uses `_build_synthetic_snapshot_history_states` from `diagnostics_engine.py` — reuse for any new windowed synthetic-history analytic |
+| `app/services/attribution_engine.py` | Has the `_lookback_calendar_days(window) = ceil(window*1.6)+30` heuristic + uses `_build_synthetic_snapshot_history_states` from `diagnostics_engine.py` — reuse for any new windowed synthetic-history analytic. This heuristic and `MIN_DAILY_OBSERVATIONS`/`DEFAULT_BENCHMARK_SYMBOL` now live in the shared `app/core/constants.py` (US-24.3) — import from there, don't re-derive. |
+| `app/services/market_data.py` | `MarketDataService.get_fx_history(pair, from_date, to_date)` already exists (thin wrapper over `get_historical_prices`) but has zero callers today — a currency-risk brief can build on this rather than adding new FMP plumbing, but verify it still works (it was dead/untested at time of writing). |
 
 A new analytic that fits none of these gets its own `app/analytics/<name>.py`
-file. Don't shoehorn into `risk.py`.
+file. Don't shoehorn into `risk.py` — though note `risk.py` already *has*
+absorbed several concerns (factor model, concentration, sector exposure) that
+their names alone wouldn't suggest, precisely because past additions took
+the path of least resistance. Resist adding one more; if a new metric is a
+genuinely distinct concern, give it its own file even if `risk.py` looks like
+the path of least resistance.
+
+**This table is a claim about the codebase at the time it was last verified,
+not a guarantee — and it has been wrong more than once.** Two prior versions
+of this table named modules that don't exist: `app/analytics/portfolio.py`
+(the real module is `performance.py`) and, separately, `app/analytics/drift.py`
+/ `app/analytics/exposure.py` (drift lives in `services/drift_engine.py`;
+sector/look-through exposure lives inside `risk.py`). Both were caught only
+by grepping the actual codebase mid-task, not by re-reading this table more
+carefully. **Run `ls services/quant-engine/app/analytics/` before trusting
+any row here for a nontrivial change** — don't just grep for the one
+function name you expect; confirm the whole module list, since the fastest
+way this table goes stale is a name that *sounds* right.
 
 ---
 
@@ -77,6 +97,7 @@ Before writing anything, check:
 2. **Which tab does this belong to?** Dashboard = portfolio economics over time. Exposure = holdings composition + market co-movement. Risk (Epic 13) = pre-decision risk-budget views (stress scenarios, drawdown analytics, VaR & distribution).
 3. **Is there an obvious truth-class conflict?** Anything that applies current holdings to historical prices is *synthetic*. Anything from the broker statement is *broker truth*. Never mix in one metric.
 4. **Is the scope one epic or many?** If the idea naturally decomposes into 3+ independent user-visible capabilities, plan it as one epic with multiple stories. If it is a single coherent feature, it may be one or two stories.
+5. **Check `docs/tech-debt-register.md` for open findings in the area you're touching.** If the brief proposes new work in or near a module with a recorded hardcode/fragile-coupling/magic-number finding (e.g. the FX-rate hardcode in `reconciliation.py`, the lookback-heuristic duplication, the mapping-score rubric in `risk.py`), the brief should name the finding and state whether the new work depends on it, works around it, or should wait for the Epic-24 fix first. Don't silently build on top of a documented known-fragile spot.
 
 If any answer is unclear, ask one targeted question before proceeding.
 

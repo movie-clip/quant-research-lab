@@ -18,6 +18,22 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
+### Epic 25 — Dashboard Performance & Risk Summary (complete)
+
+PRD: [`prd/epic-25-dashboard-performance-risk-summary.md`](../prd/epic-25-dashboard-performance-risk-summary.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-25.1](US-25.1-dashboard-performance-benchmark-card.md) | Performance & benchmark comparison card | TWR index chart vs benchmark + summary strip (Portfolio Value/TWR/MWR/Net Contributions), sourced from existing `range_metrics`/`performance_series` | Done |
+| [US-25.2](US-25.2-dashboard-monthly-returns-grid.md) | Monthly returns grid card | Grid from `range_metrics[*].monthly_returns`; whole-card hide when `monthly_returns_reliable = false` | Done |
+| [US-25.3](US-25.3-dashboard-risk-metrics-card.md) | Risk metrics card (volatility, drawdown, concentration) | Sourced from the already-fetched `DiagnosticsResult`, not the withheld dashboard-history path | Done |
+| [US-25.4](US-25.4-epic-25-docs-closeout.md) | Docs close-out | Reconcile `dashboard-fields.md` + `current-product-state.md`; backfill HHI + Modified-Dietz formula sections in `financial-methodology.md` | Done |
+| [US-25.5](US-25.5-information-ratio-risk-summary-card.md) | Information Ratio on the Risk Summary card | Surface the already-computed `relative_risk.{information_ratio,active_return_pct}` (found unrendered during a project review); backfill the methodology section | Done |
+
+Recommended build order: 25.1 → 25.2 → 25.3 → 25.4.
+
+---
+
 ### Epic 24 — Codebase Improvement (active)
 
 PRD: [`prd/epic-24-codebase-improvement.md`](../prd/epic-24-codebase-improvement.md)
@@ -28,6 +44,7 @@ PRD: [`prd/epic-24-codebase-improvement.md`](../prd/epic-24-codebase-improvement
 | [US-24.2](US-24.2-extract-risk-model-rubric-constants.md) | Extract the risk-model scoring rubric & thresholds into named constants | Lift `risk.py` mapping-score weights / hard-caps / thresholds / regime cutoffs + the coverage threshold into documented constants; behaviour-neutral (goldens unchanged) | Done |
 | [US-24.3](US-24.3-dedupe-shared-analytics-constants.md) | De-duplicate the shared analytics constants & lookback helper | One shared `app/core/constants.py` for `lookback_calendar_days` / `MIN_DAILY_OBSERVATIONS` / `DEFAULT_BENCHMARK_SYMBOL`; behaviour-neutral (goldens unchanged) | Done |
 | [US-24.4](US-24.4-harden-freedom24-importer-parsing.md) | Harden the Freedom24 importer parsing + extract its hardcodes | Fail-safe positional parsing (skip malformed → no crash); extract format hardcodes to named constants; correct the (non-real) ISIN-gap; FF2026 fixture pinned | Done |
+| [US-24.8](US-24.8-harden-ibkr-espp-importer-parsing.md) | Harden the IBKR importer parsing (fail-safe) | Deferred US-24.4 follow-up: guard post-match numeric/date conversions in `interactive_brokers.py` so a malformed field degrades instead of crashing the whole import; `espp.py` investigated and found not to need it | Done |
 
 ---
 
