@@ -18,6 +18,17 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
+### Epic 29 — Chart First-Render Reliability (complete)
+
+PRD: [`prd/epic-29-chart-first-render-reliability.md`](../prd/epic-29-chart-first-render-reliability.md)
+(renumbered from a parallel session's "Epic 27" at merge, 2026-07-07)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-29.1](US-29.1-defer-chartshell-mount-one-frame.md) | Defer ChartShell's chart mount by one tick | `setTimeout(fn, 0)` mount deferral in the shared `ChartShell` primitive — fixes Recharts' `ResponsiveContainer` degenerate first measurement when import flips several cards at once (rAF variant proven insufficient under Tauri's hidden-webview state) | Done |
+
+---
+
 ### Epic 28 — IBKR CSV Importer & Statement-Refresh Resilience (backlog)
 
 PRD: [`prd/epic-28-ibkr-csv-importer.md`](../prd/epic-28-ibkr-csv-importer.md)

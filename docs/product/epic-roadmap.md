@@ -1,6 +1,35 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-07-05 (Epic 28 — IBKR CSV Importer & Statement-Refresh Resilience **backlog** (3 stories authored); Epic 27 — Financial Calculation Correctness **complete** (all 9 stories done, findings F1–F13 resolved); Epic 25 — Dashboard Performance & Risk Summary complete; Epic 24 — Codebase Improvement active; Epic 26 — Currency Exposure & Risk backlog (research brief only); Epic 23 — dead-code cleanup & codebase review complete; Epics 13/18/19/20/21/22 complete).*
+*Living execution snapshot. Updated: 2026-07-07 (Epic 29 — Chart First-Render Reliability **complete** (salvaged from a parallel session, renumbered from its "Epic 27"); Epic 28 — IBKR CSV Importer & Statement-Refresh Resilience **backlog** (3 stories authored); Epic 27 — Financial Calculation Correctness **complete** (all 9 stories done, findings F1–F13 resolved); Epic 25 — Dashboard Performance & Risk Summary complete; Epic 24 — Codebase Improvement active; Epic 26 — Currency Exposure & Risk backlog (research brief only); Epic 23 — dead-code cleanup & codebase review complete; Epics 13/18/19/20/21/22 complete).*
+
+---
+
+## Completed Epic: Epic 29 — Chart First-Render Reliability
+
+**PRD:** [`docs/product/prd/epic-29-chart-first-render-reliability.md`](product/prd/epic-29-chart-first-render-reliability.md)
+
+### Goal
+
+Fix charts (Dashboard's Performance & Benchmark / Rolling Factor Analysis;
+Exposure's Rolling Correlation / Factor Return Attribution and others)
+rendering as an empty area right after a portfolio import, requiring a page
+reload to appear. Root-caused via live browser reproduction to a Recharts
+`ResponsiveContainer` measurement race in the shared `ChartShell` primitive.
+*(Authored in a parallel session as "Epic 27"; renumbered to Epic 29 at merge
+on 2026-07-07 to resolve the collision with Epic 27 — Financial Calculation
+Correctness.)*
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-29.1 | Defer ChartShell's chart mount by one tick | Done |
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-07-04 | US-29.1 | **Fixed charts rendering blank after import until a page reload.** User-reported bug, reproduced live in a browser (simulated a real PDF import against a running backend). Root cause: Recharts' `ResponsiveContainer` measures its container synchronously on mount; racing a same-commit DOM insertion of several other new cards (exactly what happens when import resolves and multiple cards flip from `EmptyState` to populated together) can yield a degenerate `-1,-1` measurement, and `ResizeObserver` only fires on a subsequent size *change* — never to self-correct a bad first read — so the chart can stay blank until something else (a reload) forces a fresh measurement. **First fix attempt (deferring the chart mount by one `requestAnimationFrame` tick) was verified insufficient** by re-reproducing live: `requestAnimationFrame` is paused while `document.hidden` is `true`, which is exactly the state during/after Tauri's native file-picker dialog (used for import) blurs the webview. Corrected to `setTimeout(fn, 0)` (fires regardless of visibility, since layout is computed independent of paint) and re-verified: Dashboard's Performance & Benchmark chart and Exposure's Rolling Correlation / Factor Return Attribution charts all rendered with real, populated SVG paths on the first render after import, confirmed via direct DOM/SVG inspection with `document.hidden` still `true`. Fix confined entirely to the shared `ChartShell.tsx` primitive — no per-chart-file changes. +2 `ChartShell.test.tsx` tests; full `run_all_tests.py` green; tsc clean; goldens untouched (frontend-only). *(Renumbered from "Epic 27/US-27.1" on 2026-07-07 — authored in a parallel session, collided with Epic 27 — Financial Calculation Correctness; merged unchanged.)* |
 
 ---
 
