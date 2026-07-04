@@ -872,6 +872,7 @@ export function App() {
             result={dashboardSession.result}
             exposureResult={dashboardSession.exposureResult}
             factorModel={dashboardSession.factorModel}
+            diagnosticsAnalysis={diagnosticsAnalysis}
             importing={dashboardSession.importing}
             importError={dashboardSession.importError}
             lastImportedFileNames={dashboardSession.lastImportedFileNames}

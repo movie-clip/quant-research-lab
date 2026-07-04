@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import type { DashboardAnalysis, ExposureAnalysis, ExposureFactorModelResponse } from './types'
+import type { DashboardAnalysis, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse } from './types'
 import { BenchmarkPositioningCard } from './BenchmarkPositioningCard'
 import { MonthlyReturnsGrid } from './MonthlyReturnsGrid'
 import { PerformanceBenchmarkCard } from './PerformanceBenchmarkCard'
+import { RiskSummaryCard } from './RiskSummaryCard'
 import { RollingFactorLoadingsCard } from './RollingFactorLoadingsCard'
 import { SectorPieCard } from './SectorPieCard'
 import { WindowSelector } from '../../app/primitives/WindowSelector'
@@ -52,6 +53,7 @@ type DashboardPanelProps = {
   result: DashboardAnalysis | null
   exposureResult?: ExposureAnalysis | null
   factorModel?: ExposureFactorModelResponse | null
+  diagnosticsAnalysis?: DiagnosticsEngineResponse | null
   importing?: boolean
   importError?: string | null
   lastImportedFileNames?: string[]
@@ -66,6 +68,7 @@ export function DashboardPanel({
   result,
   exposureResult = null,
   factorModel = null,
+  diagnosticsAnalysis = null,
   importing = false,
   importError = null,
   lastImportedFileNames = [],
@@ -134,6 +137,7 @@ export function DashboardPanel({
         )}
         <PerformanceBenchmarkCard result={result} activeRange={activeRange} />
         <MonthlyReturnsGrid result={result} activeRange={activeRange} />
+        <RiskSummaryCard diagnosticsAnalysis={diagnosticsAnalysis} />
         <RollingFactorLoadingsCard result={exposureResult} factorModel={factorModel} />
         <div className="dashboard-composition-row">
           <SectorPieCard result={result} exposureResult={exposureResult} />

@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createDashboardHistoryRunMetadataFixture, createDiagnosticsEngineFixture, createExposureEngineFixture, createImportedDashboardFixture } from '../../test/portfolioFixtures'
-import type { DashboardAnalysis } from './types'
+import type { DashboardAnalysis, DiagnosticsEngineResponse } from './types'
 import { DashboardPanel, normalizePerformanceSeries } from './DashboardPanel'
 import { composeExposureView } from './portfolioAnalysisAdapter'
 
@@ -331,5 +331,91 @@ describe('DashboardPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: '3M window' }))
     expect(screen.getByText('+2.00%')).toBeTruthy()
     expect(screen.queryByText('+1.00%')).toBeNull()
+  })
+
+  // ─── US-25.3: Risk Summary card ─────────────────────────────────────────────
+
+  it('renders volatility and tracking-error fields, with n/a for null values', () => {
+    const diagnostics = createDiagnosticsEngineFixture()
+    diagnostics.volatility_summary.benchmark_volatility_pct = null
+    render(<DashboardPanel result={null} diagnosticsAnalysis={diagnostics} />)
+
+    expect(screen.getByText('Portfolio Volatility')).toBeTruthy()
+    expect(screen.getByText('18.20%')).toBeTruthy()
+    expect(screen.getByText('7.20%')).toBeTruthy() // tracking error
+    const benchmarkVolLabel = screen.getByText('Benchmark Volatility')
+    const row = benchmarkVolLabel.closest('.benchmark-card-metric')
+    expect(row ? within(row as HTMLElement).getByText('n/a') : null).toBeTruthy()
+  })
+
+  it('renders drawdown from the diagnostics path, not the withheld dashboard-history value', () => {
+    const diagnostics = createDiagnosticsEngineFixture()
+    diagnostics.drawdown_summary.max_drawdown_pct = -8.9
+    const dashboardResult = {
+      ...createImportedDashboardFixture(),
+      range_metrics: {
+        ...createImportedDashboardFixture().range_metrics,
+        '1M': { ...createImportedDashboardFixture().range_metrics!['1M'], max_drawdown_pct: null },
+      },
+    } as unknown as DashboardAnalysis
+    render(<DashboardPanel result={dashboardResult} diagnosticsAnalysis={diagnostics} />)
+
+    expect(screen.getByText('Max Drawdown')).toBeTruthy()
+    expect(screen.getByText('-8.90%')).toBeTruthy()
+  })
+
+  it('renders HHI and risk-share fields from risk_concentration_summary', () => {
+    const diagnostics = createDiagnosticsEngineFixture()
+    diagnostics.risk_concentration_summary = {
+      top_1_factor_risk_share: 42.5,
+      top_3_factor_risk_share: 70.1,
+      top_1_position_risk_share: 20.3,
+      top_5_position_risk_share: 55.6,
+      factor_hhi: 0.312,
+      position_hhi: 0.145,
+    }
+    render(<DashboardPanel result={null} diagnosticsAnalysis={diagnostics} />)
+
+    expect(screen.getByText('Factor HHI')).toBeTruthy()
+    expect(screen.getByText('0.312')).toBeTruthy()
+    expect(screen.getByText('0.145')).toBeTruthy()
+    expect(screen.getByText('42.50%')).toBeTruthy()
+  })
+
+  it('trust label follows section_trust.risk_contribution_path across its three states', () => {
+    const diagnostics = createDiagnosticsEngineFixture()
+    diagnostics.run_metadata.section_trust.risk_contribution_path = 'verified_adjusted_close'
+    const { rerender } = render(<DashboardPanel result={null} diagnosticsAnalysis={diagnostics} />)
+    expect(screen.getByText('Risk contribution basis: Verified')).toBeTruthy()
+
+    const degraded = { ...diagnostics, run_metadata: { ...diagnostics.run_metadata, section_trust: { ...diagnostics.run_metadata.section_trust, risk_contribution_path: 'degraded_unverified_return_basis' as const } } }
+    rerender(<DashboardPanel result={null} diagnosticsAnalysis={degraded} />)
+    expect(screen.getByText('Risk contribution basis: Degraded')).toBeTruthy()
+
+    const unavailableTrust = { ...diagnostics, run_metadata: { ...diagnostics.run_metadata, section_trust: { ...diagnostics.run_metadata.section_trust, risk_contribution_path: 'unavailable' as const } } }
+    rerender(<DashboardPanel result={null} diagnosticsAnalysis={unavailableTrust} />)
+    expect(screen.getByText('Risk contribution basis: Unavailable')).toBeTruthy()
+  })
+
+  it('shows a single EmptyState when diagnosticsAnalysis is absent or unavailable', () => {
+    const { rerender } = render(<DashboardPanel result={null} diagnosticsAnalysis={null} />)
+    expect(screen.getByText('Risk metrics unavailable')).toBeTruthy()
+
+    const diagnostics = createDiagnosticsEngineFixture()
+    diagnostics.availability.historical_sections_available = false
+    rerender(<DashboardPanel result={null} diagnosticsAnalysis={diagnostics} />)
+    expect(screen.getByText('Risk metrics unavailable')).toBeTruthy()
+    expect(screen.queryByText('Portfolio Volatility')).toBeNull()
+  })
+
+  it('renders EmptyState instead of crashing when volatility_summary/drawdown_summary/risk_concentration_summary are absent', () => {
+    const partialDiagnostics = {
+      ...createDiagnosticsEngineFixture(),
+      volatility_summary: undefined,
+      drawdown_summary: undefined,
+      risk_concentration_summary: undefined,
+    } as unknown as DiagnosticsEngineResponse
+    render(<DashboardPanel result={null} diagnosticsAnalysis={partialDiagnostics} />)
+    expect(screen.getByText('Risk metrics unavailable')).toBeTruthy()
   })
 })
