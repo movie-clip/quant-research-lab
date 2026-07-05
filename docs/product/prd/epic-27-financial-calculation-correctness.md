@@ -73,7 +73,7 @@ bugs through.
 | US-27.1 | Fix the Information Ratio annualization | F1 — **Resolved 2026-07-05** | **High** |
 | US-27.2 | Fix dashboard monthly-return chaining + max-drawdown basis | F2, F3 — **Resolved 2026-07-05** | **High** |
 | US-27.3 | Fix covariance-matrix date alignment | F4 — **Resolved 2026-07-05** | **High** |
-| US-27.4 | Stress scenarios: null semantics for missing loadings | F5 | Med |
+| US-27.4 | Stress scenarios: null semantics for missing loadings | F5 — **Resolved 2026-07-05** | Med |
 | US-27.5 | Reconcile the factor risk-share denominator with the methodology | F6 | Med |
 | US-27.6 | Null (don't keep raw) collinear factors in per-window orthogonalization | F7 | Med |
 | US-27.7 | Stop flat back-filling synthetic history before a symbol's first quote | F8 | Med |

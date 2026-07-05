@@ -80,6 +80,11 @@ function ScenarioRow({ scenario, maxAbsPct }: { scenario: StressScenarioResult; 
         <p className="helper" style={{ margin: 'var(--space-xs) 0 0 0' }}>
           {scenario.description}
         </p>
+        {scenario.status === 'partial' && (scenario.missing_factors?.length ?? 0) > 0 ? (
+          <p className="helper" style={{ margin: 'var(--space-xs) 0 0 0' }}>
+            Partial estimate — computed without {scenario.missing_factors!.join(', ')} (loading unavailable)
+          </p>
+        ) : null}
         {/* Magnitude bar — color matches the number; width proportional to |pct| */}
         <div
           aria-hidden="true"

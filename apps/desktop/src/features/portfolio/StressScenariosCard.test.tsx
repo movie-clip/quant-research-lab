@@ -64,6 +64,25 @@ describe('StressScenariosCard', () => {
     expect(screen.getByText('Unavailable')).toBeTruthy()
   })
 
+  it('renders a partial-estimate note naming the missing factors (US-27.4)', () => {
+    const partial: StressScenarioResult[] = [
+      {
+        name: 'Broad Market Selloff',
+        estimated_return_pct: -16.0,
+        description: 'risk-off equity drawdown',
+        status: 'partial',
+        missing_factors: ['Value', 'Commodities'],
+      },
+      { name: 'Rates Down Risk-On', estimated_return_pct: 3.1, description: 'duration tailwind', status: 'ok', missing_factors: [] },
+    ]
+    render(<StressScenariosCard scenarios={partial} trust="synthetic" />)
+    expect(
+      screen.getByText('Partial estimate — computed without Value, Commodities (loading unavailable)'),
+    ).toBeTruthy()
+    // Exactly one partial note — the 'ok' row renders none.
+    expect(screen.getAllByText(/Partial estimate/)).toHaveLength(1)
+  })
+
   it('renders the ErrorState when an error prop is present', () => {
     render(
       <StressScenariosCard

@@ -5676,6 +5676,69 @@ def test_stress_scenario_shocks_are_pinned() -> None:
     assert projections["Inflation Reacceleration"] == -2.0
 
 
+def _stress_model_with_loadings(loadings: dict[str, float | None]) -> StatisticalFactorModel:
+    items = [
+        SnapshotItem(
+            key=label.lower().replace(" ", "_"), label=label, category="x", us_proxy="X",
+            latest_loading=loading, target_exposure="x", primary_mapping=None,
+            alternative_mappings=[], ucits_examples=[], mapping_quality="high", description="d",
+        )
+        for label, loading in loadings.items()
+    ]
+    return StatisticalFactorModel(
+        status="ok", benchmark_symbol="SPY", windows=[], rolling_loadings_20d=[],
+        rolling_loadings_60d=[], rolling_loadings_252d=[], current_factor_snapshot=items,
+        collinearity_diagnostics=[], insufficient_history=[],
+    )
+
+
+# All 12 factor labels shocked by the canonical STRESS_SCENARIOS vectors.
+_SHOCKED_FACTOR_LABELS = [
+    "Market", "Growth", "Value", "Small Cap", "Financials", "Health Care",
+    "Energy", "Industrials", "Intermediate Rates", "Long Rates", "Credit", "Commodities",
+]
+
+
+def test_stress_scenarios_flag_partial_when_a_shocked_loading_is_missing() -> None:
+    """US-27.4 (audit F5) — missing loadings are named and excluded, never
+    zero-filled. With only Market=1.0 and Growth=0.5 available:
+    Broad Market Selloff = (−0.10×1.0 + −0.12×0.5) × 100 = −16.0 (hand-computed)."""
+    scenarios = build_stress_scenarios(_stress_model_with_loadings({"Market": 1.0, "Growth": 0.5}))
+    selloff = next(s for s in scenarios if s.name == "Broad Market Selloff")
+
+    assert selloff.status == "partial"
+    assert selloff.estimated_return_pct == -16.0
+    assert set(selloff.missing_factors) == set(_SHOCKED_FACTOR_LABELS) - {"Market", "Growth"}
+    assert all(s.status == "partial" for s in scenarios)
+
+
+def test_stress_scenarios_treat_genuine_zero_loading_as_real() -> None:
+    """US-27.4 (AC2) — a real 0.0 loading is a value, not a gap: with every
+    shocked factor present (Market=1.0, rest 0.0) the scenario is 'ok' with
+    no missing factors and the Market-shock-only projection."""
+    loadings: dict[str, float | None] = {label: 0.0 for label in _SHOCKED_FACTOR_LABELS}
+    loadings["Market"] = 1.0
+
+    scenarios = build_stress_scenarios(_stress_model_with_loadings(loadings))
+
+    assert all(s.status == "ok" for s in scenarios)
+    assert all(s.missing_factors == [] for s in scenarios)
+    projections = {s.name: s.estimated_return_pct for s in scenarios}
+    assert projections["Broad Market Selloff"] == -10.0
+    assert projections["Rates Down Risk-On"] == 3.0
+    assert projections["Inflation Reacceleration"] == -2.0
+
+
+def test_stress_scenarios_all_missing_loadings_are_unavailable() -> None:
+    """US-27.4 — every shocked loading missing → null + 'unavailable',
+    with the full shocked-factor list surfaced (never a fabricated 0.0%)."""
+    scenarios = build_stress_scenarios(_stress_model_with_loadings({"Market": None}))
+
+    assert all(s.status == "unavailable" for s in scenarios)
+    assert all(s.estimated_return_pct is None for s in scenarios)
+    assert all(set(s.missing_factors) == set(_SHOCKED_FACTOR_LABELS) for s in scenarios)
+
+
 def test_factor_model_minimum_shared_history_is_pinned() -> None:
     def status_for(n_rows: int) -> str:
         start = date(2025, 1, 1)
