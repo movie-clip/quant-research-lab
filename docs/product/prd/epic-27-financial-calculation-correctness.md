@@ -71,7 +71,7 @@ bugs through.
 | Story | Title | Findings | Priority |
 |---|---|---|---|
 | US-27.1 | Fix the Information Ratio annualization | F1 — **Resolved 2026-07-05** | **High** |
-| US-27.2 | Fix dashboard monthly-return chaining + max-drawdown basis | F2, F3 | **High** |
+| US-27.2 | Fix dashboard monthly-return chaining + max-drawdown basis | F2, F3 — **Resolved 2026-07-05** | **High** |
 | US-27.3 | Fix covariance-matrix date alignment | F4 | **High** |
 | US-27.4 | Stress scenarios: null semantics for missing loadings | F5 | Med |
 | US-27.5 | Reconcile the factor risk-share denominator with the methodology | F6 | Med |

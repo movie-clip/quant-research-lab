@@ -21,24 +21,20 @@ export const ib2026DashboardGolden = {
   ],
   "monthlyReturns": [
     {
-      "month": "2026-01",
-      "returnPct": "0.00%"
-    },
-    {
       "month": "2026-03",
-      "returnPct": "-2.43%"
+      "returnPct": "-5.34%"
     },
     {
       "month": "2026-04",
-      "returnPct": "58.18%"
+      "returnPct": "56.56%"
     },
     {
       "month": "2026-05",
-      "returnPct": "2.72%"
+      "returnPct": "3.06%"
     },
     {
       "month": "2026-06",
-      "returnPct": "-32.16%"
+      "returnPct": "-32.26%"
     }
   ],
   "sectors": {
@@ -24613,16 +24609,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "max_drawdown_pct": null,
       "monthly_returns": [
         {
-          "month": "2026-01",
-          "return_pct": 0.0
-        },
-        {
           "month": "2026-05",
-          "return_pct": 0.6446089947025557
+          "return_pct": 75.99405185726746
         },
         {
           "month": "2026-06",
-          "return_pct": -32.16183686393958
+          "return_pct": -32.26449573638542
         }
       ],
       "monthly_returns_reliable": true
@@ -24641,24 +24633,20 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "max_drawdown_pct": null,
       "monthly_returns": [
         {
-          "month": "2026-01",
-          "return_pct": 0.0
-        },
-        {
           "month": "2026-03",
-          "return_pct": -2.4308954398968963
+          "return_pct": -5.340176115419926
         },
         {
           "month": "2026-04",
-          "return_pct": 58.18135545124825
+          "return_pct": 56.55662501254169
         },
         {
           "month": "2026-05",
-          "return_pct": 2.722657219677771
+          "return_pct": 3.057218315074306
         },
         {
           "month": "2026-06",
-          "return_pct": -32.16183686393958
+          "return_pct": -32.26449573638542
         }
       ],
       "monthly_returns_reliable": true
@@ -24682,23 +24670,23 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "month": "2026-02",
-          "return_pct": -6.29609640398413
+          "return_pct": -6.542997442145859
         },
         {
           "month": "2026-03",
-          "return_pct": -4.43415761778162
+          "return_pct": -4.475946382494289
         },
         {
           "month": "2026-04",
-          "return_pct": 58.18135545124825
+          "return_pct": 56.55662501254169
         },
         {
           "month": "2026-05",
-          "return_pct": 2.722657219677771
+          "return_pct": 3.057218315074306
         },
         {
           "month": "2026-06",
-          "return_pct": -32.16183686393958
+          "return_pct": -32.26449573638542
         }
       ],
       "monthly_returns_reliable": true
@@ -24722,23 +24710,23 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "month": "2026-02",
-          "return_pct": -6.29609640398413
+          "return_pct": -6.542997442145859
         },
         {
           "month": "2026-03",
-          "return_pct": -4.43415761778162
+          "return_pct": -4.475946382494289
         },
         {
           "month": "2026-04",
-          "return_pct": 58.18135545124825
+          "return_pct": 56.55662501254169
         },
         {
           "month": "2026-05",
-          "return_pct": 2.722657219677771
+          "return_pct": 3.057218315074306
         },
         {
           "month": "2026-06",
-          "return_pct": -32.16183686393958
+          "return_pct": -32.26449573638542
         }
       ],
       "monthly_returns_reliable": true
@@ -24762,23 +24750,23 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "month": "2026-02",
-          "return_pct": -6.29609640398413
+          "return_pct": -6.542997442145859
         },
         {
           "month": "2026-03",
-          "return_pct": -4.43415761778162
+          "return_pct": -4.475946382494289
         },
         {
           "month": "2026-04",
-          "return_pct": 58.18135545124825
+          "return_pct": 56.55662501254169
         },
         {
           "month": "2026-05",
-          "return_pct": 2.722657219677771
+          "return_pct": 3.057218315074306
         },
         {
           "month": "2026-06",
-          "return_pct": -32.16183686393958
+          "return_pct": -32.26449573638542
         }
       ],
       "monthly_returns_reliable": true
@@ -24807,24 +24795,20 @@ export const ff2026DashboardGolden = {
   ],
   "monthlyReturns": [
     {
-      "month": "2025-12",
-      "returnPct": "0.00%"
-    },
-    {
       "month": "2026-01",
-      "returnPct": "-0.40%"
+      "returnPct": "1.53%"
     },
     {
       "month": "2026-02",
-      "returnPct": "-0.81%"
+      "returnPct": "-0.40%"
     },
     {
       "month": "2026-03",
-      "returnPct": "-3.66%"
+      "returnPct": "-3.59%"
     },
     {
       "month": "2026-04",
-      "returnPct": "-22.16%"
+      "returnPct": "-21.68%"
     }
   ],
   "sectors": {
@@ -27654,16 +27638,12 @@ export const ff2026ImportedDashboardGoldenFixture = {
       "max_drawdown_pct": null,
       "monthly_returns": [
         {
-          "month": "2025-12",
-          "return_pct": 0.0
-        },
-        {
           "month": "2026-03",
-          "return_pct": -1.2258254672420699
+          "return_pct": -2.5025176859668763
         },
         {
           "month": "2026-04",
-          "return_pct": -22.160940050490186
+          "return_pct": -21.676345542233822
         }
       ],
       "monthly_returns_reliable": true
@@ -27682,24 +27662,20 @@ export const ff2026ImportedDashboardGoldenFixture = {
       "max_drawdown_pct": null,
       "monthly_returns": [
         {
-          "month": "2025-12",
-          "return_pct": 0.0
-        },
-        {
           "month": "2026-01",
-          "return_pct": -0.4005376278512496
+          "return_pct": 1.5297584264773567
         },
         {
           "month": "2026-02",
-          "return_pct": -0.8116677235256775
+          "return_pct": -0.3955357120989711
         },
         {
           "month": "2026-03",
-          "return_pct": -3.664565141545817
+          "return_pct": -3.590186185122901
         },
         {
           "month": "2026-04",
-          "return_pct": -22.160940050490186
+          "return_pct": -21.676345542233822
         }
       ],
       "monthly_returns_reliable": true
@@ -27723,15 +27699,15 @@ export const ff2026ImportedDashboardGoldenFixture = {
         },
         {
           "month": "2026-02",
-          "return_pct": -0.8116677235256775
+          "return_pct": -0.3955357120989711
         },
         {
           "month": "2026-03",
-          "return_pct": -3.664565141545817
+          "return_pct": -3.590186185122901
         },
         {
           "month": "2026-04",
-          "return_pct": -22.160940050490186
+          "return_pct": -21.676345542233822
         }
       ],
       "monthly_returns_reliable": true
@@ -27755,19 +27731,19 @@ export const ff2026ImportedDashboardGoldenFixture = {
         },
         {
           "month": "2026-01",
-          "return_pct": 0.9449052498856636
+          "return_pct": 1.1782868130996382
         },
         {
           "month": "2026-02",
-          "return_pct": -0.8116677235256775
+          "return_pct": -0.3955357120989711
         },
         {
           "month": "2026-03",
-          "return_pct": -3.664565141545817
+          "return_pct": -3.590186185122901
         },
         {
           "month": "2026-04",
-          "return_pct": -22.160940050490186
+          "return_pct": -21.676345542233822
         }
       ],
       "monthly_returns_reliable": true
@@ -27791,19 +27767,19 @@ export const ff2026ImportedDashboardGoldenFixture = {
         },
         {
           "month": "2026-01",
-          "return_pct": 0.9449052498856636
+          "return_pct": 1.1782868130996382
         },
         {
           "month": "2026-02",
-          "return_pct": -0.8116677235256775
+          "return_pct": -0.3955357120989711
         },
         {
           "month": "2026-03",
-          "return_pct": -3.664565141545817
+          "return_pct": -3.590186185122901
         },
         {
           "month": "2026-04",
-          "return_pct": -22.160940050490186
+          "return_pct": -21.676345542233822
         }
       ],
       "monthly_returns_reliable": true

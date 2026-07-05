@@ -2,6 +2,11 @@ from typing import TypedDict, cast
 
 from app.core.constants import DEFAULT_BENCHMARK_SYMBOL
 from app.analytics.performance import build_daily_portfolio_states, build_true_performance_series
+from app.analytics.risk import (
+    _build_drawdown_from_return_index,
+    _build_wealth_index,
+    _portfolio_time_weighted_return_series,
+)
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.dashboard_history import (
     DashboardHistoryEngineRequest,
@@ -683,7 +688,7 @@ def _build_range_metrics(
                     admitted_portfolio_twr_scope=admitted_portfolio_twr_scope,
                     source_performance_series=performance_series,
                 ),
-                max_drawdown_pct=_compute_max_drawdown(perf) if allow_drawdown_outputs else None,
+                max_drawdown_pct=_compute_max_drawdown(states) if allow_drawdown_outputs else None,
             monthly_returns=[DashboardMonthlyReturn(month=item["month"], return_pct=item["return_pct"]) for item in monthly_returns],
             monthly_returns_reliable=_monthly_returns_are_reliable(monthly_returns, states),
         )
@@ -791,24 +796,32 @@ def _compute_visible_summary(
 
 
 def _compute_contribution_adjusted_monthly_returns(states) -> list[MonthlyReturnPoint]:
+    """Cash-flow-neutral monthly TWR, chained across month boundaries.
+
+    Each daily return is bucketed into the month of its *end* date, so the
+    first trading day of month M+1 compounds against the prior month's last
+    state (US-27.2 / audit F3 — the previous per-month grouping reset the
+    baseline at each month start, dropping every month-boundary return and
+    breaking Π(1+mᵢ) = period TWR). A month with no computable daily return
+    (e.g. the anchor month containing only the anchor state) emits no entry —
+    never a fabricated 0.0%.
+    """
     anchor_index = next((index for index, state in enumerate(states) if state.total_portfolio_value > 0), 0)
     anchored_states = states[anchor_index:]
     if not anchored_states:
         return []
-    grouped: dict[str, list] = {}
+    growth_by_month: dict[str, float] = {}
+    previous_state = None
     for state in anchored_states:
-        grouped.setdefault(state.date[:7], []).append(state)
-    results: list[MonthlyReturnPoint] = []
-    for month, month_states in grouped.items():
-        cumulative_growth = 1.0
-        previous_state = None
-        for state in month_states:
-            if previous_state is not None and previous_state.total_portfolio_value != 0:
-                daily_return = ((state.total_portfolio_value - state.external_cash_flow) / previous_state.total_portfolio_value) - 1
-                cumulative_growth *= 1 + daily_return
-            previous_state = state
-        results.append({"month": month, "return_pct": float((cumulative_growth - 1) * 100)})
-    return results
+        if previous_state is not None and previous_state.total_portfolio_value != 0:
+            daily_return = ((state.total_portfolio_value - state.external_cash_flow) / previous_state.total_portfolio_value) - 1
+            month = state.date[:7]
+            growth_by_month[month] = growth_by_month.get(month, 1.0) * (1 + daily_return)
+        previous_state = state
+    return [
+        {"month": month, "return_pct": float((growth - 1) * 100)}
+        for month, growth in growth_by_month.items()
+    ]
 
 
 def _monthly_returns_are_reliable(monthly_returns, states) -> bool:
@@ -823,13 +836,25 @@ def _monthly_returns_are_reliable(monthly_returns, states) -> bool:
     return not has_negative_portfolio_value and not extreme_monthly_move
 
 
-def _compute_max_drawdown(performance_series) -> float | None:
-    if not performance_series:
+def _compute_max_drawdown(daily_states) -> float | None:
+    """Max drawdown over the compounded return index (methodology
+    `drawdown_basis="compounded_return_index"`).
+
+    Built from cash-flow-neutral TWR daily returns so external flows are not
+    read as performance (US-27.2 / audit F2 — the previous implementation
+    tracked raw `portfolio_value`, letting a deposit mask a real drawdown and
+    a withdrawal fabricate one). The wealth index is anchored at 100 on the
+    first state's date, matching the drawdown-engine convention, so a decline
+    starting on the very first return day still registers.
+    """
+    if not daily_states:
         return None
-    peak = 0.0
-    max_drawdown = 0.0
-    for point in performance_series:
-        peak = max(peak, point.portfolio_value)
-        if peak > 0:
-            max_drawdown = min(max_drawdown, ((point.portfolio_value - peak) / peak) * 100)
-    return max_drawdown
+    ordered = sorted(daily_states, key=lambda state: state.date)
+    returns = _portfolio_time_weighted_return_series(ordered)
+    if not returns:
+        return None
+    wealth_index = _build_wealth_index([(ordered[0].date, 0.0), *returns])
+    drawdown_by_date = _build_drawdown_from_return_index(wealth_index)
+    if not drawdown_by_date:
+        return None
+    return min(drawdown_by_date.values())
