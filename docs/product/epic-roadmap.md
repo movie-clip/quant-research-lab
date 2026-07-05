@@ -1,6 +1,45 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-07-05 (Epic 27 — Financial Calculation Correctness **active** (US-27.1 + US-27.2 done, 7 stories remaining); Epic 25 — Dashboard Performance & Risk Summary complete; Epic 24 — Codebase Improvement active; Epic 26 — Currency Exposure & Risk backlog (research brief only); Epic 23 — dead-code cleanup & codebase review complete; Epics 13/18/19/20/21/22 complete).*
+*Living execution snapshot. Updated: 2026-07-05 (Epic 28 — IBKR CSV Importer & Statement-Refresh Resilience **backlog** (3 stories authored); Epic 27 — Financial Calculation Correctness **active** (US-27.1 + US-27.2 done, 7 stories remaining); Epic 25 — Dashboard Performance & Risk Summary complete; Epic 24 — Codebase Improvement active; Epic 26 — Currency Exposure & Risk backlog (research brief only); Epic 23 — dead-code cleanup & codebase review complete; Epics 13/18/19/20/21/22 complete).*
+
+---
+
+## Backlog Epic: Epic 28 — IBKR CSV Importer & Statement-Refresh Resilience
+
+**PRD:** [`docs/product/prd/epic-28-ibkr-csv-importer.md`](product/prd/epic-28-ibkr-csv-importer.md)
+
+Created 2026-07-05 from the owner's actual workflow: the IB statement file is
+replaced with a fresh broker export every few weeks, so exact-number pins
+break on every refresh — and the fragile PDF regex parsing (hardened twice in
+Epic 24) re-parses a *layout* when IBKR ships the same statement as a
+machine-readable CSV. `docs/IB2026.csv` (Activity Statement, 2026-01-01 →
+2026-06-30, 22 sections, utf-8-sig) is committed as the real statement to
+build against. Three stories: **US-28.1** a fail-safe
+`interactive_brokers_csv.py` importer producing the unchanged snapshot
+contract (per-currency Open Positions, ISIN from Financial Instrument
+Information, reconciles against its own Change-in-NAV totals); **US-28.2**
+remove the three `.pdf` gates (statement_importer suffix check, App.tsx
+picker filter + accept attr), key the golden pipeline off the CSV, one
+deliberate `refresh_statement.py` regeneration (window moves Jan–Apr →
+Jan–Jun; needs FMP key + registry entries for new symbols), legacy 2022–2025
+PDFs keep working; **US-28.3** classify statement-truth vs structural
+assertions, centralize the truths into one module per side, prove via a
+swap-simulation meta-test that a statement refresh fails only the documented
+pin set, and document the one-command workflow.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-28.1 | IBKR Activity-Statement CSV importer (backend) | Backlog |
+| US-28.2 | Wire CSV end-to-end: detection, upload UI, golden pipeline on IB2026.csv | Backlog |
+| US-28.3 | Statement-refresh resilience: centralize statement-truth pins + document the workflow | Backlog |
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-07-05 | — | Epic created ("switch the IB parser from PDF to the CSV export; fix whatever a periodic statement refresh breaks"). Verified against the real `docs/IB2026.csv`: IBKR's `Section,Header|Data` framing with per-section column headers covers everything the PDF regexes reconstruct, at full precision, plus data the PDF path lacks (per-currency EUR/GBP/USD Open Positions, `Security ID` ISINs, Conids). Confirmed the three `.pdf` gates (`statement_importer.import_statement`, App.tsx selection filter, `<input accept>`), the golden pipeline's `IB2026.pdf` keying (`export_dashboard_goldens.py`, `_statement_fixtures.py`), and that the upload route is already suffix-agnostic. Noted the statement-window move (PDF Jan–Apr vs CSV Jan–Jun) makes the US-28.2 golden regeneration the epic's main scheduled cost. PRD + 3 stories authored; `docs/IB2026.csv` committed; no code changed. |
 
 ---
 
