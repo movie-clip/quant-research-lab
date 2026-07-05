@@ -13,7 +13,7 @@ from app.analytics.portfolio_imports import (
 )
 from app.analytics.risk import DEFAULT_FACTOR_DEFINITIONS, build_etf_overlap_pairs, build_factor_exposures, build_factor_registry, build_factor_shift_diagnostics, build_lookthrough_exposure, build_lookthrough_sector_exposure, build_market_overlap_summary, build_model_reliability_snapshot, build_portfolio_risk_summary, build_relative_risk_summary, build_risk_contribution_breakdown, build_rolling_risk_series, build_statistical_factor_model, build_stress_scenarios, build_volatility_regime_payload, is_history_series_verified_adjusted, select_history_price_series, selected_history_price_map
 from app.analytics.risk import apply_return_basis_status_to_factor_model, apply_return_basis_status_to_model_reliability
-from app.analytics.risk import _apply_mapping_hard_caps, _classify_volatility_regime, _mapping_match_label
+from app.analytics.risk import _apply_mapping_hard_caps, _classify_volatility_regime, _compute_covariance_matrix, _mapping_match_label
 from app.core.constants import DEFAULT_BENCHMARK_SYMBOL, MIN_DAILY_OBSERVATIONS, lookback_calendar_days
 from app.core.symbols import canonicalize_symbol
 from app.domain.ledger import reconstruct_position_lots, snapshot_to_ledger
@@ -4139,6 +4139,59 @@ def _dashboard_state(date_str: str, value: float, external_cash_flow: float = 0.
         total_portfolio_value=value,
         external_cash_flow=external_cash_flow,
     )
+
+
+def test_covariance_matrix_intersects_dates_pairwise() -> None:
+    """US-27.3 (audit F4) regression — A misses d2, B misses d3: equal counts,
+    different coverage. The pre-fix code zipped misaligned days and produced a
+    NEGATIVE covariance (−0.0006); the pairwise intersection {d1, d4} gives
+    the hand-computed +0.0002:
+
+      A: d1=0.01, d4=0.03  (means 0.02)      B: d1=0.02, d4=0.04  (means 0.03)
+      cov = ((0.01−0.02)(0.02−0.03) + (0.03−0.02)(0.04−0.03)) / (2−1) = 0.0002
+    """
+    dates = ["2025-01-02", "2025-01-03", "2025-01-06", "2025-01-07"]
+    returns_by_symbol = {
+        "A": {"2025-01-02": 0.01, "2025-01-06": 0.05, "2025-01-07": 0.03},
+        "B": {"2025-01-02": 0.02, "2025-01-03": -0.04, "2025-01-07": 0.04},
+    }
+
+    matrix = _compute_covariance_matrix(["A", "B"], returns_by_symbol, dates)
+
+    assert matrix[("A", "B")] == pytest.approx(0.0002, abs=1e-15)
+    assert matrix[("B", "A")] == pytest.approx(0.0002, abs=1e-15)
+
+
+def test_covariance_matrix_full_coverage_is_unchanged_and_diagonal_is_variance() -> None:
+    """US-27.3 behaviour-neutral pin: with no missing dates the cells equal
+    the plain sample covariance/variance (hand-computed)."""
+    dates = ["2025-01-02", "2025-01-03", "2025-01-06"]
+    returns_by_symbol = {
+        "A": {"2025-01-02": 0.01, "2025-01-03": 0.02, "2025-01-06": 0.03},
+        "B": {"2025-01-02": 0.03, "2025-01-03": 0.01, "2025-01-06": 0.02},
+    }
+
+    matrix = _compute_covariance_matrix(["A", "B"], returns_by_symbol, dates)
+
+    # var(A) = ((−0.01)² + 0² + 0.01²) / 2 = 1e-4; cov(A,B) hand-derived:
+    # deviations A: −0.01, 0, 0.01; B: 0.01, −0.01, 0 → (−1e-4 + 0 + 0)/2 = −5e-5.
+    assert matrix[("A", "A")] == pytest.approx(1e-4, abs=1e-15)
+    assert matrix[("B", "B")] == pytest.approx(1e-4, abs=1e-15)
+    assert matrix[("A", "B")] == pytest.approx(-5e-5, abs=1e-15)
+
+
+def test_covariance_matrix_below_two_common_observations_is_none() -> None:
+    """US-27.3: fewer than 2 shared dates → None, never a fabricated cell."""
+    dates = ["2025-01-02", "2025-01-03", "2025-01-06"]
+    returns_by_symbol = {
+        "A": {"2025-01-02": 0.01, "2025-01-03": 0.02},
+        "B": {"2025-01-03": 0.03, "2025-01-06": 0.01},
+    }
+
+    matrix = _compute_covariance_matrix(["A", "B"], returns_by_symbol, dates)
+
+    assert matrix[("A", "B")] is None
+    assert matrix[("A", "A")] is not None  # own coverage still sufficient
 
 
 def test_monthly_returns_chain_to_period_twr_without_flows() -> None:
