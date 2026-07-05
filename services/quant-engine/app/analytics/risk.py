@@ -826,8 +826,10 @@ def build_relative_risk_summary(daily_states: list, benchmark_rows: list[dict], 
     mean_active = (sum(active_returns) / len(active_returns)) if active_returns else None
     information_ratio = None
     if tracking_error is not None and tracking_error != 0 and mean_active is not None:
-        tracking_error_value = tracking_error
-        information_ratio = (mean_active * sqrt(252)) / tracking_error_value
+        # Methodology §Information Ratio: the numerator annualizes the daily mean
+        # by the trading-day count (×252) to match the denominator's annualization
+        # basis (σ_daily × √252); the ratio reduces to the daily IR × √252.
+        information_ratio = (mean_active * VOLATILITY_ANNUALIZATION_DAYS) / tracking_error
 
     compounded_portfolio = 1.0
     compounded_benchmark = 1.0

@@ -4087,6 +4087,44 @@ def test_build_portfolio_risk_summary_and_position_contributions() -> None:
     assert relative.information_ratio is not None
 
 
+def test_build_relative_risk_summary_information_ratio_is_annualized_exact_value() -> None:
+    """US-27.1 regression: IR = (mean_active × 252) / annualized tracking error.
+
+    Hand-computed fixture (expected values derived by hand below, NOT by
+    calling the function — the audit found null/not-null assertions let a
+    √252-scale error through):
+
+      portfolio daily returns:  0.03,  0.01     (1000 → 1030 → 1040.3)
+      benchmark daily returns:  0.01,  0.005    (100 → 101 → 101.505)
+      active returns:           0.02,  0.005
+      mean_active             = 0.0125
+      sample stdev (N−1)      = sqrt((0.0075² + (−0.0075)²) / 1) = 0.0075·√2
+      tracking_error          = 0.0075·√2 · √252 = 0.168374582…  → 16.84 %
+      IR (annualized)         = 0.0125 · 252 / 0.168374582 = 18.7082869… → 18.71
+
+    The pre-fix code computed mean_active · √252 / TE = 1.1785… → 1.18, so
+    this test fails loudly on the un-annualized (daily) form.
+    """
+    benchmark_rows = [
+        {"date": "2025-01-02", "price": 100.0},
+        {"date": "2025-01-03", "price": 101.0},
+        {"date": "2025-01-04", "price": 101.505},
+    ]
+    daily_states = [
+        DailyPortfolioState(date="2025-01-02", cash={"USD": 0.0}, positions=[], total_market_value=1000.0, total_portfolio_value=1000.0),
+        DailyPortfolioState(date="2025-01-03", cash={"USD": 0.0}, positions=[], total_market_value=1030.0, total_portfolio_value=1030.0),
+        DailyPortfolioState(date="2025-01-04", cash={"USD": 0.0}, positions=[], total_market_value=1040.3, total_portfolio_value=1040.3),
+    ]
+
+    relative = build_relative_risk_summary(daily_states, benchmark_rows, "SPY")
+
+    assert relative.tracking_error_pct == 16.84
+    assert relative.information_ratio == 18.71
+    # Compounded active return: (1.03·1.01 − 1.01·1.005) × 100 = 2.525,
+    # which float-rounds to 2.52 (unchanged code path).
+    assert relative.active_return_pct == 2.52
+
+
 def test_build_rolling_risk_series_populates_252d_window_when_history_is_long_enough() -> None:
     start = date(2025, 1, 1)
     benchmark_rows = [{"date": (start + timedelta(days=offset)).isoformat(), "price": float(100 + offset)} for offset in range(255)]
