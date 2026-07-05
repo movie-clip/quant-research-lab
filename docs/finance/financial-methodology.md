@@ -687,6 +687,17 @@ Covariance date-alignment convention (US-27.3):
   paired same-day — the same pairwise-drop discipline as §Rolling Pearson
   Correlation. A cell with fewer than 2 common observations is null.
 
+Denominator convention (US-27.5):
+  each decomposition's shares use ITS OWN total as denominator, so non-null
+  shares sum to 1 within that decomposition:
+    factor risk shares    → / factor_total_variance
+    position risk shares  → / the position decomposition's total
+  Factor and position shares are therefore each internally complete but NOT
+  cross-comparable as "share of the same total". The share-of-TOTAL-variance
+  view is a separate pair of fields — factor_risk_share_total +
+  specific_risk_share — which partition total_variance (factor + specific)
+  and sum to 1 when both are non-null.
+
 Edge cases:
   total_variance <= 0, or variance_contribution_i is null: risk_share_i = null
 ```
