@@ -185,7 +185,7 @@ Import admission is informational on Dashboard: workspace creation is non-blocki
 
 | UI field | Current UI/provider source | App state source | Truth class | Unavailable rule | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Monthly return cells | `MonthlyReturnsGrid.tsx`, one cell per `range_metrics[activeRange].monthly_returns[]` | `analysis.range_metrics` | `engine-derived` | whole-card `EmptyState` when `range_metrics` absent | signed `+X.XX%`/`−X.XX%` (color + sign, not color alone) |
+| Monthly return cells | `MonthlyReturnsGrid.tsx`, one cell per `range_metrics[activeRange].monthly_returns[]` | `analysis.range_metrics` | `engine-derived` | whole-card `EmptyState` when `range_metrics` absent | signed `+X.XX%`/`−X.XX%` (color + sign, not color alone). Cash-flow-neutral daily returns bucketed by their **end date's** month, baseline carried across month boundaries so Π(1+mᵢ) chains to the range's compounded return (US-27.2); a month with no computable return emits no cell (never a fabricated 0.00%) — see `financial-methodology.md` §Monthly Returns |
 | Monthly returns hidden-state | `!metrics.monthly_returns_reliable` | `analysis.range_metrics[activeRange].monthly_returns_reliable` | `unavailable-required` | whole-card `EmptyState`, never individually-suppressed cells | must hide unstable monthly data rather than show plausible garbage |
 
 ### Risk Summary card (Epic 25 / US-25.3)

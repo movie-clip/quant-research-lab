@@ -39,7 +39,9 @@ from app.schemas.reconciliation import SnapshotItem, StatisticalFactorModel, Vol
 from app.schemas.reconciliation import LookThroughConstituent, LookThroughOverview, LookThroughSource, MarketOverlapSummary, PortfolioOverview
 from app.services.dashboard_history_engine import (
     _allow_future_exact_slice_excess_return_output,
+    _compute_contribution_adjusted_monthly_returns,
     _compute_future_exact_slice_excess_return_pct,
+    _compute_max_drawdown,
     run_dashboard_history_engine,
     run_imported_dashboard_history,
 )
@@ -70,12 +72,17 @@ FF2026_DASHBOARD_GOLDEN = {
         "money_weighted_return_pct": -23.86,
         "max_drawdown_pct": None,
     },
+    # US-27.2 (audit F3): monthly returns chain across month boundaries — each
+    # month now includes its first trading day's return (baseline = prior
+    # month's last state). Sanity: Π(1+mᵢ) − 1 = −23.86%, matching the
+    # zero-flow money_weighted_return_pct above (the pre-fix values compounded
+    # to −24.8% and did not chain).
     "monthly_returns": [
         ("2025-12", 0.14),
-        ("2026-01", 0.95),
+        ("2026-01", 2.26),
         ("2026-02", -0.81),
         ("2026-03", -3.90),
-        ("2026-04", -22.04),
+        ("2026-04", -22.00),
     ],
     "overview": {
         "total_market_value": 3018.96,
@@ -136,26 +143,24 @@ def _compute_dashboard_visible_summary(
 
 
 def _compute_dashboard_monthly_returns(daily_states: list[DailyPortfolioState]) -> list[tuple[str, float]]:
+    # Independent mirror of the engine's monthly-return convention (US-27.2 /
+    # audit F3): daily returns are bucketed by their END date's month, with the
+    # baseline carried across month boundaries so Π(1+mᵢ) chains to the period
+    # TWR. A month with no computable daily return emits no entry.
     anchor_index = next((index for index, state in enumerate(daily_states) if state.total_portfolio_value > 0), 0)
     anchored_states = daily_states[anchor_index:]
     if not anchored_states:
         return []
 
-    grouped: dict[str, list[DailyPortfolioState]] = {}
+    growth_by_month: dict[str, float] = {}
+    previous_state = None
     for state in anchored_states:
-        grouped.setdefault(state.date[:7], []).append(state)
-
-    monthly_returns: list[tuple[str, float]] = []
-    for month, month_states in grouped.items():
-        cumulative_growth = 1.0
-        previous_state = None
-        for state in month_states:
-            if previous_state is not None and previous_state.total_portfolio_value != 0:
-                daily_return = ((state.total_portfolio_value - state.external_cash_flow) / previous_state.total_portfolio_value) - 1
-                cumulative_growth *= 1 + daily_return
-            previous_state = state
-        monthly_returns.append((month, round((cumulative_growth - 1) * 100, 2)))
-    return monthly_returns
+        if previous_state is not None and previous_state.total_portfolio_value != 0:
+            daily_return = ((state.total_portfolio_value - state.external_cash_flow) / previous_state.total_portfolio_value) - 1
+            month = state.date[:7]
+            growth_by_month[month] = growth_by_month.get(month, 1.0) * (1 + daily_return)
+        previous_state = state
+    return [(month, round((growth - 1) * 100, 2)) for month, growth in growth_by_month.items()]
 
 
 def _compute_dashboard_max_drawdown(performance_series: list, *, allow_drawdown_outputs: bool = True) -> float | None:
@@ -4123,6 +4128,112 @@ def test_build_relative_risk_summary_information_ratio_is_annualized_exact_value
     # Compounded active return: (1.03·1.01 − 1.01·1.005) × 100 = 2.525,
     # which float-rounds to 2.52 (unchanged code path).
     assert relative.active_return_pct == 2.52
+
+
+def _dashboard_state(date_str: str, value: float, external_cash_flow: float = 0.0) -> DailyPortfolioState:
+    return DailyPortfolioState(
+        date=date_str,
+        cash={"USD": 0.0},
+        positions=[],
+        total_market_value=value,
+        total_portfolio_value=value,
+        external_cash_flow=external_cash_flow,
+    )
+
+
+def test_monthly_returns_chain_to_period_twr_without_flows() -> None:
+    """US-27.2 (audit F3) — Π(1 + monthly) must equal the period compounded
+    TWR. The pre-fix per-month grouping dropped every month-boundary return."""
+    states = [
+        _dashboard_state("2025-01-30", 1000.0),
+        _dashboard_state("2025-01-31", 1010.0),      # Jan: +1%
+        _dashboard_state("2025-02-02", 1020.1),      # Feb day 1: +1% (boundary return)
+        _dashboard_state("2025-02-27", 1030.301),    # Feb: +1%
+        _dashboard_state("2025-03-02", 1040.60401),  # Mar: +1% (boundary return)
+    ]
+
+    monthly = _compute_contribution_adjusted_monthly_returns(states)
+
+    compounded = 1.0
+    for item in monthly:
+        compounded *= 1 + item["return_pct"] / 100
+    period_twr = states[-1].total_portfolio_value / states[0].total_portfolio_value
+    assert abs(compounded - period_twr) < 1e-9
+    assert [item["month"] for item in monthly] == ["2025-01", "2025-02", "2025-03"]
+
+
+def test_monthly_returns_assign_month_boundary_day_to_the_new_month() -> None:
+    """US-27.2 (audit F3) regression — the only non-zero daily return is the
+    first trading day of month 2; it must appear in month 2 (the pre-fix code
+    reported 0.0 for every month because each month reset its baseline)."""
+    states = [
+        _dashboard_state("2025-01-30", 1000.0),
+        _dashboard_state("2025-01-31", 1000.0),
+        _dashboard_state("2025-02-02", 1050.0),  # +5% across the boundary
+        _dashboard_state("2025-02-03", 1050.0),
+    ]
+
+    monthly = _compute_contribution_adjusted_monthly_returns(states)
+    by_month = {item["month"]: item["return_pct"] for item in monthly}
+
+    assert by_month["2025-01"] == pytest.approx(0.0, abs=1e-12)
+    assert by_month["2025-02"] == pytest.approx(5.0, abs=1e-9)
+
+
+def test_monthly_returns_are_cash_flow_neutral_on_the_boundary_day() -> None:
+    """US-27.2 (AC2) — a 1000 deposit landing on the first trading day of
+    month 2 with flat prices must NOT appear as February return."""
+    states = [
+        _dashboard_state("2025-01-30", 1000.0),
+        _dashboard_state("2025-01-31", 1000.0),
+        _dashboard_state("2025-02-02", 2000.0, external_cash_flow=1000.0),
+        _dashboard_state("2025-02-03", 2100.0),  # +5% real Feb move
+    ]
+
+    monthly = _compute_contribution_adjusted_monthly_returns(states)
+    by_month = {item["month"]: item["return_pct"] for item in monthly}
+
+    assert by_month["2025-01"] == pytest.approx(0.0, abs=1e-12)
+    assert by_month["2025-02"] == pytest.approx(5.0, abs=1e-9)
+
+
+def test_max_drawdown_is_not_masked_by_a_same_day_deposit() -> None:
+    """US-27.2 (audit F2) — a 1000 deposit landing the same day as a -10%
+    price move: raw portfolio value RISES 1000 → 1900 (pre-fix code reported
+    0.0), but the cash-flow-neutral return index shows the real -10% drawdown."""
+    states = [
+        _dashboard_state("2025-01-02", 1000.0),
+        _dashboard_state("2025-01-03", 1900.0, external_cash_flow=1000.0),
+    ]
+
+    assert _compute_max_drawdown(states) == -10.0
+
+
+def test_max_drawdown_is_not_fabricated_by_a_withdrawal_with_flat_prices() -> None:
+    """US-27.2 (audit F2) — a 500 withdrawal with flat prices halves the raw
+    portfolio value (pre-fix code fabricated a -50% drawdown); the return
+    index correctly reports no drawdown."""
+    states = [
+        _dashboard_state("2025-01-02", 1000.0),
+        _dashboard_state("2025-01-03", 500.0, external_cash_flow=-500.0),
+        _dashboard_state("2025-01-04", 500.0),
+    ]
+
+    assert _compute_max_drawdown(states) == 0.0
+
+
+def test_max_drawdown_registers_a_decline_starting_on_the_first_return_day() -> None:
+    """The wealth index is anchored at 100 on the first state's date, so a
+    drawdown beginning immediately still registers (parity with the old
+    raw-value peak seeding)."""
+    states = [
+        _dashboard_state("2025-01-02", 1000.0),
+        _dashboard_state("2025-01-03", 950.0),
+        _dashboard_state("2025-01-04", 990.0),
+    ]
+
+    assert _compute_max_drawdown(states) == -5.0
+    assert _compute_max_drawdown([]) is None
 
 
 def test_build_rolling_risk_series_populates_252d_window_when_history_is_long_enough() -> None:

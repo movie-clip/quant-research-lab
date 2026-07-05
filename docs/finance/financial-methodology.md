@@ -174,6 +174,67 @@ Contract rule:
   a period boundary combined with high volatility, it can diverge from a true
   IRR. This is a known, accepted limitation of the method, not a bug.
 
+## Monthly Returns (Dashboard)
+
+Monthly returns compound the same cash-flow-neutral daily returns as the
+time-weighted return chain (§Portfolio Return Methodology), bucketed by
+calendar month.
+
+```text
+daily_return_t = ((V_t - CF_t) / V_{t-1}) - 1        (cash-flow-neutral, as §Portfolio Return Methodology)
+
+monthly_return_m = Π (1 + daily_return_t) - 1
+                   over all t whose END date falls in month m
+
+Bucketing rule (US-27.2):
+  a daily return spanning t-1 → t belongs to the month of t (its end date).
+  The baseline therefore carries ACROSS month boundaries: the first trading
+  day of month m+1 compounds against the last state of month m. This makes
+  the chaining identity exact by construction:
+
+    Π_m (1 + monthly_return_m) = Π_t (1 + daily_return_t)   (the period TWR chain)
+
+Edge cases:
+  a month with no computable daily return (e.g. the anchor month containing
+    only the anchor state, or a month fully inside a valuation gap): emit NO
+    entry for that month — never a fabricated 0.0%
+  sparse state series (valuation gap spanning months): the cross-gap return
+    is booked into the month of the gap's END date (the first date the value
+    is observed again); intermediate gap months emit nothing. This preserves
+    the chaining identity; it also means a gap-ending month can carry a
+    multi-month return — the `monthly_returns_reliable` guard (any |monthly|
+    > 100%, or negative portfolio values) suppresses the grid when this
+    produces unstable output
+  anchor rule: states before the first positive total_portfolio_value are
+    excluded (same anchor as the visible summary)
+```
+
+Implementation:
+- `services/quant-engine/app/services/dashboard_history_engine.py` —
+  `_compute_contribution_adjusted_monthly_returns(...)`,
+  `_monthly_returns_are_reliable(...)`
+
+Contract rule:
+- `monthly_returns` carries the same trust/withholding semantics as the rest
+  of the dashboard-history contract (`docs/contracts/dashboard-fields.md`);
+  `monthly_returns_reliable = false` hides the whole grid, never individual
+  cells.
+
+### Dashboard range max drawdown
+
+`range_metrics[*].max_drawdown_pct` is computed from the **compounded return
+index** (§Wealth Index and Drawdown) built over the range's cash-flow-neutral
+daily returns — never from raw portfolio value (US-27.2: a deposit would mask
+a real drawdown; a withdrawal would fabricate one). The wealth index is
+anchored at 100 on the range's first state date. The field remains subject to
+the investor-economics withholding policy (`dashboard-fields.md`); this rule
+governs the computed value, not its visibility.
+
+Implementation:
+- `services/quant-engine/app/services/dashboard_history_engine.py` —
+  `_compute_max_drawdown(...)` (reuses `_build_wealth_index` /
+  `_build_drawdown_from_return_index` from `analytics/risk.py`)
+
 ## Benchmark and Factor Return Methodology
 
 Benchmark and factor returns are built from price series using simple daily returns.
