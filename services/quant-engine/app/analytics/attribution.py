@@ -170,7 +170,13 @@ def build_factor_attribution(
         ]
 
         # Per-window Gram-Schmidt: mirrors _build_rolling_factor_loadings exactly.
-        orthogonalized_window = _orthogonalize_factors_window(raw_window)
+        orthogonalized_window, dropped_factor_labels = _orthogonalize_factors_window(raw_window)
+        if dropped_factor_labels:
+            # A factor exactly collinear within this window has a null loading
+            # (US-27.6) — per the methodology edge case ("any factor
+            # contribution null on date t → exclude date t entirely"), skip
+            # the date rather than attribute with a partial factor set.
+            continue
         coefficients, _, _ = _fit_factor_model(
             y_window, orthogonalized_window, ridge_lambda=ridge_floor
         )

@@ -359,14 +359,34 @@ class TestAttributionEngineLookback:
 
         rows = _attr_price_rows(520)
 
+        # Give each symbol its own return dynamics: identical series for every
+        # factor proxy would make each factor after Market an EXACT duplicate,
+        # which per-window Gram-Schmidt correctly drops as collinear (US-27.6)
+        # — turning the whole response unavailable and hiding what this test
+        # is actually about (the display-range lookback).
+        import math as _math
+
+        symbol_index: dict[str, int] = {}
+
+        def _symbol_rows(sym: str) -> list[dict]:
+            # Distinct sine frequency per symbol → the factor return series are
+            # linearly independent (same-frequency or same-2-dim oscillations
+            # would still be exactly collinear after the intercept+Market
+            # projection and get dropped).
+            k = symbol_index.setdefault(sym, len(symbol_index))
+            return [
+                {**r, "price": round(r["price"] * (1 + 0.004 * _math.sin(idx / (2.0 + 0.7 * k))), 8)}
+                for idx, r in enumerate(rows)
+            ]
+
         def _hist(sym, start, end, *a, **k):
-            return [r for r in rows if start <= r["date"] <= end]
+            return [r for r in _symbol_rows(sym) if start <= r["date"] <= end]
 
         mock = MagicMock()
         inst = mock.return_value
         inst.get_historical_prices.side_effect = _hist
         inst.get_historical_prices_for_symbols.side_effect = (
-            lambda syms, a, b: {s: [r for r in rows if a <= r["date"] <= b] for s in syms}
+            lambda syms, a, b: {s: [r for r in _symbol_rows(s) if a <= r["date"] <= b] for s in syms}
         )
         mocker.patch("app.services.attribution_engine.MarketDataService", mock)
 
@@ -415,3 +435,24 @@ def test_nonfinite_window_skipped_and_response_is_json_safe(monkeypatch):
         assert _math.isfinite(entry.cumul_unexplained)
         for point in entry.contributions:
             assert _math.isfinite(point.cumul_contribution)
+
+
+def test_attribution_excludes_dates_with_exactly_collinear_factor(mocker):
+    """US-27.6 (AC3) - QQQ duplicating SPY exactly makes Growth's loading null
+    in every window; per the methodology edge case those dates are excluded
+    entirely, so a fully-duplicated history yields 'unavailable' rather than
+    an attribution built on an arbitrary ridge split."""
+    states = _make_daily_states(35, daily_return=0.001)
+    # Oscillating (non-degenerate) SPY series; QQQ is a bit-exact duplicate.
+    start = datetime.date(2024, 1, 1)
+    price = 100.0
+    rows = [{"date": start.isoformat(), "price": price}]
+    for i in range(1, 36):
+        price *= 1.01 if i % 2 == 0 else 0.995
+        rows.append({"date": (start + datetime.timedelta(days=i)).isoformat(), "price": price})
+    histories = {"SPY": rows, "QQQ": [dict(r) for r in rows]}
+
+    result = build_factor_attribution(states, histories, window=20)
+
+    assert result.attribution_status == "unavailable"
+    assert result.cumulative_series == []

@@ -4662,7 +4662,6 @@ def test_build_lookthrough_exposure_combines_direct_and_etf_holdings() -> None:
 
 def test_build_statistical_factor_model_populates_multi_window_rolling_loadings() -> None:
     start = date(2025, 1, 1)
-    benchmark_rows = [{"date": (start + timedelta(days=offset)).isoformat(), "price": float(100 + offset)} for offset in range(290)]
     daily_states = [
         DailyPortfolioState(
             date=(start + timedelta(days=offset)).isoformat(),
@@ -4673,12 +4672,23 @@ def test_build_statistical_factor_model_populates_multi_window_rolling_loadings(
         )
         for offset in range(290)
     ]
+    # Distinct sine dynamics per proxy: identical rows for every factor would
+    # make each factor after Market an EXACT duplicate, which per-window
+    # Gram-Schmidt correctly drops as collinear (US-27.6) — nulling the very
+    # loadings this test asserts populate.
+    import math as _math
 
-    factor_model = build_statistical_factor_model(
-        daily_states,
-        {definition.us_proxy: benchmark_rows for definition in DEFAULT_FACTOR_DEFINITIONS},
-        "SPY",
-    )
+    factor_histories: dict[str, list[dict]] = {}
+    for factor_idx, definition in enumerate(DEFAULT_FACTOR_DEFINITIONS):
+        factor_histories[definition.us_proxy] = [
+            {
+                "date": (start + timedelta(days=offset)).isoformat(),
+                "price": round(float(100 + offset) * (1 + 0.004 * _math.sin(offset / (2.0 + 0.7 * factor_idx))), 8),
+            }
+            for offset in range(290)
+        ]
+
+    factor_model = build_statistical_factor_model(daily_states, factor_histories, "SPY")
 
     assert len(factor_model.rolling_loadings_20d) == len(factor_model.rolling_loadings_60d)
     assert len(factor_model.rolling_loadings_20d) == len(factor_model.rolling_loadings_252d)
@@ -7391,3 +7401,65 @@ def test_rolling_factor_loadings_never_emit_nonfinite_values(monkeypatch) -> Non
     assert points[19].market is None
     # Later (healthy) windows still produce finite loadings.
     assert points[24].market is not None
+
+
+def _collinear_fixture(n_dates: int = 30) -> tuple[list[str], list[float], dict[str, list[float]]]:
+    """Dates + oscillating factor series where Growth duplicates Market
+    exactly (US-27.6 collinearity fixture). Value is independent."""
+    start = date(2025, 1, 2)
+    dates = [(start + timedelta(days=offset)).isoformat() for offset in range(n_dates)]
+    market = [0.01 if i % 2 == 0 else -0.01 for i in range(n_dates)]
+    value = [0.012 if i % 3 == 0 else -0.005 for i in range(n_dates)]
+    series = {"Market": market, "Growth": list(market), "Value": value}
+    return dates, market, series
+
+
+def test_rolling_loadings_null_exactly_collinear_factor_and_fit_the_rest() -> None:
+    """US-27.6 (audit F7) - Growth duplicates Market exactly: its loading is
+    None (dropped from the window design matrix), and Market carries the full
+    y = 2*Market loading instead of an arbitrary ridge split (pre-fix code
+    kept the raw duplicate and reported ~1 on each)."""
+    dates, market, series = _collinear_fixture()
+    y = [2.0 * r for r in market]
+    raw_factors = [("Market", "SPY", series["Market"]), ("Growth", "QQQ", series["Growth"])]
+
+    points = risk_module._build_rolling_factor_loadings(dates, y, raw_factors, window=20)
+    last = points[-1]
+
+    assert last.growth is None
+    assert last.market == pytest.approx(2.0, rel=0.02)  # ridge floor shrinks ~0.5%
+    assert last.r_squared == pytest.approx(1.0, abs=1e-3)
+
+
+def test_rolling_loadings_orthogonalize_later_factors_against_survivors_only() -> None:
+    """US-27.6 (AC2) - with Growth dropped as a Market duplicate, Value is
+    residualized against Market only; its clean partial loading on
+    y = Market + Value is ~1 (pre-fix, Value was residualized against the
+    raw duplicate too)."""
+    dates, market, series = _collinear_fixture()
+    y = [m + v for m, v in zip(market, series["Value"])]
+    raw_factors = [
+        ("Market", "SPY", series["Market"]),
+        ("Growth", "QQQ", series["Growth"]),
+        ("Value", "IWD", series["Value"]),
+    ]
+
+    points = risk_module._build_rolling_factor_loadings(dates, y, raw_factors, window=20)
+    last = points[-1]
+
+    assert last.growth is None
+    assert last.market is not None
+    assert last.value == pytest.approx(1.0, rel=0.05)
+    assert last.r_squared == pytest.approx(1.0, abs=1e-3)
+
+
+def test_orthogonalize_factors_window_reports_dropped_duplicate() -> None:
+    """US-27.6 - the window orthogonalizer itself: the duplicate is excluded
+    from the returned design matrix and named in dropped_factor_labels."""
+    values = [0.01, -0.01, 0.02, -0.005, 0.01]
+    orthogonalized, dropped = risk_module._orthogonalize_factors_window(
+        [("Market", "SPY", values), ("Growth", "QQQ", list(values))]
+    )
+
+    assert dropped == ["Growth"]
+    assert [label for label, _, _ in orthogonalized] == ["Market"]
