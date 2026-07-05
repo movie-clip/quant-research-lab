@@ -1,6 +1,49 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-07-04 (Epic 25 — Dashboard Performance & Risk Summary **complete**; Epic 24 — Codebase Improvement active; Epic 26 — Currency Exposure & Risk **backlog** (research brief only); Epic 23 — dead-code cleanup & codebase review complete; Epics 13/18/19/20/21/22 complete).*
+*Living execution snapshot. Updated: 2026-07-05 (Epic 27 — Financial Calculation Correctness **active** (US-27.1 done, 8 stories remaining); Epic 25 — Dashboard Performance & Risk Summary complete; Epic 24 — Codebase Improvement active; Epic 26 — Currency Exposure & Risk backlog (research brief only); Epic 23 — dead-code cleanup & codebase review complete; Epics 13/18/19/20/21/22 complete).*
+
+---
+
+## Active Epic: Epic 27 — Financial Calculation Correctness
+
+**PRD:** [`docs/product/prd/epic-27-financial-calculation-correctness.md`](product/prd/epic-27-financial-calculation-correctness.md)
+
+Created 2026-07-05 from a full financial-calculations audit of the analytics +
+engine layer against `financial-methodology.md` (findings recorded first, no
+fixes applied during the audit — the PRD's F1–F13 table is the canonical
+record). **13 findings**: 4 confirmed math bugs shown to the researcher today
+(Information Ratio under-stated ~√252×; dashboard monthly returns drop every
+month-boundary day; dashboard max drawdown measured on raw
+cash-flow-contaminated value; covariance cells can pair returns from different
+dates), 6 guardrail violations (stress projections zero-fill missing loadings;
+factor risk-share denominator diverges from the doc; collinear factors kept
+raw instead of nulled; synthetic history flat back-fills before a symbol's
+first quote; missing FX rates silently convert 1:1; drift-window returns
+aren't cash-flow-neutral), and 3 low-severity consistency gaps. 9 stories
+authored (US-27.1–27.9); recommended order 27.1 → 27.2 → 27.3 (small,
+wrong-number-today fixes) before the behaviour-aware valuation changes
+(27.7/27.8) that will shift goldens.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-27.1 | Fix the Information Ratio annualization | Done |
+| US-27.2 | Fix dashboard monthly-return chaining + max-drawdown basis | Backlog |
+| US-27.3 | Fix covariance-matrix date alignment | Backlog |
+| US-27.4 | Stress scenarios: null semantics for missing loadings | Backlog |
+| US-27.5 | Reconcile the factor risk-share denominator | Backlog |
+| US-27.6 | Null collinear factors in per-window orthogonalization | Backlog |
+| US-27.7 | Stop flat back-filling synthetic history before first quote | Backlog |
+| US-27.8 | Surface FX-fallback trust + fix drift-window return basis | Backlog |
+| US-27.9 | Low-severity tail (fabricated 0.0 points, stdev conventions, DR/return basis) | Backlog |
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-07-05 | US-27.1 | **Fixed the Information Ratio annualization (audit finding F1).** `build_relative_risk_summary` in `risk.py` computed `mean_active × √252 / TE_annualized` — algebraically the *daily* IR, under-stating the displayed value by √252 ≈ 15.87×. Now `mean_active × VOLATILITY_ANNUALIZATION_DAYS (252) / tracking_error`, exactly the methodology §Information Ratio form (daily IR × √252). Edge cases (no pairs / TE=0 → null) unchanged and still covered by the four pre-existing null-path assertions. Added `test_build_relative_risk_summary_information_ratio_is_annualized_exact_value` — a hand-derived fixture (expected 18.71) that the pre-fix code fails at 1.18, closing the null/not-null test gap the audit flagged. Verified no golden or fixture embeds an IR value (`dashboardGoldens.ts` untouched); contract docs (`diagnostics-fields.md`/`dashboard-fields.md`/`exposure-fields.md`) defer the formula to the methodology section — no edit needed; methodology doc already correct, unchanged. 453 backend + 252 frontend + dead-code gate green; tsc clean. |
+| 2026-07-05 | — | Epic created from a "check all financial calculations" audit. Every formula in `app/analytics/*` + the engine services + `dashboard_history_engine.py` + `engine/portfolio_state.py` was read against `financial-methodology.md`. Also recorded what was **checked and found correct** (Modified Dietz, VaR/CVaR + invariant, percentiles/moments/histogram, wealth index/underwater/episodes + decomposition reconciliation, attribution identity + NaN guards, correlation-matrix null semantics, ENB, active share, exposure HHIs, tracking error, β/ρ/R²) so future audits don't re-litigate. Notable pattern: none of the 13 findings were test-caught because the suite asserts null/not-null rather than numeric values at exactly these spots — every Epic 27 story therefore requires exact-value or property pins. PRD + 9 stories authored; no code changed. |
 
 ---
 
