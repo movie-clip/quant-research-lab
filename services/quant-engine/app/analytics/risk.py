@@ -945,17 +945,14 @@ def build_risk_contribution_breakdown(
     total_variance = round(total_variance_raw, 8) if total_variance_raw > 0 else None
     factor_risk_share_total = round((factor_total_variance / total_variance_raw), 4) if factor_total_variance > 0 and total_variance_raw > 0 else None
     specific_risk_share = round((specific_variance / total_variance_raw), 4) if specific_variance is not None and total_variance_raw > 0 else None
-    if total_variance_raw > 0:
-        factor_contributions = [
-            item.model_copy(
-                update={
-                    "risk_share": round((item.variance_contribution / total_variance_raw), 4)
-                    if item.variance_contribution is not None
-                    else None
-                }
-            )
-            for item in factor_contributions
-        ]
+    # Factor risk_share stays as computed in _build_factor_risk_contributions:
+    # variance_contribution / factor_total_variance (methodology §Risk share —
+    # "the denominator matching the same decomposition"), so non-null factor
+    # shares sum to 1 over the factor decomposition and factor_hhi keeps its
+    # documented 1/n interpretation. The share-of-total view is exposed via
+    # factor_risk_share_total + specific_risk_share (which sum to 1) — the
+    # US-27.5 fix removed a rescaling overwrite against total_variance_raw
+    # that contradicted the doc and made factor shares sum to < 1.
     concentration = RiskConcentrationSnapshot(
         top_1_factor_risk_share=_sum_top_risk_shares([item.risk_share for item in factor_contributions], 1),
         top_3_factor_risk_share=_sum_top_risk_shares([item.risk_share for item in factor_contributions], 3),

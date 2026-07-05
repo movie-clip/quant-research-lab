@@ -210,6 +210,14 @@ Benchmark-relative refusal rule:
 - `factor_hhi`
 - `position_hhi`
 - each field is sourced from `risk_contribution_breakdown.concentration`
+- denominator convention (US-27.5): factor risk shares are shares of the
+  **factor decomposition** (`variance_contribution / factor_total_variance`,
+  non-null shares sum to 1) and position risk shares are shares of the
+  position decomposition — the two families are each internally complete but
+  not cross-comparable as shares of one total; the share-of-total view is
+  `risk_contribution_breakdown.factor_risk_share_total` +
+  `specific_risk_share` (which partition total variance) — see
+  `financial-methodology.md` §Risk share
 
 ## Summary Rules
 

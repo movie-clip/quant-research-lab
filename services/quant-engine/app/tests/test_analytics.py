@@ -13,7 +13,7 @@ from app.analytics.portfolio_imports import (
 )
 from app.analytics.risk import DEFAULT_FACTOR_DEFINITIONS, build_etf_overlap_pairs, build_factor_exposures, build_factor_registry, build_factor_shift_diagnostics, build_lookthrough_exposure, build_lookthrough_sector_exposure, build_market_overlap_summary, build_model_reliability_snapshot, build_portfolio_risk_summary, build_relative_risk_summary, build_risk_contribution_breakdown, build_rolling_risk_series, build_statistical_factor_model, build_stress_scenarios, build_volatility_regime_payload, is_history_series_verified_adjusted, select_history_price_series, selected_history_price_map
 from app.analytics.risk import apply_return_basis_status_to_factor_model, apply_return_basis_status_to_model_reliability
-from app.analytics.risk import _apply_mapping_hard_caps, _classify_volatility_regime, _compute_covariance_matrix, _mapping_match_label
+from app.analytics.risk import _apply_mapping_hard_caps, _build_factor_risk_contributions, _classify_volatility_regime, _compute_covariance_matrix, _mapping_match_label
 from app.core.constants import DEFAULT_BENCHMARK_SYMBOL, MIN_DAILY_OBSERVATIONS, lookback_calendar_days
 from app.core.symbols import canonicalize_symbol
 from app.domain.ledger import reconstruct_position_lots, snapshot_to_ledger
@@ -35,7 +35,7 @@ from app.schemas.exposure import ExposureAvailability, ExposureCurrentStateConce
 from app.schemas.exposure import ExposureRunReproducibilityMetadata, ExposureRunSourceStatus
 from app.schemas.portfolio_engine import PortfolioCashBalanceSnapshot, PortfolioHistoryContext, PortfolioPositionSnapshot
 from app.schemas.reconciliation import DailyPortfolioState, PerformancePoint, PortfolioRiskSummary
-from app.schemas.reconciliation import SnapshotItem, StatisticalFactorModel, VolatilitySnapshot
+from app.schemas.reconciliation import RollingFactorLoadingPoint, SnapshotItem, StatisticalFactorModel, VolatilitySnapshot
 from app.schemas.reconciliation import LookThroughConstituent, LookThroughOverview, LookThroughSource, MarketOverlapSummary, PortfolioOverview
 from app.services.dashboard_history_engine import (
     _allow_future_exact_slice_excess_return_output,
@@ -5056,10 +5056,61 @@ def test_build_risk_contribution_breakdown_returns_factor_and_position_concentra
     assert breakdown.concentration.top_1_position_risk_share is not None
     assert breakdown.concentration.factor_hhi is not None
     assert breakdown.concentration.position_hhi is not None
+    # US-27.5 convention: factor risk shares are shares of the FACTOR
+    # decomposition (denominator = factor_total_variance) and sum to 1.
+    # Tolerance: 16 factors × max 0.00005 rounding error per term ≈ 0.0008.
     factor_share_sum = sum(item.risk_share or 0.0 for item in breakdown.factor_contributions)
-    # Tolerance: 16 factors × max 0.00005 rounding error per term ≈ 0.0008 maximum accumulation.
-    assert abs(round(factor_share_sum, 4) - (breakdown.factor_risk_share_total or 0.0)) <= 0.001
+    assert abs(factor_share_sum - 1.0) <= 0.001
+    # The share-of-total view lives in factor_risk_share_total + specific_risk_share,
+    # which partition total variance (AC4).
+    assert abs((breakdown.factor_risk_share_total or 0.0) + (breakdown.specific_risk_share or 0.0) - 1.0) <= 0.001
+    # factor_hhi is computed over the same convention-consistent shares (AC3).
+    expected_hhi = round(sum((item.risk_share or 0.0) ** 2 for item in breakdown.factor_contributions if item.risk_share is not None), 4)
+    assert breakdown.concentration.factor_hhi == pytest.approx(expected_hhi, abs=1e-9)
     assert round((breakdown.factor_total_variance or 0.0) + (breakdown.specific_variance or 0.0), 8) == breakdown.total_variance
+
+
+def test_factor_risk_shares_use_the_factor_decomposition_denominator() -> None:
+    """US-27.5 (audit F6) — hand-computed two-factor fixture pinning the
+    denominator = factor_total_variance (methodology §Risk share).
+
+      SPY returns [0.02, −0.01, 0.02] → var_s = 3e-4 (sample, N−1)
+      QQQ returns [0.01, −0.03, 0.02] → var_q = 7e-4; cov = 4.5e-4
+      loadings: market β=1.0, growth β=0.5
+      vc_market = 1.0 × (3e-4·1.0 + 4.5e-4·0.5) = 5.25e-4
+      vc_growth = 0.5 × (4.5e-4·1.0 + 7e-4·0.5)  = 4.00e-4
+      factor_total_variance = 9.25e-4
+      share_market = 5.25/9.25 = 0.5676;  share_growth = 4.00/9.25 = 0.4324
+    (The pre-fix overwrite divided by total_variance_raw instead, so the
+    shares did not sum to 1.)"""
+    dates = ["2025-01-02", "2025-01-03", "2025-01-06", "2025-01-07"]
+    spy_prices = [100.0, 102.0, 100.98, 102.9996]
+    qqq_prices = [100.0, 101.0, 97.97, 99.9294]
+    factor_histories = {
+        "SPY": [{"date": d, "price": p} for d, p in zip(dates, spy_prices)],
+        "QQQ": [{"date": d, "price": p} for d, p in zip(dates, qqq_prices)],
+    }
+    model = StatisticalFactorModel(
+        status="ok", benchmark_symbol="SPY", windows=[], rolling_loadings_20d=[],
+        rolling_loadings_60d=[RollingFactorLoadingPoint(date=dates[-1], market=1.0, growth=0.5)],
+        rolling_loadings_252d=[], current_factor_snapshot=[],
+        collinearity_diagnostics=[], insufficient_history=[],
+    )
+
+    contributions, factor_total_variance, observation_count = _build_factor_risk_contributions(
+        build_factor_registry(), factor_histories, model
+    )
+
+    by_key = {item.key: item for item in contributions}
+    assert observation_count == 3
+    assert factor_total_variance == pytest.approx(9.25e-4, rel=1e-9)
+    assert by_key["market"].variance_contribution == pytest.approx(5.25e-4, abs=1e-12)
+    assert by_key["growth"].variance_contribution == pytest.approx(4.00e-4, abs=1e-12)
+    assert by_key["market"].risk_share == 0.5676
+    assert by_key["growth"].risk_share == 0.4324
+    assert (by_key["market"].risk_share or 0) + (by_key["growth"].risk_share or 0) == 1.0
+    # Non-eligible factors (no 60d loading) stay null — never fabricated.
+    assert by_key["value"].risk_share is None
 
 
 def test_build_model_reliability_snapshot_uses_current_60d_window_metrics() -> None:
