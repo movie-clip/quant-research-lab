@@ -18,6 +18,20 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
+### Epic 28 — IBKR CSV Importer & Statement-Refresh Resilience (backlog)
+
+PRD: [`prd/epic-28-ibkr-csv-importer.md`](../prd/epic-28-ibkr-csv-importer.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-28.1](US-28.1-ibkr-csv-importer-backend.md) | IBKR Activity-Statement CSV importer (backend) | New `interactive_brokers_csv.py` parsing `docs/IB2026.csv` (22 sections, utf-8-sig, stdlib csv) into the unchanged snapshot contract; fail-safe per record; reconciles against its own Change-in-NAV totals | Backlog |
+| [US-28.2](US-28.2-wire-csv-end-to-end.md) | Wire CSV end-to-end: detection, upload UI, golden pipeline on IB2026.csv | Remove the three `.pdf` gates (statement_importer, App.tsx filter + accept attr); goldens key off IB2026.csv (Jan–Jun window — one deliberate `refresh_statement.py` regeneration); legacy PDFs unchanged | Backlog |
+| [US-28.3](US-28.3-statement-refresh-resilience.md) | Statement-refresh resilience: centralize statement-truth pins + document the workflow | Classify statement-truth vs structural assertions; one truths module per side; swap-simulation meta-test; refresh workflow documented | Backlog |
+
+Recommended build order: 28.1 → 28.2 → 28.3.
+
+---
+
 ### Epic 27 — Financial Calculation Correctness (active)
 
 PRD: [`prd/epic-27-financial-calculation-correctness.md`](../prd/epic-27-financial-calculation-correctness.md)
