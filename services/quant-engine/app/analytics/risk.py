@@ -1634,7 +1634,18 @@ def _infer_sector_from_resolved_pair(left_resolved: str, right_resolved: str) ->
     return None
 
 
-def _orthogonalize_factors_window(raw_factors: list[tuple[str, str, list[float]]]) -> list[tuple[str, str, list[float]]]:
+# A factor whose Gram-Schmidt residual never exceeds this within a window is
+# treated as exactly collinear with the higher-priority factors (zero-variance
+# residual up to float noise) and is DROPPED for that window per methodology
+# §Per-window orthogonalization — "skip that factor's coefficient (null), do
+# not propagate to later factors" (US-27.6). Near-collinear factors above this
+# floor stay in the design matrix; the ridge floor handles them.
+ORTHOGONALIZATION_ZERO_RESIDUAL_THRESHOLD = 1e-12
+
+
+def _orthogonalize_factors_window(
+    raw_factors: list[tuple[str, str, list[float]]],
+) -> tuple[list[tuple[str, str, list[float]]], list[str]]:
     """Gram-Schmidt orthogonalization over a single pre-sliced window.
 
     Unlike _orthogonalize_factor_series (which works from a full-series dict),
@@ -1642,23 +1653,37 @@ def _orthogonalize_factors_window(raw_factors: list[tuple[str, str, list[float]]
     Calling this inside every rolling-window iteration guarantees that the
     resulting factors are mutually uncorrelated *within that window*, which is
     the correctness requirement for per-window ridge OLS.
+
+    Returns (orthogonalized, dropped_factor_labels). A factor whose residual
+    is ~zero (exactly collinear with earlier factors in this window) is
+    EXCLUDED from the design matrix and reported in dropped_factor_labels —
+    its coefficient is null for this window, and later factors are
+    orthogonalized against the surviving set only (US-27.6; the previous
+    behaviour kept the raw series, letting the ridge split the loading
+    arbitrarily between the collinear pair).
     """
     orthogonalized: list[tuple[str, str, list[float]]] = []
+    dropped_factor_labels: list[str] = []
     for factor, proxy, values in raw_factors:
         if not orthogonalized:
             orthogonalized.append((factor, proxy, values))
             continue
         design_matrix = [[1.0] + [prior_values[i] for _, _, prior_values in orthogonalized] for i in range(len(values))]
-        proj_coefficients = _least_squares(design_matrix, values, ridge_lambda=1e-5)
+        # Exact projection (λ=0), matching the methodology's Gram-Schmidt step —
+        # F*_k = f_k − Σ proj(f_k onto F*_j). Ridge belongs only to the final OLS
+        # (§Per-window orthogonalization step 3); a ridged projection leaves an
+        # exact duplicate with a ~λ/S residual, which silently defeated the
+        # collinearity drop below (US-27.6). The earlier factors are already
+        # mutually orthogonal, so the projection solve is well-conditioned;
+        # _solve_linear_system skips genuinely zero pivots.
+        proj_coefficients = _least_squares(design_matrix, values, ridge_lambda=0.0)
         fitted = [_dot(row, proj_coefficients) for row in design_matrix]
         residualized = [actual - expected for actual, expected in zip(values, fitted, strict=False)]
-        if not any(abs(v) > 1e-12 for v in residualized):
-            # Factor is collinear with earlier ones in this window — keep raw to
-            # preserve its label for coefficient mapping, but coefficient is unreliable.
-            orthogonalized.append((factor, proxy, values))
+        if not any(abs(v) > ORTHOGONALIZATION_ZERO_RESIDUAL_THRESHOLD for v in residualized):
+            dropped_factor_labels.append(factor)
             continue
         orthogonalized.append((factor, proxy, residualized))
-    return orthogonalized
+    return orthogonalized, dropped_factor_labels
 
 
 def _fit_factor_model(y: list[float], orthogonalized_factors: list[tuple[str, str, list[float]]], ridge_lambda: float = 1e-5) -> tuple[list[float], list[float], float | None]:
@@ -1698,8 +1723,10 @@ def _build_rolling_factor_loadings(dates: list[str], y: list[float], raw_factors
         y_window = y[start : index + 1]
         raw_window = [(factor, proxy, values[start : index + 1]) for factor, proxy, values in raw_factors]
         # Per-window Gram-Schmidt: orthogonalize within this window so that each
-        # coefficient is a clean partial loading after controlling for higher-priority factors.
-        orthogonalized_window = _orthogonalize_factors_window(raw_window)
+        # coefficient is a clean partial loading after controlling for higher-priority
+        # factors. Factors dropped as exactly collinear (US-27.6) are simply absent
+        # from the design matrix — their loading stays None for this date.
+        orthogonalized_window, _dropped = _orthogonalize_factors_window(raw_window)
         coefficients, residuals, r_squared = _fit_factor_model(y_window, orthogonalized_window, ridge_lambda=ridge_floor)
         # Fail-closed on degenerate windows (US-21.3): a singular/zero-variance
         # window can make the OLS solve return non-finite values; NaN passes
