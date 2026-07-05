@@ -508,7 +508,12 @@ class StressScenarioResult(BaseModel):
     name: str
     estimated_return_pct: float | None = None
     description: str
-    status: Literal["ok", "unavailable"] = "ok"
+    # "partial": estimate computed over the AVAILABLE loadings only —
+    # `missing_factors` lists the shocked factors whose loading was
+    # unavailable and whose contribution is therefore absent (US-27.4;
+    # never silently zero-filled).
+    status: Literal["ok", "partial", "unavailable"] = "ok"
+    missing_factors: list[str] = []
 
 
 class PerformancePoint(BaseModel):

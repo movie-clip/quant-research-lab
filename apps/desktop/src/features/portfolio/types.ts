@@ -801,7 +801,11 @@ export type StressScenarioResult = {
   name: string
   estimated_return_pct: number | null
   description: string
-  status?: 'ok' | 'unavailable'
+  /** 'partial': estimate computed over the available loadings only —
+   *  `missing_factors` names the shocked factors excluded from the sum
+   *  (US-27.4; never silently zero-filled). */
+  status?: 'ok' | 'partial' | 'unavailable'
+  missing_factors?: string[]
 }
 
 /** Engine-level trust for the standalone /engines/stress/run response.

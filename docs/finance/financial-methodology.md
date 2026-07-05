@@ -931,6 +931,25 @@ Conceptually:
 estimated_scenario_return = sum(current_factor_loading_i * shock_i)
 ```
 
+Missing-loading rule (US-27.4):
+
+```text
+For each scenario, shocked factors split into:
+  available = { i : current_factor_loading_i is not null }
+  missing   = { i : current_factor_loading_i is null }
+
+estimated_scenario_return = Σ_{i ∈ available} loading_i × shock_i
+
+  missing ≠ ∅ and available ≠ ∅ → status = "partial",
+    missing_factors = the missing factors' labels (surfaced, never
+    silently zero-filled — a missing loading is NOT a 0.0 loading)
+  available = ∅ → status = "unavailable", estimated_scenario_return = null
+  missing = ∅ → status = "ok"
+
+A genuine 0.0 loading is a real value and contributes 0 with status "ok"
+(null-ness is tested with `is None`, never falsiness).
+```
+
 Implementation:
 - `services/quant-engine/app/analytics/risk.py` —
   `build_stress_scenarios(...)` + `STRESS_SCENARIOS` constant

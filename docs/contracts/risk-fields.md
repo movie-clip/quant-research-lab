@@ -67,16 +67,18 @@ Inherits all fields from `PortfolioEngineRequest` — no additional fields.
 | Field | Backend type (Python) | TS type | UI surface | Trust class | Nullable | Notes |
 |---|---|---|---|---|---|---|
 | `name` | `str` | `string` | Row title (bold) | — | No | One of: `"Broad Market Selloff"`, `"Rates Down Risk-On"`, `"Inflation Reacceleration"` |
-| `estimated_return_pct` | `float \| None` | `number \| null` | Right-aligned pct cell + horizontal magnitude bar | synthetic | Yes | `Σᵢ βᵢ × sᵢ × 100` per §Stress Scenarios. `null` when factor model is empty. |
+| `estimated_return_pct` | `float \| None` | `number \| null` | Right-aligned pct cell + horizontal magnitude bar | synthetic | Yes | `Σᵢ βᵢ × sᵢ × 100` over the **available** loadings per §Stress Scenarios missing-loading rule (US-27.4). `null` when no shocked loading is available. |
 | `description` | `str` | `string` | Helper text below row title | — | No | Static per scenario (canonical) |
-| `status` | `Literal["ok", "unavailable"]` (default `"ok"`) | `'ok' \| 'unavailable'` | Drives null formatting | — | No | `"unavailable"` ⇔ `estimated_return_pct is None` |
+| `status` | `Literal["ok", "partial", "unavailable"]` (default `"ok"`) | `'ok' \| 'partial' \| 'unavailable'` | `"partial"` renders the missing-factors helper note; `"unavailable"` drives null formatting | — | No | `"partial"` = some shocked loadings missing (excluded from the sum, named in `missing_factors` — never zero-filled); `"unavailable"` ⇔ `estimated_return_pct is None` |
+| `missing_factors` | `list[str]` (default `[]`) | `string[] \| undefined` | Helper note: "Partial estimate — computed without X, Y (loading unavailable)" | — | No (empty when none) | Labels of shocked factors whose `latest_loading` is null (US-27.4). A genuine `0.0` loading is a value, never listed here. |
 
 ### Trust state semantics
 
 | Condition | `trust` (wrapper) | Per-row `estimated_return_pct` | Per-row `status` |
 |---|---|---|---|
 | No positions in request | `"unavailable"` | `null` for all 3 | `"unavailable"` for all 3 |
-| Factor model fits (≥ 1 non-null `latest_loading` in `current_factor_snapshot`) | `"synthetic"` | non-null for all 3 | `"ok"` for all 3 |
+| Factor model fits, every shocked loading available | `"synthetic"` | non-null for all 3 | `"ok"` for all 3 |
+| Factor model fits, some shocked loadings missing | `"synthetic"` | non-null (partial sums) | `"partial"` with `missing_factors` populated |
 | Factor model returned with empty `current_factor_snapshot` | `"unavailable"` | `null` for all 3 | `"unavailable"` for all 3 |
 
 ### Edge cases

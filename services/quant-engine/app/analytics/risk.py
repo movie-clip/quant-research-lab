@@ -1439,11 +1439,41 @@ def build_factor_registry() -> list[FactorProxyDefinition]:
 def factor_model_methodology() -> str:
     return "Orthogonalized rolling ridge factor model using US ETF proxies for market, style, sector, and macro exposures; UCITS symbols are shown separately as EU execution examples."
 def build_stress_scenarios(model: StatisticalFactorModel) -> list[StressScenarioResult]:
+    """Per-scenario projections from the latest factor loadings.
+
+    Missing-loading semantics (US-27.4 / methodology §Stress Scenarios): a
+    shocked factor whose latest loading is unavailable is EXCLUDED from the
+    sum and named in `missing_factors` with `status="partial"` — never
+    silently zero-filled. A genuine 0.0 loading is a real value (`is None`
+    checks, not falsiness). All shocked loadings missing → `status=
+    "unavailable"` with a null estimate.
+    """
     latest_snapshot = {item.label: item.latest_loading for item in model.current_factor_snapshot}
     scenarios: list[StressScenarioResult] = []
     for name, shocks, description in STRESS_SCENARIOS:
-        estimated = sum((latest_snapshot.get(factor) or 0.0) * shock for factor, shock in shocks.items()) * 100
-        scenarios.append(StressScenarioResult(name=name, estimated_return_pct=round(estimated, 2), description=description))
+        missing_factors = [factor for factor in shocks if latest_snapshot.get(factor) is None]
+        available = {factor: shock for factor, shock in shocks.items() if latest_snapshot.get(factor) is not None}
+        if not available:
+            scenarios.append(
+                StressScenarioResult(
+                    name=name,
+                    estimated_return_pct=None,
+                    description=description,
+                    status="unavailable",
+                    missing_factors=missing_factors,
+                )
+            )
+            continue
+        estimated = sum(latest_snapshot[factor] * shock for factor, shock in available.items()) * 100  # type: ignore[operator]
+        scenarios.append(
+            StressScenarioResult(
+                name=name,
+                estimated_return_pct=round(estimated, 2),
+                description=description,
+                status="partial" if missing_factors else "ok",
+                missing_factors=missing_factors,
+            )
+        )
     return scenarios
 
 
