@@ -681,6 +681,12 @@ where:
   risk_share_i is a fraction in [0, 1] — NOT a percentage. Multiply by 100
   only at the display layer.
 
+Covariance date-alignment convention (US-27.3):
+  every covariance cell is computed over the pair's INTERSECTED date set
+  (window dates ∩ left coverage ∩ right coverage) so returns are always
+  paired same-day — the same pairwise-drop discipline as §Rolling Pearson
+  Correlation. A cell with fewer than 2 common observations is null.
+
 Edge cases:
   total_variance <= 0, or variance_contribution_i is null: risk_share_i = null
 ```

@@ -1973,15 +1973,28 @@ def _compute_covariance_matrix(
     returns_by_symbol: dict[str, dict[str, float]],
     dates: list[str],
 ) -> dict[tuple[str, str], float | None]:
+    """Pairwise sample covariance over the pair's INTERSECTED dates (US-27.3).
+
+    Each cell pairs returns from the same calendar day only: the pair's date
+    set is `dates ∩ left ∩ right` (the same pairwise-drop discipline as
+    `analytics/correlation.py`). Filtering each side independently — the
+    pre-fix behaviour — silently paired returns from different days whenever
+    two symbols were missing different dates but the same count. Cells with
+    fewer than 2 common observations are None, never fabricated.
+    """
     matrix: dict[tuple[str, str], float | None] = {}
     for left_symbol in symbols:
-        left_values = [returns_by_symbol[left_symbol][date] for date in dates if date in returns_by_symbol[left_symbol]]
+        left_returns = returns_by_symbol[left_symbol]
         for right_symbol in symbols:
-            right_values = [returns_by_symbol[right_symbol][date] for date in dates if date in returns_by_symbol[right_symbol]]
-            if len(left_values) < 2 or len(right_values) < 2 or len(left_values) != len(right_values):
+            right_returns = returns_by_symbol[right_symbol]
+            common_dates = [date for date in dates if date in left_returns and date in right_returns]
+            if len(common_dates) < 2:
                 matrix[(left_symbol, right_symbol)] = None
             else:
-                matrix[(left_symbol, right_symbol)] = _sample_covariance(left_values, right_values)
+                matrix[(left_symbol, right_symbol)] = _sample_covariance(
+                    [left_returns[date] for date in common_dates],
+                    [right_returns[date] for date in common_dates],
+                )
     return matrix
 
 
