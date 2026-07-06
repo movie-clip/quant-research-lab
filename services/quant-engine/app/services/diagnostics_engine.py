@@ -1,6 +1,6 @@
 from typing import Literal
 
-from app.core.constants import DEFAULT_BENCHMARK_SYMBOL
+from app.core.constants import DEFAULT_BENCHMARK_SYMBOL, SYNTHETIC_COVERAGE_DE_MINIMIS_WEIGHT
 from app.analytics.risk import (
     COLLINEARITY_WARNING_THRESHOLD,
     FACTOR_PROXY_MAP,
@@ -50,6 +50,7 @@ from app.schemas.reconciliation import (
     RiskContributionBreakdownPayload,
     StatisticalFactorModel,
     StressScenarioResult,
+    SyntheticHistoryCoverage,
     VolatilityAssumptions,
     VolatilityRegimePayload,
     VolatilitySnapshot,
@@ -725,49 +726,135 @@ def _build_synthetic_snapshot_history_states(
     price_histories: dict[str, list[dict]],
     valuation_dates: list[str],
 ) -> list[DailyPortfolioState]:
+    states, _coverage = _build_synthetic_snapshot_history_states_with_coverage(
+        snapshot=snapshot,
+        price_histories=price_histories,
+        valuation_dates=valuation_dates,
+    )
+    return states
+
+
+def _build_synthetic_snapshot_history_states_with_coverage(
+    snapshot: ImportedPortfolioSnapshot,
+    price_histories: dict[str, list[dict]],
+    valuation_dates: list[str],
+) -> tuple[list[DailyPortfolioState], SyntheticHistoryCoverage]:
+    """Synthetic daily states (current holdings × historical prices) under the
+    US-27.7 coverage rule — methodology §Synthetic history coverage rule.
+
+    - A price is NEVER fabricated before a symbol's first in-window quote
+      (the previous implementation back-filled the first quote flat, and
+      flat-filled the statement close price for symbols with no history at
+      all — fabricated zero returns that understated vol/VaR/drawdown).
+    - The effective window starts at the latest first-quote across MATERIAL
+      holdings (weight ≥ SYNTHETIC_COVERAGE_DE_MINIMIS_WEIGHT); the limiting
+      symbol is disclosed when this truncates the requested window.
+    - Holdings with no in-window history, and sub-de-minimis holdings whose
+      history starts after the effective start, are excluded and disclosed.
+    - INTERIOR gaps (non-trading days, missing quotes after the first one)
+      keep the carry-last-known-price convention: standard practice for
+      aligning mixed calendars, disclosed in the methodology.
+    """
+    requested_start = valuation_dates[0] if valuation_dates else None
     if not valuation_dates or not snapshot.positions:
-        return []
+        return [], SyntheticHistoryCoverage(requested_start_date=requested_start)
 
     base_currency = snapshot.statement.base_currency or 'USD'
     total_cash = sum(float(balance.ending_cash or 0.0) for balance in snapshot.cash_balances)
-    fallback_prices = {
-        position.symbol: float(position.close_price or 0.0) if position.close_price is not None else (float(position.market_value) / float(position.quantity) if position.quantity not in (None, 0) else None)
-        for position in snapshot.positions
-    }
 
-    history_by_symbol: dict[str, dict[str, float]] = {}
-    first_date = valuation_dates[0]
+    valuation_date_set = set(valuation_dates)
+    in_window_quotes: dict[str, dict[str, float]] = {}
+    first_quote_date: dict[str, str] = {}
     for symbol, rows in price_histories.items():
-        ordered_rows = sorted(rows, key=lambda row: row['date'])
-        row_lookup = {row['date']: float(row['price']) for row in ordered_rows}
+        quotes = {row['date']: float(row['price']) for row in rows if row['date'] in valuation_date_set}
+        if not quotes:
+            continue
+        in_window_quotes[symbol] = quotes
+        first_quote_date[symbol] = min(quotes)
+
+    total_positions_value = sum(float(position.market_value) for position in snapshot.positions)
+
+    def _weight(position) -> float:
+        if total_positions_value <= 0:
+            return 1.0  # degenerate snapshot: treat every holding as material
+        return float(position.market_value) / total_positions_value
+
+    excluded_symbols: list[str] = []
+    covered_positions = []
+    material_first_quotes: dict[str, str] = {}
+    for position in snapshot.positions:
+        first_quote = first_quote_date.get(position.symbol)
+        if first_quote is None:
+            if position.symbol not in excluded_symbols:
+                excluded_symbols.append(position.symbol)  # no in-window history at all
+            continue
+        covered_positions.append(position)
+        if _weight(position) >= SYNTHETIC_COVERAGE_DE_MINIMIS_WEIGHT:
+            material_first_quotes[position.symbol] = first_quote
+
+    if not covered_positions:
+        return [], SyntheticHistoryCoverage(
+            requested_start_date=requested_start,
+            excluded_symbols=excluded_symbols,
+        )
+
+    # Effective start: latest material first-quote. If no holding clears the
+    # de-minimis bar (e.g. very many small positions), every covered holding
+    # is treated as material so the window is still set by real coverage.
+    reference_first_quotes = material_first_quotes or {
+        position.symbol: first_quote_date[position.symbol] for position in covered_positions
+    }
+    effective_start = max(reference_first_quotes.values())
+    limiting_symbol = None
+    if effective_start > requested_start:
+        limiting_symbol = max(reference_first_quotes, key=lambda sym: reference_first_quotes[sym])
+
+    # Sub-de-minimis holdings whose coverage starts after the effective start
+    # cannot be included without a mid-window fabricated entry — exclude them.
+    included_positions = []
+    for position in covered_positions:
+        if first_quote_date[position.symbol] > effective_start:
+            if position.symbol not in excluded_symbols:
+                excluded_symbols.append(position.symbol)
+            continue
+        included_positions.append(position)
+
+    effective_dates = [d for d in valuation_dates if d >= effective_start]
+
+    # Carried price series over the effective window: the carry starts at the
+    # symbol's first REAL quote (≤ effective_start for included symbols) and
+    # bridges interior gaps only — never a back-fill.
+    history_by_symbol: dict[str, dict[str, float]] = {}
+    included_symbols = {position.symbol for position in included_positions}
+    for symbol in included_symbols:
+        quotes = in_window_quotes[symbol]
         symbol_history: dict[str, float] = {}
         last_price: float | None = None
-        first_price = float(ordered_rows[0]['price']) if ordered_rows else fallback_prices.get(symbol)
         for valuation_date in valuation_dates:
-            if valuation_date in row_lookup:
-                last_price = row_lookup[valuation_date]
-            if last_price is not None:
+            if valuation_date in quotes:
+                last_price = quotes[valuation_date]
+            if last_price is not None and valuation_date >= effective_start:
                 symbol_history[valuation_date] = last_price
-            elif first_price is not None:
-                symbol_history[valuation_date] = first_price
         history_by_symbol[symbol] = symbol_history
 
     synthetic_quantities: dict[str, float] = {}
-    for position in snapshot.positions:
-        first_price = history_by_symbol.get(position.symbol, {}).get(first_date, fallback_prices.get(position.symbol))
-        if first_price is None or first_price <= 0:
+    for position in included_positions:
+        anchor_price = history_by_symbol.get(position.symbol, {}).get(effective_start)
+        if anchor_price is None or anchor_price <= 0:
+            if position.symbol not in excluded_symbols:
+                excluded_symbols.append(position.symbol)
             continue
-        synthetic_quantities[position.symbol] = float(position.market_value) / float(first_price)
+        synthetic_quantities[position.symbol] = float(position.market_value) / float(anchor_price)
 
     states: list[DailyPortfolioState] = []
-    for valuation_date in valuation_dates:
+    for valuation_date in effective_dates:
         state_positions: list[DailyStatePosition] = []
         total_market_value = 0.0
-        for position in snapshot.positions:
+        for position in included_positions:
             quantity = synthetic_quantities.get(position.symbol)
             if quantity is None:
                 continue
-            price = history_by_symbol.get(position.symbol, {}).get(valuation_date, fallback_prices.get(position.symbol))
+            price = history_by_symbol.get(position.symbol, {}).get(valuation_date)
             if price is None:
                 continue
             market_value = round(quantity * float(price), 2)
@@ -792,7 +879,12 @@ def _build_synthetic_snapshot_history_states(
             )
         )
 
-    return states
+    return states, SyntheticHistoryCoverage(
+        requested_start_date=requested_start,
+        effective_start_date=effective_start,
+        limiting_symbol=limiting_symbol,
+        excluded_symbols=excluded_symbols,
+    )
 
 
 def run_imported_diagnostics_engine(snapshot: ImportedPortfolioSnapshot, benchmark_symbol: str | None = None) -> DiagnosticsResult:

@@ -815,9 +815,21 @@ export type StressScenarioResult = {
 export type StressTrustLevel = 'synthetic' | 'unavailable'
 
 /** Response wrapper from POST /engines/stress/run (Epic 13 — Risk tab). */
+/** US-27.7: synthetic/broker history coverage disclosure. Prices are never
+ *  back-filled before a symbol's first quote; the effective window and any
+ *  excluded holdings are surfaced here — never silently. Mirrors the Pydantic
+ *  SyntheticHistoryCoverage. */
+export type SyntheticHistoryCoverage = {
+  requested_start_date: string | null
+  effective_start_date: string | null
+  limiting_symbol: string | null
+  excluded_symbols: string[]
+}
+
 export type StressEngineResponse = {
   scenarios: StressScenarioResult[]
   trust: StressTrustLevel
+  coverage?: SyntheticHistoryCoverage | null
 }
 
 // ── Drawdown analytics (US-13.2) ─────────────────────────────────────────────
@@ -880,6 +892,7 @@ export type DrawdownEngineResponse = {
   max_drawdown_pct: number | null
   episodes: DrawdownEpisode[]
   trust: DrawdownTrustLevel
+  coverage?: SyntheticHistoryCoverage | null
 }
 
 // ── VaR & Distribution analytics (US-13.3) ───────────────────────────────────
@@ -919,6 +932,7 @@ export type DistributionEngineResponse = {
   kurtosis_excess: number | null
   histogram_bins: HistogramBin[]
   trust: DistributionTrustLevel
+  coverage?: SyntheticHistoryCoverage | null
 }
 
 export type HistoryTruthClass =
@@ -1344,6 +1358,7 @@ export type FactorAttributionResponse = {
   total_portfolio_return_pct: number | null
   total_unexplained_pct: number | null
   methodology_note: string
+  coverage?: SyntheticHistoryCoverage | null
 }
 
 // ── Multi-Benchmark Correlation ───────────────────────────────────────────────
@@ -1360,6 +1375,7 @@ export type BenchmarkStats = {
 export type MultiBenchmarkCorrelationResult = {
   benchmarks: BenchmarkStats[]
   lookback_days: number
+  coverage?: SyntheticHistoryCoverage | null
 }
 
 // --- Intra-Portfolio Correlation (Epic 17 / US-17.1) ---

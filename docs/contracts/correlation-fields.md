@@ -94,6 +94,7 @@ Data source: `POST /api/engines/correlation/multi`
 |---|---|---|---|
 | `snapshot` | `ImportedPortfolioSnapshot` | `ImportedSnapshot` | Full imported portfolio snapshot |
 | `lookback_days` | `int` (default 252, min 1) | `number` | Lookback window in trading days. Default: `252`. |
+| `coverage` | `SyntheticHistoryCoverage \| None` | `SyntheticHistoryCoverage \| null \| undefined` | `helper` note when the window was truncated or holdings excluded | synthetic | Yes | US-27.7 coverage disclosure — see `financial-methodology.md` §Synthetic History Coverage Rule |
 
 ### `MultiBenchmarkCorrelationResult`
 

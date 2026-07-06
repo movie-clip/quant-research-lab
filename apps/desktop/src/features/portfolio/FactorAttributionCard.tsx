@@ -1,3 +1,4 @@
+import { coverageNote } from './coverageNote'
 import { useEffect, useState } from 'react'
 import { CartesianGrid, Line, LineChart, ReferenceLine, Tooltip, XAxis, YAxis } from 'recharts'
 
@@ -499,6 +500,11 @@ export function FactorAttributionCard({ snapshot }: FactorAttributionCardProps) 
                   </div>
                 )}
               </div>
+              {attribution && coverageNote(attribution.coverage) ? (
+                <p className="helper" style={{ margin: 'var(--space-md) 0 0 0' }}>
+                  {coverageNote(attribution.coverage)}
+                </p>
+              ) : null}
             </>
           )}
         </>

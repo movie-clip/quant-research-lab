@@ -11,6 +11,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from app.schemas.portfolio_engine import PortfolioEngineRequest
+from app.schemas.reconciliation import SyntheticHistoryCoverage
 
 
 DrawdownTrustLevel = Literal["synthetic", "unavailable"]
@@ -117,3 +118,6 @@ class DrawdownEngineResponse(BaseModel):
     max_drawdown_pct: float | None
     episodes: list[DrawdownEpisode]
     trust: DrawdownTrustLevel
+    # US-27.7: synthetic-history coverage disclosure (effective window /
+    # excluded holdings). None only on pre-coverage error paths.
+    coverage: SyntheticHistoryCoverage | None = None

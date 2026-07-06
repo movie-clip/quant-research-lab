@@ -23,7 +23,7 @@ from app.analytics.drawdown import (
 )
 from app.analytics.risk import _build_wealth_index
 from app.schemas.drawdown import DrawdownEngineRequest, DrawdownEngineResponse
-from app.services.diagnostics_engine import _build_synthetic_snapshot_history_states
+from app.services.diagnostics_engine import _build_synthetic_snapshot_history_states_with_coverage
 from app.services.market_data import MarketDataService
 from app.services.portfolio_snapshot_builder import build_imported_snapshot_from_request
 
@@ -38,7 +38,7 @@ _MAX_LOOKBACK_CALENDAR_DAYS = 3000
 _TOP_N_EPISODES = 5
 
 
-def _empty_response(window_trading_days: int | None) -> DrawdownEngineResponse:
+def _empty_response(window_trading_days: int | None, coverage=None) -> DrawdownEngineResponse:
     """Build the fail-closed (unavailable) response. No fabrication."""
     return DrawdownEngineResponse(
         window_trading_days=window_trading_days,
@@ -47,6 +47,7 @@ def _empty_response(window_trading_days: int | None) -> DrawdownEngineResponse:
         max_drawdown_pct=None,
         episodes=[],
         trust="unavailable",
+        coverage=coverage,
     )
 
 
@@ -113,7 +114,7 @@ def run_drawdown_engine(request: DrawdownEngineRequest) -> DrawdownEngineRespons
         return _empty_response(window)
 
     valuation_dates = sorted({row["date"] for row in benchmark_rows})
-    daily_states = _build_synthetic_snapshot_history_states(
+    daily_states, coverage = _build_synthetic_snapshot_history_states_with_coverage(
         snapshot=snapshot,
         price_histories=symbol_price_histories,
         valuation_dates=valuation_dates,
@@ -121,13 +122,13 @@ def run_drawdown_engine(request: DrawdownEngineRequest) -> DrawdownEngineRespons
 
     daily_returns = _compute_daily_returns(daily_states)
     if len(daily_returns) < MIN_DAILY_OBSERVATIONS:
-        return _empty_response(window)
+        return _empty_response(window, coverage=coverage)
 
     wealth_index = _build_wealth_index(daily_returns)
     underwater = build_underwater_series(wealth_index)
 
     if len(underwater) < MIN_DAILY_OBSERVATIONS:
-        return _empty_response(window)
+        return _empty_response(window, coverage=coverage)
 
     episodes = identify_drawdown_episodes(underwater, top_n=_TOP_N_EPISODES)
 
@@ -148,6 +149,7 @@ def run_drawdown_engine(request: DrawdownEngineRequest) -> DrawdownEngineRespons
         max_drawdown_pct=max_drawdown_pct(underwater),
         episodes=decomposed_episodes,
         trust="synthetic",
+        coverage=coverage,
     )
 
 

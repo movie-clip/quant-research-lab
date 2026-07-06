@@ -15,6 +15,7 @@
  * Trust: synthetic when ≥ 20 daily returns available; unavailable
  * otherwise. Self-fetching with internal window selector.
  */
+import { coverageNote } from './coverageNote'
 import { useEffect, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, ReferenceLine, Tooltip, XAxis, YAxis } from 'recharts'
 
@@ -359,6 +360,11 @@ export function VarDistributionCard({ snapshot }: VarDistributionCardProps) {
               meanPct={state.response.mean_pct}
             />
             <StatsTable response={state.response} />
+            {coverageNote(state.response.coverage) ? (
+              <p className="helper" style={{ margin: 'var(--space-md) 0 0 0' }}>
+                {coverageNote(state.response.coverage)}
+              </p>
+            ) : null}
           </>
         )
       )}

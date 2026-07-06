@@ -5,7 +5,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from app.schemas.portfolio_engine import PortfolioEngineRequest
-from app.schemas.reconciliation import StressScenarioResult
+from app.schemas.reconciliation import StressScenarioResult, SyntheticHistoryCoverage
 
 
 StressTrustLevel = Literal["synthetic", "unavailable"]
@@ -34,3 +34,6 @@ class StressEngineResponse(BaseModel):
 
     scenarios: list[StressScenarioResult]
     trust: StressTrustLevel
+    # US-27.7: synthetic-history coverage disclosure (effective window /
+    # excluded holdings). None only on pre-coverage error paths.
+    coverage: SyntheticHistoryCoverage | None = None

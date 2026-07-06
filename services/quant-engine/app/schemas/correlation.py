@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.schemas.imports import ImportedPortfolioSnapshot
+from app.schemas.reconciliation import SyntheticHistoryCoverage
 
 
 class MultiBenchmarkCorrelationRequest(BaseModel):
@@ -26,3 +27,6 @@ class BenchmarkStats(BaseModel):
 class MultiBenchmarkCorrelationResult(BaseModel):
     benchmarks: list[BenchmarkStats]
     lookback_days: int
+    # US-27.7: synthetic-history coverage disclosure (effective window /
+    # excluded holdings). None only on pre-coverage error paths.
+    coverage: SyntheticHistoryCoverage | None = None

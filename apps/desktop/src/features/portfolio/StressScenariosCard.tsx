@@ -11,7 +11,8 @@
  *
  * No window selector (point-in-time analytic).
  */
-import type { StressScenarioResult, StressTrustLevel } from './types'
+import type { StressScenarioResult, StressTrustLevel, SyntheticHistoryCoverage } from './types'
+import { coverageNote } from './coverageNote'
 import { CardShell } from '../../app/primitives/CardShell'
 import { EmptyState } from '../../app/primitives/EmptyState'
 import { ErrorState } from '../../app/primitives/ErrorState'
@@ -24,6 +25,7 @@ export type StressScenariosCardProps = {
   trust: StressTrustLevel
   loading?: boolean
   error?: Error | null
+  coverage?: SyntheticHistoryCoverage | null
 }
 
 function pctColor(pct: number | null): string {
@@ -123,7 +125,8 @@ function ScenarioRow({ scenario, maxAbsPct }: { scenario: StressScenarioResult; 
   )
 }
 
-export function StressScenariosCard({ scenarios, trust, loading, error }: StressScenariosCardProps) {
+export function StressScenariosCard({ scenarios, trust, loading, error, coverage }: StressScenariosCardProps) {
+  const note = coverageNote(coverage)
   const sorted = sortByAbsMagnitudeDesc(scenarios)
   const maxAbsPct = sorted.reduce((acc, s) => {
     if (s.estimated_return_pct == null) return acc
@@ -154,6 +157,11 @@ export function StressScenariosCard({ scenarios, trust, loading, error }: Stress
           {sorted.map((scenario) => (
             <ScenarioRow key={scenario.name} scenario={scenario} maxAbsPct={maxAbsPct} />
           ))}
+          {note ? (
+            <p className="helper" style={{ margin: 'var(--space-md) 0 0 0' }}>
+              {note}
+            </p>
+          ) : null}
         </div>
       )}
     </CardShell>

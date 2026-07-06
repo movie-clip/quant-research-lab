@@ -16,6 +16,7 @@
  * Self-fetching component — owns its window selector state and re-fetches
  * the engine on `[snapshot, selectedWindow]` change.
  */
+import { coverageNote } from './coverageNote'
 import { Fragment, useEffect, useState } from 'react'
 import { Area, AreaChart, CartesianGrid, ReferenceLine, Tooltip, XAxis, YAxis } from 'recharts'
 
@@ -706,6 +707,11 @@ export function DrawdownAnalyticsCard({ snapshot }: DrawdownAnalyticsCardProps) 
           <>
             <UnderwaterChart series={state.response.underwater_series} />
             <EpisodesTable episodes={state.response.episodes.slice(0, TOP_N)} />
+            {coverageNote(state.response.coverage) ? (
+              <p className="helper" style={{ margin: 'var(--space-md) 0 0 0' }}>
+                {coverageNote(state.response.coverage)}
+              </p>
+            ) : null}
           </>
         )
       )}

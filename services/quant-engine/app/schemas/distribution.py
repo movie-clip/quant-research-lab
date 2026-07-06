@@ -12,6 +12,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from app.schemas.portfolio_engine import PortfolioEngineRequest
+from app.schemas.reconciliation import SyntheticHistoryCoverage
 
 
 DistributionTrustLevel = Literal["synthetic", "unavailable"]
@@ -69,3 +70,6 @@ class DistributionEngineResponse(BaseModel):
     kurtosis_excess: float | None
     histogram_bins: list[HistogramBin]
     trust: DistributionTrustLevel
+    # US-27.7: synthetic-history coverage disclosure (effective window /
+    # excluded holdings). None only on pre-coverage error paths.
+    coverage: SyntheticHistoryCoverage | None = None

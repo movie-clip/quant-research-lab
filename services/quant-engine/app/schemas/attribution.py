@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from app.core.constants import DEFAULT_BENCHMARK_SYMBOL
 from app.schemas.imports import ImportedPortfolioSnapshot
+from app.schemas.reconciliation import SyntheticHistoryCoverage
 
 
 class FactorAttributionRequest(BaseModel):
@@ -45,3 +46,6 @@ class FactorAttributionResponse(BaseModel):
     total_portfolio_return_pct: float | None = None
     total_unexplained_pct: float | None = None
     methodology_note: str
+    # US-27.7: synthetic-history coverage disclosure (effective window /
+    # excluded holdings). None only on pre-coverage error paths.
+    coverage: SyntheticHistoryCoverage | None = None

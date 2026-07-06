@@ -4,6 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
 
+from app.core.constants import SYNTHETIC_COVERAGE_DE_MINIMIS_WEIGHT
 from app.domain.ledger import snapshot_to_ledger
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.reconciliation import DailyPortfolioState, DailyStatePosition
@@ -53,17 +54,30 @@ class PortfolioStateEngine:
         for symbol, rows in price_histories.items():
             ordered_rows = sorted(rows, key=lambda row: row["date"])
             symbol_history: dict[str, float] = {}
-            last_price: float | None = None
             row_lookup = {row["date"]: float(row["price"]) for row in ordered_rows}
-            first_price = float(ordered_rows[0]["price"]) if ordered_rows else fallback_prices.get(symbol)
+            # Carry may be seeded by a REAL quote dated before the valuation
+            # window (that is still a carry-forward of an observed price).
+            # A price is never fabricated BEFORE a symbol's first quote —
+            # the previous implementation back-filled the first fetched quote
+            # flat across the leading dates (US-27.7 / audit F8).
+            pre_window_rows = [row for row in ordered_rows if row["date"] < valuation_dates[0]]
+            last_price: float | None = float(pre_window_rows[-1]["price"]) if pre_window_rows else None
             for valuation_date in valuation_dates:
                 if valuation_date in row_lookup:
                     last_price = row_lookup[valuation_date]
                 if last_price is not None:
                     symbol_history[valuation_date] = last_price
-                elif first_price is not None:
-                    symbol_history[valuation_date] = first_price
             history_by_symbol[symbol] = symbol_history
+
+        # US-27.7 coverage rule (broker path): the replay starts at the latest
+        # first-covered date across MATERIAL opening positions, so an opening
+        # holding whose price history begins mid-window can never enter as a
+        # fabricated flat segment or a mid-window value jump. Symbols with no
+        # fetchable history at all keep the statement close-price anchor below
+        # (broker-truth-adjacent, not market fabrication) and do not truncate.
+        valuation_dates = self._effective_valuation_dates(valuation_dates, opening_positions, history_by_symbol)
+        if not valuation_dates:
+            return []
 
         instrument_currency = {position.symbol: position.currency for position in self.snapshot.positions}
 
@@ -76,10 +90,23 @@ class PortfolioStateEngine:
                 return value * fx_rate
             return value
 
+        def price_for(symbol: str, day_str: str) -> float | None:
+            symbol_history = history_by_symbol.get(symbol)
+            if symbol_history:
+                # Covered symbol: None before its first quote — never the
+                # statement close price (that would fabricate a market price
+                # for a date the market never produced one; US-27.7).
+                return symbol_history.get(day_str)
+            # No fetchable history at all: the statement close price is the
+            # last broker-truth-adjacent anchor we have — kept (documented in
+            # the methodology coverage rule) so unpriceable instruments do
+            # not silently vanish from the replayed NAV.
+            return fallback_prices.get(symbol)
+
         first_date = valuation_dates[0]
         opening_positions_value = 0.0
         for symbol, opening_quantity in opening_positions.items():
-            opening_price = history_by_symbol.get(symbol, {}).get(first_date, fallback_prices.get(symbol))
+            opening_price = price_for(symbol, first_date)
             currency = instrument_currency.get(symbol, self.base_currency)
             if opening_price is not None:
                 opening_positions_value += to_base_currency(opening_quantity * opening_price, currency, first_date)
@@ -118,7 +145,7 @@ class PortfolioStateEngine:
                 if abs(quantity) < 1e-9:
                     continue
                 currency = instrument_currency.get(symbol, self.base_currency)
-                price = history_by_symbol.get(symbol, {}).get(day_str, fallback_prices.get(symbol))
+                price = price_for(symbol, day_str)
                 market_value = round(to_base_currency(quantity * price, currency, day_str), 2) if price is not None else None
                 if market_value is not None:
                     total_market_value += market_value
@@ -147,6 +174,48 @@ class PortfolioStateEngine:
             self._reconcile_terminal_state_to_statement_totals(states)
 
         return states
+
+    def _effective_valuation_dates(
+        self,
+        valuation_dates: list[str],
+        opening_positions: dict[str, float],
+        history_by_symbol: dict[str, dict[str, float]],
+    ) -> list[str]:
+        """US-27.7 coverage rule for the broker-replay path.
+
+        The replay window starts at the latest first-covered date across
+        MATERIAL opening positions (weight ≥ the shared de-minimis constant,
+        by current snapshot market value). Opening symbols with no fetchable
+        history do not truncate (they keep the statement-price anchor);
+        sub-de-minimis late-coverage symbols do not truncate either — their
+        pre-coverage days simply carry no market price (bounded by the
+        de-minimis weight, never a fabricated flat segment).
+        """
+        total_value = sum(float(position.market_value) for position in self.snapshot.positions)
+        weight_by_symbol = {
+            position.symbol: (float(position.market_value) / total_value if total_value > 0 else 1.0)
+            for position in self.snapshot.positions
+        }
+
+        first_covered: dict[str, str] = {}
+        for symbol, quantity in opening_positions.items():
+            if abs(quantity) < 1e-9:
+                continue
+            symbol_history = history_by_symbol.get(symbol)
+            if not symbol_history:
+                continue
+            first_covered[symbol] = min(symbol_history)
+
+        material = {
+            symbol: first_date
+            for symbol, first_date in first_covered.items()
+            if weight_by_symbol.get(symbol, 1.0) >= SYNTHETIC_COVERAGE_DE_MINIMIS_WEIGHT
+        }
+        reference = material or first_covered
+        if not reference:
+            return valuation_dates
+        effective_start = max(reference.values())
+        return [valuation_date for valuation_date in valuation_dates if valuation_date >= effective_start]
 
     def _reconcile_terminal_state_to_statement_totals(self, states: list[DailyPortfolioState]) -> None:
         if not states or self.snapshot.statement_totals is None:
