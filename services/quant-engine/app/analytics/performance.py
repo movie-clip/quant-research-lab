@@ -49,8 +49,30 @@ def build_daily_portfolio_states(
     valuation_dates: list[str],
     fx_history: dict[str, float],
 ) -> list[DailyPortfolioState]:
+    states, _fx_fallback_currencies = build_daily_portfolio_states_with_fx_disclosure(
+        snapshot=snapshot,
+        price_histories=price_histories,
+        valuation_dates=valuation_dates,
+        fx_history=fx_history,
+    )
+    return states
+
+
+def build_daily_portfolio_states_with_fx_disclosure(
+    snapshot: ImportedPortfolioSnapshot,
+    price_histories: dict[str, list[dict]],
+    valuation_dates: list[str],
+    fx_history: dict[str, float],
+) -> tuple[list[DailyPortfolioState], list[str]]:
+    """Daily broker-replay states + the FX-fallback disclosure (US-27.8).
+
+    The second element lists currencies that required base conversion but had
+    no rate in fx_history — those values are carried unconverted and the
+    consuming response must surface the degradation.
+    """
     engine = PortfolioStateEngine(snapshot=snapshot, base_currency=snapshot.statement.base_currency or "USD", fx_history=fx_history)
-    return engine.build_daily_states(price_histories=price_histories, valuation_dates=valuation_dates)
+    states = engine.build_daily_states(price_histories=price_histories, valuation_dates=valuation_dates)
+    return states, sorted(engine.fx_fallback_currencies)
 
 
 def build_true_performance_series(

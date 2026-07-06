@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 
 from app.core.constants import SYNTHETIC_COVERAGE_DE_MINIMIS_WEIGHT
@@ -15,6 +15,12 @@ class PortfolioStateEngine:
     snapshot: ImportedPortfolioSnapshot
     base_currency: str
     fx_history: dict[str, float]
+    # US-27.8 (audit F9): currencies for which a base-currency conversion was
+    # required but no rate was found in fx_history during the last
+    # build_daily_states run. The value is carried UNCONVERTED in that case
+    # (the only honest number available) and this set lets callers disclose
+    # the degradation instead of silently claiming a converted valuation.
+    fx_fallback_currencies: set[str] = field(default_factory=set)
 
     def build_daily_states(
         self,
@@ -23,6 +29,7 @@ class PortfolioStateEngine:
         *,
         apply_terminal_reconciliation: bool = True,
     ) -> list[DailyPortfolioState]:
+        self.fx_fallback_currencies = set()
         if not valuation_dates:
             return []
 
@@ -88,6 +95,9 @@ class PortfolioStateEngine:
             fx_rate = self.fx_history.get(fx_key)
             if fx_rate is not None:
                 return value * fx_rate
+            # No rate: carry the raw value (the only honest number we hold)
+            # and RECORD the degradation — never a silent 1:1 conversion claim.
+            self.fx_fallback_currencies.add(currency)
             return value
 
         def price_for(symbol: str, day_str: str) -> float | None:

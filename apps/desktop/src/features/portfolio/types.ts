@@ -437,6 +437,10 @@ export type PortfolioProofMetadata = {
 export type DashboardHistoryRunMetadata = {
   history_id: string
   methodology_id: string
+  /** US-27.8 (audit F9): currencies that needed base conversion but had no FX
+   *  rate during the replay — values carried unconverted (disclosed, never a
+   *  silent 1:1 conversion claim). */
+  fx_fallback_currencies?: string[]
   source_status: {
     performance_history: string
     monthly_returns: string
@@ -1326,6 +1330,9 @@ export type DriftResult = {
   benchmark_symbol: string
   daily_series: DriftDailyPoint[]
   availability: 'available' | 'partial' | 'unavailable'
+  /** US-27.8 (audit F9): currencies that needed base conversion but had no FX
+   *  rate — values are carried unconverted; non-empty must be surfaced. */
+  fx_fallback_currencies?: string[]
 }
 
 // --- Factor Return Attribution ---

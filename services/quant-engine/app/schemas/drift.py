@@ -23,7 +23,10 @@ class DriftWindow(BaseModel):
 
 class DriftDailyPoint(BaseModel):
     date: str
-    portfolio_indexed: float | None = None   # indexed to 100.0 at series start
+    # US-27.8: the portfolio line is the compounded cash-flow-neutral TWR
+    # chain indexed to 100.0 at the series start (deposits/withdrawals/trades
+    # are not chart moves) — see methodology §Indexed Return Series.
+    portfolio_indexed: float | None = None
     benchmark_indexed: float | None = None
 
 
@@ -36,3 +39,9 @@ class DriftResult(BaseModel):
     benchmark_symbol: str
     daily_series: list[DriftDailyPoint]
     availability: Literal["available", "partial", "unavailable"]
+    # US-27.8 (audit F9): currencies for which a base-currency conversion was
+    # required but no FX rate was available — the affected values are carried
+    # UNCONVERTED (never silently pretended to be converted). Non-empty means
+    # the replay's valuations are degraded for these currencies; the UI must
+    # surface it. Empty when every position is base-currency or converted.
+    fx_fallback_currencies: list[str] = []

@@ -8,7 +8,11 @@
 ## Trust class preamble
 
 All fields in this contract are **synthetic history** trust class unless noted otherwise.
-- The correlation and drift engines apply current holdings backwards over historical prices.
+- The correlation engines apply current holdings backwards over historical
+  prices. The drift engine is a **broker-ledger replay** (opening positions +
+  trades + flows from the imported statement) measured as a cash-flow-neutral
+  time-weighted return (US-27.8) — still synthetic-history trust (market
+  prices applied to the replay), but not the current-holdings convention.
 - No field is ever `verified`. Every nullable field returns `null` when insufficient data is available — never a fabricated zero.
 - The UI must display a "Synthetic" badge wherever these fields are shown.
 
@@ -27,7 +31,7 @@ Data source: `DriftResult.daily_series` (from `POST /api/engines/drift/run`)
 | Field | Backend type (Python) | TS type | UI label | Trust class | Nullable | Notes |
 |---|---|---|---|---|---|---|
 | `date` | `str` | `string` | X-axis date | synthetic | No | ISO 8601 (YYYY-MM-DD) |
-| `portfolio_indexed` | `float \| None` | `number \| null` | Portfolio (rebased) | synthetic | Yes | Cumulative indexed series starting at engine-reference base. Rebased to 100 at sub-window start in `IndexedReturnChart` via `sliceAndRebase()`. |
+| `portfolio_indexed` | `float \| None` | `number \| null` | Portfolio (rebased) | synthetic | Yes | **TWR-indexed** (US-27.8): the compounded cash-flow-neutral TWR chain starting at 100 — deposits/withdrawals/trades are not chart moves; see methodology §Indexed Return Series. Rebased to 100 at sub-window start in `IndexedReturnChart` via `sliceAndRebase()`. |
 | `benchmark_indexed` | `float \| None` | `number \| null` | Benchmark (rebased) | synthetic | Yes | Same index basis as `portfolio_indexed`. Rebased to 100 at sub-window start. |
 
 ### `DriftResult` (envelope)
@@ -38,6 +42,7 @@ Data source: `DriftResult.daily_series` (from `POST /api/engines/drift/run`)
 | `benchmark_symbol` | `str` | `string` | Benchmark label | — | No | E.g. `"SPY"` |
 | `daily_series` | `list[DriftDailyPoint]` | `DriftDailyPoint[]` | Chart data | synthetic | No (empty when unavailable) | |
 | `availability` | `Literal["available", "partial", "unavailable"]` | `'available' \| 'partial' \| 'unavailable'` | Availability state | synthetic | No | |
+| `fx_fallback_currencies` | `list[str]` (default `[]`) | `string[] \| undefined` | Drift panel helper note when non-empty | — | No (empty when none) | US-27.8 (audit F9): currencies that required base conversion with no FX rate — values carried unconverted, never a silent 1:1 claim. See methodology §FX Conversion Fallback Disclosure. |
 
 ### Rebasing contract
 

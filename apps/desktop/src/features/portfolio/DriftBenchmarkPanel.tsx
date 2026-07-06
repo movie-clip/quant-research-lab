@@ -85,7 +85,7 @@ export function DriftBenchmarkPanel({ result, error = null, benchmarkSymbol, onB
       badge={
         <TrustBadge
           type="synthetic"
-          tooltip="Computed from current holdings applied to historical prices. Not verified broker return basis."
+          tooltip="Broker-ledger replay measured as a cash-flow-neutral time-weighted return over historical prices (US-27.8). Not verified broker return basis."
         />
       }
       actions={benchmarkPicker}
@@ -104,6 +104,13 @@ export function DriftBenchmarkPanel({ result, error = null, benchmarkSymbol, onB
               <WindowCard key={w.label} window={w} />
             ))}
           </div>
+          {(result.fx_fallback_currencies?.length ?? 0) > 0 ? (
+            <p className="helper" style={{ margin: 'var(--space-md) 0 0 0' }}>
+              FX conversion unavailable for {result.fx_fallback_currencies!.join(', ')} — those
+              positions are valued in their own currency (unconverted), so window returns and the
+              chart are degraded for the non-USD sleeve.
+            </p>
+          ) : null}
           {hasSeries && (
             <IndexedReturnChart
               series={result.daily_series}

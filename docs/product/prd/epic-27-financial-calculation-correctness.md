@@ -77,7 +77,7 @@ bugs through.
 | US-27.5 | Reconcile the factor risk-share denominator with the methodology | F6 — **Resolved 2026-07-05** | Med |
 | US-27.6 | Null (don't keep raw) collinear factors in per-window orthogonalization | F7 — **Resolved 2026-07-05** | Med |
 | US-27.7 | Stop flat back-filling synthetic history before a symbol's first quote | F8 — **Resolved 2026-07-05** | Med |
-| US-27.8 | Surface FX-fallback trust + fix the drift-window return basis | F9, F10 | Med |
+| US-27.8 | Surface FX-fallback trust + fix the drift-window return basis | F9, F10 — **Resolved 2026-07-05** | Med |
 | US-27.9 | Low-severity tail: fabricated 0.0 points, stdev conventions, DR/return-basis consistency | F11–F13 | Low |
 
 Recommended order: 27.1 → 27.2 → 27.3 (the three "wrong number today" fixes,
