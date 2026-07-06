@@ -61,6 +61,7 @@ Inherits all fields from `PortfolioEngineRequest` — no additional fields.
 |---|---|---|---|---|---|---|
 | `scenarios` | `list[StressScenarioResult]` | `StressScenarioResult[]` | Vertical row list in `StressScenariosCard` | synthetic | No (always 3 rows from canonical `STRESS_SCENARIOS`) | §Stress Scenarios |
 | `trust` | `Literal["synthetic", "unavailable"]` | `'synthetic' \| 'unavailable'` | `TrustBadge` in card header | — | No | §Trust, Degradation, Withholding, and Unavailability |
+| `coverage` | `SyntheticHistoryCoverage \| None` | `SyntheticHistoryCoverage \| null \| undefined` | `helper` note when the window was truncated or holdings excluded | synthetic | Yes | US-27.7 coverage disclosure — see `financial-methodology.md` §Synthetic History Coverage Rule |
 
 ### `StressScenarioResult` (one entry per canonical scenario)
 
@@ -152,6 +153,7 @@ Inherits from `PortfolioEngineRequest`. Adds one field:
 | `max_drawdown_pct` | `float \| None` | `number \| null` | (Computed, not yet surfaced in v1 UI) | synthetic | Yes | `max_drawdown_pct()` helper |
 | `episodes` | `list[DrawdownEpisode]` | `DrawdownEpisode[]` | Top-5 episodes table (bottom half of card) | synthetic | No (empty when unavailable) | §Drawdown episode identification |
 | `trust` | `Literal["synthetic", "unavailable"]` | `'synthetic' \| 'unavailable'` | `TrustBadge` in card header | — | No | §Trust |
+| `coverage` | `SyntheticHistoryCoverage \| None` | `SyntheticHistoryCoverage \| null \| undefined` | `helper` note when the window was truncated or holdings excluded | synthetic | Yes | US-27.7 coverage disclosure — see `financial-methodology.md` §Synthetic History Coverage Rule |
 
 ### `DrawdownDailyPoint`
 
@@ -412,6 +414,7 @@ negative number means the window had no loss days at that confidence.
 | `kurtosis_excess` | `float \| None` | `number \| null` | Distribution shape row (no `%` suffix) | synthetic | Yes | Excess kurtosis `m4 / m2² − 3` (Fisher). `null` when std=0. |
 | `histogram_bins` | `list[HistogramBin]` | `HistogramBin[]` | Recharts BarChart (top half of card) | synthetic | No (empty when unavailable) | 30 bins, range = `[min(r), max(r)]` |
 | `trust` | `Literal["synthetic", "unavailable"]` | `'synthetic' \| 'unavailable'` | `TrustBadge` in card header | — | No | §Trust |
+| `coverage` | `SyntheticHistoryCoverage \| None` | `SyntheticHistoryCoverage \| null \| undefined` | `helper` note when the window was truncated or holdings excluded | synthetic | Yes | US-27.7 coverage disclosure — see `financial-methodology.md` §Synthetic History Coverage Rule |
 
 ### `HistogramBin`
 

@@ -1,3 +1,4 @@
+import { coverageNote } from './coverageNote'
 import { useEffect, useState } from 'react'
 import type { BenchmarkStats, ImportedSnapshot, MultiBenchmarkCorrelationResult } from './types'
 import { runMultiBenchmarkCorrelation } from './portfolioAnalysisAdapter'
@@ -220,7 +221,14 @@ export function BenchmarkCorrelationTable({ snapshot, noShell = false }: Benchma
       )}
 
       {loadState === 'done' && result && result.benchmarks.length > 0 && (
-        <CorrelationDataTable result={result} />
+        <>
+          <CorrelationDataTable result={result} />
+          {coverageNote(result.coverage) ? (
+            <p className="helper" style={{ margin: 'var(--space-md) 0 0 0' }}>
+              {coverageNote(result.coverage)}
+            </p>
+          ) : null}
+        </>
       )}
 
       {loadState === 'done' && (!result || result.benchmarks.length === 0) && (

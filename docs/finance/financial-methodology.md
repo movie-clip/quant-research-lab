@@ -102,6 +102,78 @@ Current adjusted-close verification rule:
 - a history is marked `verified_adjusted_close` only when the required loaded rows explicitly support that claim under the current code path
 - absence of that proof keeps the path degraded or withheld rather than silently upgrading trust
 
+## Synthetic History Coverage Rule
+
+*US-27.7 (audit F8). Applies to both daily-state builders: the synthetic
+snapshot-history convention (`_build_synthetic_snapshot_history_states*` in
+`diagnostics_engine.py` — feeds the stress / drawdown / distribution /
+multi-benchmark-correlation / attribution engines and synthetic diagnostics)
+and the broker replay path (`engine/portfolio_state.py` — dashboard history,
+drift).*
+
+A price is **never fabricated before a symbol's first available quote**. The
+previous implementations back-filled the first quote flat across leading
+dates (and flat-filled the statement close price for symbols with no fetched
+history at all), producing fabricated zero returns that understated
+volatility, VaR, and drawdown and distorted correlations.
+
+```text
+Definitions:
+  first_quote(s)   = earliest in-window quote date for symbol s
+                     (broker path: a REAL quote dated before the window may
+                      seed the carry — that is a carry-forward of an observed
+                      price, not a back-fill)
+  material holding = snapshot weight ≥ SYNTHETIC_COVERAGE_DE_MINIMIS_WEIGHT
+                     (= 0.01; heuristic policy constant in
+                      app/core/constants.py, no academic basis — tune only as
+                      a reviewed change)
+
+Rule:
+  effective_start  = max( first_quote(s) : s material, covered )
+                     (if NO holding clears the de-minimis bar, every covered
+                      holding is treated as material so the window is still
+                      set by real coverage)
+  the state series starts at effective_start; when effective_start >
+    requested start, the limiting symbol is disclosed
+  EXCLUDED from the synthetic universe (and disclosed):
+    - holdings with no in-window price history at all (previously
+      statement-close flat-filled)
+    - sub-de-minimis holdings whose first quote falls after effective_start
+      (including them would fabricate a mid-window entry / weight jump)
+  INTERIOR gaps (missing quotes after the first one) carry the last known
+    price to the next quote — the standard convention for aligning mixed
+    trading calendars; this is carry-forward of an observed price, never a
+    back-fill
+
+Disclosure:
+  SyntheticHistoryCoverage { requested_start_date, effective_start_date,
+    limiting_symbol, excluded_symbols } is emitted by the stress, drawdown,
+  distribution, multi-benchmark-correlation, and attribution engines and
+  rendered by their cards (a `helper` note) whenever the window was
+  truncated or holdings were excluded — never silently.
+
+Broker-path specifics:
+  - the replay window truncates on MATERIAL opening positions' coverage;
+    traded-in positions need no early quotes (quantity is 0 before the BUY)
+  - a symbol with NO fetchable history at all keeps the statement close
+    price as its anchor (broker-truth-adjacent, the last honest value we
+    hold) and does not truncate the window
+  - sub-de-minimis opening holdings with late coverage carry no market price
+    on their pre-coverage days (bounded by the de-minimis weight)
+
+Fail-closed interaction:
+  the MIN_DAILY_OBSERVATIONS floors apply to the EFFECTIVE (post-truncation)
+  series — a window shortened below the floor surfaces `unavailable`
+  (with the coverage disclosure attached), never fabricates data to reach
+  the floor.
+```
+
+Contract rule:
+- coverage disclosure fields ride the same trust class as their engine
+  response (synthetic history); `excluded_symbols` is never collapsed into a
+  generic unavailable state — the researcher must be able to see *which*
+  holdings the analytics do not cover.
+
 ## Portfolio Return Methodology
 
 ### Cash-flow-neutral daily returns

@@ -89,6 +89,7 @@ export function RiskPanel({ snapshot }: RiskPanelProps) {
           trust={trust}
           loading={loading}
           error={error}
+          coverage={stress.kind === 'done' ? stress.response.coverage : null}
         />
         {/* DrawdownAnalyticsCard self-fetches via useEffect on [snapshot,
             selectedWindow]; RiskPanel does not own its state. */}

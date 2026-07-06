@@ -27,3 +27,15 @@ def lookback_calendar_days(window_trading_days: int) -> int:
     e.g. 20 -> 62, 60 -> 126, 252 -> 434.
     """
     return math.ceil(window_trading_days * 1.6) + 30
+
+
+# De-minimis snapshot weight for the synthetic/broker history coverage rule
+# (US-27.7). A holding at or above this share of the snapshot's positions
+# market value is "material": its first available quote may truncate the
+# effective valuation window. Below it, a holding whose price history starts
+# after the effective start is excluded from the replayed universe (and, on
+# the synthetic path, disclosed via SyntheticHistoryCoverage) rather than
+# allowed to truncate a long window or enter mid-window with a fabricated
+# weight jump. Heuristic policy value with no academic basis — tune only as
+# a reviewed change (US-24.2 discipline).
+SYNTHETIC_COVERAGE_DE_MINIMIS_WEIGHT = 0.01

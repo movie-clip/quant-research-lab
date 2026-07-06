@@ -22,12 +22,12 @@ from app.analytics.distribution import (
     compute_var,
 )
 from app.schemas.distribution import DistributionEngineRequest, DistributionEngineResponse
-from app.services.diagnostics_engine import _build_synthetic_snapshot_history_states
+from app.services.diagnostics_engine import _build_synthetic_snapshot_history_states_with_coverage
 from app.services.market_data import MarketDataService
 from app.services.portfolio_snapshot_builder import build_imported_snapshot_from_request
 
 
-def _empty_response(window: int) -> DistributionEngineResponse:
+def _empty_response(window: int, coverage=None) -> DistributionEngineResponse:
     """Fail-closed (unavailable) response. No fabrication — every scalar
     is None, return_count is 0, histogram is empty."""
     return DistributionEngineResponse(
@@ -47,6 +47,7 @@ def _empty_response(window: int) -> DistributionEngineResponse:
         kurtosis_excess=None,
         histogram_bins=[],
         trust="unavailable",
+        coverage=coverage,
     )
 
 
@@ -113,7 +114,7 @@ def run_distribution_engine(request: DistributionEngineRequest) -> DistributionE
         return _empty_response(window)
 
     valuation_dates = sorted({row["date"] for row in benchmark_rows})
-    daily_states = _build_synthetic_snapshot_history_states(
+    daily_states, coverage = _build_synthetic_snapshot_history_states_with_coverage(
         snapshot=snapshot,
         price_histories=symbol_price_histories,
         valuation_dates=valuation_dates,
@@ -121,7 +122,7 @@ def run_distribution_engine(request: DistributionEngineRequest) -> DistributionE
 
     returns = _compute_daily_returns(daily_states)
     if len(returns) < MIN_DAILY_OBSERVATIONS:
-        return _empty_response(window)
+        return _empty_response(window, coverage=coverage)
 
     percentiles = compute_percentiles(returns)
     var_95 = compute_var(returns, 0.95)
@@ -161,4 +162,5 @@ def run_distribution_engine(request: DistributionEngineRequest) -> DistributionE
         kurtosis_excess=shape["kurtosis_excess"],
         histogram_bins=histogram,
         trust="synthetic",
+        coverage=coverage,
     )

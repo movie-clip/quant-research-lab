@@ -83,6 +83,41 @@ describe('StressScenariosCard', () => {
     expect(screen.getAllByText(/Partial estimate/)).toHaveLength(1)
   })
 
+  it('renders the coverage disclosure note when history was truncated (US-27.7)', () => {
+    render(
+      <StressScenariosCard
+        scenarios={populated}
+        trust="synthetic"
+        coverage={{
+          requested_start_date: '2025-01-02',
+          effective_start_date: '2025-03-01',
+          limiting_symbol: 'BBB',
+          excluded_symbols: ['CCC'],
+        }}
+      />,
+    )
+    expect(
+      screen.getByText(/History coverage starts 2025-03-01 — limited by BBB/),
+    ).toBeTruthy()
+    expect(screen.getByText(/excluded \(no usable price history\): CCC/)).toBeTruthy()
+  })
+
+  it('renders no coverage note for full coverage', () => {
+    render(
+      <StressScenariosCard
+        scenarios={populated}
+        trust="synthetic"
+        coverage={{
+          requested_start_date: '2025-01-02',
+          effective_start_date: '2025-01-02',
+          limiting_symbol: null,
+          excluded_symbols: [],
+        }}
+      />,
+    )
+    expect(screen.queryByText(/History coverage starts/)).toBeNull()
+  })
+
   it('renders the ErrorState when an error prop is present', () => {
     render(
       <StressScenariosCard

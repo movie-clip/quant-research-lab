@@ -38,6 +38,7 @@ All fields in this contract are **synthetic history** trust class.
 | `total_portfolio_return_pct` | `float \| None` | `number \| null` | Total Portfolio Return % | synthetic | Yes |
 | `total_unexplained_pct` | `float \| None` | `number \| null` | Unexplained / idiosyncratic % | synthetic | Yes |
 | `methodology_note` | `str` | `string` | Methodology footnote | — | No |
+| `coverage` | `SyntheticHistoryCoverage \| None` | `SyntheticHistoryCoverage \| null \| undefined` | `helper` note when the window was truncated or holdings excluded | synthetic | Yes | US-27.7 coverage disclosure — see `financial-methodology.md` §Synthetic History Coverage Rule |
 
 ### `AttributionSeriesEntry` (one entry per trading date in the cumulative series)
 

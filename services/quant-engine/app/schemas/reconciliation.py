@@ -542,6 +542,24 @@ class DailyStatePosition(BaseModel):
     market_value: float | None
 
 
+class SyntheticHistoryCoverage(BaseModel):
+    """Coverage disclosure for the synthetic snapshot-history convention
+    (US-27.7). Prices are never back-filled before a symbol's first quote;
+    instead the effective window starts at the latest first-quote across
+    material holdings, and holdings that cannot be honestly covered are
+    excluded — both surfaced here, never silently."""
+
+    requested_start_date: str | None = None
+    effective_start_date: str | None = None
+    # Set only when the effective window is SHORTER than requested — the
+    # material holding whose first available quote set the effective start.
+    limiting_symbol: str | None = None
+    # Holdings excluded from the synthetic universe: no in-window price
+    # history at all, or below the de-minimis weight with a first quote
+    # after the effective start (would otherwise force a mid-window entry).
+    excluded_symbols: list[str] = []
+
+
 class DailyPortfolioState(BaseModel):
     date: str
     cash: dict[str, float]
