@@ -76,6 +76,7 @@ Dashboard-history now exposes an explicit run-metadata slice alongside the light
 - `run_metadata.return_basis_contract.benchmark_path`
 - `run_metadata.investor_economics_status`
 - `run_metadata.investor_economics_partial_unlock`
+- `run_metadata.fx_fallback_currencies` (US-27.8)
 - `run_metadata.return_basis_evidence.portfolio_path`
 - `run_metadata.return_basis_evidence.benchmark_path`
 - `run_metadata.reproducibility.input_imported_at`
@@ -255,3 +256,5 @@ Import admission is informational on Dashboard: workspace creation is non-blocki
 - diagnostics/exposure availability semantics remain requirement-oriented: `history_context_required` describes whether the historical sections fundamentally depend on history context, so it can remain `true` even when those sections are successfully available.
 - backend route coverage includes mixed-broker `IB2026.pdf` + `FF2026.pdf` bootstrap/history-context validation plus imported-route unavailable regressions for empty or unsupported benchmark/symbol market-data conditions.
 - backend analytics coverage includes direct `FF2026.pdf` imported dashboard truth assertions for summary metrics, monthly returns, and overview composition, similar in spirit to the stronger `IB2026` truth path.
+
+- `run_metadata.fx_fallback_currencies` (US-27.8 / audit F9): currencies that required base-currency conversion during the ledger replay but had no FX rate — the affected values are carried **unconverted** and this field discloses it (never a silent 1:1 conversion claim); see `financial-methodology.md` §FX Conversion Fallback Disclosure. Currently every non-base position appears here because no engine wires real FX rates yet (Epic 26 scope).

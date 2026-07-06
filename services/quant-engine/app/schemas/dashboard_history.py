@@ -112,6 +112,10 @@ class DashboardHistoryRunMetadata(BaseModel):
     investor_economics_status: InvestorEconomicsStatus
     investor_economics_partial_unlock: DashboardHistoryInvestorEconomicsPartialUnlock
     reproducibility: DashboardHistoryRunReproducibility
+    # US-27.8 (audit F9): currencies needing base conversion with no FX rate
+    # available — affected values are carried UNCONVERTED and this discloses
+    # the degradation (never a silent 1:1 fallback claim).
+    fx_fallback_currencies: list[str] = []
 
 
 class DashboardHistoryResult(BaseModel):

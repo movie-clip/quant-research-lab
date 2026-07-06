@@ -1051,24 +1051,75 @@ start of a window, allowing visual comparison of trajectories regardless of
 absolute price or value level.
 
 ```text
-indexed_t = (value_t / value_0) * 100
+Benchmark line:
+  indexed_t = (price_t / price_0) * 100        (adjusted-close price, day t vs window start)
 
-where:
-  value_t = portfolio total_market_value or benchmark adjusted-close price on day t
-  value_0 = the same on the first available trading day of the window
+Portfolio line (US-27.8 / audit F10 — TWR-indexed, NOT raw market value):
+  indexed_0 = 100
+  indexed_t = indexed_{t-1} * (1 + daily_return_t)
+  daily_return_t = the cash-flow-neutral TWR daily return
+                   (§Portfolio Return Methodology)
+
+  Raw market value is NOT a valid portfolio line: a deposit/withdrawal/trade
+  would draw a move against the benchmark's price line that is not
+  performance. The TWR chain makes the two lines commensurable.
+
+Drift window returns (same basis):
+  window_return_pct = (Π_t (1 + daily_return_t) − 1) × 100
+                      over the window's replayed daily states
+  The drift engine replays the imported broker ledger (opening positions +
+  trades + flows) — its basis label reads "Broker-ledger replay: compounded
+  time-weighted return (cash-flow-neutral)", never the synthetic
+  current-holdings convention (which it does not implement).
 
 Edge cases:
-  value_0 = 0 or null: return null for all points in the series
-  value_t = null (no price for that date): emit null for that point (no interpolation)
+  price_0 = 0 or null: return null for all benchmark points
+  daily_return_t not computable (zero prior value): the portfolio index
+    carries unchanged for that date — no return is claimable, never a
+    fabricated move
+  a date with no portfolio state: portfolio_indexed = null for that point
+    (no interpolation)
 ```
 
 Implementation:
-- `services/quant-engine/app/services/drift_engine.py` — `daily_series` field
-  (partially implemented; full chart rendering added in Epic 9)
+- `services/quant-engine/app/services/drift_engine.py` — `_portfolio_return`
+  (window TWR) + `_build_daily_series` (TWR-indexed chart line)
 
 Contract rule:
 - Indexed series points with null values must be emitted as null, not omitted.
   The frontend renders null as a line break, not a zero.
+
+## FX Conversion Fallback Disclosure
+
+*US-27.8 (audit F9). Applies to the broker replay path
+(`engine/portfolio_state.py` → dashboard history, drift, imported-replay
+diagnostics).*
+
+Non-base-currency values are converted through `fx_history` rates keyed
+`{CURRENCY}{BASE}:{date}`. When a conversion is REQUIRED but no rate is
+available, the value is carried **unconverted** — the only honest number held
+— and the currency is recorded and surfaced:
+
+```text
+fx_fallback_currencies = sorted currencies that required conversion with no
+                         available rate during the replay
+
+Disclosure surfaces:
+  DriftResult.fx_fallback_currencies            → drift panel helper note
+  DashboardHistoryRunMetadata.fx_fallback_currencies
+
+Current state: no engine wires real FX rates yet (every caller passes
+fx_history = {}), so any non-base position always appears in the disclosure.
+Wiring real rates via MarketDataService.get_fx_history requires empirical
+verification of its FMP symbol resolution first (zero callers today) — that
+is Epic 26 scope, deliberately not done here. Until then the degradation is
+EXPLICIT, never a silent 1:1 conversion claim.
+```
+
+Contract rule:
+- a missing FX rate must never be presented as a converted value; the
+  fallback is disclosed per response, and consumers render the degradation
+  (the drift panel's FX helper note).
 
 ## Rolling Pearson Correlation
 

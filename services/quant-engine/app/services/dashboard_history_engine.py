@@ -1,7 +1,7 @@
 from typing import TypedDict, cast
 
 from app.core.constants import DEFAULT_BENCHMARK_SYMBOL
-from app.analytics.performance import build_daily_portfolio_states, build_true_performance_series
+from app.analytics.performance import build_daily_portfolio_states_with_fx_disclosure, build_true_performance_series
 from app.analytics.risk import (
     _build_drawdown_from_return_index,
     _build_wealth_index,
@@ -456,7 +456,7 @@ def run_imported_dashboard_history(
         )
 
     valuation_dates = sorted({row["date"] for row in benchmark_rows})
-    daily_states = build_daily_portfolio_states(
+    daily_states, fx_fallback_currencies = build_daily_portfolio_states_with_fx_disclosure(
         snapshot=snapshot,
         price_histories=symbol_price_histories,
         valuation_dates=valuation_dates,
@@ -535,6 +535,7 @@ def run_imported_dashboard_history(
             portfolio_proof=portfolio_proof,
             investor_economics_status=_build_dashboard_investor_economics_status(),
             investor_economics_partial_unlock=_build_dashboard_investor_economics_partial_unlock(),
+            fx_fallback_currencies=fx_fallback_currencies,
             reproducibility=DashboardHistoryRunReproducibility(
                 input_imported_at=snapshot.statement.imported_at.isoformat() if snapshot.statement.imported_at is not None else None,
                 snapshot_as_of_date=_derive_snapshot_as_of_date(snapshot),
