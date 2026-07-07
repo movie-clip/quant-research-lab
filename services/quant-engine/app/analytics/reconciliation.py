@@ -7,10 +7,25 @@ def _statement_stock_total_in_base(snapshot: ImportedPortfolioSnapshot) -> float
     if snapshot.statement_totals is None or snapshot.statement_totals.stock_total is None:
         return None
 
-    eur_usd = snapshot.statement_totals.fx_rates.get("EURUSD", 1.0)
-    eur_positions = sum(position.market_value for position in snapshot.positions if position.currency == "EUR")
-    usd_positions = sum(position.market_value for position in snapshot.positions if position.currency == "USD")
-    return round(usd_positions + eur_positions * eur_usd, 2)
+    # Convert each currency through the statement's own fx_rates. EUR keeps its
+    # legacy default of 1.0 when no rate exists (the PDF path's behavior); any
+    # other non-USD currency without a rate stays excluded from the sum,
+    # exactly as before US-28.1 — so PDF snapshots reconcile identically,
+    # while the CSV path (which supplies implied per-currency rates from the
+    # statement's own Open Positions totals) converts them all.
+    fx_rates = snapshot.statement_totals.fx_rates
+    total = 0.0
+    for position in snapshot.positions:
+        if position.currency == "USD":
+            total += position.market_value
+            continue
+        rate = fx_rates.get(f"{position.currency}USD")
+        if rate is None:
+            if position.currency != "EUR":
+                continue
+            rate = 1.0
+        total += position.market_value * rate
+    return round(total, 2)
 
 
 def _negative_withholding_total(snapshot: ImportedPortfolioSnapshot) -> float:
@@ -25,11 +40,11 @@ def _negative_withholding_total(snapshot: ImportedPortfolioSnapshot) -> float:
         ],
         key=lambda item: (item.date, item.symbol or "", item.gross_amount or 0),
     ):
+        # Credit-interest withholding counts: IBKR's own Withholding Tax total
+        # includes it on every statement that has such rows (2023–2026,
+        # verified US-28.1) — the former "Credit Interest" exclusion made the
+        # check fail against the statement's own number.
         amount = round(entry.gross_amount or 0, 2)
-        description = entry.description or ""
-
-        if "Credit Interest" in description:
-            continue
 
         if amount > 0:
             running_total -= amount

@@ -16,5 +16,6 @@ def statement_fixture_path(*candidates: str) -> Path:
 
 STATEMENT_2025_PATH = statement_fixture_path("2025.pdf", "IB2025.pdf", "U8516450_2025_2025.pdf")
 STATEMENT_2026_PATH = statement_fixture_path("2026.pdf", "IB2026.pdf")
+STATEMENT_2026_CSV_PATH = statement_fixture_path("IB2026.csv")
 FREEDOM24_PATH = statement_fixture_path("FF2026.pdf")
 ESPP_PATH = statement_fixture_path("ESPP.pdf", "ESPP2026.pdf")
