@@ -332,3 +332,32 @@ class TestIntraCorrelationRoute:
         }
         assert data["lookback_days"] == 60
         assert data["trust"] in ("synthetic", "unavailable")
+
+
+def test_diversification_ratio_holds_dr_ge_1_under_ragged_coverage(mocker):
+    """US-27.9 (audit F13a) — σᵢ and σ_p must share the complete-case date
+    set. Fixture: AAA has 12 leading near-zero returns then 27 big ±2% moves;
+    BBB covers only the late window with the SAME ±2% series (ρ = 1, equal
+    complete-case σ). Correct DR = 1.0 exactly. The pre-fix code computed
+    σ_AAA over ALL 39 returns (diluted by the near-zero head ≈ 0.0166),
+    giving DR ≈ 0.916 < 1 — violating the documented long-only guarantee."""
+    from datetime import date as _date
+
+    big = [0.02 if i % 2 == 0 else -0.02 for i in range(27)]
+    tiny = [0.0001 if i % 2 == 0 else -0.0001 for i in range(12)]
+    histories = {
+        "AAA": price_rows_from_returns(tiny + big),                       # rows from 2025-01-01
+        "BBB": price_rows_from_returns(big, start=_date(2025, 1, 13)),    # covers the late window only
+        "SPY": price_rows(40, step=1.0),
+    }
+    install_market_data_mock(
+        mocker, "app.services.intra_correlation_engine", histories=histories,
+    )
+
+    res = run_intra_correlation(_request([
+        _position("AAA", 500.0), _position("BBB", 500.0),
+    ]))
+
+    assert res.trust == "synthetic"
+    assert res.diversification_ratio is not None
+    assert res.diversification_ratio == pytest.approx(1.0, abs=1e-9)

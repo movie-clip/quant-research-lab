@@ -92,6 +92,27 @@ Primary implementation:
 Important financial rule:
 - return-based analytics should use adjusted-close or stronger total-return-equivalent inputs whenever economically required
 
+Row `price`-field basis (US-27.9 / audit F13b — verified empirically against
+the committed frozen capture of real provider data,
+`app/scripts/golden_market_data.json`, 2026-07-05):
+- **Yahoo-fallback rows** set `price = adjClose` by construction
+  (`yfinance_client.py`); verified in the capture — `max |price − adjClose|
+  = 0.0` across all 9 Yahoo-sourced symbols.
+- **FMP `historical-price-eod/light` rows** carry `adjClose` on some fetch
+  paths (the verified-benchmark SPY path *requires* non-null `adjClose`);
+  where `adjClose` is absent, `price` alone is classified
+  `unverified_close_only` by `select_history_price_series` — its adjustment
+  basis is *indicated* as adjusted (historical values re-adjust across
+  fetches, the signature of an adjusted series — the US-21.4 golden-churn
+  root cause) but is not provable from the row shape.
+- Engines that consume `row["price"]` directly (the correlation /
+  intra-correlation engines, the daily-state builders) therefore inherit the
+  provider's basis: verified-adjusted where Yahoo-sourced, unverified
+  otherwise. Their responses are synthetic-history trust and never claim a
+  verified return basis, so this is consistent with the degradation ladder.
+  No adjClose ≠ price row has been observed in the capture; if one appears,
+  prefer `select_history_price_series` at that call site.
+
 Current shipped hardening state:
 - diagnostics degrades benchmark and factor source semantics to `live_market_data_unverified_return_basis` when adjusted-close trust is not proven
 - diagnostics run-level confidence degrades when those paths remain unverified
@@ -483,6 +504,28 @@ Contract rule:
   invariant in §Value-at-Risk and Distribution)
 
 ## Volatility and Relative Risk
+
+### Standard-deviation denominator conventions (US-27.9 / audit F12)
+
+Two denominator conventions deliberately coexist, per module:
+
+```text
+analytics/risk.py            sample (N−1)     realized vol, downside vol,
+                                              tracking error, β/ρ helpers
+analytics/correlation.py     population (N)   pearson/beta/R², per-holding σ,
+                                              Diversification Ratio inputs
+analytics/distribution.py    population (N)   distribution shape (documented
+                                              in §Value-at-Risk and Distribution)
+```
+
+Ratio statistics (β, ρ, R², IR) are invariant to the choice — the denominator
+cancels. Stdev-LEVEL outputs (vol %, tracking error %, DR inputs) differ by
+the factor √(N/(N−1)) between surfaces for the same window (≈ 0.8% at N=60,
+≈ 0.2% at N=252). Decision (US-27.9): DOCUMENT rather than standardize —
+each module is internally consistent, cross-module ratio comparisons are
+unaffected, and a global change would churn every pinned value and golden
+for sub-percent display differences with no decision-relevant content.
+Do not mix the two conventions inside one formula.
 
 ### Annualized realized volatility
 
@@ -1338,12 +1381,16 @@ DR(w) = ( Σ_i w_i × σ_i(w) ) / σ_p(w)
 
 where:
   w_i    = current weight of holding i (market value / total priceable market value)
-  σ_i(w) = population stdev of holding i's daily returns over the window
+  σ_i(w) = population stdev of holding i's daily returns over the COMPLETE-CASE
+           dates (dates where every selected holding has a non-null return) —
+           the same date set as σ_p (US-27.9 / audit F13: computing σ_i over
+           each holding's own coverage while σ_p uses complete-case dates can
+           break the DR ≥ 1 guarantee under ragged coverage)
   σ_p(w) = population stdev of the synthetic portfolio daily return series under
-           *constant current weights*: r_p(t) = Σ_i w_i × r_i(t), defined only on
-           dates where every selected holding has a non-null return. This is the
-           coherent DR denominator (guarantees DR ≥ 1 for long-only weights) and
-           is self-consistent with the w_i and σ_i used in the numerator.
+           *constant current weights*: r_p(t) = Σ_i w_i × r_i(t), over the same
+           complete-case dates. This is the coherent DR denominator (guarantees
+           DR ≥ 1 for long-only weights) and is self-consistent with the w_i
+           and σ_i used in the numerator.
 
 Edge cases:
   σ_p(w) = 0, or fewer than MIN_PAIR_OBSERVATIONS (20) constant-weight portfolio

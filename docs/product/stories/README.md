@@ -32,7 +32,7 @@ Recommended build order: 28.1 → 28.2 → 28.3.
 
 ---
 
-### Epic 27 — Financial Calculation Correctness (active)
+### Epic 27 — Financial Calculation Correctness (complete)
 
 PRD: [`prd/epic-27-financial-calculation-correctness.md`](../prd/epic-27-financial-calculation-correctness.md)
 (the PRD's audit-findings table F1–F13 is the canonical record; each story cites its findings)
@@ -47,7 +47,7 @@ PRD: [`prd/epic-27-financial-calculation-correctness.md`](../prd/epic-27-financi
 | [US-27.6](US-27.6-null-collinear-factors-in-window-orthogonalization.md) | Null collinear factors in per-window orthogonalization | Collinear factor is kept raw → arbitrary ridge-split loadings + broken later-factor orthogonalization; doc says skip-with-null | Done |
 | [US-27.7](US-27.7-stop-flat-backfill-synthetic-history.md) | Stop flat back-filling synthetic history before first quote | `first_price` back-fill fabricates zero returns → understated vol/VaR/drawdown; coverage disclosure instead | Done |
 | [US-27.8](US-27.8-fx-fallback-trust-and-drift-return-basis.md) | Surface FX-fallback trust + fix drift-window return basis | Missing FX rate silently converts 1:1 (drift always passes `fx_history={}`); drift return uses raw market value, not TWR | Done |
-| [US-27.9](US-27.9-low-severity-consistency-tail.md) | Low-severity tail | Fabricated 0.0 performance points → null; stdev-convention documentation; DR self-consistency + FMP `price` basis verification | Backlog |
+| [US-27.9](US-27.9-low-severity-consistency-tail.md) | Low-severity tail | Fabricated 0.0 performance points → null; stdev-convention documentation; DR self-consistency + FMP `price` basis verification | Done |
 
 Recommended build order: 27.1 → 27.2 → 27.3 → 27.4/27.5/27.6 → 27.7 → 27.8 → 27.9.
 
