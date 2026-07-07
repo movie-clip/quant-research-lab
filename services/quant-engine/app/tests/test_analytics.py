@@ -18,7 +18,7 @@ from app.core.constants import DEFAULT_BENCHMARK_SYMBOL, MIN_DAILY_OBSERVATIONS,
 from app.core.symbols import canonicalize_symbol
 from app.domain.ledger import reconstruct_position_lots, snapshot_to_ledger
 from app.engine.portfolio_state import PortfolioStateEngine
-from app.importers.interactive_brokers import import_statement
+from app.services.statement_importer import import_statement
 from app.instruments import InstrumentRegistry
 from app.schemas.imports import (
     ImportedCashBalance,
@@ -54,10 +54,11 @@ from app.services.statement_importer import import_statements
 from app.tests._statement_fixtures import (
     ESPP_PATH as ESPP_FIXTURE_PATH,
     FREEDOM24_PATH as FREEDOM24_FIXTURE_PATH,
-    STATEMENT_2026_PATH as STATEMENT_2026_FIXTURE_PATH,
+    STATEMENT_2026_CSV_PATH as STATEMENT_2026_FIXTURE_PATH,
 )
 
 
+# US-28.2: the CSV export is the canonical current IB statement.
 STATEMENT_2026_PATH = STATEMENT_2026_FIXTURE_PATH
 
 
@@ -7014,7 +7015,8 @@ def test_ib2026_dashboard_contract_stays_self_consistent_for_real_statement(mock
 
     assert snapshot.statement.account_id == "U8516450"
     assert snapshot.statement.statement_period is not None
-    assert snapshot.statement.statement_period.startswith("January 1, 2026 - ")
+    # US-28.2 statement-truth pin: the CSV importer normalizes the period to ISO.
+    assert snapshot.statement.statement_period.startswith("2026-01-01 - ")
     assert snapshot.statement_totals is not None
     assert visible_summary["end_value"] == round(snapshot.statement_totals.ending_nav or 0, 2)
     assert visible_summary["end_value"] == round(history.daily_states[-1].total_portfolio_value, 2)

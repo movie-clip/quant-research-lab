@@ -72,7 +72,8 @@ The Risk tab uses the same Epic 12 design-system primitives as Exposure (`CardSh
 ## Import workflow
 
 The researcher imports statements via the Import flow:
-- Supported importers: Interactive Brokers (IBKR — PDF, plus an Activity-Statement CSV parser shipped US-28.1, end-to-end wiring lands with US-28.2), Freedom24, ESPP
+- Supported importers: Interactive Brokers (IBKR — Activity-Statement CSV is the canonical current format, imported end-to-end since US-28.2; PDF chain remains for legacy 2022–2025 statements), Freedom24 (PDF), ESPP (PDF)
+- The desktop file picker accepts `.pdf` and `.csv`; the golden pipeline and `scripts/refresh_statement.py` key off `docs/IB2026.csv`
 - Import produces an `ImportedPortfolioSnapshot` with positions, ledger, reconciliation checks
 - Multiple statements can be stacked as snapshot nodes; the researcher selects which to analyze
 - Import Admission Review: a local review of data quality issues (non-financial, desktop-only)

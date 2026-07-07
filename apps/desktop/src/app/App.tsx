@@ -134,12 +134,17 @@ function mergeHistoryContext(
   }
 }
 
+function statementMimeType(fileName: string) {
+  return fileName.toLowerCase().endsWith('.csv') ? 'text/csv' : 'application/pdf'
+}
+
 function buildImportFormData(files: File[]) {
   const formData = new FormData()
   for (const file of files) {
-    const normalizedFile = file.type === 'application/pdf'
+    const expectedType = statementMimeType(file.name)
+    const normalizedFile = file.type === expectedType
       ? file
-      : new File([file], file.name, { type: 'application/pdf', lastModified: file.lastModified })
+      : new File([file], file.name, { type: expectedType, lastModified: file.lastModified })
     formData.append('statement_files', normalizedFile, normalizedFile.name)
   }
   formData.append('benchmark_symbol', 'SPY')
@@ -176,13 +181,13 @@ function createTauriImportError(detail: string) {
 
 function mapTauriAnalyzeUploadError(error: unknown, timedOut: boolean) {
   if (timedOut) {
-    return createTauriImportError('the local import service timed out while analyzing the selected PDF files')
+    return createTauriImportError('the local import service timed out while analyzing the selected statement files')
   }
   if (error instanceof DOMException && error.name === 'AbortError') {
-    return createTauriImportError('the local import service stopped before the selected PDF files could be analyzed')
+    return createTauriImportError('the local import service stopped before the selected statement files could be analyzed')
   }
   if (error instanceof TypeError) {
-    return createTauriImportError('unable to reach the local import service while analyzing the selected PDF files')
+    return createTauriImportError('unable to reach the local import service while analyzing the selected statement files')
   }
   return error
 }
@@ -195,17 +200,20 @@ async function resolveTauriImportFiles(): Promise<File[]> {
   const selection = normalizeTauriDialogSelection(await open({
     multiple: true,
     directory: false,
-    filters: [{ name: 'PDF Statements', extensions: ['pdf'] }],
+    filters: [{ name: 'Broker Statements', extensions: ['pdf', 'csv'] }],
   }))
-  const pdfPaths = selection.filter((path) => path.toLowerCase().endsWith('.pdf'))
+  const statementPaths = selection.filter((path) => {
+    const lowered = path.toLowerCase()
+    return lowered.endsWith('.pdf') || lowered.endsWith('.csv')
+  })
 
-  return Promise.all(pdfPaths.map(async (path) => {
+  return Promise.all(statementPaths.map(async (path) => {
     const bytes = await readFile(path)
     const fileName = resolveFileNameFromPath(path)
     if (!bytes.length) {
-      throw createTauriImportError(`could not read "${fileName}" because the selected PDF was empty`)
+      throw createTauriImportError(`could not read "${fileName}" because the selected statement was empty`)
     }
-    return new File([bytes], fileName, { type: 'application/pdf' })
+    return new File([bytes], fileName, { type: statementMimeType(fileName) })
   }))
 }
 
@@ -851,7 +859,7 @@ export function App() {
         </div>
       </header>
 
-      <input ref={fileInputRef} type="file" accept="application/pdf,.pdf" hidden multiple onChange={handleImportFileChange} />
+      <input ref={fileInputRef} type="file" accept="application/pdf,.pdf,text/csv,.csv" hidden multiple onChange={handleImportFileChange} />
 
       <nav className="tab-bar main-menu" aria-label="Main workspace tabs">
         {appTabs.map((appTab) => (

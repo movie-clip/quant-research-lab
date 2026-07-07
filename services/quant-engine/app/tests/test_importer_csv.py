@@ -21,6 +21,10 @@ from app.importers.interactive_brokers_csv import (
     import_statement,
     preview_csv_statement,
 )
+from app.services.statement_importer import (
+    import_statement as route_import_statement,
+    import_statements,
+)
 from app.tests._statement_fixtures import STATEMENT_2025_PATH, STATEMENT_2026_CSV_PATH
 
 
@@ -285,6 +289,42 @@ def test_parse_number_handles_quoted_thousands_and_missing_sentinel() -> None:
         _parse_number("")
     with pytest.raises(ValueError):
         _parse_number(None)
+
+
+# ── US-28.2: statement_importer routing ──────────────────────────────────────
+
+def test_statement_importer_routes_csv_to_ibkr_csv_importer() -> None:
+    snapshot = route_import_statement(STATEMENT_2026_CSV_PATH)
+    assert snapshot.statement.detected_format == "csv"
+    assert snapshot.statement.importer == "interactive_brokers"
+    assert snapshot.statement.account_id == EXPECTED_ACCOUNT
+
+
+def test_statement_importer_rejects_non_ibkr_csv(tmp_path: Path) -> None:
+    other = tmp_path / "other.csv"
+    other.write_text("Statement,Header,Field Name,Field Value\nStatement,Data,BrokerName,Some Other Broker\n")
+    with pytest.raises(ValueError, match="does not look like an Interactive Brokers"):
+        route_import_statement(other)
+
+
+def test_statement_importer_rejects_unsupported_suffix(tmp_path: Path) -> None:
+    xml = tmp_path / "statement.xml"
+    xml.write_text("<statement/>")
+    with pytest.raises(ValueError, match="Only PDF or CSV broker statements"):
+        route_import_statement(xml)
+
+
+def test_combine_legacy_pdf_with_csv_terminal_statement() -> None:
+    combined = import_statements([STATEMENT_2025_PATH, STATEMENT_2026_CSV_PATH])
+    assert len(combined.statements) == 2
+    assert {s.detected_format for s in combined.statements} == {"pdf", "csv"}
+    # Same account: the CSV (later period) is the terminal snapshot, so the
+    # combined positions are the CSV's per-currency Open Positions.
+    assert combined.statement.account_id == EXPECTED_ACCOUNT
+    assert combined.statement.detected_format == "csv"
+    assert len(combined.positions) == EXPECTED_POSITION_COUNT
+    assert combined.statement.statement_period is not None
+    assert combined.statement.statement_period.endswith("2026-06-30")
 
 
 def test_read_records_handles_bom_quoting_and_header_restatement(tmp_path: Path) -> None:
