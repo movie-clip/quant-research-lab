@@ -1,14 +1,19 @@
-fastapi
-uvicorn
-numpy
-yfinance
-pydantic
-pypdf
-python-multipart
-httpx
-pydantic-settings
-python-dotenv
-pytest
-pytest-mock
-pytest-socket
-pytest-xdist
+# Pinned to the locally-verified versions so CI runs exactly what was tested
+# (the suite's route-introspection and golden tests are sensitive to FastAPI/
+# pydantic internals). When upgrading: bump the pin, run the full suite, commit
+# both together.
+fastapi==0.119.1
+starlette==0.48.0
+uvicorn==0.38.0
+numpy==2.3.4
+yfinance==0.2.66
+pydantic==2.12.3
+pypdf==6.9.1
+python-multipart==0.0.20
+httpx==0.28.1
+pydantic-settings==2.13.1
+python-dotenv==1.1.1
+pytest==9.0.3
+pytest-mock==3.15.1
+pytest-socket==0.8.0
+pytest-xdist==3.8.0

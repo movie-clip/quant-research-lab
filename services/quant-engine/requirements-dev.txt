@@ -3,5 +3,5 @@
 # Dead-code detection (Epic 23): ruff catches unused imports/locals/redefinitions
 # (in-file); vulture catches whole-program unused functions/classes/attributes.
 -r requirements.txt
-ruff
-vulture
+ruff==0.15.17
+vulture==2.16
