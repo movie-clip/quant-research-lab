@@ -99,12 +99,21 @@ def build_true_performance_series(
     previous_state: DailyPortfolioState | None = None
     for state in daily_states:
         benchmark_price = benchmark_by_date.get(state.date)
-        portfolio_return_pct = 0.0
-        if previous_state is not None:
-            daily_return = _time_weighted_daily_return(previous_state, state)
-            if daily_return is not None and portfolio_return_basis_contract == "verified_total_return":
-                cumulative_growth *= 1 + daily_return
-                portfolio_return_pct = round((cumulative_growth - 1) * 100, 2)
+        # US-27.9 (audit F11): never fabricate a plausible-looking 0.0 —
+        # an unverified return basis suppresses the whole cumulative series
+        # (null, explicit withholding), and a mid-series day whose prior
+        # value is zero has no claimable return (null point; the chain
+        # resumes on the next computable day). Only the verified series'
+        # first point is a genuine 0.0 (the cumulative anchor).
+        portfolio_return_pct: float | None = None
+        if portfolio_return_basis_contract == "verified_total_return":
+            if previous_state is None:
+                portfolio_return_pct = 0.0
+            else:
+                daily_return = _time_weighted_daily_return(previous_state, state)
+                if daily_return is not None:
+                    cumulative_growth *= 1 + daily_return
+                    portfolio_return_pct = round((cumulative_growth - 1) * 100, 2)
         benchmark_return_pct = (
             round(((benchmark_price / benchmark_start_price) - 1) * 100, 2)
             if benchmark_price is not None and benchmark_start_price != 0 and resolved_benchmark_return_basis_contract == "verified_total_return"

@@ -3184,8 +3184,9 @@ def test_build_true_performance_series_refuses_compounded_portfolio_and_benchmar
         benchmark_return_basis_contract="price_return_only",
     )
 
-    assert series[1].portfolio_return_pct == 0.0
-    assert series[2].portfolio_return_pct == 0.0
+    # US-27.9 (audit F11): refusal is an explicit null, never a fabricated
+    # 0.0 that reads as a real "0% cumulative return".
+    assert all(point.portfolio_return_pct is None for point in series)
     assert series[2].benchmark_return_pct is None
 
 
@@ -3207,9 +3208,57 @@ def test_build_true_performance_series_refuses_compounded_portfolio_and_benchmar
         benchmark_return_basis_contract="unverified_adjusted_proxy",
     )
 
-    assert series[1].portfolio_return_pct == 0.0
-    assert series[2].portfolio_return_pct == 0.0
+    # US-27.9 (audit F11): refusal is an explicit null, never a fabricated 0.0.
+    assert all(point.portfolio_return_pct is None for point in series)
     assert series[2].benchmark_return_pct is None
+
+
+def test_build_true_performance_series_verified_first_point_is_a_real_zero_anchor() -> None:
+    """US-27.9 (audit F11) — under a VERIFIED basis the first point's 0.0 is
+    the genuine cumulative anchor (not fabrication); subsequent points are the
+    real chain."""
+    states = [
+        DailyPortfolioState(date="2025-01-02", cash={"USD": 1000.0}, positions=[], total_market_value=0.0, total_portfolio_value=1000.0, external_cash_flow=0.0),
+        DailyPortfolioState(date="2025-01-03", cash={"USD": 1030.0}, positions=[], total_market_value=0.0, total_portfolio_value=1030.0, external_cash_flow=0.0),
+    ]
+    series = build_true_performance_series(
+        states,
+        [
+            {"date": "2025-01-02", "price": 100.0, "adjClose": 100.0},
+            {"date": "2025-01-03", "price": 101.0, "adjClose": 101.0},
+        ],
+    )
+
+    assert series[0].portfolio_return_pct == 0.0
+    assert series[1].portfolio_return_pct == 3.0
+
+
+def test_build_true_performance_series_zero_prior_value_day_is_null_and_chain_resumes() -> None:
+    """US-27.9 (audit F11) — a mid-series day whose prior value is zero has
+    no claimable return: that point is null (never a bogus 0.0 reset) and the
+    cumulative chain resumes on the next computable day."""
+    states = [
+        DailyPortfolioState(date="2025-01-02", cash={"USD": 1000.0}, positions=[], total_market_value=0.0, total_portfolio_value=1000.0, external_cash_flow=0.0),
+        DailyPortfolioState(date="2025-01-03", cash={"USD": 1100.0}, positions=[], total_market_value=0.0, total_portfolio_value=1100.0, external_cash_flow=0.0),  # +10%
+        DailyPortfolioState(date="2025-01-04", cash={"USD": 0.0}, positions=[], total_market_value=0.0, total_portfolio_value=0.0, external_cash_flow=0.0),
+        DailyPortfolioState(date="2025-01-05", cash={"USD": 1210.0}, positions=[], total_market_value=0.0, total_portfolio_value=1210.0, external_cash_flow=0.0),
+    ]
+    series = build_true_performance_series(
+        states,
+        [
+            {"date": "2025-01-02", "price": 100.0, "adjClose": 100.0},
+            {"date": "2025-01-03", "price": 101.0, "adjClose": 101.0},
+            {"date": "2025-01-04", "price": 102.0, "adjClose": 102.0},
+            {"date": "2025-01-05", "price": 103.0, "adjClose": 103.0},
+        ],
+    )
+
+    assert series[0].portfolio_return_pct == 0.0
+    assert series[1].portfolio_return_pct == 10.0
+    # Day 3: value collapsed to 0 — its return exists (−100%) and compounds…
+    assert series[2].portfolio_return_pct == -100.0
+    # …day 4's prior value is 0: no claimable return → null point, chain holds.
+    assert series[3].portfolio_return_pct is None
 
 
 def test_run_imported_dashboard_history_refuses_drawdown_loss_metrics_for_price_only_basis(mocker) -> None:

@@ -161,24 +161,38 @@ def run_intra_correlation(request: IntraCorrelationRequest) -> IntraCorrelationR
     total_weight = sum(raw_weights)
     weights = [w / total_weight for w in raw_weights] if total_weight > 0 else []
 
-    # Per-holding standalone volatilities (population stdev of daily returns).
-    sigmas = [population_stdev(returns_by_symbol[sym]) for sym in selected]
+    # US-27.9 (audit F13a): σᵢ and σ_p must be computed over the SAME
+    # complete-case date set (dates where every selected holding has a
+    # return) — the DR ≥ 1 guarantee for long-only weights only holds when
+    # the numerator's σᵢ and the denominator's σ_p share one sample. The
+    # previous code computed each σᵢ over the holding's own coverage, which
+    # could break the guarantee under ragged coverage.
+    n_dates = len(valuation_dates)
+    complete_case_indices = [
+        idx for idx in range(n_dates)
+        if all(returns_by_symbol[sym][idx] is not None for sym in selected)
+    ]
+
+    # Per-holding standalone volatilities over the complete-case dates.
+    sigmas = [
+        population_stdev([returns_by_symbol[sym][idx] for idx in complete_case_indices])
+        for sym in selected
+    ]
 
     # Synthetic portfolio daily return under *constant current weights*:
-    # r_p(t) = Σ wᵢ rᵢ(t), defined only on dates where every selected holding has
-    # a return. This is the coherent DR denominator (guarantees DR ≥ 1) and is
-    # consistent with the weights/σ used in the numerator.
-    portfolio_returns: list[float | None] = []
-    n_dates = len(valuation_dates)
-    for idx in range(n_dates):
-        components = [returns_by_symbol[sym][idx] for sym in selected]
-        if weights and all(c is not None for c in components):
-            portfolio_returns.append(sum(w * c for w, c in zip(weights, components)))  # type: ignore[misc]
-        else:
-            portfolio_returns.append(None)
-    non_null_portfolio = sum(1 for r in portfolio_returns if r is not None)
+    # r_p(t) = Σ wᵢ rᵢ(t), over the same complete-case dates. This is the
+    # coherent DR denominator (guarantees DR ≥ 1) and is self-consistent
+    # with the weights/σ used in the numerator.
+    portfolio_returns: list[float | None] = [None] * n_dates
+    for idx in complete_case_indices:
+        if weights:
+            portfolio_returns[idx] = sum(
+                w * returns_by_symbol[sym][idx] for w, sym in zip(weights, selected)  # type: ignore[misc]
+            )
     portfolio_stdev = (
-        population_stdev(portfolio_returns) if non_null_portfolio >= MIN_DAILY_OBSERVATIONS else None
+        population_stdev(portfolio_returns)
+        if len(complete_case_indices) >= MIN_DAILY_OBSERVATIONS
+        else None
     )
 
     dr = diversification_ratio(weights, sigmas, portfolio_stdev)

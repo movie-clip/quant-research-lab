@@ -1,6 +1,6 @@
 # Epic 27 — Financial Calculation Correctness
 
-**Status:** Active (started 2026-07-05)
+**Status:** Completed (2026-07-05 — all 9 stories done; findings F1–F13 resolved/documented)
 **Created:** 2026-07-05
 **Seeded by:** A full financial-calculations audit of the analytics + engine
 layer against `docs/finance/financial-methodology.md` (2026-07-05). Findings
@@ -78,7 +78,7 @@ bugs through.
 | US-27.6 | Null (don't keep raw) collinear factors in per-window orthogonalization | F7 — **Resolved 2026-07-05** | Med |
 | US-27.7 | Stop flat back-filling synthetic history before a symbol's first quote | F8 — **Resolved 2026-07-05** | Med |
 | US-27.8 | Surface FX-fallback trust + fix the drift-window return basis | F9, F10 — **Resolved 2026-07-05** | Med |
-| US-27.9 | Low-severity tail: fabricated 0.0 points, stdev conventions, DR/return-basis consistency | F11–F13 | Low |
+| US-27.9 | Low-severity tail: fabricated 0.0 points, stdev conventions, DR/return-basis consistency | F11–F13 — **Resolved/Documented 2026-07-05** | Low |
 
 Recommended order: 27.1 → 27.2 → 27.3 (the three "wrong number today" fixes,
 each small and independent), then 27.4/27.5/27.6 (factor-model semantics),
