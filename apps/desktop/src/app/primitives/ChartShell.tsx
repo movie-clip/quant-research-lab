@@ -12,6 +12,7 @@
  *     <ComposedChart data={data} margin={...}>...</ComposedChart>
  *   </ChartShell>
  */
+import { useEffect, useState } from 'react'
 import { ResponsiveContainer } from 'recharts'
 import type { ReactElement } from 'react'
 
@@ -25,11 +26,35 @@ export type ChartShellProps = {
 }
 
 export function ChartShell({ ariaLabel, height = 260, children }: ChartShellProps) {
+  // US-27.1: ResponsiveContainer measures its container synchronously in its
+  // own mount effect. If that measurement races a same-commit DOM insertion
+  // of several other new cards (e.g. right after an import resolves and
+  // multiple cards flip from empty-state to populated together), it can read
+  // a degenerate size — and ResizeObserver only fires on a subsequent change,
+  // never to self-correct a bad first read, so the chart can stay blank until
+  // something else (a reload) forces a fresh measurement.
+  //
+  // Deferring the chart's mount by one tick gives layout a chance to settle
+  // before ResponsiveContainer measures. This MUST be a `setTimeout`, not
+  // `requestAnimationFrame`: rAF is tied to the next paint and is paused
+  // indefinitely while the document is hidden (`document.hidden`) — exactly
+  // what happens when Tauri's native file-picker dialog blurs the webview
+  // during import, which is precisely when this defer needs to fire. A
+  // `setTimeout(fn, 0)` macrotask fires regardless of visibility, since
+  // layout itself is computed synchronously independent of paint.
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    const timer = setTimeout(() => setReady(true), 0)
+    return () => clearTimeout(timer)
+  }, [])
+
   return (
     <div style={{ height }} role="img" aria-label={ariaLabel}>
-      <ResponsiveContainer width="100%" height="100%">
-        {children}
-      </ResponsiveContainer>
+      {ready && (
+        <ResponsiveContainer width="100%" height="100%">
+          {children}
+        </ResponsiveContainer>
+      )}
     </div>
   )
 }
