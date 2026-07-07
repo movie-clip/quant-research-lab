@@ -57,7 +57,7 @@ Import admission rule:
 - numeric admission evidence must be finite-only; non-finite imported numeric inputs become unavailable/degraded evidence rather than serialized `NaN` or `Infinity`
 
 Importer resilience rule:
-- the PDF importers are **fail-safe**: a malformed/non-numeric record is
+- the importers are **fail-safe**: a malformed/non-numeric record is
   skipped and parsing continues, so a layout drift yields a *partial*
   snapshot rather than a crash or a silently mis-parsed value. A dropped
   record is never fabricated or zero-filled — it simply does not appear, and
@@ -78,9 +78,34 @@ Importer resilience rule:
   unreachable failure would be unjustified complexity. ESPP's existing
   hard-fail when the statement structure doesn't match at all (it is scoped
   to one specific statement shape) remains the correct behavior.
+- Interactive Brokers CSV (US-28.1,
+  `app/importers/interactive_brokers_csv.py`): parses the machine-readable
+  Activity-Statement CSV export (`utf-8-sig`, stdlib `csv`, per-section
+  column headers with mid-file Header restatement support). Each record is
+  parsed per-row inside a `try/except ValueError` plus explicit
+  currency/discriminator screens, so a malformed cell (`--` where a number
+  belongs, a non-numeric quantity, a truncated row, an invalid calendar
+  date) drops that record only. Statement totals map from the statement's
+  own `Change in NAV` / `Net Asset Value` sections and are stored as
+  absolute values (the shared `ImportedStatementTotals` convention); signs
+  live on the ledger entries. Non-base amounts keep their own currency —
+  the importer does not convert (US-27.8 owns FX trust semantics).
 
 Statement reconciliation & activity scoping rule:
 - the statement reconciliation summary (`build_reconciliation_summary`) and the monthly activity series (`build_activity_series`) are scoped to the **imported statement(s)' ledger** as produced by `snapshot_to_ledger` — there is no hardcoded calendar year; the activity series buckets every ledger entry by its own `YYYY-MM`, and each reconciliation actual (dividends, withholding tax, fees, interest, deposits) sums the whole ledger for the imported period (US-24.1). A statement from any year (2025, 2026, …) is reconciled against its own totals.
+- credit-interest withholding **counts toward the withholding actual**
+  (US-28.1): IBKR's own Withholding Tax total includes it on every statement
+  that has such rows (verified 2023–2026). The former "Credit Interest"
+  exclusion in `_negative_withholding_total` made the check fail against the
+  statement's own number and was removed; regression-pinned on both the CSV
+  fixture and the legacy 2025 PDF.
+- the open-positions check converts each position into the base currency via
+  the statement's own `fx_rates` (`<CCY>USD`), falling back to the legacy
+  behavior when no rate exists (EUR at 1.0; other currencies excluded) so
+  PDF snapshots reconcile identically. The CSV importer supplies **implied
+  per-currency rates** derived from the statement's own Open Positions
+  totals (each non-base currency group's total restated in the base
+  currency) — broker truth, not an external FX lookup.
 
 ## Market Data Basis
 
