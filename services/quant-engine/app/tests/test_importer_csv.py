@@ -27,21 +27,19 @@ from app.services.statement_importer import (
 )
 from app.tests._statement_fixtures import STATEMENT_2025_PATH, STATEMENT_2026_CSV_PATH
 
-
-# Statement-truth pins for docs/IB2026.csv (values from the statement itself).
-EXPECTED_ACCOUNT = "U8516450"
-EXPECTED_PERIOD = "2026-01-01 - 2026-06-30"
-EXPECTED_POSITION_COUNT = 20
-EXPECTED_INSTRUMENT_COUNT = 65
-EXPECTED_LEDGER_COUNTS = {
-    "BUY": 79,
-    "SELL": 67,
-    "DIVIDEND": 24,
-    "WITHHOLDING_TAX": 27,
-    "INTEREST": 1,
-    "FEE": 5,
-    "DEPOSIT": 1,
-}
+# Statement-truth pins live in ONE module (US-28.3); tests reference them by
+# name so a statement refresh updates a single file.
+from app.tests.statement_truths import (
+    IB_ACCOUNT_ID as EXPECTED_ACCOUNT,
+    IB_INSTRUMENT_COUNT as EXPECTED_INSTRUMENT_COUNT,
+    IB_LEDGER_COUNTS as EXPECTED_LEDGER_COUNTS,
+    IB_PINNED_INSTRUMENTS,
+    IB_PINNED_POSITIONS,
+    IB_POSITION_COUNT as EXPECTED_POSITION_COUNT,
+    IB_POSITIONS_BY_CURRENCY,
+    IB_STATEMENT_PERIOD as EXPECTED_PERIOD,
+    diff_statement_truths,
+)
 
 
 @pytest.fixture(scope="module")
@@ -76,31 +74,36 @@ def test_import_statement_identity(snapshot) -> None:
 
 
 def test_import_statement_totals_match_change_in_nav(snapshot) -> None:
+    # Totals are absolute values — the schema's established convention (shared
+    # with the PDF path and assumed by build_reconciliation_summary); the
+    # CSV's signs (withholding −17.47, other fees −1.05) live on the ledger
+    # entries. The pinned values live in statement_truths, checked by
+    # test_statement_matches_truths_module; here we pin only that every totals
+    # field the statement carries actually landed (no silent None).
     totals = snapshot.statement_totals
     assert totals is not None
-    # Absolute values — the schema's established convention (shared with the
-    # PDF path and assumed by build_reconciliation_summary); the CSV's signs
-    # (withholding −17.47, other fees −1.05) live on the ledger entries.
-    assert totals.starting_nav == pytest.approx(52381.12, abs=0.005)
-    assert totals.ending_nav == pytest.approx(63234.80, abs=0.005)
-    assert totals.cash_total == pytest.approx(1993.65, abs=0.005)
-    assert totals.stock_total == pytest.approx(61238.53, abs=0.005)
-    assert totals.dividends_total == pytest.approx(122.64)
-    assert totals.withholding_tax_total == pytest.approx(17.47)
-    assert totals.interest_total == pytest.approx(1.64)
-    assert totals.other_fees_total == pytest.approx(1.05)
-    assert totals.commissions_total == pytest.approx(185.08, abs=0.005)
-    assert totals.deposits_total == pytest.approx(9963.00)
-    assert totals.time_weighted_return_pct == pytest.approx(1.250764, abs=1e-6)
+    for field in (
+        "starting_nav", "ending_nav", "cash_total", "stock_total",
+        "dividends_total", "withholding_tax_total", "interest_total",
+        "other_fees_total", "commissions_total", "deposits_total",
+        "time_weighted_return_pct",
+    ):
+        assert getattr(totals, field) is not None, field
 
 
 def test_fx_rates_implied_from_open_positions_totals(snapshot) -> None:
+    # Implied from the statement's own base-currency restatements of each
+    # non-base Open Positions group total (values pinned in statement_truths).
     fx_rates = snapshot.statement_totals.fx_rates
     assert fx_rates["USDUSD"] == 1.0
-    # 14212.3946 / 12443 and 3580.07217 / 2699.7 — the statement's own
-    # base-currency restatements of the EUR and GBP position totals.
-    assert fx_rates["EURUSD"] == pytest.approx(1.1422, abs=1e-4)
-    assert fx_rates["GBPUSD"] == pytest.approx(1.3261, abs=1e-4)
+    assert set(fx_rates) == {"USDUSD"} | {f"{c}USD" for c in IB_POSITIONS_BY_CURRENCY if c != "USD"}
+
+
+def test_statement_matches_truths_module(snapshot) -> None:
+    # THE statement-truth gate: every pin in statement_truths holds for the
+    # committed docs/IB2026.csv. On a statement refresh, this is the test that
+    # tells you exactly which pins to update.
+    assert diff_statement_truths(snapshot) == []
 
 
 # ── AC2: per-currency positions ───────────────────────────────────────────────
@@ -108,30 +111,26 @@ def test_fx_rates_implied_from_open_positions_totals(snapshot) -> None:
 def test_positions_are_per_currency_and_complete(snapshot) -> None:
     assert len(snapshot.positions) == EXPECTED_POSITION_COUNT
     by_currency = Counter(position.currency for position in snapshot.positions)
-    assert by_currency == {"USD": 16, "EUR": 3, "GBP": 1}
+    assert by_currency == IB_POSITIONS_BY_CURRENCY
+    # Invariant: every position dates to the statement's own period end.
+    period_end = EXPECTED_PERIOD.split(" - ")[1]
     for position in snapshot.positions:
-        assert position.as_of_date.isoformat() == "2026-06-30"
+        assert position.as_of_date.isoformat() == period_end
 
 
 def test_pinned_per_currency_positions(snapshot) -> None:
+    # One pinned position per statement currency; values single-sourced from
+    # statement_truths (full-precision row fields).
     by_symbol = {position.symbol: position for position in snapshot.positions}
-
-    defs = by_symbol["DEFS"]  # EUR
-    assert (defs.currency, defs.quantity) == ("EUR", 500)
-    assert defs.cost_basis == pytest.approx(2796.475015)
-    assert defs.close_price == pytest.approx(5.635)
-    assert defs.market_value == pytest.approx(2817.5)
-    assert defs.unrealized_pnl == pytest.approx(21.024985)
-
-    semi = by_symbol["SEMI"]  # GBP
-    assert (semi.currency, semi.quantity) == ("GBP", 150)
-    assert semi.market_value == pytest.approx(2699.7)
-    assert semi.unrealized_pnl == pytest.approx(660.0)
-
-    amzn = by_symbol["AMZN"]  # USD
-    assert (amzn.currency, amzn.quantity) == ("USD", 10)
-    assert amzn.cost_basis == pytest.approx(1654.07584)
-    assert amzn.market_value == pytest.approx(2383.4)
+    assert {IB_PINNED_POSITIONS[s]["currency"] for s in IB_PINNED_POSITIONS} == set(IB_POSITIONS_BY_CURRENCY)
+    for symbol, expected in IB_PINNED_POSITIONS.items():
+        position = by_symbol[symbol]
+        for field, value in expected.items():
+            actual = getattr(position, field)
+            if isinstance(value, (int, float)):
+                assert actual == pytest.approx(value), f"{symbol}.{field}"
+            else:
+                assert actual == value, f"{symbol}.{field}"
 
 
 def test_positions_market_value_reconciles_to_nav_stock_total(snapshot) -> None:
@@ -194,32 +193,31 @@ def test_withholding_reconciliation_fix_holds_for_legacy_pdf() -> None:
 
 def test_instruments_carry_isin_exchange_and_type(snapshot) -> None:
     assert len(snapshot.instruments) == EXPECTED_INSTRUMENT_COUNT
+    # Invariant: the CSV's Financial Instrument Information always carries a
+    # Security ID — every instrument lands with an ISIN.
     assert all(instrument.isin for instrument in snapshot.instruments)
 
+    # Pinned exemplars single-sourced from statement_truths.
     by_symbol = {instrument.symbol: instrument for instrument in snapshot.instruments}
-    aapl = by_symbol["AAPL"]
-    assert aapl.description == "APPLE INC"
-    assert aapl.isin == "US0378331005"
-    assert aapl.listing_exchange == "NASDAQ"
-    assert aapl.instrument_type == "COMMON"
-
-    cibr = by_symbol["CIBR"]
-    assert cibr.isin == "IE00BF16M727"
-    assert cibr.listing_exchange == "LSEETF"
-    assert cibr.instrument_type == "ETF"
+    for symbol, expected in IB_PINNED_INSTRUMENTS.items():
+        instrument = by_symbol[symbol]
+        for field, value in expected.items():
+            assert getattr(instrument, field) == value, f"{symbol}.{field}"
 
 
 # ── cash balances ─────────────────────────────────────────────────────────────
 
 def test_cash_balances_per_currency_without_base_summary_double_count(snapshot) -> None:
     by_currency = {balance.currency: balance for balance in snapshot.cash_balances}
-    assert set(by_currency) == {"USD", "EUR", "GBP"}
+    assert set(by_currency) == set(IB_POSITIONS_BY_CURRENCY)
+    # Invariant: the base-currency (USD) cash balances equal the statement's
+    # own totals — sourcing them from the snapshot proves the Base Currency
+    # Summary pseudo-rows were not double counted.
+    totals = snapshot.statement_totals
     usd = by_currency["USD"]
-    assert usd.starting_cash == pytest.approx(4672.04, abs=0.005)
-    assert usd.ending_cash == pytest.approx(1993.65, abs=0.005)
-    assert usd.ending_settled_cash == pytest.approx(1993.65, abs=0.005)
-    assert by_currency["EUR"].ending_cash == 0.0
-    assert by_currency["GBP"].ending_cash == 0.0
+    assert usd.ending_cash == pytest.approx(totals.cash_total)
+    assert usd.ending_settled_cash == pytest.approx(totals.cash_total)
+    assert usd.starting_cash is not None and usd.starting_cash > 0
 
 
 # ── AC5: fail-safe mutations ─────────────────────────────────────────────────

@@ -56,6 +56,12 @@ from app.tests._statement_fixtures import (
     FREEDOM24_PATH as FREEDOM24_FIXTURE_PATH,
     STATEMENT_2026_CSV_PATH as STATEMENT_2026_FIXTURE_PATH,
 )
+from app.tests.statement_truths import (
+    IB_ABSENT_SYMBOLS,
+    IB_ACCOUNT_ID,
+    IB_SECTOR_EXAMPLES,
+    IB_STATEMENT_PERIOD,
+)
 
 
 # US-28.2: the CSV export is the canonical current IB statement.
@@ -437,21 +443,19 @@ def test_build_portfolio_overview_classifies_2026_ucits_and_thematic_holdings() 
 
     overview = build_portfolio_overview(snapshot)
 
-    assert "FICO" not in {position.symbol for position in snapshot.positions}
-    # Statement updated 2026-06-12: DFND and IUIT were sold (they appear only in
-    # the trade history, not as open positions); CIBR (First Trust Nasdaq
-    # Cybersecurity UCITS, IE00BF16M727) is a new Technology holding.
-    assert "DFND" not in {position.symbol for position in snapshot.positions}
-    assert "IUIT" not in {position.symbol for position in snapshot.positions}
-    assert any(item["symbol"] == "DEFS" for item in overview.sector_position_breakdown["Defense"])
-    assert any(item["symbol"] == "IDFN" for item in overview.sector_position_breakdown["Defense"])
-    assert any(item["symbol"] == "CIBR" for item in overview.sector_position_breakdown["Technology"])
-    assert any(item["symbol"] == "SEMI" for item in overview.sector_position_breakdown["Technology"])
-    assert any(item["symbol"] == "SXRV" for item in overview.sector_position_breakdown["Technology"])
-    assert any(item["symbol"] == "VUAA" for item in overview.sector_position_breakdown["Broad Market"])
-    assert any(item["symbol"] == "VDST" for item in overview.sector_position_breakdown["Fixed Income"])
-    assert all(item["symbol"] != "IUFS" for item in overview.sector_position_breakdown.get("Financials", []))
-    assert all(item["symbol"] != "IUHC" for item in overview.sector_position_breakdown.get("Health Care", []))
+    # Symbol pins single-sourced from statement_truths (US-28.3): sold symbols
+    # appear only in trade history, never as positions; held examples land in
+    # their expected sector buckets.
+    held = {position.symbol for position in snapshot.positions}
+    for symbol in IB_ABSENT_SYMBOLS:
+        assert symbol not in held, symbol
+    for sector, symbols in IB_SECTOR_EXAMPLES.items():
+        for symbol in symbols:
+            assert any(item["symbol"] == symbol for item in overview.sector_position_breakdown[sector]), f"{symbol} not in {sector}"
+    # Invariant: absent symbols never surface in ANY sector bucket.
+    for symbol in IB_ABSENT_SYMBOLS:
+        for bucket in overview.sector_position_breakdown.values():
+            assert all(item["symbol"] != symbol for item in bucket)
 
 
 def test_attach_snapshot_metadata_classifies_isln_as_commodities() -> None:
@@ -925,11 +929,15 @@ def test_variant_snapshot_diagnostics_history_stays_in_plausible_bounds() -> Non
     espp_2026_path = ESPP_FIXTURE_PATH
 
     snapshot = import_statements([str(espp_2026_path), str(ff_2026_path), str(ib_2026_path)])
+    # Invariant perturbation (US-28.3): bump the LARGEST position instead of a
+    # named symbol — a named pin silently became a no-op when that symbol was
+    # sold in a statement refresh (DFND, 2026-06).
+    largest_symbol = max(snapshot.positions, key=lambda position: position.market_value).symbol
     modified_positions = []
     for position in snapshot.positions:
         payload = position.model_dump()
-        if payload['symbol'] == 'DFND':
-            payload['market_value'] = 6500.0
+        if payload['symbol'] == largest_symbol:
+            payload['market_value'] = payload['market_value'] + 6500.0
         modified_positions.append(PortfolioPositionSnapshot(symbol=payload['symbol'], market_value=payload['market_value'], quantity=payload.get('quantity'), currency=payload.get('currency')))
 
     request = DiagnosticsEngineRequest(
@@ -7013,10 +7021,8 @@ def test_ib2026_dashboard_contract_stays_self_consistent_for_real_statement(mock
     monthly_returns = _compute_dashboard_monthly_returns(history.daily_states)
     max_drawdown = _compute_dashboard_max_drawdown(history.performance_series)
 
-    assert snapshot.statement.account_id == "U8516450"
-    assert snapshot.statement.statement_period is not None
-    # US-28.2 statement-truth pin: the CSV importer normalizes the period to ISO.
-    assert snapshot.statement.statement_period.startswith("2026-01-01 - ")
+    assert snapshot.statement.account_id == IB_ACCOUNT_ID
+    assert snapshot.statement.statement_period == IB_STATEMENT_PERIOD
     assert snapshot.statement_totals is not None
     assert visible_summary["end_value"] == round(snapshot.statement_totals.ending_nav or 0, 2)
     assert visible_summary["end_value"] == round(history.daily_states[-1].total_portfolio_value, 2)

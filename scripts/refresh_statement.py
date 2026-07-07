@@ -13,12 +13,21 @@ statements change:
        fixture (deterministic, no network).
     3. Run the full canonical test suite (`run_all_tests.py`).
 
-If step 3 fails, the remaining failures are *portfolio-truth drift*: tests that
-pin holdings from the previous statement (e.g. a position that was sold or
-newly added). Update those tests — and add a registry entry + symbol rule for
-any brand-new holding — then re-run. Review the diff and commit
-`docs/<statement>.csv` (or `.pdf` for legacy statements),
-`golden_market_data.json`, and `dashboardGoldens.ts` together.
+If step 3 fails, the failures are *statement-truth drift* and are confined to
+a documented surface (US-28.3):
+
+    - `test_importer_csv.py::test_statement_matches_truths_module` — its
+      output lists exactly which pins moved; update them all in ONE file,
+      `services/quant-engine/app/tests/statement_truths.py`.
+    - the registry-coverage check — add a registry entry + symbol rule for
+      any brand-new holding (see the fmp-data skill).
+
+Anything ELSE failing on a refresh is a structural test wrongly pinning
+statement truths — fix the test, not the statement. Full workflow:
+`docs/architecture/testing-architecture.md#statement-refresh-workflow`.
+Review the diff and commit `docs/IB2026.csv` (or the legacy `.pdf`),
+`golden_market_data.json`, `dashboardGoldens.ts`, and `statement_truths.py`
+together.
 
 A real `FMP_API_KEY` is required for step 1 (set it in the environment or
 `.env`). Capturing without one would record empty series and poison the local
