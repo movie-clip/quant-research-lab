@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime
 import os
 import shutil
 import subprocess
@@ -13,6 +14,9 @@ BACKEND_DIR = ROOT / "services" / "quant-engine"
 FRONTEND_DIR = ROOT / "apps" / "desktop"
 BACKEND_REQUIREMENTS = BACKEND_DIR / "requirements.txt"
 GOLDEN_GENERATOR = BACKEND_DIR / "app" / "scripts" / "export_dashboard_goldens.py"
+# Written on a fully green run; the pre_commit_gate hook refuses `git commit`
+# when it is missing or older than the working-tree changes being committed.
+TEST_PASS_MARKER = ROOT / ".claude" / ".last-test-pass"
 
 
 def npm_command() -> str:
@@ -94,6 +98,10 @@ def run_all_tests() -> None:
         "Dead-code gate (ruff + vulture + knip, zero-findings)",
         [sys.executable, str(ROOT / "scripts" / "detect_deadcode.py"), "--strict"],
         ROOT,
+    )
+    TEST_PASS_MARKER.parent.mkdir(exist_ok=True)
+    TEST_PASS_MARKER.write_text(
+        datetime.datetime.now(datetime.timezone.utc).isoformat() + "\n"
     )
     print("All tests passed.")
 

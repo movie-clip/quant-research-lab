@@ -16,8 +16,6 @@ from __future__ import annotations
 import math
 from datetime import date, timedelta
 
-import pytest
-
 from app.engine.portfolio_state import PortfolioStateEngine
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.services.diagnostics_engine import (

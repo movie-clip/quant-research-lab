@@ -113,7 +113,9 @@ Trust ladder: `verified > degraded > withheld > unavailable`. Never fabricate or
 # Start both dev servers (backend on :8000, frontend on :5173)
 python scripts/run_dev.py
 
-# Tests — canonical entrypoint
+# Tests — canonical entrypoint. A green run writes .claude/.last-test-pass;
+# the pre_commit_gate hook (see "Mechanical gates" below) requires that marker
+# to be fresher than your non-.md changes before any `git commit` is allowed.
 python scripts/run_all_tests.py             # all
 cd services/quant-engine && pytest          # backend
 cd apps/desktop && npx vitest run           # frontend
@@ -142,6 +144,14 @@ python scripts/detect_deadcode.py --strict   # exit non-zero on any finding (the
 # (truly dead), not merely over-exported. Improvement findings (hardcodes/magic
 # numbers) are catalogued in docs/tech-debt-register.md → Epic 24.
 ```
+
+## Mechanical gates (CI + hooks)
+
+The quality gates are enforced mechanically, not honor-system:
+
+- **CI** — `.github/workflows/ci.yml` runs `python scripts/run_all_tests.py` (golden regen → pytest → vitest → tsc → dead-code strict gate) on every PR and push to `main`. The suite is network-free, so CI needs no secrets.
+- **Commit gate hook** — `scripts/hooks/pre_commit_gate.py` (PreToolUse, wired in `.claude/settings.json`) blocks any `git commit` unless `.claude/.last-test-pass` exists and is fresher than every changed non-`.md` file. The marker is written only by a fully green `run_all_tests.py` run. If a commit is blocked, re-run the suite — do not try to bypass the hook.
+- **Schema contract hook** — `scripts/hooks/schema_edit_reminder.py` (PostToolUse) fires after any edit under `app/schemas/` reminding that the mirroring TS types and `docs/contracts/<area>-fields.md` must change in the same pass.
 
 ## Backend Conventions (`services/quant-engine/`)
 

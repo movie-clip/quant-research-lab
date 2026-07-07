@@ -35,3 +35,6 @@ target/
 
 # Per-developer local Claude settings (may contain tokens) — never commit
 .claude/settings.local.json
+
+# Test-pass marker written by run_all_tests.py (consumed by pre_commit_gate hook)
+.claude/.last-test-pass
