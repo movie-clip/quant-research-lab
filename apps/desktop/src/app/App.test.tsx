@@ -563,13 +563,86 @@ describe('App', () => {
     expect(open).toHaveBeenCalledWith({
       multiple: true,
       directory: false,
-      filters: [{ name: 'PDF Statements', extensions: ['pdf'] }],
+      filters: [{ name: 'Broker Statements', extensions: ['pdf', 'csv'] }],
     })
     expect(readFile).toHaveBeenCalledWith('D:\\brokerage\\IB2026.pdf')
     const analyzeBody = matchingFetchCalls(fetchMock, '/api/portfolios/import/interactive-brokers/analyze-upload', 'POST')[0]?.[1]?.body as FormData
     const uploadedFiles = analyzeBody.getAll('statement_files') as File[]
     expect(uploadedFiles).toHaveLength(1)
     expect(uploadedFiles[0]).toMatchObject({ name: 'IB2026.pdf', type: 'application/pdf' })
+  })
+
+  it('accepts csv statements in the file input and uploads them with text/csv metadata', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([])
+    vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromImport').mockResolvedValue(mockImportedWorkspace())
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue(mockImportedWorkspace().workspace)
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue(mockImportedWorkspace().rootNode)
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue(mockImportedWorkspace().draft)
+    vi.spyOn(portfolioWorkspaceStorage, 'saveDraft').mockResolvedValue()
+
+    const fetchMock = installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/portfolios/import/interactive-brokers/analyze-upload' && method === 'POST') return jsonResponse(bootstrapPayload)
+      if (pathname === '/api/engines/dashboard-history/run-imported' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      if (pathname === '/api/engines/diagnostics/run-imported' && method === 'POST') return jsonResponse(diagnosticsPayload)
+      return unhandledOrDrift(pathname, method)
+    })
+
+    render(<App />)
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    expect(input.getAttribute('accept')).toBe('application/pdf,.pdf,text/csv,.csv')
+
+    const csvFile = new File(['Statement,Header'], 'IB2026.csv', { type: 'text/csv', lastModified: 1 })
+    fireEvent.change(input, { target: { files: [csvFile] } })
+
+    await waitFor(() => expect(matchingFetchCalls(fetchMock, '/api/portfolios/import/interactive-brokers/analyze-upload', 'POST')).toHaveLength(1))
+    const analyzeBody = matchingFetchCalls(fetchMock, '/api/portfolios/import/interactive-brokers/analyze-upload', 'POST')[0]?.[1]?.body as FormData
+    const uploadedFiles = analyzeBody.getAll('statement_files') as File[]
+    expect(uploadedFiles).toHaveLength(1)
+    expect(uploadedFiles[0]).toMatchObject({ name: 'IB2026.csv', type: 'text/csv' })
+  })
+
+  it('keeps csv paths in the Tauri picker selection', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([])
+    vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromImport').mockResolvedValue(mockImportedWorkspace())
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue(mockImportedWorkspace().workspace)
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue(mockImportedWorkspace().rootNode)
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue(mockImportedWorkspace().draft)
+    vi.spyOn(portfolioWorkspaceStorage, 'saveDraft').mockResolvedValue()
+
+    const fetchMock = installFetchMock(async (input, init) => {
+      const pathname = requestPathname(input)
+      const method = requestMethod(input, init)
+      if (pathname === '/api/portfolios/import/interactive-brokers/analyze-upload' && method === 'POST') return jsonResponse(bootstrapPayload)
+      if (pathname === '/api/engines/dashboard-history/run-imported' && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      if (pathname === '/api/engines/exposure/run' && method === 'POST') return jsonResponse(exposurePayload)
+      if (pathname === '/api/engines/diagnostics/run-imported' && method === 'POST') return jsonResponse(diagnosticsPayload)
+      return unhandledOrDrift(pathname, method)
+    })
+
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
+    await waitFor(() => expect(screen.getByText('Import Portfolio')).toBeTruthy())
+
+    installTauriRuntime()
+    const { open, readFile } = await importTauriPlugins()
+    open.mockResolvedValue(['D:\\brokerage\\IB2026.csv', 'D:\\brokerage\\notes.txt'])
+    readFile.mockResolvedValue(new Uint8Array([50, 48, 50, 54]))
+
+    fireEvent.click(screen.getByText('Import Portfolio'))
+
+    await waitFor(() => expect(matchingFetchCalls(fetchMock, '/api/portfolios/import/interactive-brokers/analyze-upload', 'POST')).toHaveLength(1))
+    expect(readFile).toHaveBeenCalledWith('D:\\brokerage\\IB2026.csv')
+    expect(readFile).not.toHaveBeenCalledWith('D:\\brokerage\\notes.txt')
+    const analyzeBody = matchingFetchCalls(fetchMock, '/api/portfolios/import/interactive-brokers/analyze-upload', 'POST')[0]?.[1]?.body as FormData
+    const uploadedFiles = analyzeBody.getAll('statement_files') as File[]
+    expect(uploadedFiles.map((file) => ({ name: file.name, type: file.type }))).toEqual([{ name: 'IB2026.csv', type: 'text/csv' }])
   })
 
   it('fails closed when the Tauri file bridge reads an empty PDF', async () => {
@@ -588,7 +661,7 @@ describe('App', () => {
 
     fireEvent.click(screen.getByText('Import Portfolio'))
 
-    await waitFor(() => expect(screen.getAllByText('Tauri import failed: could not read "IB2026.pdf" because the selected PDF was empty').length).toBeGreaterThan(0))
+    await waitFor(() => expect(screen.getAllByText('Tauri import failed: could not read "IB2026.pdf" because the selected statement was empty').length).toBeGreaterThan(0))
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -615,7 +688,7 @@ describe('App', () => {
 
     fireEvent.click(screen.getByText('Import Portfolio'))
 
-    await waitFor(() => expect(screen.getAllByText('Tauri import failed: unable to reach the local import service while analyzing the selected PDF files').length).toBeGreaterThan(0))
+    await waitFor(() => expect(screen.getAllByText('Tauri import failed: unable to reach the local import service while analyzing the selected statement files').length).toBeGreaterThan(0))
     expect(matchingFetchCalls(fetchMock, '/api/portfolios/import/interactive-brokers/analyze-upload', 'POST')).toHaveLength(1)
   })
 
@@ -653,7 +726,7 @@ describe('App', () => {
 
     fireEvent.click(screen.getByText('Import Portfolio'))
 
-    await waitFor(() => expect(screen.getAllByText('Tauri import failed: the local import service timed out while analyzing the selected PDF files').length).toBeGreaterThan(0))
+    await waitFor(() => expect(screen.getAllByText('Tauri import failed: the local import service timed out while analyzing the selected statement files').length).toBeGreaterThan(0))
   })
 
 

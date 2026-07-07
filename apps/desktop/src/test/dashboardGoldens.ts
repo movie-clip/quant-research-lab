@@ -5,10 +5,10 @@ export const ib2026DashboardGolden = {
   "accountId": "U8516450",
   "brokerLabel": "Interactive Brokers",
   "sourceLabel": "Live market history",
-  "statementPeriod": "January 1, 2026 - June 30, 2026",
-  "accountSummary": "Interactive Brokers \u00b7 January 1, 2026 - June 30, 2026",
+  "statementPeriod": "2026-01-01 - 2026-06-30",
+  "accountSummary": "Interactive Brokers \u00b7 2026-01-01 - 2026-06-30",
   "performanceTitle": "Portfolio vs SPY path for the selected range",
-  "loadedFileLabel": "Loaded file: IB2026.pdf",
+  "loadedFileLabel": "Loaded file: IB2026.csv",
   "monthlyStatusLabel": "Monthly-return status: Live market history",
   "portfolioValue": "$63234.80",
   "startValue": "$52386.10",
@@ -17,7 +17,7 @@ export const ib2026DashboardGolden = {
   "moneyWeightedReturn": "1.45%",
   "drawdown": "n/a",
   "loadedFiles": [
-    "IB2026.pdf"
+    "IB2026.csv"
   ],
   "monthlyReturns": [
     {
@@ -26,15 +26,15 @@ export const ib2026DashboardGolden = {
     },
     {
       "month": "2026-04",
-      "returnPct": "56.56%"
+      "returnPct": "60.41%"
     },
     {
       "month": "2026-05",
-      "returnPct": "3.06%"
+      "returnPct": "2.98%"
     },
     {
       "month": "2026-06",
-      "returnPct": "-31.41%"
+      "returnPct": "-33.01%"
     }
   ],
   "sectors": {
@@ -81,39 +81,41 @@ export const ib2026ImportedDashboardGoldenFixture = {
     "statement": {
       "importer": "interactive_brokers",
       "imported_at": "2026-04-14T00:00:00Z",
-      "source_path": "IB2026.pdf",
-      "detected_format": "pdf",
+      "source_path": "IB2026.csv",
+      "detected_format": "csv",
       "account_id": "U8516450",
       "base_currency": "USD",
-      "statement_period": "January 1, 2026 - June 30, 2026",
-      "page_count": 24
+      "statement_period": "2026-01-01 - 2026-06-30",
+      "page_count": null
     },
     "statements": [
       {
         "importer": "interactive_brokers",
         "imported_at": "2026-04-14T00:00:00Z",
-        "source_path": "IB2026.pdf",
-        "detected_format": "pdf",
+        "source_path": "IB2026.csv",
+        "detected_format": "csv",
         "account_id": "U8516450",
         "base_currency": "USD",
-        "statement_period": "January 1, 2026 - June 30, 2026",
-        "page_count": 24
+        "statement_period": "2026-01-01 - 2026-06-30",
+        "page_count": null
       }
     ],
     "statement_totals": {
-      "starting_nav": 52381.12,
-      "ending_nav": 63234.8,
-      "cash_total": 1993.65,
-      "stock_total": 61238.53,
+      "starting_nav": 52381.120971276,
+      "ending_nav": 63234.798214051,
+      "cash_total": 1993.651444051,
+      "stock_total": 61238.52677,
       "dividends_total": 122.64,
       "withholding_tax_total": 17.47,
       "interest_total": 1.64,
       "other_fees_total": 1.05,
-      "commissions_total": 185.08,
+      "commissions_total": 185.084070783,
       "deposits_total": 9963.0,
-      "time_weighted_return_pct": 1.25,
+      "time_weighted_return_pct": 1.250763888,
       "fx_rates": {
-        "USDUSD": 1.0
+        "USDUSD": 1.0,
+        "EURUSD": 1.1421999999999999,
+        "GBPUSD": 1.3261
       }
     },
     "instruments": [
@@ -183,7 +185,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
       },
       {
         "symbol": "BRK B",
-        "description": "BERKSHIRE HATHAWAY INC- CL B",
+        "description": "BERKSHIRE HATHAWAY INC-CL B",
         "isin": "US0846707026",
         "listing_exchange": "NYSE",
         "instrument_type": "COMMON",
@@ -447,7 +449,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
       },
       {
         "symbol": "META",
-        "description": "META PLATFORMS INC- CLASS A",
+        "description": "META PLATFORMS INC-CLASS A",
         "isin": "US30303M1027",
         "listing_exchange": "NASDAQ",
         "instrument_type": "COMMON",
@@ -551,7 +553,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
       },
       {
         "symbol": "TSM",
-        "description": "TAIWAN SEMICONDUCTOR- SP ADR",
+        "description": "TAIWAN SEMICONDUCTOR-SP ADR",
         "isin": "US8740391003",
         "listing_exchange": "NYSE",
         "instrument_type": "ADR",
@@ -559,7 +561,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
       },
       {
         "symbol": "TW",
-        "description": "TRADEWEB MARKETS INC- CLASS A",
+        "description": "TRADEWEB MARKETS INC-CLASS A",
         "isin": "US8926721064",
         "listing_exchange": "NASDAQ",
         "instrument_type": "COMMON",
@@ -653,9 +655,9 @@ export const ib2026ImportedDashboardGoldenFixture = {
       },
       {
         "currency": "USD",
-        "starting_cash": 4672.04,
-        "ending_cash": 1993.65,
-        "ending_settled_cash": 1993.65
+        "starting_cash": 4672.035671276,
+        "ending_cash": 1993.651444051,
+        "ending_settled_cash": 1993.651444051
       }
     ],
     "positions": [
@@ -663,10 +665,10 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "as_of_date": "2026-06-30",
         "symbol": "DEFS",
         "quantity": 500.0,
-        "cost_basis": 2796.48,
+        "cost_basis": 2796.475015,
         "close_price": 5.635,
         "market_value": 2817.5,
-        "unrealized_pnl": 21.02,
+        "unrealized_pnl": 21.024985,
         "currency": "EUR"
       },
       {
@@ -683,10 +685,10 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "as_of_date": "2026-06-30",
         "symbol": "SXRV",
         "quantity": 5.0,
-        "cost_basis": 6493.31,
+        "cost_basis": 6493.309012,
         "close_price": 1515.4,
         "market_value": 7577.0,
-        "unrealized_pnl": 1083.69,
+        "unrealized_pnl": 1083.690988,
         "currency": "EUR"
       },
       {
@@ -703,30 +705,30 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "as_of_date": "2026-06-30",
         "symbol": "ADBE",
         "quantity": 2.0,
-        "cost_basis": 717.03,
+        "cost_basis": 717.033958,
         "close_price": 205.02,
         "market_value": 410.04,
-        "unrealized_pnl": -306.99,
+        "unrealized_pnl": -306.993958,
         "currency": "USD"
       },
       {
         "as_of_date": "2026-06-30",
         "symbol": "ALLO",
         "quantity": 45.0,
-        "cost_basis": 688.3,
+        "cost_basis": 688.301816,
         "close_price": 2.08,
         "market_value": 93.6,
-        "unrealized_pnl": -594.7,
+        "unrealized_pnl": -594.701816,
         "currency": "USD"
       },
       {
         "as_of_date": "2026-06-30",
         "symbol": "AMZN",
         "quantity": 10.0,
-        "cost_basis": 1654.08,
+        "cost_basis": 1654.07584,
         "close_price": 238.34,
         "market_value": 2383.4,
-        "unrealized_pnl": 729.32,
+        "unrealized_pnl": 729.32416,
         "currency": "USD"
       },
       {
@@ -743,40 +745,40 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "as_of_date": "2026-06-30",
         "symbol": "CRM",
         "quantity": 7.0,
-        "cost_basis": 1813.89,
+        "cost_basis": 1813.88732,
         "close_price": 156.66,
         "market_value": 1096.62,
-        "unrealized_pnl": -717.27,
+        "unrealized_pnl": -717.26732,
         "currency": "USD"
       },
       {
         "as_of_date": "2026-06-30",
         "symbol": "CRSP",
         "quantity": 8.0,
-        "cost_basis": 668.15,
+        "cost_basis": 668.14957,
         "close_price": 54.54,
         "market_value": 436.32,
-        "unrealized_pnl": -231.83,
+        "unrealized_pnl": -231.82957,
         "currency": "USD"
       },
       {
         "as_of_date": "2026-06-30",
         "symbol": "DUOL",
         "quantity": 7.0,
-        "cost_basis": 1530.27,
+        "cost_basis": 1530.272395,
         "close_price": 115.02,
         "market_value": 805.14,
-        "unrealized_pnl": -725.13,
+        "unrealized_pnl": -725.132395,
         "currency": "USD"
       },
       {
         "as_of_date": "2026-06-30",
         "symbol": "EDIT",
         "quantity": 42.0,
-        "cost_basis": 702.43,
+        "cost_basis": 702.428302,
         "close_price": 3.24,
         "market_value": 136.08,
-        "unrealized_pnl": -566.35,
+        "unrealized_pnl": -566.348302,
         "currency": "USD"
       },
       {
@@ -793,10 +795,10 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "as_of_date": "2026-06-30",
         "symbol": "ICOM",
         "quantity": 300.0,
-        "cost_basis": 2947.65,
+        "cost_basis": 2947.646667,
         "close_price": 9.1,
         "market_value": 2730.0,
-        "unrealized_pnl": -217.65,
+        "unrealized_pnl": -217.646667,
         "currency": "USD"
       },
       {
@@ -813,50 +815,50 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "as_of_date": "2026-06-30",
         "symbol": "LYFT",
         "quantity": 40.0,
-        "cost_basis": 863.05,
+        "cost_basis": 863.048211,
         "close_price": 14.61,
         "market_value": 584.4,
-        "unrealized_pnl": -278.65,
+        "unrealized_pnl": -278.648211,
         "currency": "USD"
       },
       {
         "as_of_date": "2026-06-30",
         "symbol": "PYPL",
         "quantity": 13.0,
-        "cost_basis": 1286.94,
+        "cost_basis": 1286.941013,
         "close_price": 43.18,
         "market_value": 561.34,
-        "unrealized_pnl": -725.6,
+        "unrealized_pnl": -725.601013,
         "currency": "USD"
       },
       {
         "as_of_date": "2026-06-30",
         "symbol": "SGLD",
         "quantity": 7.0,
-        "cost_basis": 1387.1,
+        "cost_basis": 1387.096672,
         "close_price": 387.76,
         "market_value": 2714.32,
-        "unrealized_pnl": 1327.22,
+        "unrealized_pnl": 1327.223328,
         "currency": "USD"
       },
       {
         "as_of_date": "2026-06-30",
         "symbol": "VDST",
         "quantity": 200.0,
-        "cost_basis": 11753.48,
+        "cost_basis": 11753.47845,
         "close_price": 59.132,
         "market_value": 11826.4,
-        "unrealized_pnl": 72.92,
+        "unrealized_pnl": 72.92155,
         "currency": "USD"
       },
       {
         "as_of_date": "2026-06-30",
         "symbol": "VUAA",
         "quantity": 80.0,
-        "cost_basis": 10081.46,
+        "cost_basis": 10081.463136,
         "close_price": 144.46,
         "market_value": 11556.8,
-        "unrealized_pnl": 1475.34,
+        "unrealized_pnl": 1475.336864,
         "currency": "USD"
       }
     ],
@@ -874,7 +876,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "EUR",
         "source_section": "Trades",
-        "source_line": "ACOMO 2026-04-07, 05:37:03 -30 27.3000 26.6500 819.00 -1.25 -721.87 95.88 19.50 C;IA"
+        "source_line": "Order,Stocks,EUR,ACOMO,2026-04-07, 05:37:03,-30,27.3,26.65,819,-1.25,-721.87,95.88,19.5,C;IA"
       },
       {
         "entry_type": "BUY",
@@ -884,12 +886,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 500.0,
         "price": 5.59,
         "gross_amount": -2795.0,
-        "net_amount": -2796.48,
-        "fee": 1.48,
+        "net_amount": -2796.475015,
+        "fee": 1.475015,
         "tax": null,
         "currency": "EUR",
         "source_section": "Trades",
-        "source_line": "DEFS 2026-06-11, 03:23:50 500 5.5900 5.6320 -2,795.00 -1.48 2,796.48 0.00 21.00 O"
+        "source_line": "Order,Stocks,EUR,DEFS,2026-06-11, 03:23:50,500,5.59,5.632,-2795,-1.475015,2796.475015,0,21,O"
       },
       {
         "entry_type": "BUY",
@@ -904,7 +906,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "EUR",
         "source_section": "Trades",
-        "source_line": "LQQ 2026-04-14, 09:58:05 1 1,457.7776 1,470.4000 -1,457.78 -1.25 1,459.03 0.00 12.62 O"
+        "source_line": "Order,Stocks,EUR,LQQ,2026-04-14, 09:58:05,1,1457.7776,1470.4,-1457.78,-1.25,1459.03,0,12.62,O"
       },
       {
         "entry_type": "BUY",
@@ -919,7 +921,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "EUR",
         "source_section": "Trades",
-        "source_line": "LQQ 2026-04-17, 09:30:21 1 1,566.3958 1,587.0000 -1,566.40 -1.25 1,567.65 0.00 20.60 O"
+        "source_line": "Order,Stocks,EUR,LQQ,2026-04-17, 09:30:21,1,1566.3958,1587,-1566.4,-1.25,1567.65,0,20.6,O"
       },
       {
         "entry_type": "SELL",
@@ -929,12 +931,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 2.0,
         "price": 1563.6228,
         "gross_amount": 3127.25,
-        "net_amount": 3125.69,
-        "fee": 1.56,
+        "net_amount": 3125.686375,
+        "fee": 1.563625,
         "tax": null,
         "currency": "EUR",
         "source_section": "Trades",
-        "source_line": "LQQ 2026-04-17, 09:45:36 -2 1,563.6228 1,587.0000 3,127.25 -1.56 -3,026.68 99.01 -46.75 C"
+        "source_line": "Order,Stocks,EUR,LQQ,2026-04-17, 09:45:36,-2,1563.6228,1587,3127.25,-1.563625,-3026.68,99.006376,-46.75,C"
       },
       {
         "entry_type": "BUY",
@@ -949,7 +951,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "EUR",
         "source_section": "Trades",
-        "source_line": "LQQ 2026-06-10, 08:56:52 1 1,867.5081 1,855.6000 -1,867.51 -1.25 1,868.76 0.00 -11.91 O"
+        "source_line": "Order,Stocks,EUR,LQQ,2026-06-10, 08:56:52,1,1867.5081,1855.6,-1867.51,-1.25,1868.76,0,-11.91,O"
       },
       {
         "entry_type": "SELL",
@@ -964,7 +966,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "EUR",
         "source_section": "Trades",
-        "source_line": "LQQ 2026-06-10, 09:57:39 -1 1,891.7465 1,855.6000 1,891.75 -1.25 -1,868.76 21.74 36.15 C"
+        "source_line": "Order,Stocks,EUR,LQQ,2026-06-10, 09:57:39,-1,1891.7465,1855.6,1891.75,-1.25,-1868.76,21.74,36.15,C"
       },
       {
         "entry_type": "BUY",
@@ -979,7 +981,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "EUR",
         "source_section": "Trades",
-        "source_line": "LQQ 2026-06-12, 05:46:16 1 1,960.8744 1,968.8000 -1,960.87 -1.25 1,962.12 0.00 7.93 O"
+        "source_line": "Order,Stocks,EUR,LQQ,2026-06-12, 05:46:16,1,1960.8744,1968.8,-1960.87,-1.25,1962.12,0,7.93,O"
       },
       {
         "entry_type": "SELL",
@@ -994,7 +996,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "EUR",
         "source_section": "Trades",
-        "source_line": "LQQ 2026-06-23, 04:03:52 -1 1,975.9996 1,969.0000 1,976.00 -1.25 -1,962.12 12.63 7.00 C"
+        "source_line": "Order,Stocks,EUR,LQQ,2026-06-23, 04:03:52,-1,1975.9996,1969,1976,-1.25,-1962.12,12.63,7,C"
       },
       {
         "entry_type": "BUY",
@@ -1009,7 +1011,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "EUR",
         "source_section": "Trades",
-        "source_line": "LQQ 2026-06-23, 06:12:48 1 1,977.9409 1,969.0000 -1,977.94 -1.25 1,979.19 0.00 -8.94 O"
+        "source_line": "Order,Stocks,EUR,LQQ,2026-06-23, 06:12:48,1,1977.9409,1969,-1977.94,-1.25,1979.19,0,-8.94,O"
       },
       {
         "entry_type": "BUY",
@@ -1024,7 +1026,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "EUR",
         "source_section": "Trades",
-        "source_line": "SXRV 2026-04-13, 03:31:07 1 1,224.6621 1,233.0000 -1,224.66 -1.25 1,225.91 0.00 8.34 O"
+        "source_line": "Order,Stocks,EUR,SXRV,2026-04-13, 03:31:07,1,1224.6621,1233,-1224.66,-1.25,1225.91,0,8.34,O"
       },
       {
         "entry_type": "BUY",
@@ -1039,7 +1041,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "EUR",
         "source_section": "Trades",
-        "source_line": "SXRV 2026-04-13, 09:10:58 1 1,227.1300 1,233.0000 -1,227.13 -1.25 1,228.38 0.00 5.87 O"
+        "source_line": "Order,Stocks,EUR,SXRV,2026-04-13, 09:10:58,1,1227.13,1233,-1227.13,-1.25,1228.38,0,5.87,O"
       },
       {
         "entry_type": "BUY",
@@ -1049,12 +1051,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 2.0,
         "price": 1296.8,
         "gross_amount": -2593.6,
-        "net_amount": -2595.0699999999997,
-        "fee": 1.47,
+        "net_amount": -2595.069012077,
+        "fee": 1.469012077,
         "tax": null,
         "currency": "EUR",
         "source_section": "Trades",
-        "source_line": "SXRV 2026-04-17, 10:58:26 2 1,296.8000 1,298.6000 -2,593.60 -1.47 2,595.07 0.00 3.60 O"
+        "source_line": "Order,Stocks,EUR,SXRV,2026-04-17, 10:58:26,2,1296.8,1298.6,-2593.6,-1.469012077,2595.069012077,0,3.6,O"
       },
       {
         "entry_type": "BUY",
@@ -1069,7 +1071,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "EUR",
         "source_section": "Trades",
-        "source_line": "SXRV 2026-06-10, 09:58:15 1 1,442.7038 1,427.6000 -1,442.70 -1.25 1,443.95 0.00 -15.10 O"
+        "source_line": "Order,Stocks,EUR,SXRV,2026-06-10, 09:58:15,1,1442.7038,1427.6,-1442.7,-1.25,1443.95,0,-15.1,O"
       },
       {
         "entry_type": "BUY",
@@ -1084,7 +1086,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "GBP",
         "source_section": "Trades",
-        "source_line": "DFND 2026-04-07, 06:22:42 100 7.2800 7.1870 -728.00 -1.06 729.06 0.00 -9.30 O"
+        "source_line": "Order,Stocks,GBP,DFND,2026-04-07, 06:22:42,100,7.28,7.187,-728,-1.06,729.06,0,-9.3,O"
       },
       {
         "entry_type": "BUY",
@@ -1099,7 +1101,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "GBP",
         "source_section": "Trades",
-        "source_line": "DFND 2026-04-07, 09:56:09 100 7.2130 7.1870 -721.30 -1.00 722.30 0.00 -2.60 IA;O"
+        "source_line": "Order,Stocks,GBP,DFND,2026-04-07, 09:56:09,100,7.213,7.187,-721.3,-1,722.3,0,-2.6,IA;O"
       },
       {
         "entry_type": "BUY",
@@ -1114,7 +1116,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "GBP",
         "source_section": "Trades",
-        "source_line": "DFND 2026-04-07, 10:06:58 100 7.1680 7.1870 -716.80 -1.00 717.80 0.00 1.90 IA;O"
+        "source_line": "Order,Stocks,GBP,DFND,2026-04-07, 10:06:58,100,7.168,7.187,-716.8,-1,717.8,0,1.9,IA;O"
       },
       {
         "entry_type": "BUY",
@@ -1129,7 +1131,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "GBP",
         "source_section": "Trades",
-        "source_line": "DFND 2026-04-08, 10:13:37 100 7.4280 7.4225 -742.80 -1.06 743.86 0.00 -0.55 IM;O;P"
+        "source_line": "Order,Stocks,GBP,DFND,2026-04-08, 10:13:37,100,7.428,7.4225,-742.8,-1.06,743.86,0,-0.55,IM;O;P"
       },
       {
         "entry_type": "BUY",
@@ -1144,7 +1146,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "GBP",
         "source_section": "Trades",
-        "source_line": "DFND 2026-04-10, 06:53:37 200 7.3800 7.3170 -1,476.00 -1.00 1,477.00 0.00 -12.60 IA;O"
+        "source_line": "Order,Stocks,GBP,DFND,2026-04-10, 06:53:37,200,7.38,7.317,-1476,-1,1477,0,-12.6,IA;O"
       },
       {
         "entry_type": "BUY",
@@ -1154,12 +1156,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 300.0,
         "price": 7.278,
         "gross_amount": -2183.4,
-        "net_amount": -2184.55,
-        "fee": 1.15,
+        "net_amount": -2184.5517,
+        "fee": 1.1517,
         "tax": null,
         "currency": "GBP",
         "source_section": "Trades",
-        "source_line": "DFND 2026-04-13, 04:24:56 300 7.2780 7.3480 -2,183.40 -1.15 2,184.55 0.00 21.00 IM;O;P"
+        "source_line": "Order,Stocks,GBP,DFND,2026-04-13, 04:24:56,300,7.278,7.348,-2183.4,-1.1517,2184.5517,0,21,IM;O;P"
       },
       {
         "entry_type": "SELL",
@@ -1174,7 +1176,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "GBP",
         "source_section": "Trades",
-        "source_line": "DFND 2026-04-14, 09:57:20 -200 7.4190 7.4520 1,483.80 -1.00 -1,451.36 31.44 -6.60 C;IA"
+        "source_line": "Order,Stocks,GBP,DFND,2026-04-14, 09:57:20,-200,7.419,7.452,1483.8,-1,-1451.36,31.44,-6.6,C;IA"
       },
       {
         "entry_type": "SELL",
@@ -1189,7 +1191,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "GBP",
         "source_section": "Trades",
-        "source_line": "DFND 2026-05-06, 06:27:00 -200 7.0300 7.0880 1,406.00 -1.00 -1,461.66 -56.66 -11.60 C;IA"
+        "source_line": "Order,Stocks,GBP,DFND,2026-05-06, 06:27:00,-200,7.03,7.088,1406,-1,-1461.66,-56.66,-11.6,C;IA"
       },
       {
         "entry_type": "BUY",
@@ -1204,7 +1206,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "GBP",
         "source_section": "Trades",
-        "source_line": "DFND 2026-05-06, 07:12:03 100 7.0750 7.0880 -707.50 -1.06 708.56 0.00 1.30 O"
+        "source_line": "Order,Stocks,GBP,DFND,2026-05-06, 07:12:03,100,7.075,7.088,-707.5,-1.06,708.56,0,1.3,O"
       },
       {
         "entry_type": "SELL",
@@ -1214,12 +1216,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 300.0,
         "price": 7.065,
         "gross_amount": 2119.5,
-        "net_amount": 2118.44,
-        "fee": 1.06,
+        "net_amount": 2118.44025,
+        "fee": 1.05975,
         "tax": null,
         "currency": "GBP",
         "source_section": "Trades",
-        "source_line": "DFND 2026-05-07, 04:27:50 -300 7.0650 7.0290 2,119.50 -1.06 -2,205.35 -86.91 10.80 C;IA"
+        "source_line": "Order,Stocks,GBP,DFND,2026-05-07, 04:27:50,-300,7.065,7.029,2119.5,-1.05975,-2205.352083,-86.911833,10.8,C;IA"
       },
       {
         "entry_type": "SELL",
@@ -1229,12 +1231,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 300.0,
         "price": 7.049,
         "gross_amount": 2114.7,
-        "net_amount": 2113.64,
-        "fee": 1.06,
+        "net_amount": 2113.64265,
+        "fee": 1.05735,
         "tax": null,
         "currency": "GBP",
         "source_section": "Trades",
-        "source_line": "DFND 2026-06-11, 05:26:52 -300 7.0490 7.1430 2,114.70 -1.06 -2,164.76 -51.12 -28.20 C;IA"
+        "source_line": "Order,Stocks,GBP,DFND,2026-06-11, 05:26:52,-300,7.049,7.143,2114.7,-1.05735,-2164.759617,-51.116967,-28.2,C;IA"
       },
       {
         "entry_type": "BUY",
@@ -1249,7 +1251,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "GBP",
         "source_section": "Trades",
-        "source_line": "IITU 2026-06-11, 07:02:20 40 36.0500 35.9600 -1,442.00 -1.00 1,443.00 0.00 -3.60 IA;O"
+        "source_line": "Order,Stocks,GBP,IITU,2026-06-11, 07:02:20,40,36.05,35.96,-1442,-1,1443,0,-3.6,IA;O"
       },
       {
         "entry_type": "SELL",
@@ -1264,7 +1266,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "GBP",
         "source_section": "Trades",
-        "source_line": "IITU 2026-06-11, 08:53:56 -40 35.9100 35.9600 1,436.40 -1.00 -1,443.00 -7.60 -2.00 C;IA"
+        "source_line": "Order,Stocks,GBP,IITU,2026-06-11, 08:53:56,-40,35.91,35.96,1436.4,-1,-1443,-7.6,-2,C;IA"
       },
       {
         "entry_type": "BUY",
@@ -1279,7 +1281,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "GBP",
         "source_section": "Trades",
-        "source_line": "SEMI 2026-04-24, 04:58:53 70 12.1860 12.4260 -853.02 -1.00 854.02 0.00 16.80 IA;O"
+        "source_line": "Order,Stocks,GBP,SEMI,2026-04-24, 04:58:53,70,12.186,12.426,-853.02,-1,854.02,0,16.8,IA;O"
       },
       {
         "entry_type": "BUY",
@@ -1294,7 +1296,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "GBP",
         "source_section": "Trades",
-        "source_line": "SEMI 2026-05-06, 06:39:27 30 13.7807 13.7280 -413.42 -1.00 414.42 0.00 -1.58 O"
+        "source_line": "Order,Stocks,GBP,SEMI,2026-05-06, 06:39:27,30,13.7807,13.728,-413.42,-1,414.42,0,-1.58,O"
       },
       {
         "entry_type": "BUY",
@@ -1309,7 +1311,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "GBP",
         "source_section": "Trades",
-        "source_line": "SEMI 2026-06-11, 09:05:26 50 15.4051 15.6120 -770.26 -1.00 771.26 0.00 10.34 O"
+        "source_line": "Order,Stocks,GBP,SEMI,2026-06-11, 09:05:26,50,15.4051,15.612,-770.26,-1,771.26,0,10.34,O"
       },
       {
         "entry_type": "SELL",
@@ -1318,13 +1320,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "description": "IB trade 09:31:41",
         "quantity": 3.0,
         "price": 253.715,
-        "gross_amount": 761.14,
-        "net_amount": 760.78,
-        "fee": 0.36,
+        "gross_amount": 761.145,
+        "net_amount": 760.780878163,
+        "fee": 0.364121837,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "AAPL 2026-04-07, 09:31:41 -3 253.7150 253.5000 761.14 -0.36 -502.26 258.52 0.64 C"
+        "source_line": "Order,Stocks,USD,AAPL,2026-04-07, 09:31:41,-3,253.715,253.5,761.145,-0.364121837,-502.262386,258.518492,0.645,C"
       },
       {
         "entry_type": "SELL",
@@ -1333,13 +1335,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "description": "IB trade 09:43:56",
         "quantity": 3.0,
         "price": 265.925,
-        "gross_amount": 797.78,
-        "net_amount": 797.42,
-        "fee": 0.36,
+        "gross_amount": 797.775,
+        "net_amount": 797.41455775,
+        "fee": 0.36044225,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "ACN 2026-01-29, 09:43:56 -3 265.9250 261.2200 797.78 -0.36 -726.89 70.52 14.12 C"
+        "source_line": "Order,Stocks,USD,ACN,2026-01-29, 09:43:56,-3,265.925,261.22,797.775,-0.36044225,-726.89478,70.519778,14.115,C"
       },
       {
         "entry_type": "SELL",
@@ -1349,12 +1351,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 16.0,
         "price": 73.3,
         "gross_amount": 1172.8,
-        "net_amount": 1172.44,
-        "fee": 0.36,
+        "net_amount": 1172.44166307,
+        "fee": 0.35833693,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "ADM 2026-04-07, 09:30:01 -16 73.3000 72.1500 1,172.80 -0.36 -854.53 317.91 18.40 C"
+        "source_line": "Order,Stocks,USD,ADM,2026-04-07, 09:30:01,-16,73.3,72.15,1172.8,-0.35833693,-854.526687,317.914977,18.4,C"
       },
       {
         "entry_type": "SELL",
@@ -1364,12 +1366,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 6.0,
         "price": 239.625,
         "gross_amount": 1437.75,
-        "net_amount": 1437.35,
-        "fee": 0.4,
+        "net_amount": 1437.3497551,
+        "fee": 0.4002449,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "AMZN 2026-04-10, 10:22:58 -6 239.6250 238.3800 1,437.75 -0.40 -1,226.25 211.10 7.47 C;SL"
+        "source_line": "Order,Stocks,USD,AMZN,2026-04-10, 10:22:58,-6,239.625,238.38,1437.75,-0.4002449,-1226.253664,211.096092,7.47,C;SL"
       },
       {
         "entry_type": "SELL",
@@ -1379,12 +1381,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 1.0,
         "price": 1475.95,
         "gross_amount": 1475.95,
-        "net_amount": 1475.57,
-        "fee": 0.38,
+        "net_amount": 1475.57024318,
+        "fee": 0.37975682,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "ASML 2026-04-10, 09:32:19 -1 1,475.9500 1,478.2800 1,475.95 -0.38 -833.37 642.20 -2.33 C;SL"
+        "source_line": "Order,Stocks,USD,ASML,2026-04-10, 09:32:19,-1,1475.95,1478.28,1475.95,-0.37975682,-833.374692,642.195551,-2.33,C;SL"
       },
       {
         "entry_type": "SELL",
@@ -1394,12 +1396,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 2.0,
         "price": 1472.115,
         "gross_amount": 2944.23,
-        "net_amount": 2943.82,
-        "fee": 0.41,
+        "net_amount": 2943.820301612,
+        "fee": 0.409698388,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "ASML 2026-04-13, 09:37:22 -2 1,472.1150 1,500.2000 2,944.23 -0.41 -1,422.31 1,521.51 -56.17 C"
+        "source_line": "Order,Stocks,USD,ASML,2026-04-13, 09:37:22,-2,1472.115,1500.2,2944.23,-0.409698388,-1422.309997,1521.510305,-56.17,C"
       },
       {
         "entry_type": "BUY",
@@ -1409,12 +1411,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 1.0,
         "price": 478.4,
         "gross_amount": -478.4,
-        "net_amount": -478.75,
-        "fee": 0.35,
+        "net_amount": -478.75025725,
+        "fee": 0.35025725,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "BRK B 2026-03-31, 12:44:08 1 478.4000 479.2000 -478.40 -0.35 478.75 0.00 0.80 O"
+        "source_line": "Order,Stocks,USD,BRK B,2026-03-31, 12:44:08,1,478.4,479.2,-478.4,-0.35025725,478.75025725,0,0.8,O"
       },
       {
         "entry_type": "SELL",
@@ -1424,12 +1426,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 3.0,
         "price": 475.56,
         "gross_amount": 1426.68,
-        "net_amount": 1426.29,
-        "fee": 0.39,
+        "net_amount": 1426.290168142,
+        "fee": 0.389831858,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "BRK B 2026-04-07, 09:30:15 -3 475.5600 478.0800 1,426.68 -0.39 -1,404.64 21.65 -7.56 C"
+        "source_line": "Order,Stocks,USD,BRK B,2026-04-07, 09:30:15,-3,475.56,478.08,1426.68,-0.389831858,-1404.635254,21.654914,-7.56,C"
       },
       {
         "entry_type": "BUY",
@@ -1444,7 +1446,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "BTEC 2026-04-08, 03:27:49 100 8.7023 8.6125 -870.24 -1.70 871.94 0.00 -8.99 O;P"
+        "source_line": "Order,Stocks,USD,BTEC,2026-04-08, 03:27:49,100,8.7023,8.6125,-870.24,-1.7,871.94,0,-8.99,O;P"
       },
       {
         "entry_type": "SELL",
@@ -1459,7 +1461,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "BTEC 2026-04-10, 08:30:02 -100 8.6700 8.5525 867.00 -1.70 -871.94 -6.64 11.75 C;IA"
+        "source_line": "Order,Stocks,USD,BTEC,2026-04-10, 08:30:02,-100,8.67,8.5525,867,-1.7,-871.94,-6.64,11.75,C;IA"
       },
       {
         "entry_type": "BUY",
@@ -1474,7 +1476,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "CIBR 2026-06-11, 09:27:10 40 51.3900 52.0800 -2,055.60 -1.78 2,057.38 0.00 27.60 O"
+        "source_line": "Order,Stocks,USD,CIBR,2026-06-11, 09:27:10,40,51.39,52.08,-2055.6,-1.78,2057.38,0,27.6,O"
       },
       {
         "entry_type": "BUY",
@@ -1489,7 +1491,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "COPX 2026-05-12, 06:52:46 20 68.0582 67.7500 -1,361.16 -1.70 1,362.86 0.00 -6.16 O"
+        "source_line": "Order,Stocks,USD,COPX,2026-05-12, 06:52:46,20,68.0582,67.75,-1361.16,-1.7,1362.86,0,-6.16,O"
       },
       {
         "entry_type": "BUY",
@@ -1504,7 +1506,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "COPX 2026-05-15, 10:16:17 10 66.1700 65.3000 -661.70 -1.70 663.40 0.00 -8.70 IA;O"
+        "source_line": "Order,Stocks,USD,COPX,2026-05-15, 10:16:17,10,66.17,65.3,-661.7,-1.7,663.4,0,-8.7,IA;O"
       },
       {
         "entry_type": "SELL",
@@ -1519,7 +1521,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "COPX 2026-06-11, 05:28:43 -30 61.6800 62.7100 1,850.40 -1.70 -2,026.26 -177.56 -30.90 C;IA"
+        "source_line": "Order,Stocks,USD,COPX,2026-06-11, 05:28:43,-30,61.68,62.71,1850.4,-1.7,-2026.26,-177.56,-30.9,C;IA"
       },
       {
         "entry_type": "SELL",
@@ -1529,12 +1531,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 14.0,
         "price": 40.495,
         "gross_amount": 566.93,
-        "net_amount": 566.5899999999999,
-        "fee": 0.34,
+        "net_amount": 566.5882127499999,
+        "fee": 0.34178725,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "CPRT 2026-01-29, 09:41:21 -14 40.4950 40.2800 566.93 -0.34 -617.72 -51.13 3.01 C"
+        "source_line": "Order,Stocks,USD,CPRT,2026-01-29, 09:41:21,-14,40.495,40.28,566.93,-0.34178725,-617.720422,-51.13221,3.01,C"
       },
       {
         "entry_type": "BUY",
@@ -1549,7 +1551,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "DEFS 2026-04-14, 06:52:48 200 7.1741 7.2250 -1,434.82 -1.70 1,436.52 0.00 10.18 O"
+        "source_line": "Order,Stocks,USD,DEFS,2026-04-14, 06:52:48,200,7.1741,7.225,-1434.82,-1.7,1436.52,0,10.18,O"
       },
       {
         "entry_type": "BUY",
@@ -1559,12 +1561,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 200.0,
         "price": 7.177,
         "gross_amount": -1435.4,
-        "net_amount": -1437.18,
-        "fee": 1.78,
+        "net_amount": -1437.1810394660001,
+        "fee": 1.781039466,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "DEFS 2026-04-14, 06:57:32 200 7.1770 7.2250 -1,435.40 -1.78 1,437.18 0.00 9.60 O"
+        "source_line": "Order,Stocks,USD,DEFS,2026-04-14, 06:57:32,200,7.177,7.225,-1435.4,-1.781039466,1437.181039466,0,9.6,O"
       },
       {
         "entry_type": "BUY",
@@ -1574,12 +1576,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 100.0,
         "price": 6.376,
         "gross_amount": -637.6,
-        "net_amount": -639.38,
-        "fee": 1.78,
+        "net_amount": -639.381799591,
+        "fee": 1.781799591,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "DEFS 2026-05-11, 05:53:52 100 6.3760 6.4020 -637.60 -1.78 639.38 0.00 2.60 O"
+        "source_line": "Order,Stocks,USD,DEFS,2026-05-11, 05:53:52,100,6.376,6.402,-637.6,-1.781799591,639.381799591,0,2.6,O"
       },
       {
         "entry_type": "SELL",
@@ -1594,7 +1596,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "DEFS 2026-06-11, 03:23:15 -500 6.4479 6.4935 3,223.95 -1.70 -3,513.08 -290.83 -22.80 C;P"
+        "source_line": "Order,Stocks,USD,DEFS,2026-06-11, 03:23:15,-500,6.4479,6.4935,3223.95,-1.7,-3513.082839,-290.832839,-22.8,C;P"
       },
       {
         "entry_type": "BUY",
@@ -1609,7 +1611,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "DFNS 2026-04-07, 09:44:35 10 69.5700 69.4300 -695.70 -1.70 697.40 0.00 -1.40 IA;O"
+        "source_line": "Order,Stocks,USD,DFNS,2026-04-07, 09:44:35,10,69.57,69.43,-695.7,-1.7,697.4,0,-1.4,IA;O"
       },
       {
         "entry_type": "SELL",
@@ -1624,7 +1626,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "DFNS 2026-04-07, 10:15:42 -10 69.0700 69.4300 690.70 -1.70 -697.40 -8.40 -3.60 C;IA"
+        "source_line": "Order,Stocks,USD,DFNS,2026-04-07, 10:15:42,-10,69.07,69.43,690.7,-1.7,-697.4,-8.4,-3.6,C;IA"
       },
       {
         "entry_type": "BUY",
@@ -1639,7 +1641,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "DFNS 2026-04-14, 05:54:20 20 70.1539 70.5200 -1,403.08 -1.70 1,404.78 0.00 7.32 O"
+        "source_line": "Order,Stocks,USD,DFNS,2026-04-14, 05:54:20,20,70.1539,70.52,-1403.08,-1.7,1404.78,0,7.32,O"
       },
       {
         "entry_type": "SELL",
@@ -1654,7 +1656,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "DFNS 2026-04-17, 10:00:07 -20 70.8201 70.5800 1,416.40 -1.70 -1,404.78 9.92 4.80 C;P"
+        "source_line": "Order,Stocks,USD,DFNS,2026-04-17, 10:00:07,-20,70.8201,70.58,1416.4,-1.7,-1404.78,9.92,4.8,C;P"
       },
       {
         "entry_type": "SELL",
@@ -1664,12 +1666,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 12.0,
         "price": 56.743333333,
         "gross_amount": 680.92,
-        "net_amount": 680.5999999999999,
-        "fee": 0.32,
+        "net_amount": 680.6014027499999,
+        "fee": 0.31859725,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "DOCN 2026-01-29, 09:43:50 -12 56.743333333 56.1300 680.92 -0.32 -420.21 260.40 7.36 C;P"
+        "source_line": "Order,Stocks,USD,DOCN,2026-01-29, 09:43:50,-12,56.743333333,56.13,680.92,-0.31859725,-420.205334,260.396069,7.36,C;P"
       },
       {
         "entry_type": "BUY",
@@ -1679,12 +1681,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 2.0,
         "price": 100.75,
         "gross_amount": -201.5,
-        "net_amount": -201.85,
-        "fee": 0.35,
+        "net_amount": -201.84865725,
+        "fee": 0.34865725,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "DUOL 2026-03-31, 13:10:28 2 100.7500 98.5700 -201.50 -0.35 201.85 0.00 -4.36 O"
+        "source_line": "Order,Stocks,USD,DUOL,2026-03-31, 13:10:28,2,100.75,98.57,-201.5,-0.34865725,201.84865725,0,-4.36,O"
       },
       {
         "entry_type": "SELL",
@@ -1693,13 +1695,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "description": "IB trade 10:58:15",
         "quantity": 7.0,
         "price": 176.055,
-        "gross_amount": 1232.38,
-        "net_amount": 1232.0200000000002,
-        "fee": 0.36,
+        "gross_amount": 1232.385,
+        "net_amount": 1232.028990619,
+        "fee": 0.356009381,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "EFX 2026-04-10, 10:58:15 -7 176.0550 177.9700 1,232.38 -0.36 -1,596.34 -364.31 -13.40 C"
+        "source_line": "Order,Stocks,USD,EFX,2026-04-10, 10:58:15,-7,176.055,177.97,1232.385,-0.356009381,-1596.340073,-364.311082,-13.405,C"
       },
       {
         "entry_type": "SELL",
@@ -1709,12 +1711,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 20.0,
         "price": 37.57,
         "gross_amount": 751.4,
-        "net_amount": 751.09,
-        "fee": 0.31,
+        "net_amount": 751.0863639099999,
+        "fee": 0.31363609,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "EQNR 2026-04-16, 09:38:14 -20 37.5700 38.2700 751.40 -0.31 -500.27 250.81 -14.00 C"
+        "source_line": "Order,Stocks,USD,EQNR,2026-04-16, 09:38:14,-20,37.57,38.27,751.4,-0.31363609,-500.274697,250.811667,-14,C"
       },
       {
         "entry_type": "SELL",
@@ -1723,13 +1725,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "description": "IB trade 14:06:25",
         "quantity": 1.0,
         "price": 903.095,
-        "gross_amount": 903.1,
-        "net_amount": 902.73,
-        "fee": 0.37,
+        "gross_amount": 903.095,
+        "net_amount": 902.728943993,
+        "fee": 0.366056007,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "FICO 2026-04-22, 14:06:25 -1 903.0950 970.1700 903.10 -0.37 -1,584.31 -681.58 -67.08 C"
+        "source_line": "Order,Stocks,USD,FICO,2026-04-22, 14:06:25,-1,903.095,970.17,903.095,-0.366056007,-1584.310492,-681.581548,-67.075,C"
       },
       {
         "entry_type": "SELL",
@@ -1739,12 +1741,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 2.0,
         "price": 317.765,
         "gross_amount": 635.53,
-        "net_amount": 635.16,
-        "fee": 0.37,
+        "net_amount": 635.163860832,
+        "fee": 0.366139168,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "GOOG 2026-04-10, 09:30:00 -2 317.7650 315.7200 635.53 -0.37 -348.30 286.87 4.09 C;SL"
+        "source_line": "Order,Stocks,USD,GOOG,2026-04-10, 09:30:00,-2,317.765,315.72,635.53,-0.366139168,-348.296727,286.867134,4.09,C;SL"
       },
       {
         "entry_type": "SELL",
@@ -1754,12 +1756,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 4.0,
         "price": 318.585,
         "gross_amount": 1274.34,
-        "net_amount": 1273.97,
-        "fee": 0.37,
+        "net_amount": 1273.965911346,
+        "fee": 0.374088654,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "GOOG 2026-04-10, 09:34:19 -4 318.5850 315.7200 1,274.34 -0.37 -638.56 635.41 11.46 C"
+        "source_line": "Order,Stocks,USD,GOOG,2026-04-10, 09:34:19,-4,318.585,315.72,1274.34,-0.374088654,-638.556028,635.409884,11.46,C"
       },
       {
         "entry_type": "SELL",
@@ -1768,13 +1770,28 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "description": "IB trade 09:37:01",
         "quantity": 3.0,
         "price": 318.245,
-        "gross_amount": 954.74,
-        "net_amount": 954.37,
-        "fee": 0.37,
+        "gross_amount": 954.735,
+        "net_amount": 954.366890209,
+        "fee": 0.368109791,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "GOOG 2026-04-10, 09:37:01 -3 318.2450 315.7200 954.74 -0.37 -493.50 460.87 7.58 C"
+        "source_line": "Order,Stocks,USD,GOOG,2026-04-10, 09:37:01,-3,318.245,315.72,954.735,-0.368109791,-493.496371,460.87052,7.575,C"
+      },
+      {
+        "entry_type": "SELL",
+        "trade_date": "2026-04-13",
+        "symbol": "GOOG",
+        "description": "IB trade 09:39:36",
+        "quantity": 7.0,
+        "price": 314.237857143,
+        "gross_amount": 2199.665,
+        "net_amount": 2199.2736646509998,
+        "fee": 0.391335349,
+        "tax": null,
+        "currency": "USD",
+        "source_section": "Trades",
+        "source_line": "Order,Stocks,USD,GOOG,2026-04-13, 09:39:36,-7,314.237857143,319.21,2199.665,-0.391335349,-1189.209113,1010.064553,-34.805,C;P"
       },
       {
         "entry_type": "BUY",
@@ -1784,12 +1801,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 10.0,
         "price": 68.6,
         "gross_amount": -686.0,
-        "net_amount": -686.38,
-        "fee": 0.38,
+        "net_amount": -686.38225725,
+        "fee": 0.38225725,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "HOOD 2026-04-07, 12:36:58 10 68.6000 69.6500 -686.00 -0.38 686.38 0.00 10.50 O"
+        "source_line": "Order,Stocks,USD,HOOD,2026-04-07, 12:36:58,10,68.6,69.65,-686,-0.38225725,686.38225725,0,10.5,O"
       },
       {
         "entry_type": "SELL",
@@ -1799,12 +1816,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 10.0,
         "price": 85.145,
         "gross_amount": 851.45,
-        "net_amount": 851.09,
-        "fee": 0.36,
+        "net_amount": 851.08825288,
+        "fee": 0.36174712,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "HOOD 2026-04-16, 09:54:50 -10 85.1450 86.8500 851.45 -0.36 -686.38 164.71 -17.05 C"
+        "source_line": "Order,Stocks,USD,HOOD,2026-04-16, 09:54:50,-10,85.145,86.85,851.45,-0.36174712,-686.382257,164.705996,-17.05,C"
       },
       {
         "entry_type": "BUY",
@@ -1819,7 +1836,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "IAUP 2026-04-23, 04:00:18 20 43.23222 43.0900 -864.65 -1.70 866.35 0.00 -2.85 O;P"
+        "source_line": "Order,Stocks,USD,IAUP,2026-04-23, 04:00:18,20,43.23222,43.09,-864.65,-1.7,866.35,0,-2.85,O;P"
       },
       {
         "entry_type": "SELL",
@@ -1834,7 +1851,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "IAUP 2026-04-23, 07:47:12 -20 42.8500 43.0900 857.00 -1.70 -866.35 -11.05 -4.80 C;IA"
+        "source_line": "Order,Stocks,USD,IAUP,2026-04-23, 07:47:12,-20,42.85,43.09,857,-1.7,-866.35,-11.05,-4.8,C;IA"
       },
       {
         "entry_type": "BUY",
@@ -1849,7 +1866,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "IAUP 2026-04-23, 08:10:21 20 43.2900 43.0900 -865.80 -1.70 867.50 0.00 -4.00 IA;O"
+        "source_line": "Order,Stocks,USD,IAUP,2026-04-23, 08:10:21,20,43.29,43.09,-865.8,-1.7,867.5,0,-4,IA;O"
       },
       {
         "entry_type": "BUY",
@@ -1864,7 +1881,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "IAUP 2026-05-05, 03:24:00 20 40.0500 39.9500 -801.00 -1.70 802.70 0.00 -2.00 IA;O"
+        "source_line": "Order,Stocks,USD,IAUP,2026-05-05, 03:24:00,20,40.05,39.95,-801,-1.7,802.7,0,-2,IA;O"
       },
       {
         "entry_type": "BUY",
@@ -1879,7 +1896,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "IAUP 2026-05-07, 05:35:19 40 43.4300 43.9200 -1,737.20 -1.70 1,738.90 0.00 19.60 IA;O"
+        "source_line": "Order,Stocks,USD,IAUP,2026-05-07, 05:35:19,40,43.43,43.92,-1737.2,-1.7,1738.9,0,19.6,IA;O"
       },
       {
         "entry_type": "BUY",
@@ -1894,7 +1911,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "ICOM 2026-04-07, 03:44:40 50 10.1900 10.1550 -509.50 -1.78 511.28 0.00 -1.75 O"
+        "source_line": "Order,Stocks,USD,ICOM,2026-04-07, 03:44:40,50,10.19,10.155,-509.5,-1.78,511.28,0,-1.75,O"
       },
       {
         "entry_type": "BUY",
@@ -1909,7 +1926,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "ICOM 2026-04-07, 05:39:33 100 10.0850 10.1550 -1,008.50 -1.70 1,010.20 0.00 7.00 IA;O"
+        "source_line": "Order,Stocks,USD,ICOM,2026-04-07, 05:39:33,100,10.085,10.155,-1008.5,-1.7,1010.2,0,7,IA;O"
       },
       {
         "entry_type": "BUY",
@@ -1924,7 +1941,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "ICOM 2026-04-08, 10:17:16 100 9.6100 9.6675 -961.00 -1.70 962.70 0.00 5.75 IA;O"
+        "source_line": "Order,Stocks,USD,ICOM,2026-04-08, 10:17:16,100,9.61,9.6675,-961,-1.7,962.7,0,5.75,IA;O"
       },
       {
         "entry_type": "BUY",
@@ -1939,7 +1956,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "ICOM 2026-04-10, 03:57:37 150 9.7623 9.7425 -1,464.35 -1.70 1,466.05 0.00 -2.98 O"
+        "source_line": "Order,Stocks,USD,ICOM,2026-04-10, 03:57:37,150,9.7623,9.7425,-1464.35,-1.7,1466.05,0,-2.975,O"
       },
       {
         "entry_type": "BUY",
@@ -1954,7 +1971,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "ICOM 2026-04-13, 09:59:14 200 9.8425 9.8875 -1,968.50 -1.78 1,970.28 0.00 9.00 O"
+        "source_line": "Order,Stocks,USD,ICOM,2026-04-13, 09:59:14,200,9.8425,9.8875,-1968.5,-1.78,1970.28,0,9,O"
       },
       {
         "entry_type": "SELL",
@@ -1969,7 +1986,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "ICOM 2026-05-07, 05:09:14 -300 10.0853 10.0550 3,025.59 -1.70 -2,972.86 51.03 9.09 C"
+        "source_line": "Order,Stocks,USD,ICOM,2026-05-07, 05:09:14,-300,10.0853,10.055,3025.59,-1.7,-2972.863333,51.026666,9.09,C"
       },
       {
         "entry_type": "BUY",
@@ -1984,7 +2001,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "IDFN 2026-05-07, 03:34:07 100 10.3237 10.1550 -1,032.37 -1.70 1,034.07 0.00 -16.87 O"
+        "source_line": "Order,Stocks,USD,IDFN,2026-05-07, 03:34:07,100,10.3237,10.155,-1032.37,-1.7,1034.07,0,-16.87,O"
       },
       {
         "entry_type": "BUY",
@@ -1999,7 +2016,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "IDFN 2026-05-07, 03:45:25 200 10.3137 10.1550 -2,062.74 -1.70 2,064.44 0.00 -31.74 O"
+        "source_line": "Order,Stocks,USD,IDFN,2026-05-07, 03:45:25,200,10.3137,10.155,-2062.74,-1.7,2064.44,0,-31.74,O"
       },
       {
         "entry_type": "BUY",
@@ -2009,12 +2026,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 2.0,
         "price": 458.1,
         "gross_amount": -916.2,
-        "net_amount": -916.5500000000001,
-        "fee": 0.35,
+        "net_amount": -916.55265725,
+        "fee": 0.35265725,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "INTU 2026-02-05, 09:33:22 2 458.1000 434.9100 -916.20 -0.35 916.55 0.00 -46.38 O"
+        "source_line": "Order,Stocks,USD,INTU,2026-02-05, 09:33:22,2,458.1,434.91,-916.2,-0.35265725,916.55265725,0,-46.38,O"
       },
       {
         "entry_type": "SELL",
@@ -2024,12 +2041,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 2.0,
         "price": 436.81,
         "gross_amount": 873.62,
-        "net_amount": 873.27,
-        "fee": 0.35,
+        "net_amount": 873.27095275,
+        "fee": 0.34904725,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "INTU 2026-03-26, 11:57:00 -2 436.8100 432.5500 873.62 -0.35 -916.55 -43.28 8.52 C"
+        "source_line": "Order,Stocks,USD,INTU,2026-03-26, 11:57:00,-2,436.81,432.55,873.62,-0.34904725,-916.552657,-43.281704,8.52,C"
       },
       {
         "entry_type": "BUY",
@@ -2044,7 +2061,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "ISLN 2026-01-19, 10:41:34 5 89.3000 89.5100 -446.50 -1.78 448.28 0.00 1.05 O"
+        "source_line": "Order,Stocks,USD,ISLN,2026-01-19, 10:41:34,5,89.3,89.51,-446.5,-1.78,448.28,0,1.05,O"
       },
       {
         "entry_type": "SELL",
@@ -2053,13 +2070,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "description": "IB trade 05:30:42",
         "quantity": 5.0,
         "price": 94.335,
-        "gross_amount": 471.68,
-        "net_amount": 469.90000000000003,
+        "gross_amount": 471.675,
+        "net_amount": 469.89500000000004,
         "fee": 1.78,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "ISLN 2026-01-30, 05:30:42 -5 94.3350 89.5775 471.68 -1.78 -448.28 21.62 23.79 C"
+        "source_line": "Order,Stocks,USD,ISLN,2026-01-30, 05:30:42,-5,94.335,89.5775,471.675,-1.78,-448.28,21.615,23.7875,C"
       },
       {
         "entry_type": "BUY",
@@ -2068,13 +2085,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "description": "IB trade 11:27:44",
         "quantity": 10.0,
         "price": 71.7525,
-        "gross_amount": -717.52,
-        "net_amount": -719.3,
+        "gross_amount": -717.525,
+        "net_amount": -719.305,
         "fee": 1.78,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "ISLN 2026-04-01, 11:27:44 10 71.7525 71.9625 -717.52 -1.78 719.30 0.00 2.10 O"
+        "source_line": "Order,Stocks,USD,ISLN,2026-04-01, 11:27:44,10,71.7525,71.9625,-717.525,-1.78,719.305,0,2.1,O"
       },
       {
         "entry_type": "SELL",
@@ -2083,13 +2100,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "description": "IB trade 05:30:08",
         "quantity": 10.0,
         "price": 69.4825,
-        "gross_amount": 694.82,
-        "net_amount": 693.0400000000001,
+        "gross_amount": 694.825,
+        "net_amount": 693.0450000000001,
         "fee": 1.78,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "ISLN 2026-04-07, 05:30:08 -10 69.4825 67.7525 694.82 -1.78 -719.30 -26.26 17.30 C"
+        "source_line": "Order,Stocks,USD,ISLN,2026-04-07, 05:30:08,-10,69.4825,67.7525,694.825,-1.78,-719.305,-26.26,17.3,C"
       },
       {
         "entry_type": "BUY",
@@ -2098,13 +2115,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "description": "IB trade 06:54:24",
         "quantity": 10.0,
         "price": 71.9575,
-        "gross_amount": -719.58,
-        "net_amount": -721.36,
+        "gross_amount": -719.575,
+        "net_amount": -721.355,
         "fee": 1.78,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "ISLN 2026-04-10, 06:54:24 10 71.9575 72.7425 -719.58 -1.78 721.36 0.00 7.85 O"
+        "source_line": "Order,Stocks,USD,ISLN,2026-04-10, 06:54:24,10,71.9575,72.7425,-719.575,-1.78,721.355,0,7.85,O"
       },
       {
         "entry_type": "SELL",
@@ -2113,13 +2130,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "description": "IB trade 05:28:20",
         "quantity": 10.0,
         "price": 71.8775,
-        "gross_amount": 718.78,
-        "net_amount": 716.8399999999999,
+        "gross_amount": 718.775,
+        "net_amount": 716.8349999999999,
         "fee": 1.94,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "ISLN 2026-04-23, 05:28:20 -10 71.8775 72.5275 718.78 -1.94 -721.36 -4.52 -6.50 C;P"
+        "source_line": "Order,Stocks,USD,ISLN,2026-04-23, 05:28:20,-10,71.8775,72.5275,718.775,-1.94,-721.355,-4.52,-6.5,C;P"
       },
       {
         "entry_type": "BUY",
@@ -2134,7 +2151,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "IUFS 2026-04-08, 09:55:36 200 15.1150 15.0700 -3,023.00 -1.70 3,024.70 0.00 -9.00 IA;O"
+        "source_line": "Order,Stocks,USD,IUFS,2026-04-08, 09:55:36,200,15.115,15.07,-3023,-1.7,3024.7,0,-9,IA;O"
       },
       {
         "entry_type": "SELL",
@@ -2149,7 +2166,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "IUFS 2026-04-27, 08:47:08 -200 15.15155 15.2650 3,030.32 -1.70 -3,024.70 3.92 -22.68 C;P"
+        "source_line": "Order,Stocks,USD,IUFS,2026-04-27, 08:47:08,-200,15.15155,15.265,3030.32,-1.7,-3024.7,3.92,-22.68,C;P"
       },
       {
         "entry_type": "BUY",
@@ -2164,7 +2181,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "IUHC 2026-04-08, 05:11:37 100 11.9447 11.9800 -1,194.48 -1.70 1,196.18 0.00 3.52 O;P"
+        "source_line": "Order,Stocks,USD,IUHC,2026-04-08, 05:11:37,100,11.9447,11.98,-1194.48,-1.7,1196.18,0,3.52,O;P"
       },
       {
         "entry_type": "BUY",
@@ -2179,7 +2196,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "IUHC 2026-04-10, 08:30:34 100 12.0268 11.8850 -1,202.68 -1.70 1,204.38 0.00 -14.18 O"
+        "source_line": "Order,Stocks,USD,IUHC,2026-04-10, 08:30:34,100,12.0268,11.885,-1202.68,-1.7,1204.38,0,-14.18,O"
       },
       {
         "entry_type": "SELL",
@@ -2194,7 +2211,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "IUHC 2026-04-27, 05:34:29 -200 11.5750 11.5850 2,315.00 -1.70 -2,400.56 -87.26 -2.00 C;IA"
+        "source_line": "Order,Stocks,USD,IUHC,2026-04-27, 05:34:29,-200,11.575,11.585,2315,-1.7,-2400.56,-87.26,-2,C;IA"
       },
       {
         "entry_type": "BUY",
@@ -2209,7 +2226,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "IUIT 2026-04-17, 06:33:50 20 43.4000 43.9700 -868.00 -1.70 869.70 0.00 11.40 IA;O"
+        "source_line": "Order,Stocks,USD,IUIT,2026-04-17, 06:33:50,20,43.4,43.97,-868,-1.7,869.7,0,11.4,IA;O"
       },
       {
         "entry_type": "SELL",
@@ -2224,7 +2241,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "IUIT 2026-04-17, 06:40:06 -20 43.3800 43.9700 867.60 -1.70 -869.70 -3.80 -11.80 C;IA"
+        "source_line": "Order,Stocks,USD,IUIT,2026-04-17, 06:40:06,-20,43.38,43.97,867.6,-1.7,-869.7,-3.8,-11.8,C;IA"
       },
       {
         "entry_type": "BUY",
@@ -2239,7 +2256,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "IUIT 2026-04-23, 03:51:39 20 44.5300 44.6700 -890.60 -1.70 892.30 0.00 2.80 IA;O"
+        "source_line": "Order,Stocks,USD,IUIT,2026-04-23, 03:51:39,20,44.53,44.67,-890.6,-1.7,892.3,0,2.8,IA;O"
       },
       {
         "entry_type": "SELL",
@@ -2254,7 +2271,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "IUIT 2026-04-23, 05:53:16 -20 44.401415 44.6700 888.02 -1.70 -892.30 -5.98 -5.38 C;P"
+        "source_line": "Order,Stocks,USD,IUIT,2026-04-23, 05:53:16,-20,44.401415,44.67,888.02,-1.7,-892.3,-5.98,-5.38,C;P"
       },
       {
         "entry_type": "BUY",
@@ -2269,7 +2286,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "IUIT 2026-04-23, 07:46:43 20 44.5100 44.6700 -890.20 -1.70 891.90 0.00 3.20 IA;O"
+        "source_line": "Order,Stocks,USD,IUIT,2026-04-23, 07:46:43,20,44.51,44.67,-890.2,-1.7,891.9,0,3.2,IA;O"
       },
       {
         "entry_type": "BUY",
@@ -2284,7 +2301,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "IUIT 2026-05-06, 06:27:56 20 46.64515 46.8600 -932.90 -1.70 934.60 0.00 4.30 O;P"
+        "source_line": "Order,Stocks,USD,IUIT,2026-05-06, 06:27:56,20,46.64515,46.86,-932.9,-1.7,934.6,0,4.3,O;P"
       },
       {
         "entry_type": "SELL",
@@ -2299,7 +2316,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "IUIT 2026-06-11, 07:00:50 -40 48.1600 47.9900 1,926.40 -1.70 -1,826.50 98.20 6.80 C;IA"
+        "source_line": "Order,Stocks,USD,IUIT,2026-06-11, 07:00:50,-40,48.16,47.99,1926.4,-1.7,-1826.5,98.2,6.8,C;IA"
       },
       {
         "entry_type": "BUY",
@@ -2309,12 +2326,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 3.0,
         "price": 296.07,
         "gross_amount": -888.21,
-        "net_amount": -888.5600000000001,
-        "fee": 0.35,
+        "net_amount": -888.56085725,
+        "fee": 0.35085725,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "JPM 2026-04-07, 13:27:03 3 296.0700 297.4000 -888.21 -0.35 888.56 0.00 3.99 O"
+        "source_line": "Order,Stocks,USD,JPM,2026-04-07, 13:27:03,3,296.07,297.4,-888.21,-0.35085725,888.56085725,0,3.99,O"
       },
       {
         "entry_type": "SELL",
@@ -2324,12 +2341,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 3.0,
         "price": 308.13,
         "gross_amount": 924.39,
-        "net_amount": 924.02,
-        "fee": 0.37,
+        "net_amount": 924.019515316,
+        "fee": 0.370484684,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "JPM 2026-04-08, 09:52:49 -3 308.1300 307.9700 924.39 -0.37 -888.56 35.46 0.48 C"
+        "source_line": "Order,Stocks,USD,JPM,2026-04-08, 09:52:49,-3,308.13,307.97,924.39,-0.370484684,-888.560857,35.458658,0.48,C"
       },
       {
         "entry_type": "SELL",
@@ -2339,12 +2356,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 6.0,
         "price": 508.515,
         "gross_amount": 3051.09,
-        "net_amount": 3050.69,
-        "fee": 0.4,
+        "net_amount": 3050.6937202960003,
+        "fee": 0.396279704,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "MA 2026-04-08, 09:51:40 -6 508.5150 507.1200 3,051.09 -0.40 -3,117.67 -66.98 8.37 C"
+        "source_line": "Order,Stocks,USD,MA,2026-04-08, 09:51:40,-6,508.515,507.12,3051.09,-0.396279704,-3117.672586,-66.978868,8.37,C"
       },
       {
         "entry_type": "SELL",
@@ -2354,12 +2371,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 2.0,
         "price": 451.69,
         "gross_amount": 903.38,
-        "net_amount": 903.0,
-        "fee": 0.38,
+        "net_amount": 903.004343122,
+        "fee": 0.375656878,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "MCO 2026-04-08, 09:52:30 -2 451.6900 447.6200 903.38 -0.38 -747.27 155.74 8.14 C"
+        "source_line": "Order,Stocks,USD,MCO,2026-04-08, 09:52:30,-2,451.69,447.62,903.38,-0.375656878,-747.266914,155.73743,8.14,C"
       },
       {
         "entry_type": "BUY",
@@ -2368,13 +2385,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "description": "IB trade 09:44:04",
         "quantity": 1.0,
         "price": 709.295,
-        "gross_amount": -709.3,
-        "net_amount": -709.65,
-        "fee": 0.35,
+        "gross_amount": -709.295,
+        "net_amount": -709.64445725,
+        "fee": 0.34945725,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "META 2026-02-03, 09:44:04 1 709.2950 691.7000 -709.30 -0.35 709.64 0.00 -17.60 O"
+        "source_line": "Order,Stocks,USD,META,2026-02-03, 09:44:04,1,709.295,691.7,-709.295,-0.34945725,709.64445725,0,-17.595,O"
       },
       {
         "entry_type": "BUY",
@@ -2383,13 +2400,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "description": "IB trade 10:12:03",
         "quantity": 1.0,
         "price": 663.625,
-        "gross_amount": -663.62,
-        "net_amount": -663.97,
-        "fee": 0.35,
+        "gross_amount": -663.625,
+        "net_amount": -663.97845725,
+        "fee": 0.35345725,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "META 2026-02-05, 10:12:03 1 663.6250 670.2100 -663.62 -0.35 663.98 0.00 6.58 O"
+        "source_line": "Order,Stocks,USD,META,2026-02-05, 10:12:03,1,663.625,670.21,-663.625,-0.35345725,663.97845725,0,6.585,O"
       },
       {
         "entry_type": "BUY",
@@ -2398,13 +2415,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "description": "IB trade 09:46:46",
         "quantity": 1.0,
         "price": 666.265,
-        "gross_amount": -666.26,
-        "net_amount": -666.61,
-        "fee": 0.35,
+        "gross_amount": -666.265,
+        "net_amount": -666.61445725,
+        "fee": 0.34945725,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "META 2026-02-12, 09:46:46 1 666.2650 649.8100 -666.26 -0.35 666.61 0.00 -16.46 O"
+        "source_line": "Order,Stocks,USD,META,2026-02-12, 09:46:46,1,666.265,649.81,-666.265,-0.34945725,666.61445725,0,-16.455,O"
       },
       {
         "entry_type": "BUY",
@@ -2414,12 +2431,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 2.0,
         "price": 656.485,
         "gross_amount": -1312.97,
-        "net_amount": -1313.32,
-        "fee": 0.35,
+        "net_amount": -1313.3186572500001,
+        "fee": 0.34865725,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "META 2026-03-03, 15:03:02 2 656.4850 655.0800 -1,312.97 -0.35 1,313.32 0.00 -2.81 O"
+        "source_line": "Order,Stocks,USD,META,2026-03-03, 15:03:02,2,656.485,655.08,-1312.97,-0.34865725,1313.31865725,0,-2.81,O"
       },
       {
         "entry_type": "BUY",
@@ -2429,12 +2446,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 1.0,
         "price": 597.13,
         "gross_amount": -597.13,
-        "net_amount": -597.48,
-        "fee": 0.35,
+        "net_amount": -597.47945725,
+        "fee": 0.34945725,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "META 2026-03-25, 11:01:21 1 597.1300 594.8900 -597.13 -0.35 597.48 0.00 -2.24 O"
+        "source_line": "Order,Stocks,USD,META,2026-03-25, 11:01:21,1,597.13,594.89,-597.13,-0.34945725,597.47945725,0,-2.24,O"
       },
       {
         "entry_type": "BUY",
@@ -2444,12 +2461,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 1.0,
         "price": 565.04,
         "gross_amount": -565.04,
-        "net_amount": -565.39,
-        "fee": 0.35,
+        "net_amount": -565.38945725,
+        "fee": 0.34945725,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "META 2026-03-31, 12:41:55 1 565.0400 572.1300 -565.04 -0.35 565.39 0.00 7.09 O"
+        "source_line": "Order,Stocks,USD,META,2026-03-31, 12:41:55,1,565.04,572.13,-565.04,-0.34945725,565.38945725,0,7.09,O"
       },
       {
         "entry_type": "SELL",
@@ -2458,13 +2475,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "description": "IB trade 09:39:59",
         "quantity": 1.0,
         "price": 635.955,
-        "gross_amount": 635.96,
-        "net_amount": 635.6,
-        "fee": 0.36,
+        "gross_amount": 635.955,
+        "net_amount": 635.592247077,
+        "fee": 0.362752923,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "META 2026-04-10, 09:39:59 -1 635.9550 629.8600 635.96 -0.36 -709.64 -74.05 6.10 C;SL"
+        "source_line": "Order,Stocks,USD,META,2026-04-10, 09:39:59,-1,635.955,629.86,635.955,-0.362752923,-709.644457,-74.05221,6.095,C;SL"
       },
       {
         "entry_type": "SELL",
@@ -2474,12 +2491,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 6.0,
         "price": 631.18,
         "gross_amount": 3787.08,
-        "net_amount": 3786.65,
-        "fee": 0.43,
+        "net_amount": 3786.649358902,
+        "fee": 0.430641098,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "META 2026-04-10, 09:58:39 -6 631.1800 629.8600 3,787.08 -0.43 -3,806.78 -20.13 7.92 C"
+        "source_line": "Order,Stocks,USD,META,2026-04-10, 09:58:39,-6,631.18,629.86,3787.08,-0.430641098,-3806.780485,-20.131128,7.92,C"
       },
       {
         "entry_type": "BUY",
@@ -2488,13 +2505,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "description": "IB trade 09:34:12",
         "quantity": 5.0,
         "price": 89.465,
-        "gross_amount": -447.32,
-        "net_amount": -447.69,
-        "fee": 0.37,
+        "gross_amount": -447.325,
+        "net_amount": -447.69125725,
+        "fee": 0.36625725,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "NFLX 2026-01-15, 09:34:12 5 89.4650 88.0500 -447.32 -0.37 447.69 0.00 -7.08 O"
+        "source_line": "Order,Stocks,USD,NFLX,2026-01-15, 09:34:12,5,89.465,88.05,-447.325,-0.36625725,447.69125725,0,-7.075,O"
       },
       {
         "entry_type": "BUY",
@@ -2504,12 +2521,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 3.0,
         "price": 83.68,
         "gross_amount": -251.04,
-        "net_amount": -251.39,
-        "fee": 0.35,
+        "net_amount": -251.38845725,
+        "fee": 0.34845725,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "NFLX 2026-01-21, 09:39:01 3 83.6800 85.3600 -251.04 -0.35 251.39 0.00 5.04 O"
+        "source_line": "Order,Stocks,USD,NFLX,2026-01-21, 09:39:01,3,83.68,85.36,-251.04,-0.34845725,251.38845725,0,5.04,O"
       },
       {
         "entry_type": "SELL",
@@ -2519,12 +2536,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 16.0,
         "price": 97.875,
         "gross_amount": 1566.0,
-        "net_amount": 1565.63,
-        "fee": 0.37,
+        "net_amount": 1565.62716315,
+        "fee": 0.37283685,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "NFLX 2026-04-08, 09:36:56 -16 97.8750 99.3900 1,566.00 -0.37 -1,516.44 49.18 -24.24 C;P"
+        "source_line": "Order,Stocks,USD,NFLX,2026-04-08, 09:36:56,-16,97.875,99.39,1566,-0.37283685,-1516.444173,49.182989,-24.24,C;P"
       },
       {
         "entry_type": "SELL",
@@ -2534,12 +2551,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 5.0,
         "price": 127.66,
         "gross_amount": 638.3,
-        "net_amount": 637.9499999999999,
-        "fee": 0.35,
+        "net_amount": 637.94876775,
+        "fee": 0.35123225,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "NICE 2026-03-05, 15:48:45 -5 127.6600 128.1300 638.30 -0.35 -688.91 -50.96 -2.35 C"
+        "source_line": "Order,Stocks,USD,NICE,2026-03-05, 15:48:45,-5,127.66,128.13,638.3,-0.35123225,-688.905481,-50.956713,-2.35,C"
       },
       {
         "entry_type": "SELL",
@@ -2549,12 +2566,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 8.0,
         "price": 76.55,
         "gross_amount": 612.4,
-        "net_amount": 612.05,
-        "fee": 0.35,
+        "net_amount": 612.04516731,
+        "fee": 0.35483269,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "NTR 2026-04-07, 09:30:01 -8 76.5500 76.8800 612.40 -0.35 -396.40 215.65 -2.64 C"
+        "source_line": "Order,Stocks,USD,NTR,2026-04-07, 09:30:01,-8,76.55,76.88,612.4,-0.35483269,-396.399841,215.645327,-2.64,C"
       },
       {
         "entry_type": "SELL",
@@ -2564,12 +2581,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 15.0,
         "price": 59.38,
         "gross_amount": 890.7,
-        "net_amount": 890.3900000000001,
-        "fee": 0.31,
+        "net_amount": 890.3918177500001,
+        "fee": 0.30818225,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "NVO 2026-01-29, 09:48:38 -15 59.3800 59.3300 890.70 -0.31 -828.08 62.31 0.75 C"
+        "source_line": "Order,Stocks,USD,NVO,2026-01-29, 09:48:38,-15,59.38,59.33,890.7,-0.30818225,-828.080734,62.311084,0.75,C"
       },
       {
         "entry_type": "BUY",
@@ -2578,13 +2595,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "description": "IB trade 10:03:41",
         "quantity": 1.0,
         "price": 149.175,
-        "gross_amount": -149.18,
-        "net_amount": -149.53,
-        "fee": 0.35,
+        "gross_amount": -149.175,
+        "net_amount": -149.52445725,
+        "fee": 0.34945725,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "PANW 2026-02-26, 10:03:41 1 149.1750 149.4000 -149.18 -0.35 149.52 0.00 0.22 O"
+        "source_line": "Order,Stocks,USD,PANW,2026-02-26, 10:03:41,1,149.175,149.4,-149.175,-0.34945725,149.52445725,0,0.225,O"
       },
       {
         "entry_type": "SELL",
@@ -2593,13 +2610,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "description": "IB trade 10:35:13",
         "quantity": 1.0,
         "price": 148.045,
-        "gross_amount": 148.04,
-        "net_amount": 147.69,
-        "fee": 0.35,
+        "gross_amount": 148.045,
+        "net_amount": 147.69534775,
+        "fee": 0.34965225,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "PANW 2026-02-26, 10:35:13 -1 148.0450 149.4000 148.04 -0.35 -149.52 -1.83 -1.36 C"
+        "source_line": "Order,Stocks,USD,PANW,2026-02-26, 10:35:13,-1,148.045,149.4,148.045,-0.34965225,-149.524457,-1.82911,-1.355,C"
       },
       {
         "entry_type": "BUY",
@@ -2608,13 +2625,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "description": "IB trade 12:13:41",
         "quantity": 6.0,
         "price": 164.9877,
-        "gross_amount": -989.93,
-        "net_amount": -990.28,
-        "fee": 0.35,
+        "gross_amount": -989.9262,
+        "net_amount": -990.27767525,
+        "fee": 0.35147525,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "SPCX 2026-06-12, 12:13:41 6 164.9877 160.9500 -989.93 -0.35 990.28 0.00 -24.23 O"
+        "source_line": "Order,Stocks,USD,SPCX,2026-06-12, 12:13:41,6,164.9877,160.95,-989.9262,-0.35147525,990.27767525,0,-24.2262,O"
       },
       {
         "entry_type": "SELL",
@@ -2623,13 +2640,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "description": "IB trade 10:03:38",
         "quantity": 6.0,
         "price": 173.5025,
-        "gross_amount": 1041.01,
-        "net_amount": 1040.64,
-        "fee": 0.37,
+        "gross_amount": 1041.015,
+        "net_amount": 1040.6429098410001,
+        "fee": 0.372090159,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "SPCX 2026-06-15, 10:03:38 -6 173.5025 192.5000 1,041.01 -0.37 -990.28 50.37 -113.98 C;P"
+        "source_line": "Order,Stocks,USD,SPCX,2026-06-15, 10:03:38,-6,173.5025,192.5,1041.015,-0.372090159,-990.277675,50.365235,-113.985,C;P"
       },
       {
         "entry_type": "BUY",
@@ -2639,12 +2656,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 4.0,
         "price": 210.135,
         "gross_amount": -840.54,
-        "net_amount": -840.89,
-        "fee": 0.35,
+        "net_amount": -840.89106925,
+        "fee": 0.35106925,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "SPCX 2026-06-16, 09:46:01 4 210.1350 201.8000 -840.54 -0.35 840.89 0.00 -33.34 O"
+        "source_line": "Order,Stocks,USD,SPCX,2026-06-16, 09:46:01,4,210.135,201.8,-840.54,-0.35106925,840.89106925,0,-33.34,O"
       },
       {
         "entry_type": "SELL",
@@ -2654,12 +2671,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 4.0,
         "price": 174.52,
         "gross_amount": 698.08,
-        "net_amount": 697.71,
-        "fee": 0.37,
+        "net_amount": 697.7137703020001,
+        "fee": 0.366229698,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "SPCX 2026-06-18, 12:03:58 -4 174.5200 185.0000 698.08 -0.37 -840.89 -143.18 -41.92 C"
+        "source_line": "Order,Stocks,USD,SPCX,2026-06-18, 12:03:58,-4,174.52,185,698.08,-0.366229698,-840.891069,-143.177299,-41.92,C"
       },
       {
         "entry_type": "BUY",
@@ -2669,12 +2686,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 1.0,
         "price": 403.83,
         "gross_amount": -403.83,
-        "net_amount": -404.18,
-        "fee": 0.35,
+        "net_amount": -404.17725724999997,
+        "fee": 0.34725725,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "SPGI 2026-02-10, 14:46:02 1 403.8300 401.0800 -403.83 -0.35 404.18 0.00 -2.75 O"
+        "source_line": "Order,Stocks,USD,SPGI,2026-02-10, 14:46:02,1,403.83,401.08,-403.83,-0.34725725,404.17725725,0,-2.75,O"
       },
       {
         "entry_type": "BUY",
@@ -2684,12 +2701,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 1.0,
         "price": 411.61,
         "gross_amount": -411.61,
-        "net_amount": -411.96000000000004,
-        "fee": 0.35,
+        "net_amount": -411.96025725000004,
+        "fee": 0.35025725,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "SPGI 2026-03-25, 10:59:25 1 411.6100 408.4800 -411.61 -0.35 411.96 0.00 -3.13 O"
+        "source_line": "Order,Stocks,USD,SPGI,2026-03-25, 10:59:25,1,411.61,408.48,-411.61,-0.35025725,411.96025725,0,-3.13,O"
       },
       {
         "entry_type": "SELL",
@@ -2699,12 +2716,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 2.0,
         "price": 429.98,
         "gross_amount": 859.96,
-        "net_amount": 859.6,
-        "fee": 0.36,
+        "net_amount": 859.597637574,
+        "fee": 0.362362426,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "SPGI 2026-04-07, 13:26:43 -2 429.9800 430.0600 859.96 -0.36 -1,045.46 -185.86 -0.16 C;SL"
+        "source_line": "Order,Stocks,USD,SPGI,2026-04-07, 13:26:43,-2,429.98,430.06,859.96,-0.362362426,-1045.455584,-185.857946,-0.16,C;SL"
       },
       {
         "entry_type": "SELL",
@@ -2714,12 +2731,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 6.0,
         "price": 437.645,
         "gross_amount": 2625.87,
-        "net_amount": 2625.48,
-        "fee": 0.39,
+        "net_amount": 2625.4824798279997,
+        "fee": 0.387520172,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "SPGI 2026-04-08, 09:52:21 -6 437.6450 436.9600 2,625.87 -0.39 -2,553.63 71.85 4.11 C"
+        "source_line": "Order,Stocks,USD,SPGI,2026-04-08, 09:52:21,-6,437.645,436.96,2625.87,-0.387520172,-2553.632564,71.849914,4.11,C"
       },
       {
         "entry_type": "SELL",
@@ -2729,12 +2746,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 6.0,
         "price": 91.34,
         "gross_amount": 548.04,
-        "net_amount": 547.68,
-        "fee": 0.36,
+        "net_amount": 547.682083126,
+        "fee": 0.357916874,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "TROW 2026-04-13, 09:40:37 -6 91.3400 94.3700 548.04 -0.36 -903.73 -356.05 -18.18 C"
+        "source_line": "Order,Stocks,USD,TROW,2026-04-13, 09:40:37,-6,91.34,94.37,548.04,-0.357916874,-903.730142,-356.04806,-18.18,C"
       },
       {
         "entry_type": "SELL",
@@ -2744,12 +2761,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 1.0,
         "price": 342.23,
         "gross_amount": 342.23,
-        "net_amount": 341.88,
-        "fee": 0.35,
+        "net_amount": 341.87634775000004,
+        "fee": 0.35365225,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "TSM 2026-03-17, 10:15:28 -1 342.2300 345.9800 342.23 -0.35 -206.50 135.38 -3.75 C"
+        "source_line": "Order,Stocks,USD,TSM,2026-03-17, 10:15:28,-1,342.23,345.98,342.23,-0.35365225,-206.495492,135.380856,-3.75,C"
       },
       {
         "entry_type": "SELL",
@@ -2759,12 +2776,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 3.0,
         "price": 375.76,
         "gross_amount": 1127.28,
-        "net_amount": 1126.8999999999999,
-        "fee": 0.38,
+        "net_amount": 1126.896335782,
+        "fee": 0.383664218,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "TSM 2026-04-10, 11:00:49 -3 375.7600 370.6000 1,127.28 -0.38 -474.63 652.26 15.48 C"
+        "source_line": "Order,Stocks,USD,TSM,2026-04-10, 11:00:49,-3,375.76,370.6,1127.28,-0.383664218,-474.632076,652.26426,15.48,C"
       },
       {
         "entry_type": "SELL",
@@ -2774,12 +2791,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 5.0,
         "price": 104.83,
         "gross_amount": 524.15,
-        "net_amount": 523.8,
-        "fee": 0.35,
+        "net_amount": 523.8027677499999,
+        "fee": 0.34723225,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "TW 2026-01-29, 09:41:05 -5 104.8300 103.1400 524.15 -0.35 -544.51 -20.70 8.45 C"
+        "source_line": "Order,Stocks,USD,TW,2026-01-29, 09:41:05,-5,104.83,103.14,524.15,-0.34723225,-544.506624,-20.703855,8.45,C"
       },
       {
         "entry_type": "SELL",
@@ -2789,12 +2806,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 6.0,
         "price": 162.22,
         "gross_amount": 973.32,
-        "net_amount": 972.94,
-        "fee": 0.38,
+        "net_amount": 972.9413223580001,
+        "fee": 0.378677642,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "TXRH 2026-04-07, 09:30:00 -6 162.2200 159.9400 973.32 -0.38 -1,013.58 -40.64 13.68 C"
+        "source_line": "Order,Stocks,USD,TXRH,2026-04-07, 09:30:00,-6,162.22,159.94,973.32,-0.378677642,-1013.584599,-40.643277,13.68,C"
       },
       {
         "entry_type": "SELL",
@@ -2804,12 +2821,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 6.0,
         "price": 74.92,
         "gross_amount": 449.52,
-        "net_amount": 449.15,
-        "fee": 0.37,
+        "net_amount": 449.14937275,
+        "fee": 0.37062725,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "UBER 2026-02-26, 09:53:28 -6 74.9200 74.8000 449.52 -0.37 -435.23 13.92 0.72 C"
+        "source_line": "Order,Stocks,USD,UBER,2026-02-26, 09:53:28,-6,74.92,74.8,449.52,-0.37062725,-435.228524,13.920849,0.72,C"
       },
       {
         "entry_type": "BUY",
@@ -2819,12 +2836,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 2.0,
         "price": 308.165,
         "gross_amount": -616.33,
-        "net_amount": -616.6800000000001,
-        "fee": 0.35,
+        "net_amount": -616.67785725,
+        "fee": 0.34785725,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "UNH 2026-04-07, 09:32:20 2 308.1650 307.7300 -616.33 -0.35 616.68 0.00 -0.87 O"
+        "source_line": "Order,Stocks,USD,UNH,2026-04-07, 09:32:20,2,308.165,307.73,-616.33,-0.34785725,616.67785725,0,-0.87,O"
       },
       {
         "entry_type": "SELL",
@@ -2834,12 +2851,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 2.0,
         "price": 314.37,
         "gross_amount": 628.74,
-        "net_amount": 628.38,
-        "fee": 0.36,
+        "net_amount": 628.382000706,
+        "fee": 0.357999294,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "UNH 2026-04-16, 09:53:13 -2 314.3700 316.4000 628.74 -0.36 -616.68 11.70 -4.06 C"
+        "source_line": "Order,Stocks,USD,UNH,2026-04-16, 09:53:13,-2,314.37,316.4,628.74,-0.357999294,-616.677857,11.704144,-4.06,C"
       },
       {
         "entry_type": "SELL",
@@ -2849,12 +2866,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 50.0,
         "price": 16.125,
         "gross_amount": 806.25,
-        "net_amount": 805.93,
-        "fee": 0.32,
+        "net_amount": 805.933384,
+        "fee": 0.316616,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "VALE 2026-04-07, 09:30:02 -50 16.1250 16.1800 806.25 -0.32 -670.87 135.06 -2.75 C"
+        "source_line": "Order,Stocks,USD,VALE,2026-04-07, 09:30:02,-50,16.125,16.18,806.25,-0.316616,-670.873285,135.060099,-2.75,C"
       },
       {
         "entry_type": "BUY",
@@ -2869,7 +2886,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "VDST 2026-04-08, 10:34:33 50 58.6810 58.6800 -2,934.05 -1.78 2,935.83 0.00 -0.05 O"
+        "source_line": "Order,Stocks,USD,VDST,2026-04-08, 10:34:33,50,58.681,58.68,-2934.05,-1.78,2935.83,0,-0.05,O"
       },
       {
         "entry_type": "BUY",
@@ -2884,7 +2901,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "VDST 2026-04-10, 10:42:50 50 58.7000 58.6980 -2,935.00 -1.70 2,936.70 0.00 -0.10 IA;O"
+        "source_line": "Order,Stocks,USD,VDST,2026-04-10, 10:42:50,50,58.7,58.698,-2935,-1.7,2936.7,0,-0.1,IA;O"
       },
       {
         "entry_type": "BUY",
@@ -2899,7 +2916,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "VDST 2026-04-14, 04:53:05 50 58.7150 58.7030 -2,935.75 -1.70 2,937.45 0.00 -0.60 IA;O"
+        "source_line": "Order,Stocks,USD,VDST,2026-04-14, 04:53:05,50,58.715,58.703,-2935.75,-1.7,2937.45,0,-0.6,IA;O"
       },
       {
         "entry_type": "BUY",
@@ -2909,12 +2926,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 60.0,
         "price": 58.815,
         "gross_amount": -3528.9,
-        "net_amount": -3530.6600000000003,
-        "fee": 1.76,
+        "net_amount": -3530.66445,
+        "fee": 1.76445,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "VDST 2026-04-24, 03:10:26 60 58.8150 58.7770 -3,528.90 -1.76 3,530.66 0.00 -2.28 IA;O"
+        "source_line": "Order,Stocks,USD,VDST,2026-04-24, 03:10:26,60,58.815,58.777,-3528.9,-1.76445,3530.66445,0,-2.28,IA;O"
       },
       {
         "entry_type": "SELL",
@@ -2929,7 +2946,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "VDST 2026-04-24, 04:56:05 -10 58.7760 58.7770 587.76 -1.70 -587.17 -1.11 -0.01 C;IA"
+        "source_line": "Order,Stocks,USD,VDST,2026-04-24, 04:56:05,-10,58.776,58.777,587.76,-1.7,-587.166,-1.106,-0.01,C;IA"
       },
       {
         "entry_type": "SELL",
@@ -2939,12 +2956,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 2.0,
         "price": 480.18,
         "gross_amount": 960.36,
-        "net_amount": 960.0,
-        "fee": 0.36,
+        "net_amount": 960.00295275,
+        "fee": 0.35704725,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "VRTX 2026-01-29, 09:48:25 -2 480.1800 475.6800 960.36 -0.36 -851.23 108.78 9.00 C"
+        "source_line": "Order,Stocks,USD,VRTX,2026-01-29, 09:48:25,-2,480.18,475.68,960.36,-0.35704725,-851.226184,108.776768,9,C"
       },
       {
         "entry_type": "BUY",
@@ -2959,7 +2976,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "VUAA 2026-02-17, 05:45:45 4 131.0400 131.5200 -524.16 -1.70 525.86 0.00 1.92 IA;O"
+        "source_line": "Order,Stocks,USD,VUAA,2026-02-17, 05:45:45,4,131.04,131.52,-524.16,-1.7,525.86,0,1.92,IA;O"
       },
       {
         "entry_type": "BUY",
@@ -2974,7 +2991,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "VUAA 2026-03-31, 10:37:10 4 124.0000 123.9400 -496.00 -1.78 497.78 0.00 -0.24 O"
+        "source_line": "Order,Stocks,USD,VUAA,2026-03-31, 10:37:10,4,124,123.94,-496,-1.78,497.78,0,-0.24,O"
       },
       {
         "entry_type": "BUY",
@@ -2989,7 +3006,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "VUAA 2026-04-08, 10:23:52 6 130.4800 130.3400 -782.88 -1.70 784.58 0.00 -0.84 IA;O"
+        "source_line": "Order,Stocks,USD,VUAA,2026-04-08, 10:23:52,6,130.48,130.34,-782.88,-1.7,784.58,0,-0.84,IA;O"
       },
       {
         "entry_type": "BUY",
@@ -3004,7 +3021,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "VUAA 2026-04-09, 09:57:20 10 130.5800 131.0000 -1,305.80 -1.70 1,307.50 0.00 4.20 IA;O"
+        "source_line": "Order,Stocks,USD,VUAA,2026-04-09, 09:57:20,10,130.58,131,-1305.8,-1.7,1307.5,0,4.2,IA;O"
       },
       {
         "entry_type": "BUY",
@@ -3014,12 +3031,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "quantity": 40.0,
         "price": 131.72,
         "gross_amount": -5268.8,
-        "net_amount": -5271.43,
-        "fee": 2.63,
+        "net_amount": -5271.4344,
+        "fee": 2.6344,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "VUAA 2026-04-10, 10:46:27 40 131.7200 131.6400 -5,268.80 -2.63 5,271.43 0.00 -3.20 IA;O"
+        "source_line": "Order,Stocks,USD,VUAA,2026-04-10, 10:46:27,40,131.72,131.64,-5268.8,-2.6344,5271.4344,0,-3.2,IA;O"
       },
       {
         "entry_type": "SELL",
@@ -3028,13 +3045,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "description": "IB trade 09:30:00",
         "quantity": 5.0,
         "price": 82.855,
-        "gross_amount": 414.28,
-        "net_amount": 413.90999999999997,
-        "fee": 0.37,
+        "gross_amount": 414.275,
+        "net_amount": 413.909233685,
+        "fee": 0.365766315,
         "tax": null,
         "currency": "USD",
         "source_section": "Trades",
-        "source_line": "ZM 2026-04-07, 09:30:00 -5 82.8550 84.0200 414.28 -0.37 -537.16 -123.25 -5.82 C"
+        "source_line": "Order,Stocks,USD,ZM,2026-04-07, 09:30:00,-5,82.855,84.02,414.275,-0.365766315,-537.161785,-123.25255,-5.825,C"
       },
       {
         "entry_type": "DIVIDEND",
@@ -3049,7 +3066,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Dividends",
-        "source_line": "2026-01-08 CRM(US79466L3024) Cash Dividend USD 0.416 per Share (Ordinary Dividend) 2.91"
+        "source_line": "USD,2026-01-08,CRM(US79466L3024) Cash Dividend USD 0.416 per Share (Ordinary Dividend),2.91"
       },
       {
         "entry_type": "DIVIDEND",
@@ -3064,7 +3081,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Dividends",
-        "source_line": "2026-01-08 TSM(US8740391003) Cash Dividend USD 0.79542 per Share (Ordinary Div - NRA Withholding Exempt) 3.18"
+        "source_line": "USD,2026-01-08,TSM(US8740391003) Cash Dividend USD 0.79542 per Share (Ordinary Div - NRA Withholding Exempt),3.18"
       },
       {
         "entry_type": "DIVIDEND",
@@ -3079,7 +3096,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Dividends",
-        "source_line": "2026-01-14 VALE(US91912E1055) Cash Dividend USD 0.230441 per Share (Ordinary Dividend) 11.52"
+        "source_line": "USD,2026-01-14,VALE(US91912E1055) Cash Dividend USD 0.230441 per Share (Ordinary Dividend),11.52"
       },
       {
         "entry_type": "DIVIDEND",
@@ -3094,7 +3111,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Dividends",
-        "source_line": "2026-01-16 NTR(CA67077M1086) Cash Dividend USD 0.545 per Share (Ordinary Dividend) 4.36"
+        "source_line": "USD,2026-01-16,NTR(CA67077M1086) Cash Dividend USD 0.545 per Share (Ordinary Dividend),4.36"
       },
       {
         "entry_type": "DIVIDEND",
@@ -3109,7 +3126,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Dividends",
-        "source_line": "2026-02-09 MA(US57636Q1040) Cash Dividend USD 0.87 per Share (Ordinary Dividend) 5.22"
+        "source_line": "USD,2026-02-09,MA(US57636Q1040) Cash Dividend USD 0.87 per Share (Ordinary Dividend),5.22"
       },
       {
         "entry_type": "DIVIDEND",
@@ -3124,7 +3141,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Dividends",
-        "source_line": "2026-02-12 AAPL(US0378331005) Cash Dividend USD 0.26 per Share (Ordinary Dividend) 0.78"
+        "source_line": "USD,2026-02-12,AAPL(US0378331005) Cash Dividend USD 0.26 per Share (Ordinary Dividend),0.78"
       },
       {
         "entry_type": "DIVIDEND",
@@ -3139,7 +3156,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Dividends",
-        "source_line": "2026-02-13 ACN(IE00B4BNMY34) Cash Dividend USD 1.63 per Share (Ordinary Dividend) 4.89"
+        "source_line": "USD,2026-02-13,ACN(IE00B4BNMY34) Cash Dividend USD 1.63 per Share (Ordinary Dividend),4.89"
       },
       {
         "entry_type": "DIVIDEND",
@@ -3154,7 +3171,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Dividends",
-        "source_line": "2026-02-18 ASML(USN070592100) Cash Dividend USD 1.9064 per Share (Ordinary Dividend) 5.72"
+        "source_line": "USD,2026-02-18,ASML(USN070592100) Cash Dividend USD 1.9064 per Share (Ordinary Dividend),5.72"
       },
       {
         "entry_type": "DIVIDEND",
@@ -3169,7 +3186,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Dividends",
-        "source_line": "2026-02-27 EQNR(US29446M1027) Cash Dividend USD 0.37 per Share (Ordinary Dividend) 7.40"
+        "source_line": "USD,2026-02-27,EQNR(US29446M1027) Cash Dividend USD 0.37 per Share (Ordinary Dividend),7.4"
       },
       {
         "entry_type": "DIVIDEND",
@@ -3184,7 +3201,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Dividends",
-        "source_line": "2026-03-10 ADM(US0394831020) Cash Dividend USD 0.52 per Share (Ordinary Dividend) 8.32"
+        "source_line": "USD,2026-03-10,ADM(US0394831020) Cash Dividend USD 0.52 per Share (Ordinary Dividend),8.32"
       },
       {
         "entry_type": "DIVIDEND",
@@ -3199,7 +3216,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Dividends",
-        "source_line": "2026-03-11 SPGI(US78409V1044) Cash Dividend USD 0.97 per Share (Ordinary Dividend) 6.79"
+        "source_line": "USD,2026-03-11,SPGI(US78409V1044) Cash Dividend USD 0.97 per Share (Ordinary Dividend),6.79"
       },
       {
         "entry_type": "DIVIDEND",
@@ -3214,7 +3231,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Dividends",
-        "source_line": "2026-03-11 VALE(60581038) Cash Dividend USD 0.147165 per Share (Ordinary Dividend) 7.36"
+        "source_line": "USD,2026-03-11,VALE(60581038) Cash Dividend USD 0.147165 per Share (Ordinary Dividend),7.36"
       },
       {
         "entry_type": "DIVIDEND",
@@ -3229,7 +3246,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Dividends",
-        "source_line": "2026-03-11 VALE(US91912E1055) Cash Dividend USD 0.300704 per Share (Ordinary Dividend) 15.04"
+        "source_line": "USD,2026-03-11,VALE(US91912E1055) Cash Dividend USD 0.300704 per Share (Ordinary Dividend),15.04"
       },
       {
         "entry_type": "DIVIDEND",
@@ -3244,7 +3261,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Dividends",
-        "source_line": "2026-03-13 MCO(US6153691059) Cash Dividend USD 1.03 per Share (Ordinary Dividend) 2.06"
+        "source_line": "USD,2026-03-13,MCO(US6153691059) Cash Dividend USD 1.03 per Share (Ordinary Dividend),2.06"
       },
       {
         "entry_type": "DIVIDEND",
@@ -3259,7 +3276,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Dividends",
-        "source_line": "2026-03-16 GOOG(US02079K1079) Cash Dividend USD 0.21 per Share (Ordinary Dividend) 3.36"
+        "source_line": "USD,2026-03-16,GOOG(US02079K1079) Cash Dividend USD 0.21 per Share (Ordinary Dividend),3.36"
       },
       {
         "entry_type": "DIVIDEND",
@@ -3274,7 +3291,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Dividends",
-        "source_line": "2026-03-17 EFX(US2944291051) Cash Dividend USD 0.56 per Share (Ordinary Dividend) 3.92"
+        "source_line": "USD,2026-03-17,EFX(US2944291051) Cash Dividend USD 0.56 per Share (Ordinary Dividend),3.92"
       },
       {
         "entry_type": "DIVIDEND",
@@ -3289,7 +3306,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Dividends",
-        "source_line": "2026-03-25 PYPL(US70450Y1038) Cash Dividend USD 0.14 per Share (Ordinary Dividend) 1.82"
+        "source_line": "USD,2026-03-25,PYPL(US70450Y1038) Cash Dividend USD 0.14 per Share (Ordinary Dividend),1.82"
       },
       {
         "entry_type": "DIVIDEND",
@@ -3304,7 +3321,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Dividends",
-        "source_line": "2026-03-26 META(US30303M1027) Cash Dividend USD 0.525 per Share (Ordinary Dividend) 2.63"
+        "source_line": "USD,2026-03-26,META(US30303M1027) Cash Dividend USD 0.525 per Share (Ordinary Dividend),2.63"
       },
       {
         "entry_type": "DIVIDEND",
@@ -3319,7 +3336,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Dividends",
-        "source_line": "2026-03-30 TROW(US74144T1088) Cash Dividend USD 1.30 per Share (Ordinary Dividend) 7.80"
+        "source_line": "USD,2026-03-30,TROW(US74144T1088) Cash Dividend USD 1.30 per Share (Ordinary Dividend),7.8"
       },
       {
         "entry_type": "DIVIDEND",
@@ -3334,7 +3351,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Dividends",
-        "source_line": "2026-03-31 TXRH(US8826811098) Cash Dividend USD 0.75 per Share (Ordinary Dividend) 4.50"
+        "source_line": "USD,2026-03-31,TXRH(US8826811098) Cash Dividend USD 0.75 per Share (Ordinary Dividend),4.5"
       },
       {
         "entry_type": "DIVIDEND",
@@ -3349,7 +3366,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Dividends",
-        "source_line": "2026-04-09 TSM(US8740391003) Cash Dividend USD 0.938972 per Share (Ordinary Div - NRA Withholding Exempt) 3.76"
+        "source_line": "USD,2026-04-09,TSM(US8740391003) Cash Dividend USD 0.938972 per Share (Ordinary Div - NRA Withholding Exempt),3.76"
       },
       {
         "entry_type": "DIVIDEND",
@@ -3364,7 +3381,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Dividends",
-        "source_line": "2026-04-16 NTR (CA67077M1086) Cash Dividend USD 0.55 (Ordinary Dividend) 4.40"
+        "source_line": "USD,2026-04-16,NTR (CA67077M1086) Cash Dividend USD 0.55 (Ordinary Dividend),4.4"
       },
       {
         "entry_type": "DIVIDEND",
@@ -3379,7 +3396,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Dividends",
-        "source_line": "2026-04-23 CRM(US79466L3024) Cash Dividend USD 0.44 per Share (Ordinary Dividend) 3.08"
+        "source_line": "USD,2026-04-23,CRM(US79466L3024) Cash Dividend USD 0.44 per Share (Ordinary Dividend),3.08"
       },
       {
         "entry_type": "DIVIDEND",
@@ -3394,7 +3411,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Dividends",
-        "source_line": "2026-06-25 PYPL(US70450Y1038) Cash Dividend USD 0.14 per Share (Ordinary Dividend) 1.82"
+        "source_line": "USD,2026-06-25,PYPL(US70450Y1038) Cash Dividend USD 0.14 per Share (Ordinary Dividend),1.82"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3409,7 +3426,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.44,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-01-08 CRM(US79466L3024) Cash Dividend USD 0.416 per Share - US Tax -0.44"
+        "source_line": "USD,2026-01-08,CRM(US79466L3024) Cash Dividend USD 0.416 per Share - US Tax,-0.44,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3424,7 +3441,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.67,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-01-08 TSM(US8740391003) Cash Dividend USD 0.79542 per Share - TW Tax -0.67"
+        "source_line": "USD,2026-01-08,TSM(US8740391003) Cash Dividend USD 0.79542 per Share - TW Tax,-0.67,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3439,7 +3456,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.66,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-01-16 NTR(CA67077M1086) Cash Dividend USD 0.545 per Share - CA Tax -0.66"
+        "source_line": "USD,2026-01-16,NTR(CA67077M1086) Cash Dividend USD 0.545 per Share - CA Tax,-0.66,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3454,7 +3471,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.66,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-01-16 NTR(CA67077M1086) Cash Dividend USD 0.545 per Share - CA Tax 0.66"
+        "source_line": "USD,2026-01-16,NTR(CA67077M1086) Cash Dividend USD 0.545 per Share - CA Tax,0.66,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3469,7 +3486,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.65,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-01-16 NTR(CA67077M1086) Cash Dividend USD 0.545 per Share - CA Tax -0.65"
+        "source_line": "USD,2026-01-16,NTR(CA67077M1086) Cash Dividend USD 0.545 per Share - CA Tax,-0.65,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3484,7 +3501,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 2.6,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-01-28 VICI(US9256521090) Cash Dividend USD 0.4325 per Share - US Tax 2.60"
+        "source_line": "USD,2026-01-28,VICI(US9256521090) Cash Dividend USD 0.4325 per Share - US Tax,2.6,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3499,7 +3516,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 2.53,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-01-28 VICI(US9256521090) Cash Dividend USD 0.4325 per Share - US Tax -2.53"
+        "source_line": "USD,2026-01-28,VICI(US9256521090) Cash Dividend USD 0.4325 per Share - US Tax,-2.53,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3514,7 +3531,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.78,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-02-09 MA(US57636Q1040) Cash Dividend USD 0.87 per Share - US Tax -0.78"
+        "source_line": "USD,2026-02-09,MA(US57636Q1040) Cash Dividend USD 0.87 per Share - US Tax,-0.78,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3529,7 +3546,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.12,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-02-12 AAPL(US0378331005) Cash Dividend USD 0.26 per Share - US Tax -0.12"
+        "source_line": "USD,2026-02-12,AAPL(US0378331005) Cash Dividend USD 0.26 per Share - US Tax,-0.12,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3544,7 +3561,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 1.22,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-02-13 ACN(IE00B4BNMY34) Cash Dividend USD 1.63 per Share - IE Tax -1.22"
+        "source_line": "USD,2026-02-13,ACN(IE00B4BNMY34) Cash Dividend USD 1.63 per Share - IE Tax,-1.22,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3559,7 +3576,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.86,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-02-18 ASML(USN070592100) Cash Dividend USD 1.9064 per Share - NL Tax -0.86"
+        "source_line": "USD,2026-02-18,ASML(USN070592100) Cash Dividend USD 1.9064 per Share - NL Tax,-0.86,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3574,7 +3591,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 1.85,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-02-27 EQNR(US29446M1027) Cash Dividend USD 0.37 per Share - NO Tax -1.85"
+        "source_line": "USD,2026-02-27,EQNR(US29446M1027) Cash Dividend USD 0.37 per Share - NO Tax,-1.85,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3589,7 +3606,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 1.25,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-03-10 ADM(US0394831020) Cash Dividend USD 0.52 per Share - US Tax -1.25"
+        "source_line": "USD,2026-03-10,ADM(US0394831020) Cash Dividend USD 0.52 per Share - US Tax,-1.25,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3604,7 +3621,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 1.02,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-03-11 SPGI(US78409V1044) Cash Dividend USD 0.97 per Share - US Tax -1.02"
+        "source_line": "USD,2026-03-11,SPGI(US78409V1044) Cash Dividend USD 0.97 per Share - US Tax,-1.02,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3619,7 +3636,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 2.26,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-03-11 VALE(US91912E1055) Cash Dividend USD 0.300704 per Share - BR Tax -2.26"
+        "source_line": "USD,2026-03-11,VALE(US91912E1055) Cash Dividend USD 0.300704 per Share - BR Tax,-2.26,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3634,7 +3651,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.31,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-03-13 MCO(US6153691059) Cash Dividend USD 1.03 per Share - US Tax -0.31"
+        "source_line": "USD,2026-03-13,MCO(US6153691059) Cash Dividend USD 1.03 per Share - US Tax,-0.31,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3649,7 +3666,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.5,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-03-16 GOOG(US02079K1079) Cash Dividend USD 0.21 per Share - US Tax -0.50"
+        "source_line": "USD,2026-03-16,GOOG(US02079K1079) Cash Dividend USD 0.21 per Share - US Tax,-0.5,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3664,7 +3681,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.59,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-03-17 EFX(US2944291051) Cash Dividend USD 0.56 per Share - US Tax -0.59"
+        "source_line": "USD,2026-03-17,EFX(US2944291051) Cash Dividend USD 0.56 per Share - US Tax,-0.59,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3679,7 +3696,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.27,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-03-25 PYPL(US70450Y1038) Cash Dividend USD 0.14 per Share - US Tax -0.27"
+        "source_line": "USD,2026-03-25,PYPL(US70450Y1038) Cash Dividend USD 0.14 per Share - US Tax,-0.27,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3694,7 +3711,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.39,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-03-26 META(US30303M1027) Cash Dividend USD 0.525 per Share - US Tax -0.39"
+        "source_line": "USD,2026-03-26,META(US30303M1027) Cash Dividend USD 0.525 per Share - US Tax,-0.39,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3709,7 +3726,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 1.17,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-03-30 TROW(US74144T1088) Cash Dividend USD 1.30 per Share - US Tax -1.17"
+        "source_line": "USD,2026-03-30,TROW(US74144T1088) Cash Dividend USD 1.30 per Share - US Tax,-1.17,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3724,7 +3741,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.68,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-03-31 TXRH(US8826811098) Cash Dividend USD 0.75 per Share - US Tax -0.68"
+        "source_line": "USD,2026-03-31,TXRH(US8826811098) Cash Dividend USD 0.75 per Share - US Tax,-0.68,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3739,7 +3756,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.79,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-04-09 TSM(US8740391003) Cash Dividend USD 0.938972 per Share - TW Tax -0.79"
+        "source_line": "USD,2026-04-09,TSM(US8740391003) Cash Dividend USD 0.938972 per Share - TW Tax,-0.79,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3754,7 +3771,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.66,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-04-16 NTR (CA67077M1086) Cash Dividend USD 0.55 - CA Tax -0.66"
+        "source_line": "USD,2026-04-16,NTR (CA67077M1086) Cash Dividend USD 0.55 - CA Tax,-0.66,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3769,7 +3786,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.46,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-04-23 CRM(US79466L3024) Cash Dividend USD 0.44 per Share - US Tax -0.46"
+        "source_line": "USD,2026-04-23,CRM(US79466L3024) Cash Dividend USD 0.44 per Share - US Tax,-0.46,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3784,7 +3801,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.33,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-05-05 Withholding @ 20% on Credit Interest for Apr-2026 -0.33"
+        "source_line": "USD,2026-05-05,Withholding @ 20% on Credit Interest for Apr-2026,-0.33,"
       },
       {
         "entry_type": "WITHHOLDING_TAX",
@@ -3799,7 +3816,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.27,
         "currency": "USD",
         "source_section": "Withholding Tax",
-        "source_line": "2026-06-25 PYPL(US70450Y1038) Cash Dividend USD 0.14 per Share - US Tax -0.27"
+        "source_line": "USD,2026-06-25,PYPL(US70450Y1038) Cash Dividend USD 0.14 per Share - US Tax,-0.27,"
       },
       {
         "entry_type": "INTEREST",
@@ -3814,7 +3831,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Interest",
-        "source_line": "2026-05-05 USD Credit Interest for Apr-2026 1.64"
+        "source_line": "USD,2026-05-05,USD Credit Interest for Apr-2026,1.64"
       },
       {
         "entry_type": "FEE",
@@ -3829,7 +3846,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Fees",
-        "source_line": "2026-01-13 NICE(653656108) ADR Fee USD 0.04 per Share -0.20"
+        "source_line": "Other Fees,USD,2026-01-13,NICE(653656108) ADR Fee USD 0.04 per Share,-0.2"
       },
       {
         "entry_type": "FEE",
@@ -3844,7 +3861,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Fees",
-        "source_line": "2026-01-14 VALE(US91912E1055) Cash Dividend USD 0.230441 per Share - FEE -0.25"
+        "source_line": "Other Fees,USD,2026-01-14,VALE(US91912E1055) Cash Dividend USD 0.230441 per Share - FEE,-0.25"
       },
       {
         "entry_type": "FEE",
@@ -3859,7 +3876,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Fees",
-        "source_line": "2026-02-27 EQNR(US29446M1027) Cash Dividend USD 0.37 per Share - FEE -0.10"
+        "source_line": "Other Fees,USD,2026-02-27,EQNR(US29446M1027) Cash Dividend USD 0.37 per Share - FEE,-0.1"
       },
       {
         "entry_type": "FEE",
@@ -3874,7 +3891,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Fees",
-        "source_line": "2026-03-11 VALE(60581038) Cash Dividend USD 0.147165 per Share - FEE -0.25"
+        "source_line": "Other Fees,USD,2026-03-11,VALE(60581038) Cash Dividend USD 0.147165 per Share - FEE,-0.25"
       },
       {
         "entry_type": "FEE",
@@ -3889,7 +3906,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": 0.0,
         "currency": "USD",
         "source_section": "Fees",
-        "source_line": "2026-03-11 VALE(US91912E1055) Cash Dividend USD 0.300704 per Share - FEE -0.25"
+        "source_line": "Other Fees,USD,2026-03-11,VALE(US91912E1055) Cash Dividend USD 0.300704 per Share - FEE,-0.25"
       },
       {
         "entry_type": "DEPOSIT",
@@ -3904,20 +3921,20 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "tax": null,
         "currency": "USD",
         "source_section": "Deposits & Withdrawals",
-        "source_line": "2026-04-10 Electronic Fund Transfer 9,963.00"
+        "source_line": "USD,2026-04-10,Electronic Fund Transfer,9963"
       }
     ]
   },
   "overview": {
     "account_id": "U8516450",
     "base_currency": "USD",
-    "statement_period": "January 1, 2026 - June 30, 2026",
+    "statement_period": "2026-01-01 - 2026-06-30",
     "positions_count": 20,
     "instruments_count": 65,
-    "ledger_entries_count": 203,
+    "ledger_entries_count": 204,
     "total_market_value": 58588.76,
-    "total_cost_basis": 57967.5,
-    "total_unrealized_pnl": 621.26,
+    "total_cost_basis": 57967.49,
+    "total_unrealized_pnl": 621.27,
     "cash_by_currency": {
       "EUR": 0.0,
       "GBP": 0.0,
@@ -4157,12 +4174,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "WITHHOLDING_TAX": 27,
       "FEE": 5,
       "BUY": 79,
-      "SELL": 66,
+      "SELL": 67,
       "DEPOSIT": 1,
       "INTEREST": 1
     },
     "realized_cash_flow": {
-      "USD": 10057.9,
+      "USD": 12257.17,
       "EUR": -10317.85,
       "GBP": -2210.55
     }
@@ -4781,7 +4798,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -5020,7 +5037,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -5259,7 +5276,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -5498,7 +5515,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -5737,7 +5754,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -5976,7 +5993,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -6215,7 +6232,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -6454,7 +6471,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -6699,7 +6716,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -6944,7 +6961,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -7189,7 +7206,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -7434,7 +7451,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -7679,7 +7696,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -7924,7 +7941,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -8151,7 +8168,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -8360,7 +8377,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -8563,7 +8580,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -8766,7 +8783,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -8975,7 +8992,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -9089,7 +9106,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-05",
       "cash": {
-        "USD": 39265.11
+        "USD": 39265.1
       },
       "positions": [
         {
@@ -9184,7 +9201,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -9298,13 +9315,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 13036.03,
-      "total_portfolio_value": 52301.14,
+      "total_portfolio_value": 52301.13,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-06",
       "cash": {
-        "USD": 39265.11
+        "USD": 39265.1
       },
       "positions": [
         {
@@ -9399,7 +9416,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -9513,13 +9530,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 13012.72,
-      "total_portfolio_value": 52277.83,
+      "total_portfolio_value": 52277.82,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-09",
       "cash": {
-        "USD": 39269.55
+        "USD": 39269.54
       },
       "positions": [
         {
@@ -9614,7 +9631,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -9728,13 +9745,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 13135.02,
-      "total_portfolio_value": 52404.57,
+      "total_portfolio_value": 52404.56,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-10",
       "cash": {
-        "USD": 38865.37
+        "USD": 38865.36
       },
       "positions": [
         {
@@ -9829,7 +9846,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -9943,13 +9960,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 13078.52,
-      "total_portfolio_value": 51943.89,
+      "total_portfolio_value": 51943.88,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-11",
       "cash": {
-        "USD": 38865.37
+        "USD": 38865.36
       },
       "positions": [
         {
@@ -10044,7 +10061,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -10158,13 +10175,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 12800.59,
-      "total_portfolio_value": 51665.96,
+      "total_portfolio_value": 51665.95,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-12",
       "cash": {
-        "USD": 38199.42
+        "USD": 38199.41
       },
       "positions": [
         {
@@ -10259,7 +10276,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -10373,13 +10390,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 12582.33,
-      "total_portfolio_value": 50781.75,
+      "total_portfolio_value": 50781.74,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-13",
       "cash": {
-        "USD": 38203.09
+        "USD": 38203.08
       },
       "positions": [
         {
@@ -10474,7 +10491,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -10588,13 +10605,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 12725.51,
-      "total_portfolio_value": 50928.6,
+      "total_portfolio_value": 50928.59,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-17",
       "cash": {
-        "USD": 37677.23
+        "USD": 37677.22
       },
       "positions": [
         {
@@ -10689,7 +10706,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -10803,13 +10820,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 13165.15,
-      "total_portfolio_value": 50842.38,
+      "total_portfolio_value": 50842.37,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-18",
       "cash": {
-        "USD": 37682.09
+        "USD": 37682.08
       },
       "positions": [
         {
@@ -10904,7 +10921,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -11018,13 +11035,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 13393.7,
-      "total_portfolio_value": 51075.79,
+      "total_portfolio_value": 51075.78,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-19",
       "cash": {
-        "USD": 37682.09
+        "USD": 37682.08
       },
       "positions": [
         {
@@ -11119,7 +11136,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -11233,13 +11250,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 13369.0,
-      "total_portfolio_value": 51051.09,
+      "total_portfolio_value": 51051.08,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-20",
       "cash": {
-        "USD": 37682.09
+        "USD": 37682.08
       },
       "positions": [
         {
@@ -11334,7 +11351,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -11448,13 +11465,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 13497.14,
-      "total_portfolio_value": 51179.23,
+      "total_portfolio_value": 51179.22,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-23",
       "cash": {
-        "USD": 37682.09
+        "USD": 37682.08
       },
       "positions": [
         {
@@ -11549,7 +11566,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -11663,13 +11680,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 13407.08,
-      "total_portfolio_value": 51089.17,
+      "total_portfolio_value": 51089.16,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-24",
       "cash": {
-        "USD": 37682.09
+        "USD": 37682.08
       },
       "positions": [
         {
@@ -11764,7 +11781,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -11878,13 +11895,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 13595.94,
-      "total_portfolio_value": 51278.03,
+      "total_portfolio_value": 51278.02,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-02-25",
       "cash": {
-        "USD": 37682.09
+        "USD": 37682.08
       },
       "positions": [
         {
@@ -11979,7 +11996,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -12093,7 +12110,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 13756.51,
-      "total_portfolio_value": 51438.6,
+      "total_portfolio_value": 51438.59,
       "external_cash_flow": 0.0
     },
     {
@@ -12194,7 +12211,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -12403,7 +12420,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -12612,7 +12629,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -12821,7 +12838,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -13030,7 +13047,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -13239,7 +13256,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -13442,7 +13459,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -13645,7 +13662,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -13848,7 +13865,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -14051,7 +14068,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -14254,7 +14271,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -14457,7 +14474,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -14660,7 +14677,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -14863,7 +14880,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -15066,7 +15083,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -15269,7 +15286,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -15472,7 +15489,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -15675,7 +15692,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -15878,7 +15895,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -16081,7 +16098,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -16284,7 +16301,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -16481,7 +16498,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -16678,7 +16695,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -16875,7 +16892,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -16977,7 +16994,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-01",
       "cash": {
-        "USD": 35256.78
+        "USD": 35256.77
       },
       "positions": [
         {
@@ -17072,7 +17089,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -17174,13 +17191,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 13822.47,
-      "total_portfolio_value": 49079.25,
+      "total_portfolio_value": 49079.24,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-04-02",
       "cash": {
-        "USD": 35256.78
+        "USD": 35256.77
       },
       "positions": [
         {
@@ -17275,7 +17292,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -17377,13 +17394,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 13757.61,
-      "total_portfolio_value": 49014.39,
+      "total_portfolio_value": 49014.38,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-04-06",
       "cash": {
-        "USD": 35256.78
+        "USD": 35256.77
       },
       "positions": [
         {
@@ -17478,7 +17495,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -17580,7 +17597,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 13834.48,
-      "total_portfolio_value": 49091.26,
+      "total_portfolio_value": 49091.25,
       "external_cash_flow": 0.0
     },
     {
@@ -17663,7 +17680,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -17765,7 +17782,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-08",
       "cash": {
-        "USD": 36449.88
+        "USD": 36449.89
       },
       "positions": [
         {
@@ -17848,7 +17865,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -17932,13 +17949,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 20143.51,
-      "total_portfolio_value": 56593.39,
+      "total_portfolio_value": 56593.4,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-04-09",
       "cash": {
-        "USD": 35145.35
+        "USD": 35145.36
       },
       "positions": [
         {
@@ -18021,7 +18038,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "symbol": "GOOG",
-          "quantity": 9.0,
+          "quantity": 16.0,
           "market_price": null,
           "market_value": null
         },
@@ -18105,7 +18122,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 21662.73,
-      "total_portfolio_value": 56808.08,
+      "total_portfolio_value": 56808.09,
       "external_cash_flow": 0.0
     },
     {
@@ -18177,6 +18194,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "FICO",
           "quantity": 1.0,
+          "market_price": null,
+          "market_value": null
+        },
+        {
+          "symbol": "GOOG",
+          "quantity": 7.0,
           "market_price": null,
           "market_value": null
         },
@@ -18260,7 +18283,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-13",
       "cash": {
-        "USD": 42336.7
+        "USD": 44535.97
       },
       "positions": [
         {
@@ -18397,13 +18420,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 34564.13,
-      "total_portfolio_value": 76900.83,
+      "total_portfolio_value": 79100.1,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-04-14",
       "cash": {
-        "USD": 35144.54
+        "USD": 37343.81
       },
       "positions": [
         {
@@ -18558,13 +18581,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 42727.17,
-      "total_portfolio_value": 77871.71,
+      "total_portfolio_value": 80070.98,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-04-15",
       "cash": {
-        "USD": 35144.54
+        "USD": 37343.81
       },
       "positions": [
         {
@@ -18719,13 +18742,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 43012.68,
-      "total_portfolio_value": 78157.22,
+      "total_portfolio_value": 80356.49,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-04-16",
       "cash": {
-        "USD": 37378.84
+        "USD": 39578.11
       },
       "positions": [
         {
@@ -18862,13 +18885,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 43209.94,
-      "total_portfolio_value": 80588.78,
+      "total_portfolio_value": 82788.05,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-04-17",
       "cash": {
-        "USD": 37752.71
+        "USD": 39951.98
       },
       "positions": [
         {
@@ -18993,13 +19016,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 43922.15,
-      "total_portfolio_value": 81674.86,
+      "total_portfolio_value": 83874.13,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-04-20",
       "cash": {
-        "USD": 37752.71
+        "USD": 39951.98
       },
       "positions": [
         {
@@ -19124,13 +19147,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 43860.69,
-      "total_portfolio_value": 81613.4,
+      "total_portfolio_value": 83812.67,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-04-21",
       "cash": {
-        "USD": 37752.71
+        "USD": 39951.98
       },
       "positions": [
         {
@@ -19255,13 +19278,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 43720.15,
-      "total_portfolio_value": 81472.86,
+      "total_portfolio_value": 83672.13,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-04-22",
       "cash": {
-        "USD": 38655.44
+        "USD": 40854.71
       },
       "positions": [
         {
@@ -19380,13 +19403,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 43967.93,
-      "total_portfolio_value": 82623.37,
+      "total_portfolio_value": 84822.64,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-04-23",
       "cash": {
-        "USD": 37598.47
+        "USD": 39797.73
       },
       "positions": [
         {
@@ -19511,13 +19534,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 44689.31,
-      "total_portfolio_value": 82287.78,
+      "total_portfolio_value": 84487.04,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-04-24",
       "cash": {
-        "USD": 33799.85
+        "USD": 35999.11
       },
       "positions": [
         {
@@ -19648,13 +19671,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 50119.34,
-      "total_portfolio_value": 83919.19,
+      "total_portfolio_value": 86118.45,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-04-27",
       "cash": {
-        "USD": 39141.77
+        "USD": 41341.03
       },
       "positions": [
         {
@@ -19773,13 +19796,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 50161.37,
-      "total_portfolio_value": 89303.14,
+      "total_portfolio_value": 91502.4,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-04-28",
       "cash": {
-        "USD": 39141.77
+        "USD": 41341.03
       },
       "positions": [
         {
@@ -19898,13 +19921,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 49924.56,
-      "total_portfolio_value": 89066.33,
+      "total_portfolio_value": 91265.59,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-04-29",
       "cash": {
-        "USD": 39141.77
+        "USD": 41341.03
       },
       "positions": [
         {
@@ -20023,13 +20046,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 50095.48,
-      "total_portfolio_value": 89237.25,
+      "total_portfolio_value": 91436.51,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-04-30",
       "cash": {
-        "USD": 39141.77
+        "USD": 41341.03
       },
       "positions": [
         {
@@ -20148,13 +20171,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 50319.62,
-      "total_portfolio_value": 89461.39,
+      "total_portfolio_value": 91660.65,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-05-01",
       "cash": {
-        "USD": 39141.77
+        "USD": 41341.03
       },
       "positions": [
         {
@@ -20273,13 +20296,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 50610.99,
-      "total_portfolio_value": 89752.76,
+      "total_portfolio_value": 91952.02,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-05-04",
       "cash": {
-        "USD": 39141.77
+        "USD": 41341.03
       },
       "positions": [
         {
@@ -20398,13 +20421,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 50754.67,
-      "total_portfolio_value": 89896.44,
+      "total_portfolio_value": 92095.7,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-05-05",
       "cash": {
-        "USD": 38340.38
+        "USD": 40539.64
       },
       "positions": [
         {
@@ -20523,13 +20546,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 51598.54,
-      "total_portfolio_value": 89938.92,
+      "total_portfolio_value": 92138.18,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-05-06",
       "cash": {
-        "USD": 37687.8
+        "USD": 39887.06
       },
       "positions": [
         {
@@ -20648,13 +20671,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 53130.21,
-      "total_portfolio_value": 90818.01,
+      "total_portfolio_value": 93017.27,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-05-07",
       "cash": {
-        "USD": 37992.72
+        "USD": 40191.98
       },
       "positions": [
         {
@@ -20779,13 +20802,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 55005.3,
-      "total_portfolio_value": 92998.02,
+      "total_portfolio_value": 95197.28,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-05-08",
       "cash": {
-        "USD": 37992.72
+        "USD": 40191.98
       },
       "positions": [
         {
@@ -20910,13 +20933,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 54960.65,
-      "total_portfolio_value": 92953.37,
+      "total_portfolio_value": 95152.63,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-05-11",
       "cash": {
-        "USD": 37353.34
+        "USD": 39552.59
       },
       "positions": [
         {
@@ -21041,13 +21064,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 55826.45,
-      "total_portfolio_value": 93179.79,
+      "total_portfolio_value": 95379.04,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-05-12",
       "cash": {
-        "USD": 35990.48
+        "USD": 38189.73
       },
       "positions": [
         {
@@ -21178,13 +21201,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 55204.93,
-      "total_portfolio_value": 91195.41,
+      "total_portfolio_value": 93394.66,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-05-13",
       "cash": {
-        "USD": 35990.48
+        "USD": 38189.73
       },
       "positions": [
         {
@@ -21315,13 +21338,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 55615.44,
-      "total_portfolio_value": 91605.92,
+      "total_portfolio_value": 93805.17,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-05-14",
       "cash": {
-        "USD": 35990.48
+        "USD": 38189.73
       },
       "positions": [
         {
@@ -21452,13 +21475,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 55805.66,
-      "total_portfolio_value": 91796.14,
+      "total_portfolio_value": 93995.39,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-05-15",
       "cash": {
-        "USD": 35327.08
+        "USD": 37526.33
       },
       "positions": [
         {
@@ -21589,13 +21612,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 55037.69,
-      "total_portfolio_value": 90364.77,
+      "total_portfolio_value": 92564.02,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-05-18",
       "cash": {
-        "USD": 35327.08
+        "USD": 37526.33
       },
       "positions": [
         {
@@ -21726,13 +21749,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 54986.03,
-      "total_portfolio_value": 90313.11,
+      "total_portfolio_value": 92512.36,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-05-19",
       "cash": {
-        "USD": 35327.08
+        "USD": 37526.33
       },
       "positions": [
         {
@@ -21863,13 +21886,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 54655.23,
-      "total_portfolio_value": 89982.31,
+      "total_portfolio_value": 92181.56,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-05-20",
       "cash": {
-        "USD": 35327.08
+        "USD": 37526.33
       },
       "positions": [
         {
@@ -22000,13 +22023,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 55271.0,
-      "total_portfolio_value": 90598.08,
+      "total_portfolio_value": 92797.33,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-05-21",
       "cash": {
-        "USD": 35327.08
+        "USD": 37526.33
       },
       "positions": [
         {
@@ -22137,13 +22160,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 55199.69,
-      "total_portfolio_value": 90526.77,
+      "total_portfolio_value": 92726.02,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-05-22",
       "cash": {
-        "USD": 35327.08
+        "USD": 37526.33
       },
       "positions": [
         {
@@ -22274,13 +22297,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 55618.65,
-      "total_portfolio_value": 90945.73,
+      "total_portfolio_value": 93144.98,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-05-26",
       "cash": {
-        "USD": 35327.08
+        "USD": 37526.33
       },
       "positions": [
         {
@@ -22411,13 +22434,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 56037.42,
-      "total_portfolio_value": 91364.5,
+      "total_portfolio_value": 93563.75,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-05-27",
       "cash": {
-        "USD": 35327.08
+        "USD": 37526.33
       },
       "positions": [
         {
@@ -22548,13 +22571,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 56035.18,
-      "total_portfolio_value": 91362.26,
+      "total_portfolio_value": 93561.51,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-05-28",
       "cash": {
-        "USD": 35327.08
+        "USD": 37526.33
       },
       "positions": [
         {
@@ -22685,13 +22708,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 56522.96,
-      "total_portfolio_value": 91850.04,
+      "total_portfolio_value": 94049.29,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-05-29",
       "cash": {
-        "USD": 35327.08
+        "USD": 37526.33
       },
       "positions": [
         {
@@ -22822,13 +22845,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 56869.34,
-      "total_portfolio_value": 92196.42,
+      "total_portfolio_value": 94395.67,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-06-01",
       "cash": {
-        "USD": 35327.08
+        "USD": 37526.33
       },
       "positions": [
         {
@@ -22959,13 +22982,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 56729.82,
-      "total_portfolio_value": 92056.9,
+      "total_portfolio_value": 94256.15,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-06-02",
       "cash": {
-        "USD": 35327.08
+        "USD": 37526.33
       },
       "positions": [
         {
@@ -23096,13 +23119,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 56671.26,
-      "total_portfolio_value": 91998.34,
+      "total_portfolio_value": 94197.59,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-06-03",
       "cash": {
-        "USD": 35327.08
+        "USD": 37526.33
       },
       "positions": [
         {
@@ -23233,13 +23256,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 56192.4,
-      "total_portfolio_value": 91519.48,
+      "total_portfolio_value": 93718.73,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-06-04",
       "cash": {
-        "USD": 35327.08
+        "USD": 37526.33
       },
       "positions": [
         {
@@ -23370,13 +23393,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 56306.21,
-      "total_portfolio_value": 91633.29,
+      "total_portfolio_value": 93832.54,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-06-05",
       "cash": {
-        "USD": 35327.08
+        "USD": 37526.33
       },
       "positions": [
         {
@@ -23507,13 +23530,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 55111.32,
-      "total_portfolio_value": 90438.4,
+      "total_portfolio_value": 92637.65,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-06-08",
       "cash": {
-        "USD": 35327.08
+        "USD": 37526.33
       },
       "positions": [
         {
@@ -23644,13 +23667,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 55035.91,
-      "total_portfolio_value": 90362.99,
+      "total_portfolio_value": 92562.24,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-06-09",
       "cash": {
-        "USD": 35327.08
+        "USD": 37526.33
       },
       "positions": [
         {
@@ -23781,13 +23804,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 54279.05,
-      "total_portfolio_value": 89606.13,
+      "total_portfolio_value": 91805.38,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-06-10",
       "cash": {
-        "USD": 33904.87
+        "USD": 36104.12
       },
       "positions": [
         {
@@ -23918,13 +23941,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 55289.51,
-      "total_portfolio_value": 89194.38,
+      "total_portfolio_value": 91393.63,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-06-11",
       "cash": {
-        "USD": 37381.44
+        "USD": 39580.7
       },
       "positions": [
         {
@@ -24043,13 +24066,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 59556.44,
-      "total_portfolio_value": 96937.88,
+      "total_portfolio_value": 99137.14,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-06-12",
       "cash": {
-        "USD": 34429.04
+        "USD": 36628.3
       },
       "positions": [
         {
@@ -24180,13 +24203,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 62291.72,
-      "total_portfolio_value": 96720.76,
+      "total_portfolio_value": 98920.02,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-06-15",
       "cash": {
-        "USD": 35469.68
+        "USD": 37668.95
       },
       "positions": [
         {
@@ -24311,13 +24334,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 63344.95,
-      "total_portfolio_value": 98814.63,
+      "total_portfolio_value": 101013.9,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-06-16",
       "cash": {
-        "USD": 34628.79
+        "USD": 36828.06
       },
       "positions": [
         {
@@ -24448,13 +24471,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 63029.25,
-      "total_portfolio_value": 97658.04,
+      "total_portfolio_value": 99857.31,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-06-17",
       "cash": {
-        "USD": 34628.79
+        "USD": 36828.06
       },
       "positions": [
         {
@@ -24585,13 +24608,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 62963.08,
-      "total_portfolio_value": 97591.87,
+      "total_portfolio_value": 99791.14,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-06-18",
       "cash": {
-        "USD": 35326.5
+        "USD": 37525.77
       },
       "positions": [
         {
@@ -24716,13 +24739,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 62826.46,
-      "total_portfolio_value": 98152.96,
+      "total_portfolio_value": 100352.23,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-06-22",
       "cash": {
-        "USD": 35326.5
+        "USD": 37525.77
       },
       "positions": [
         {
@@ -24847,13 +24870,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 62562.44,
-      "total_portfolio_value": 97888.94,
+      "total_portfolio_value": 100088.21,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-06-23",
       "cash": {
-        "USD": 35322.06
+        "USD": 37521.33
       },
       "positions": [
         {
@@ -24978,13 +25001,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61813.7,
-      "total_portfolio_value": 97135.76,
+      "total_portfolio_value": 99335.03,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-06-24",
       "cash": {
-        "USD": 35322.06
+        "USD": 37521.33
       },
       "positions": [
         {
@@ -25109,13 +25132,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61520.94,
-      "total_portfolio_value": 96843.0,
+      "total_portfolio_value": 99042.27,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-06-25",
       "cash": {
-        "USD": 35323.61
+        "USD": 37522.88
       },
       "positions": [
         {
@@ -25240,13 +25263,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61320.96,
-      "total_portfolio_value": 96644.57,
+      "total_portfolio_value": 98843.84,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-06-26",
       "cash": {
-        "USD": 35323.61
+        "USD": 37522.88
       },
       "positions": [
         {
@@ -25371,13 +25394,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61481.3,
-      "total_portfolio_value": 96804.91,
+      "total_portfolio_value": 99004.18,
       "external_cash_flow": 0.0
     },
     {
       "date": "2026-06-29",
       "cash": {
-        "USD": 35323.61
+        "USD": 37522.88
       },
       "positions": [
         {
@@ -25502,7 +25525,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61812.06,
-      "total_portfolio_value": 97135.67,
+      "total_portfolio_value": 99334.94,
       "external_cash_flow": 0.0
     },
     {
@@ -25773,98 +25796,98 @@ export const ib2026ImportedDashboardGoldenFixture = {
     },
     {
       "date": "2026-02-05",
-      "portfolio_value": 52301.14,
+      "portfolio_value": 52301.13,
       "benchmark_price": 677.62,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-06",
-      "portfolio_value": 52277.83,
+      "portfolio_value": 52277.82,
       "benchmark_price": 690.62,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-09",
-      "portfolio_value": 52404.57,
+      "portfolio_value": 52404.56,
       "benchmark_price": 693.95,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-10",
-      "portfolio_value": 51943.89,
+      "portfolio_value": 51943.88,
       "benchmark_price": 692.12,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-11",
-      "portfolio_value": 51665.96,
+      "portfolio_value": 51665.95,
       "benchmark_price": 691.96,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-12",
-      "portfolio_value": 50781.75,
+      "portfolio_value": 50781.74,
       "benchmark_price": 681.27,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-13",
-      "portfolio_value": 50928.6,
+      "portfolio_value": 50928.59,
       "benchmark_price": 681.75,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-17",
-      "portfolio_value": 50842.38,
+      "portfolio_value": 50842.37,
       "benchmark_price": 682.85,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-18",
-      "portfolio_value": 51075.79,
+      "portfolio_value": 51075.78,
       "benchmark_price": 686.29,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-19",
-      "portfolio_value": 51051.09,
+      "portfolio_value": 51051.08,
       "benchmark_price": 684.48,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-20",
-      "portfolio_value": 51179.23,
+      "portfolio_value": 51179.22,
       "benchmark_price": 689.43,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-23",
-      "portfolio_value": 51089.17,
+      "portfolio_value": 51089.16,
       "benchmark_price": 682.39,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-24",
-      "portfolio_value": 51278.03,
+      "portfolio_value": 51278.02,
       "benchmark_price": 687.35,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-25",
-      "portfolio_value": 51438.6,
+      "portfolio_value": 51438.59,
       "benchmark_price": 693.15,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
@@ -26039,21 +26062,21 @@ export const ib2026ImportedDashboardGoldenFixture = {
     },
     {
       "date": "2026-04-01",
-      "portfolio_value": 49079.25,
+      "portfolio_value": 49079.24,
       "benchmark_price": 655.24,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-02",
-      "portfolio_value": 49014.39,
+      "portfolio_value": 49014.38,
       "benchmark_price": 655.83,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-06",
-      "portfolio_value": 49091.26,
+      "portfolio_value": 49091.25,
       "benchmark_price": 658.93,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
@@ -26067,14 +26090,14 @@ export const ib2026ImportedDashboardGoldenFixture = {
     },
     {
       "date": "2026-04-08",
-      "portfolio_value": 56593.39,
+      "portfolio_value": 56593.4,
       "benchmark_price": 676.01,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-09",
-      "portfolio_value": 56808.08,
+      "portfolio_value": 56808.09,
       "benchmark_price": 679.91,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
@@ -26088,378 +26111,378 @@ export const ib2026ImportedDashboardGoldenFixture = {
     },
     {
       "date": "2026-04-13",
-      "portfolio_value": 76900.83,
+      "portfolio_value": 79100.1,
       "benchmark_price": 686.1,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-14",
-      "portfolio_value": 77871.71,
+      "portfolio_value": 80070.98,
       "benchmark_price": 694.46,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-15",
-      "portfolio_value": 78157.22,
+      "portfolio_value": 80356.49,
       "benchmark_price": 699.94,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-16",
-      "portfolio_value": 80588.78,
+      "portfolio_value": 82788.05,
       "benchmark_price": 701.66,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-17",
-      "portfolio_value": 81674.86,
+      "portfolio_value": 83874.13,
       "benchmark_price": 710.14,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-20",
-      "portfolio_value": 81613.4,
+      "portfolio_value": 83812.67,
       "benchmark_price": 708.72,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-21",
-      "portfolio_value": 81472.86,
+      "portfolio_value": 83672.13,
       "benchmark_price": 704.08,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-22",
-      "portfolio_value": 82623.37,
+      "portfolio_value": 84822.64,
       "benchmark_price": 711.21,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-23",
-      "portfolio_value": 82287.78,
+      "portfolio_value": 84487.04,
       "benchmark_price": 708.45,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-24",
-      "portfolio_value": 83919.19,
+      "portfolio_value": 86118.45,
       "benchmark_price": 713.94,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-27",
-      "portfolio_value": 89303.14,
+      "portfolio_value": 91502.4,
       "benchmark_price": 715.17,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-28",
-      "portfolio_value": 89066.33,
+      "portfolio_value": 91265.59,
       "benchmark_price": 711.69,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-29",
-      "portfolio_value": 89237.25,
+      "portfolio_value": 91436.51,
       "benchmark_price": 711.58,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-30",
-      "portfolio_value": 89461.39,
+      "portfolio_value": 91660.65,
       "benchmark_price": 718.66,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-01",
-      "portfolio_value": 89752.76,
+      "portfolio_value": 91952.02,
       "benchmark_price": 720.65,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-04",
-      "portfolio_value": 89896.44,
+      "portfolio_value": 92095.7,
       "benchmark_price": 718.01,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-05",
-      "portfolio_value": 89938.92,
+      "portfolio_value": 92138.18,
       "benchmark_price": 723.77,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-06",
-      "portfolio_value": 90818.01,
+      "portfolio_value": 93017.27,
       "benchmark_price": 733.83,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-07",
-      "portfolio_value": 92998.02,
+      "portfolio_value": 95197.28,
       "benchmark_price": 731.58,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-08",
-      "portfolio_value": 92953.37,
+      "portfolio_value": 95152.63,
       "benchmark_price": 737.62,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-11",
-      "portfolio_value": 93179.79,
+      "portfolio_value": 95379.04,
       "benchmark_price": 739.3,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-12",
-      "portfolio_value": 91195.41,
+      "portfolio_value": 93394.66,
       "benchmark_price": 738.18,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-13",
-      "portfolio_value": 91605.92,
+      "portfolio_value": 93805.17,
       "benchmark_price": 742.31,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-14",
-      "portfolio_value": 91796.14,
+      "portfolio_value": 93995.39,
       "benchmark_price": 748.17,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-15",
-      "portfolio_value": 90364.77,
+      "portfolio_value": 92564.02,
       "benchmark_price": 739.17,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-18",
-      "portfolio_value": 90313.11,
+      "portfolio_value": 92512.36,
       "benchmark_price": 738.65,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-19",
-      "portfolio_value": 89982.31,
+      "portfolio_value": 92181.56,
       "benchmark_price": 733.73,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-20",
-      "portfolio_value": 90598.08,
+      "portfolio_value": 92797.33,
       "benchmark_price": 741.25,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-21",
-      "portfolio_value": 90526.77,
+      "portfolio_value": 92726.02,
       "benchmark_price": 742.72,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-22",
-      "portfolio_value": 90945.73,
+      "portfolio_value": 93144.98,
       "benchmark_price": 745.64,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-26",
-      "portfolio_value": 91364.5,
+      "portfolio_value": 93563.75,
       "benchmark_price": 750.59,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-27",
-      "portfolio_value": 91362.26,
+      "portfolio_value": 93561.51,
       "benchmark_price": 750.46,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-28",
-      "portfolio_value": 91850.04,
+      "portfolio_value": 94049.29,
       "benchmark_price": 754.6,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-29",
-      "portfolio_value": 92196.42,
+      "portfolio_value": 94395.67,
       "benchmark_price": 756.48,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-01",
-      "portfolio_value": 92056.9,
+      "portfolio_value": 94256.15,
       "benchmark_price": 758.54,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-02",
-      "portfolio_value": 91998.34,
+      "portfolio_value": 94197.59,
       "benchmark_price": 759.57,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-03",
-      "portfolio_value": 91519.48,
+      "portfolio_value": 93718.73,
       "benchmark_price": 754.24,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-04",
-      "portfolio_value": 91633.29,
+      "portfolio_value": 93832.54,
       "benchmark_price": 757.09,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-05",
-      "portfolio_value": 90438.4,
+      "portfolio_value": 92637.65,
       "benchmark_price": 737.55,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-08",
-      "portfolio_value": 90362.99,
+      "portfolio_value": 92562.24,
       "benchmark_price": 739.22,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-09",
-      "portfolio_value": 89606.13,
+      "portfolio_value": 91805.38,
       "benchmark_price": 737.05,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-10",
-      "portfolio_value": 89194.38,
+      "portfolio_value": 91393.63,
       "benchmark_price": 725.43,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-11",
-      "portfolio_value": 96937.88,
+      "portfolio_value": 99137.14,
       "benchmark_price": 737.76,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-12",
-      "portfolio_value": 96720.76,
+      "portfolio_value": 98920.02,
       "benchmark_price": 741.75,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-15",
-      "portfolio_value": 98814.63,
+      "portfolio_value": 101013.9,
       "benchmark_price": 754.83,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-16",
-      "portfolio_value": 97658.04,
+      "portfolio_value": 99857.31,
       "benchmark_price": 750.33,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-17",
-      "portfolio_value": 97591.87,
+      "portfolio_value": 99791.14,
       "benchmark_price": 740.96,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-18",
-      "portfolio_value": 98152.96,
+      "portfolio_value": 100352.23,
       "benchmark_price": 746.74,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-22",
-      "portfolio_value": 97888.94,
+      "portfolio_value": 100088.21,
       "benchmark_price": 744.39,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-23",
-      "portfolio_value": 97135.76,
+      "portfolio_value": 99335.03,
       "benchmark_price": 733.58,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-24",
-      "portfolio_value": 96843.0,
+      "portfolio_value": 99042.27,
       "benchmark_price": 733.24,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-25",
-      "portfolio_value": 96644.57,
+      "portfolio_value": 98843.84,
       "benchmark_price": 734.3,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-26",
-      "portfolio_value": 96804.91,
+      "portfolio_value": 99004.18,
       "benchmark_price": 728.99,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-29",
-      "portfolio_value": 97135.67,
+      "portfolio_value": 99334.94,
       "benchmark_price": 741.0,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
@@ -26492,7 +26515,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "monthly_returns": [
         {
           "month": "2026-06",
-          "return_pct": 20.70911940381133
+          "return_pct": 20.709119403811304
         }
       ],
       "monthly_returns_reliable": false
@@ -26516,15 +26539,15 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "month": "2026-04",
-          "return_pct": 56.55662501254166
+          "return_pct": 60.405310161800884
         },
         {
           "month": "2026-05",
-          "return_pct": 3.057218315074306
+          "return_pct": 2.983854031146471
         },
         {
           "month": "2026-06",
-          "return_pct": -31.4129550800346
+          "return_pct": -33.01091035213798
         }
       ],
       "monthly_returns_reliable": true
@@ -26548,7 +26571,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "month": "2026-02",
-          "return_pct": -6.542997442145859
+          "return_pct": -6.5429974421458255
         },
         {
           "month": "2026-03",
@@ -26556,15 +26579,15 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "month": "2026-04",
-          "return_pct": 56.55662501254166
+          "return_pct": 60.405310161800884
         },
         {
           "month": "2026-05",
-          "return_pct": 3.057218315074306
+          "return_pct": 2.983854031146471
         },
         {
           "month": "2026-06",
-          "return_pct": -31.4129550800346
+          "return_pct": -33.01091035213798
         }
       ],
       "monthly_returns_reliable": true
@@ -26588,7 +26611,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "month": "2026-02",
-          "return_pct": -6.542997442145859
+          "return_pct": -6.5429974421458255
         },
         {
           "month": "2026-03",
@@ -26596,15 +26619,15 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "month": "2026-04",
-          "return_pct": 56.55662501254166
+          "return_pct": 60.405310161800884
         },
         {
           "month": "2026-05",
-          "return_pct": 3.057218315074306
+          "return_pct": 2.983854031146471
         },
         {
           "month": "2026-06",
-          "return_pct": -31.4129550800346
+          "return_pct": -33.01091035213798
         }
       ],
       "monthly_returns_reliable": true
@@ -26628,7 +26651,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "month": "2026-02",
-          "return_pct": -6.542997442145859
+          "return_pct": -6.5429974421458255
         },
         {
           "month": "2026-03",
@@ -26636,15 +26659,15 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "month": "2026-04",
-          "return_pct": 56.55662501254166
+          "return_pct": 60.405310161800884
         },
         {
           "month": "2026-05",
-          "return_pct": 3.057218315074306
+          "return_pct": 2.983854031146471
         },
         {
           "month": "2026-06",
-          "return_pct": -31.4129550800346
+          "return_pct": -33.01091035213798
         }
       ],
       "monthly_returns_reliable": true

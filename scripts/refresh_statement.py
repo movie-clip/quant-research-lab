@@ -1,8 +1,10 @@
 """Refresh the golden pipeline after a broker-statement update.
 
-Run this after replacing/adding a statement PDF under `docs/` (e.g. a new
-`IB2026.pdf`). It performs the full recovery flow that the goldens-freshness
-guard (US-21.4) demands when the statements change:
+Run this after replacing/adding a statement file under `docs/` — the canonical
+current IB statement is the CSV export (`IB2026.csv`, preferred by the golden
+pipeline since US-28.2); legacy statements are PDFs. It performs the full
+recovery flow that the goldens-freshness guard (US-21.4) demands when the
+statements change:
 
     1. Re-capture the frozen market-data fixture
        (`app/scripts/golden_market_data.json`) against live FMP for the new
@@ -15,8 +17,8 @@ If step 3 fails, the remaining failures are *portfolio-truth drift*: tests that
 pin holdings from the previous statement (e.g. a position that was sold or
 newly added). Update those tests — and add a registry entry + symbol rule for
 any brand-new holding — then re-run. Review the diff and commit
-`docs/<statement>.pdf`, `golden_market_data.json`, and `dashboardGoldens.ts`
-together.
+`docs/<statement>.csv` (or `.pdf` for legacy statements),
+`golden_market_data.json`, and `dashboardGoldens.ts` together.
 
 A real `FMP_API_KEY` is required for step 1 (set it in the environment or
 `.env`). Capturing without one would record empty series and poison the local
@@ -105,7 +107,7 @@ def refresh(*, skip_tests: bool) -> None:
             ROOT,
         )
     print("Statement refresh complete.")
-    print("Review the diff, then commit the statement PDF together with:")
+    print("Review the diff, then commit the statement file (.csv or .pdf) together with:")
     print(f"  {GOLDEN_FIXTURE.relative_to(ROOT)}")
     print(f"  {DASHBOARD_GOLDENS.relative_to(ROOT)}")
 

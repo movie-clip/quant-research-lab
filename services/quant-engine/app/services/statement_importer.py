@@ -11,14 +11,21 @@ from app.importers.freedom24 import preview_pdf_statement as preview_freedom24_s
 from app.importers.freedom24 import import_statement as import_freedom24_statement
 from app.importers.interactive_brokers import preview_pdf_statement as preview_interactive_brokers_statement
 from app.importers.interactive_brokers import import_statement as import_interactive_brokers_statement
+from app.importers.interactive_brokers_csv import preview_csv_statement
+from app.importers.interactive_brokers_csv import import_statement as import_interactive_brokers_csv_statement
 from app.schemas.imports import ImportedCashBalance, ImportedInstrument, ImportedLedgerEntry, ImportedPortfolioSnapshot, ImportedPosition, ImportedStatement, ImportedStatementTotals
 
 
 def import_statement(path: str | Path) -> ImportedPortfolioSnapshot:
     statement_path = Path(path)
     suffix = statement_path.suffix.lower()
+    if suffix == ".csv":
+        # Same preview → import pattern as the PDF chain; a CSV that is not
+        # an IBKR Activity Statement surfaces the preview's ValueError.
+        preview_csv_statement(statement_path)
+        return import_interactive_brokers_csv_statement(statement_path)
     if suffix != ".pdf":
-        raise ValueError("Only PDF broker statements are currently supported")
+        raise ValueError("Only PDF or CSV broker statements are currently supported")
     last_error: ValueError | None = None
 
     try:

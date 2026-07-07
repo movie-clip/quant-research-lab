@@ -23,7 +23,7 @@ def test_seeded_registry_isins_match_committed_statements() -> None:
     registry = InstrumentRegistry()
     docs = _repo_root() / "docs"
     statement_isins: dict[str, str] = {}
-    for name in ("IB2026.pdf", "FF2026.pdf"):
+    for name in ("IB2026.csv", "FF2026.pdf"):
         snapshot = import_statements([str(docs / name)])
         for instrument in snapshot.instruments:
             if instrument.isin:
@@ -45,7 +45,7 @@ def test_seeded_registry_isins_match_committed_statements() -> None:
 
     # And the user-facing consequence: re-importing the real statements raises
     # zero ISIN identity warnings (no false positives on true data).
-    for name in ("IB2026.pdf", "FF2026.pdf"):
+    for name in ("IB2026.csv", "FF2026.pdf"):
         snapshot = import_statements([str(docs / name)])
         isin_warnings = [m for m in detect_instrument_identity_mismatches(snapshot) if m.kind == "isin"]
         assert isin_warnings == [], f"{name}: unexpected ISIN warnings: {isin_warnings}"

@@ -6,7 +6,8 @@ from app.schemas.imports import ImportedCashBalance, ImportedPortfolioSnapshot, 
 from app.services.exposure_engine import build_exposure_result
 from app.services.diagnostics_engine import run_imported_diagnostics_engine
 from app.services.statement_importer import import_statements
-from app.tests._statement_fixtures import ESPP_PATH, FREEDOM24_PATH, STATEMENT_2026_PATH
+# US-28.2: the CSV export is the canonical current IB statement.
+from app.tests._statement_fixtures import ESPP_PATH, FREEDOM24_PATH, STATEMENT_2026_CSV_PATH as STATEMENT_2026_PATH
 
 
 class StubMarketDataService:

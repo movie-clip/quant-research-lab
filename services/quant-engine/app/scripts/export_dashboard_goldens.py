@@ -28,14 +28,13 @@ def _dashboard_golden_output_path(repo_root: Path) -> Path:
     return repo_root / "apps" / "desktop" / "src" / "test" / "dashboardGoldens.ts"
 
 
-def _docs_statement_path(repo_root: Path, filename: str, fallback: str | None = None) -> Path:
+def _docs_statement_path(repo_root: Path, filename: str, *fallbacks: str) -> Path:
     docs_dir = repo_root / "docs"
-    primary = docs_dir / filename
-    if primary.exists():
-        return primary
-    if fallback is None:
-        return primary
-    return docs_dir / fallback
+    for candidate in (filename, *fallbacks):
+        path = docs_dir / candidate
+        if path.exists():
+            return path
+    return docs_dir / filename
 
 
 def _serialize(value: Any) -> Any:
@@ -254,7 +253,9 @@ def render_dashboard_goldens_text(repo_root: Path | None = None, *, market_data:
     if market_data is None:
         market_data = FrozenMarketData.from_file()
 
-    ib_statement_path = _docs_statement_path(repo_root, "IB2026.pdf", fallback="2026.pdf")
+    # US-28.2: the CSV export is the canonical current IB statement; the PDF
+    # names remain as fallbacks for checkouts that predate it.
+    ib_statement_path = _docs_statement_path(repo_root, "IB2026.csv", "IB2026.pdf", "2026.pdf")
     ff_statement_path = _docs_statement_path(repo_root, "FF2026.pdf")
 
     ib_snapshot_model = import_statements([str(ib_statement_path)])
