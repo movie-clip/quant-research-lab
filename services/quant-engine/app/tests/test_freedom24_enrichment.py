@@ -33,9 +33,9 @@ import pytest
 from app.importers.freedom24 import import_statement as import_freedom24_statement
 
 
-# Path to the bundled Freedom24 fixture PDF — matches the absolute path
-# used by test_importer.py's existing Freedom24 tests.
-_DOCS_DIR = Path(r"C:\projects\investments\portfolio\docs")
+# Path to the bundled Freedom24 fixture PDF — repo-relative, matching
+# test_importer.py's existing Freedom24 tests.
+_DOCS_DIR = Path(__file__).resolve().parents[4] / "docs"
 _FF2026_PATH = _DOCS_DIR / "FF2026.pdf"
 
 pytestmark = pytest.mark.skipif(

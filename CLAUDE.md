@@ -152,6 +152,7 @@ The quality gates are enforced mechanically, not honor-system:
 - **CI** — `.github/workflows/ci.yml` runs `python scripts/run_all_tests.py` (golden regen → pytest → vitest → tsc → dead-code strict gate) on every PR and push to `main`. The suite is network-free, so CI needs no secrets.
 - **Commit gate hook** — `scripts/hooks/pre_commit_gate.py` (PreToolUse, wired in `.claude/settings.json`) blocks any `git commit` unless `.claude/.last-test-pass` exists and is fresher than every changed non-`.md` file. The marker is written only by a fully green `run_all_tests.py` run. If a commit is blocked, re-run the suite — do not try to bypass the hook.
 - **Schema contract hook** — `scripts/hooks/schema_edit_reminder.py` (PostToolUse) fires after any edit under `app/schemas/` reminding that the mirroring TS types and `docs/contracts/<area>-fields.md` must change in the same pass.
+- **PR template** — `.github/PULL_REQUEST_TEMPLATE.md` structures every PR around the story: story ID, AC checklist, contracts/methodology checklist, verify-story verdict. GitHub only auto-fills it in the web UI, so when opening a PR with `gh pr create`, fill the template out explicitly as the PR body (`--body`/`--body-file`) — don't write a free-form description.
 
 ## Backend Conventions (`services/quant-engine/`)
 

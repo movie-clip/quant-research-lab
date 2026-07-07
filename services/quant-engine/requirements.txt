@@ -4,6 +4,7 @@ numpy
 yfinance
 pydantic
 pypdf
+python-multipart
 httpx
 pydantic-settings
 python-dotenv

@@ -22,7 +22,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python scripts/hooks/pre_commit_gate.py"
+            "command": "python \"$CLAUDE_PROJECT_DIR/scripts/hooks/pre_commit_gate.py\""
           }
         ]
       }
@@ -33,7 +33,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python scripts/hooks/schema_edit_reminder.py"
+            "command": "python \"$CLAUDE_PROJECT_DIR/scripts/hooks/schema_edit_reminder.py\""
           }
         ]
       }

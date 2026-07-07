@@ -12,7 +12,7 @@ from app.instruments.registry import InstrumentRegistry
 from app.services.statement_importer import combine_imported_snapshots
 
 
-DOCS_DIR = Path(r"C:\projects\investments\portfolio\docs")
+DOCS_DIR = Path(__file__).resolve().parents[4] / "docs"
 STATEMENT_2025_PATH = DOCS_DIR / "2025.pdf"
 if not STATEMENT_2025_PATH.exists():
     STATEMENT_2025_PATH = DOCS_DIR / "IB2025.pdf"
