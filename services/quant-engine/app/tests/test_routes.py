@@ -8,6 +8,8 @@ from app.tests._statement_fixtures import (
     STATEMENT_2026_CSV_PATH as STATEMENT_2026_FIXTURE_PATH,
 )
 
+from app.tests.statement_truths import IB_ACCOUNT_ID
+
 STATEMENT_PATH = str(STATEMENT_2025_FIXTURE_PATH)
 # US-28.2: the CSV export is the canonical current IB statement.
 STATEMENT_2026_PATH = str(STATEMENT_2026_FIXTURE_PATH)
@@ -73,7 +75,7 @@ def test_upload_analyze_route_accepts_pdf_statement() -> None:
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["snapshot"]["statement"]["account_id"] == "U8516450"
+    assert payload["snapshot"]["statement"]["account_id"] == IB_ACCOUNT_ID
 
 
 def test_upload_analyze_route_rejects_missing_statement_files() -> None:
@@ -174,7 +176,7 @@ def test_analyze_route_accepts_mixed_broker_statement_paths() -> None:
     payload = response.json()
     assert payload["snapshot"]["statement"]["importer"] == "multi_broker"
     assert "185960" in payload["snapshot"]["statement"]["account_id"]
-    assert "U8516450" in payload["snapshot"]["statement"]["account_id"]
+    assert IB_ACCOUNT_ID in payload["snapshot"]["statement"]["account_id"]
     assert len(payload["snapshot"]["statements"]) == 2
     assert payload["history_context"]["importer"] == "multi_broker"
     assert payload["history_context"]["statement_period"] == f'{payload["history_context"]["history_start_date"]} - {payload["history_context"]["history_end_date"]}'

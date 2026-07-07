@@ -124,9 +124,11 @@ cd apps/desktop && npx tsc --noEmit         # type-check
 # FMP cache management
 python scripts/manage_cache.py
 
-# After updating a broker statement PDF under docs/ (requires FMP_API_KEY):
-# re-captures the frozen golden market data, regenerates dashboardGoldens.ts,
-# runs the full suite. Commit the PDF + fixture + goldens together.
+# After replacing docs/IB2026.csv with a fresh broker export (requires
+# FMP_API_KEY): re-captures the frozen golden market data, regenerates
+# dashboardGoldens.ts, runs the full suite. Statement-truth pins live in ONE
+# module (app/tests/statement_truths.py) — see
+# docs/architecture/testing-architecture.md#statement-refresh-workflow.
 python scripts/refresh_statement.py
 
 # Dead-code gate (Epic 23 / US-23.8). ENFORCED: run_all_tests.py runs

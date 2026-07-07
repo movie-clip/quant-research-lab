@@ -137,7 +137,44 @@ Rules:
 - Review generated diffs before committing; a non-trivial diff now means a real fixture/methodology change (not cache drift).
 - Keep source paths canonicalized to basenames so goldens are stable across machines and worktrees.
 - If backend output changes intentionally, update methodology and contract docs when the change affects financial semantics.
-- **Re-capturing market data** (whenever a broker statement PDF under `docs/` is updated — a new statement widens the history window and/or changes the holdings): run `python scripts/refresh_statement.py` (requires `FMP_API_KEY`). It re-captures `golden_market_data.json`, regenerates the goldens, and runs the full suite in one step; commit the PDF + fixture + goldens together. A `FrozenMarketDataMiss` during the freshness check is the signal that this is needed. Remaining test failures after a refresh are portfolio-truth drift (sold/added holdings pinned by statement-fixture tests) — update those tests, and add a registry entry + symbol-resolution rule for any brand-new holding (watch for wrong-fund ticker collisions like CIBR US vs CIBR.L UCITS).
+- **Re-capturing market data** (whenever the statement's history window or holdings change): run `python scripts/refresh_statement.py` (requires `FMP_API_KEY`). It re-captures `golden_market_data.json`, regenerates the goldens, and runs the full suite in one step. A `FrozenMarketDataMiss` during the freshness check is the signal that this is needed.
+
+## Statement refresh workflow
+
+The canonical current IB statement is `docs/IB2026.csv` (US-28.2); the
+researcher replaces it with a fresh Activity-Statement CSV export every few
+weeks. Since US-28.3 the refresh is one command plus a small, documented set
+of deliberate updates:
+
+1. **Replace `docs/IB2026.csv`** with the new export (same filename).
+2. **Run `python scripts/refresh_statement.py`** — re-captures the frozen
+   market-data fixture (live FMP; needed because the new statement widens the
+   history window and may add symbols), regenerates
+   `dashboardGoldens.ts`, and runs the full suite.
+3. **Update the statement-truth pins** — all in ONE module:
+   `services/quant-engine/app/tests/statement_truths.py`. The failing test is
+   `test_importer_csv.py::test_statement_matches_truths_module`, and its
+   `diff_statement_truths` output lists exactly which pins moved (each line
+   names this doc). Structural tests derive their expectations from the
+   snapshot itself and must not fail on a refresh.
+4. **Add registry entries for brand-new holdings** — the one deliberate step
+   outside the truths module (see the fmp-data skill; watch for wrong-fund
+   ticker collisions like CIBR US vs CIBR.L UCITS). The registry ISIN
+   integrity test (`test_registry_isin_integrity.py`) checks seeds against
+   the statement's own ISINs.
+5. **Commit together**: `docs/IB2026.csv`, `golden_market_data.json`,
+   `dashboardGoldens.ts`, `statement_truths.py`, and any registry entries.
+
+This failure surface is regression-pinned by
+`app/tests/test_statement_refresh.py`: a simulated swap (changed quantity +
+new symbol) must surface diffs ONLY from the truths module (each naming this
+workflow) plus the registry-coverage step — anything else failing on a
+refresh is a structural test wrongly pinning statement truths (fix the test,
+per the classification in `statement_truths.py`'s docstring).
+
+The legacy IB PDFs (2022–2025), `FF2026.pdf`, and `ESPP2026.pdf` are frozen
+committed fixtures — never refreshed — so their pinned truths (e.g. in
+`test_importer.py`) are stable by construction and intentionally stay inline.
 
 ## Reconstruction Guidelines
 

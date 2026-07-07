@@ -8,6 +8,7 @@ from app.services.diagnostics_engine import run_imported_diagnostics_engine
 from app.services.statement_importer import import_statements
 # US-28.2: the CSV export is the canonical current IB statement.
 from app.tests._statement_fixtures import ESPP_PATH, FREEDOM24_PATH, STATEMENT_2026_CSV_PATH as STATEMENT_2026_PATH
+from app.tests.statement_truths import IB_ACCOUNT_ID, IB_TOP_OVERWEIGHTS_VS_STUB_BENCHMARK
 
 
 class StubMarketDataService:
@@ -120,7 +121,7 @@ def test_exposure_engine_builds_expected_shape_for_ib2026(mocker) -> None:
 
     result = build_exposure_result(snapshot, "SPY")
 
-    assert result.snapshot.statement.account_id == "U8516450"
+    assert result.snapshot.statement.account_id == IB_ACCOUNT_ID
     assert result.overview.positions_count == len(snapshot.positions)
     assert result.lookthrough.portfolio_market_value > 0
     assert result.lookthrough.covered_market_value > 0
@@ -543,7 +544,7 @@ def test_exposure_engine_marks_incomplete_benchmark_holdings_as_degraded(mocker)
     assert result.availability.benchmark_overlap_status == "live"
     assert result.availability.benchmark_overlap_confidence == "medium"
     assert result.run_metadata.source_status.benchmark_holdings == "degraded"
-    assert [item.symbol for item in result.market_overlap.top_overweights] == ["MSFT", "AAPL"]
+    assert [item.symbol for item in result.market_overlap.top_overweights] == IB_TOP_OVERWEIGHTS_VS_STUB_BENCHMARK
 
 
 def test_exposure_engine_is_deterministic_for_repeated_ib2026_requests(mocker) -> None:
