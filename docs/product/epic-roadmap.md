@@ -141,6 +141,9 @@ variance-decomposition questions are open, and
 `MarketDataService.get_fx_history` — which exists but has zero callers today
 — needs empirical verification before any engine work begins). Run
 `write-story` against the PRD's US-26.1 when this epic is picked up.
+*Validity re-check 2026-07-08: premise verified current and strengthened —
+US-28.1's statement-implied FX rates give US-26.1 a broker-truth conversion
+basis with zero market-data calls; see the PRD header note.*
 
 ---
 
@@ -266,6 +269,11 @@ US-24.2/24.3 (the analytics-constant work), then US-24.4/24.5/24.6, with US-24.7
 the low-severity tail. Stories are authored via `write-story` as each is picked up.
 US-24.8 (the deferred US-24.4 importer-hardening follow-up) was picked up out of
 order alongside a broader codebase review.
+*Validity re-check 2026-07-08: US-24.5 still valid (strengthened — the US-28.1
+CSV importer is a third producer coupled to `domain/ledger.py`'s section
+strings); US-24.6 valid verbatim; US-24.7 downgraded to Low — its EURUSD item
+was resolved incidentally by US-28.1 and the de-export motivation is obsolete
+(knip gate uses `ignoreExportsUsedInFile`); see the tech-debt register rows.*
 
 ### Slice log
 

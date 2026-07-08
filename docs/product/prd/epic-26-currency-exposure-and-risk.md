@@ -2,6 +2,18 @@
 
 **Status:** Backlog (research brief only — not yet ticketed)
 **Created:** 2026-07-04
+**Validity re-check:** 2026-07-08 — premise re-verified against the current
+codebase and **strengthened** by Epics 27/28: the display gap is unchanged
+(no view aggregates `ImportedPosition.currency` anywhere), `get_fx_history`
+still has zero callers (US-26.2 blocker intact), and two new inputs now exist
+that this brief predates: (1) US-28.1's **statement-implied FX rates**
+(`statement_totals.fx_rates` carries broker-truth EURUSD/GBPUSD derived from
+the statement's own Open Positions totals — exactly the conversion basis a
+base-currency-consistent exposure card wants, with no market-data call);
+(2) US-27.8's `fx_fallback_currencies` disclosure on drift/dashboard-history
+(the UI already admits FX blindness — this epic is its documented fix).
+The `reconciliation.py` hardcode cited below was generalized by US-28.1;
+the display gap it pointed at remains.
 
 ## Problem
 
