@@ -121,7 +121,20 @@ class PortfolioStateEngine:
             if opening_price is not None:
                 opening_positions_value += to_base_currency(opening_quantity * opening_price, currency, first_date)
 
-        base_cash = initial_portfolio_value - opening_positions_value
+        if self.snapshot.statement_totals is not None and self.snapshot.statement_totals.starting_nav is not None:
+            base_cash = initial_portfolio_value - opening_positions_value
+        else:
+            # US-30.1 (audit F-1): without a statement starting NAV the old
+            # `0 − opening_positions_value` anchor fabricated a large negative
+            # cash balance (request-path snapshots carry no statement_totals),
+            # collapsing day-one portfolio value to ~0 and exploding every
+            # return computed against it. The snapshot's own cash balances are
+            # the honest anchor.
+            base_cash = sum(
+                to_base_currency(balance.ending_cash, balance.currency, first_date)
+                for balance in self.snapshot.cash_balances
+                if balance.ending_cash is not None
+            )
 
         states: list[DailyPortfolioState] = []
         entry_index = 0
