@@ -1,6 +1,38 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-07-07 (Epic 29 — Chart First-Render Reliability **complete** (salvaged from a parallel session, renumbered from its "Epic 27"); Epic 28 — IBKR CSV Importer & Statement-Refresh Resilience **complete** (all 3 stories done 2026-07-07); Epic 27 — Financial Calculation Correctness **complete** (all 9 stories done, findings F1–F13 resolved); Epic 25 — Dashboard Performance & Risk Summary complete; Epic 24 — Codebase Improvement active; Epic 26 — Currency Exposure & Risk backlog (research brief only); Epic 23 — dead-code cleanup & codebase review complete; Epics 13/18/19/20/21/22 complete).*
+*Living execution snapshot. Updated: 2026-07-08 (Epic 30 — Exposure Improvements **backlog** (created from the verified drift-panel findings F-1..F-6; calculations-first); Epic 29 — Chart First-Render Reliability **complete** (salvaged from a parallel session, renumbered from its "Epic 27"); Epic 28 — IBKR CSV Importer & Statement-Refresh Resilience **complete** (all 3 stories done 2026-07-07); Epic 27 — Financial Calculation Correctness **complete** (all 9 stories done, findings F1–F13 resolved); Epic 25 — Dashboard Performance & Risk Summary complete; Epic 24 — Codebase Improvement active; Epic 26 — Currency Exposure & Risk backlog (research brief only); Epic 23 — dead-code cleanup & codebase review complete; Epics 13/18/19/20/21/22 complete).*
+
+---
+
+## Backlog Epic: Epic 30 — Exposure Improvements
+
+**PRD:** [`docs/product/prd/epic-30-exposure-improvements.md`](product/prd/epic-30-exposure-improvements.md)
+
+Created 2026-07-08 from an owner bug report: the vs-Market drift panel showed
+no chart until a benchmark change, then impossible window returns
+(−6226.32% 3M). All four reported numbers reproduced exactly and root-caused
+(PRD findings F-1..F-6, findings-first per the Epic 27 discipline): the
+drift request path carries no statement_totals/ledger, so
+`PortfolioStateEngine` anchors cash at `0 − opening_positions_value`
+(≈ −$62.6k) and the TWR chain divides by near-zero fabricated portfolio
+values, compounding through impossible (≤ −100%) daily returns while labeled
+`trust="synthetic"` with a false "broker-ledger replay" note; zero-coverage
+LQQ silently omitted; panel requires a dropdown interaction to fetch at all.
+Six stories: verified drift fixes first (US-30.1..30.3), then a
+findings-first audit of every remaining Exposure calculation surface
+(US-30.4/30.5), UI polish last (US-30.6). **Calculations must be accurate —
+that is the epic's bar.** Stories authored via `write-story` on pickup.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-30.1 | Fix the drift valuation basis (fail-closed TWR, honest anchor) | Backlog |
+| US-30.2 | Drift coverage + FX disclosure | Backlog |
+| US-30.3 | Exposure-tab first-render reliability | Backlog |
+| US-30.4 | Findings-first audit of remaining Exposure calculations | Backlog |
+| US-30.5 | Fix the audit findings | Backlog |
+| US-30.6 | Exposure UI polish pass | Backlog |
 
 ---
 
