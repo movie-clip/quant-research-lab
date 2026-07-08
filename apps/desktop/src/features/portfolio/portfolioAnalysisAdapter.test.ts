@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createDiagnosticsEngineFixture, createExposureEngineFixture, createImportedBootstrapResponseFixture, createImportedDashboardHistoryFixture } from '../../test/portfolioFixtures'
 import type { ResolveDesktopApiUrlOptions } from '../../app/apiBase'
-import { clearCache, runDashboardHistoryEngine, runDiagnosticsEngine, runDistributionEngine, runDrawdownEngine, runExposureEngine, runImportedDashboardHistory, runImportedDiagnosticsEngine, runIntraCorrelationEngine, runProvenanceEngine, runStressEngine } from './portfolioAnalysisAdapter'
+import { clearCache, runDashboardHistoryEngine, runDiagnosticsEngine, runDistributionEngine, runDrawdownEngine, runDriftEngine, runExposureEngine, runImportedDashboardHistory, runImportedDiagnosticsEngine, runIntraCorrelationEngine, runProvenanceEngine, runStressEngine } from './portfolioAnalysisAdapter'
 import type { DistributionEngineResponse, DrawdownEngineResponse, StressEngineResponse } from './types'
 import type { ImportedHistoryContext, PortfolioSnapshot } from './workspaceTypes'
 
@@ -256,5 +256,37 @@ describe('runDistributionEngine (Epic 13 — Risk tab US-13.3)', () => {
     const init = fetchMock.mock.calls[0]?.[1] as { body?: string } | undefined
     const body = JSON.parse(init!.body!) as { window_trading_days: number }
     expect(body.window_trading_days).toBe(504)
+  })
+})
+
+describe('runDriftEngine fx_rates plumbing (US-30.2)', () => {
+  const driftPayload = {
+    windows: [],
+    benchmark_symbol: 'SPY',
+    daily_series: [],
+    availability: 'unavailable',
+    fx_fallback_currencies: [],
+  }
+
+  it('posts fx_rates from snapshot.fxRates when present', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(driftPayload))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await runDriftEngine({ ...snapshot, fxRates: { EURUSD: 1.1422, GBPUSD: 1.3261 } }, 'SPY')
+
+    const init = fetchMock.mock.calls[0]?.[1] as { body?: string } | undefined
+    const body = JSON.parse(init!.body!) as { fx_rates?: Record<string, number> }
+    expect(body.fx_rates).toEqual({ EURUSD: 1.1422, GBPUSD: 1.3261 })
+  })
+
+  it('omits fx_rates when the snapshot has none (pre-US-30.2 persisted snapshots)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(driftPayload))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await runDriftEngine(snapshot, 'SPY')
+
+    const init = fetchMock.mock.calls[0]?.[1] as { body?: string } | undefined
+    const body = JSON.parse(init!.body!) as { fx_rates?: Record<string, number> }
+    expect(body.fx_rates).toBeUndefined()
   })
 })

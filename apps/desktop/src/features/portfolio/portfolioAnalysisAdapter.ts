@@ -96,7 +96,14 @@ export async function runDriftEngine(
   benchmarkSymbol: string,
   apiUrlOptions?: ResolveDesktopApiUrlOptions,
 ): Promise<DriftResult> {
-  const requestBody = { ...buildSnapshotAnalysisRequest(snapshot), benchmark_symbol: benchmarkSymbol }
+  const requestBody = {
+    ...buildSnapshotAnalysisRequest(snapshot),
+    benchmark_symbol: benchmarkSymbol,
+    // US-30.2 (audit F-6): statement-implied FX rates (absent on snapshots
+    // persisted before the field existed — the engine then keeps the
+    // US-27.8 carried-unconverted fallback, disclosed).
+    ...(snapshot.fxRates ? { fx_rates: snapshot.fxRates } : {}),
+  }
   // Debug log: confirm the adapter is reached and inspect the actual outgoing
   // payload. Removeable once drift-card "No drift data" issue is diagnosed.
   console.info('[drift] POST', {

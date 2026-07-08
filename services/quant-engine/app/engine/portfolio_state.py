@@ -21,6 +21,12 @@ class PortfolioStateEngine:
     # (the only honest number available) and this set lets callers disclose
     # the degradation instead of silently claiming a converted valuation.
     fx_fallback_currencies: set[str] = field(default_factory=set)
+    # US-30.2 (audit F-3): held symbols that had NO fetchable in-window price
+    # history during the last build_daily_states run and were therefore
+    # valued flat at the statement close price (the documented US-27.7
+    # broker-path anchor). Zero return contribution — callers must disclose,
+    # never let the flat segment pass as market data.
+    statement_anchored_symbols: set[str] = field(default_factory=set)
 
     def build_daily_states(
         self,
@@ -30,6 +36,7 @@ class PortfolioStateEngine:
         apply_terminal_reconciliation: bool = True,
     ) -> list[DailyPortfolioState]:
         self.fx_fallback_currencies = set()
+        self.statement_anchored_symbols = set()
         if not valuation_dates:
             return []
 
@@ -110,8 +117,12 @@ class PortfolioStateEngine:
             # No fetchable history at all: the statement close price is the
             # last broker-truth-adjacent anchor we have — kept (documented in
             # the methodology coverage rule) so unpriceable instruments do
-            # not silently vanish from the replayed NAV.
-            return fallback_prices.get(symbol)
+            # not silently vanish from the replayed NAV. Recorded so callers
+            # can disclose the flat segment (US-30.2 / audit F-3).
+            anchored = fallback_prices.get(symbol)
+            if anchored is not None:
+                self.statement_anchored_symbols.add(symbol)
+            return anchored
 
         first_date = valuation_dates[0]
         opening_positions_value = 0.0

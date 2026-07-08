@@ -31,7 +31,13 @@ class DriftDailyPoint(BaseModel):
 
 
 class DriftEngineRequest(PortfolioEngineRequest):
-    pass  # benchmark_symbol (default "SPY") and imported_at already in PortfolioEngineRequest
+    # benchmark_symbol (default "SPY") and imported_at already in PortfolioEngineRequest.
+    # US-30.2 (audit F-6): statement-implied FX rates from the imported
+    # snapshot's statement_totals.fx_rates (broker truth as of the statement
+    # period end, US-28.1), keyed "EURUSD"-style. Applied as STATIC rates to
+    # every valuation date; currencies converted this way are disclosed in
+    # DriftResult.fx_static_rate_currencies. Empty → US-27.8 fallback tier.
+    fx_rates: dict[str, float] = {}
 
 
 class DriftResult(BaseModel):
@@ -45,3 +51,12 @@ class DriftResult(BaseModel):
     # the replay's valuations are degraded for these currencies; the UI must
     # surface it. Empty when every position is base-currency or converted.
     fx_fallback_currencies: list[str] = []
+    # US-30.2 (audit F-6): currencies converted at the statement's implied
+    # period-end rate (a STATIC rate across the window — levels are broker
+    # truth as of period end, FX return dynamics are still absent). Distinct
+    # from the fallback tier above: converted, but not with a daily series.
+    fx_static_rate_currencies: list[str] = []
+    # US-30.2 (audit F-3): held symbols valued FLAT at the statement close
+    # price for the whole window (zero in-window price coverage) — zero
+    # return contribution, dampening returns/volatility. Never silent.
+    statement_anchored_symbols: list[str] = []

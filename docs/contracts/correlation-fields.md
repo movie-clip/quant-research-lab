@@ -47,6 +47,8 @@ Data source: `DriftResult.daily_series` (from `POST /api/engines/drift/run`)
 | `daily_series` | `list[DriftDailyPoint]` | `DriftDailyPoint[]` | Chart data | synthetic | No (empty when unavailable) | |
 | `availability` | `Literal["available", "partial", "unavailable"]` | `'available' \| 'partial' \| 'unavailable'` | Availability state | synthetic | No | |
 | `fx_fallback_currencies` | `list[str]` (default `[]`) | `string[] \| undefined` | Drift panel helper note when non-empty | — | No (empty when none) | US-27.8 (audit F9): currencies that required base conversion with no FX rate — values carried unconverted, never a silent 1:1 claim. See methodology §FX Conversion Fallback Disclosure. |
+| `fx_static_rate_currencies` | `list[str]` (default `[]`) | `string[] \| undefined` | Drift panel helper note when non-empty | — | No (empty when none) | US-30.2 (audit F-6): currencies converted at the statement's implied period-end rate (US-28.1 `statement_totals.fx_rates`, supplied via `DriftEngineRequest.fx_rates`) — a STATIC rate across the window; levels are broker truth as of period end, FX return dynamics absent. Disclosed separately from the fallback tier; a currency appears in exactly one tier. |
+| `statement_anchored_symbols` | `list[str]` (default `[]`) | `string[] \| undefined` | Drift panel helper note when non-empty | — | No (empty when none) | US-30.2 (audit F-3): held symbols valued FLAT at the statement close for the whole window (zero in-window price coverage) — zero return contribution, dampens returns/volatility. |
 
 ### Rebasing contract
 

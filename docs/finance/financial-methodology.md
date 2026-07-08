@@ -1207,18 +1207,43 @@ Disclosure surfaces:
   DriftResult.fx_fallback_currencies            → drift panel helper note
   DashboardHistoryRunMetadata.fx_fallback_currencies
 
-Current state: no engine wires real FX rates yet (every caller passes
-fx_history = {}), so any non-base position always appears in the disclosure.
-Wiring real rates via MarketDataService.get_fx_history requires empirical
-verification of its FMP symbol resolution first (zero callers today) — that
-is Epic 26 scope, deliberately not done here. Until then the degradation is
-EXPLICIT, never a silent 1:1 conversion claim.
+Statement-implied static-rate tier (US-30.2 / audit F-6):
+  the drift engine accepts DriftEngineRequest.fx_rates — the statement's own
+  implied period-end rates (US-28.1: base-currency restatements of the Open
+  Positions totals, broker truth as of the statement period end). They are
+  applied as a STATIC rate to every valuation date, so converted levels are
+  correct as of the period end but FX return dynamics remain unmodeled. A
+  static-rate conversion never upgrades trust (windows stay synthetic) and
+  is disclosed in its own tier:
+
+  fx_static_rate_currencies = non-base currencies whose pair has a supplied
+                              rate (converted, static)
+  fx_fallback_currencies    = the remainder (carried unconverted)
+  A currency appears in exactly one tier.
+
+Statement-anchored symbols (US-30.2 / audit F-3):
+  a held symbol with NO fetchable in-window price history is valued flat at
+  the statement close (the US-27.7 broker-path anchor — broker-truth-
+  adjacent, zero return contribution, dampens returns/volatility). The
+  engine records these and the drift result surfaces them:
+
+  statement_anchored_symbols → DriftResult.statement_anchored_symbols
+                             → drift panel helper note
+
+Historical FX series (real dynamics) remain Epic 26 scope: wiring
+MarketDataService.get_fx_history requires empirical verification of its FMP
+symbol resolution first (zero callers today). Until then every degradation
+tier is EXPLICIT, never a silent 1:1 conversion claim.
 ```
 
 Contract rule:
 - a missing FX rate must never be presented as a converted value; the
   fallback is disclosed per response, and consumers render the degradation
   (the drift panel's FX helper note).
+- a static-rate conversion must be disclosed as static (its own tier and
+  note wording), never folded into either "fully converted" or "fallback".
+- statement-anchored (flat) valuations must be disclosed per response; a
+  flat segment must never pass silently as market data.
 
 ## Rolling Pearson Correlation
 
