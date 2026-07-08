@@ -1333,6 +1333,14 @@ export type DriftResult = {
   /** US-27.8 (audit F9): currencies that needed base conversion but had no FX
    *  rate — values are carried unconverted; non-empty must be surfaced. */
   fx_fallback_currencies?: string[]
+  /** US-30.2 (audit F-6): currencies converted at the statement's implied
+   *  period-end rate (static across the window — levels are broker truth as
+   *  of period end; FX return dynamics still absent). */
+  fx_static_rate_currencies?: string[]
+  /** US-30.2 (audit F-3): held symbols valued FLAT at the statement close for
+   *  the whole window (zero in-window price coverage) — zero return
+   *  contribution; non-empty must be surfaced. */
+  statement_anchored_symbols?: string[]
 }
 
 // --- Factor Return Attribution ---

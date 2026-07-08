@@ -74,6 +74,9 @@ export function buildPortfolioSnapshotFromAnalysis(
       currency: balance.currency,
       amount: balance.ending_cash ?? 0,
     })),
+    // US-30.2 (audit F-6): carry the statement-implied FX rates so the drift
+    // engine can convert non-base positions instead of the 1:1 fallback.
+    fxRates: analysis.snapshot.statement_totals?.fx_rates ?? undefined,
     metadata: {
       benchmarkSymbol: analysis.benchmark?.symbol ?? analysis.risk_summary?.benchmark_symbol ?? 'SPY',
       notes: null,

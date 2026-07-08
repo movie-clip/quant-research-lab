@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { overlayImportedSnapshot } from './portfolioSnapshot'
+import { buildPortfolioSnapshotFromAnalysis, overlayImportedSnapshot } from './portfolioSnapshot'
 import type { PortfolioSnapshot } from './workspaceTypes'
 
 function makeSnapshot(
@@ -169,5 +169,33 @@ describe('overlayImportedSnapshot', () => {
     const usd = result.cashBalances.find((b) => b.currency === 'USD')
     expect(usd).toBeDefined()
     expect(usd!.amount).toBeCloseTo(1500)
+  })
+})
+
+describe('buildPortfolioSnapshotFromAnalysis fxRates (US-30.2)', () => {
+  function makeAnalysis(statementTotals: { fx_rates: Record<string, number> } | null) {
+    return {
+      snapshot: {
+        statement: { importer: 'interactive_brokers', base_currency: 'USD', statement_period: '2026-01-01 - 2026-06-30' },
+        statements: [{ imported_at: '2026-07-08T00:00:00Z' }],
+        statement_totals: statementTotals,
+        positions: [{ symbol: 'AAPL', market_value: 1000, quantity: 10, currency: 'USD' }],
+        cash_balances: [{ currency: 'USD', ending_cash: 500 }],
+      },
+      overview: null,
+    } as unknown as Parameters<typeof buildPortfolioSnapshotFromAnalysis>[0]
+  }
+
+  it('copies statement-implied fx_rates into the workspace snapshot', () => {
+    const built = buildPortfolioSnapshotFromAnalysis(
+      makeAnalysis({ fx_rates: { EURUSD: 1.1422, USDUSD: 1.0 } }),
+      ['IB2026.csv'],
+    )
+    expect(built.fxRates).toEqual({ EURUSD: 1.1422, USDUSD: 1.0 })
+  })
+
+  it('leaves fxRates absent when the analysis carries no statement totals', () => {
+    const built = buildPortfolioSnapshotFromAnalysis(makeAnalysis(null), ['IB2026.csv'])
+    expect(built.fxRates).toBeUndefined()
   })
 })

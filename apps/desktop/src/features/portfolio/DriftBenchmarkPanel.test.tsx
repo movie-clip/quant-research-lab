@@ -48,6 +48,34 @@ describe('DriftBenchmarkPanel (US-27.8)', () => {
     expect(screen.queryByText(/FX conversion unavailable/)).toBeNull()
   })
 
+  it('renders the statement-anchored and static-rate notes when non-empty (US-30.2)', () => {
+    render(
+      <DriftBenchmarkPanel
+        result={{
+          ...baseResult,
+          statement_anchored_symbols: ['LQQ'],
+          fx_static_rate_currencies: ['EUR', 'GBP'],
+        }}
+        benchmarkSymbol="SPY"
+        onBenchmarkChange={() => {}}
+      />,
+    )
+    expect(screen.getByText(/No market price history for LQQ/)).toBeTruthy()
+    expect(screen.getByText(/EUR, GBP converted at the statement/)).toBeTruthy()
+  })
+
+  it('renders neither US-30.2 note when the disclosure lists are empty', () => {
+    render(
+      <DriftBenchmarkPanel
+        result={{ ...baseResult, statement_anchored_symbols: [], fx_static_rate_currencies: [] }}
+        benchmarkSymbol="SPY"
+        onBenchmarkChange={() => {}}
+      />,
+    )
+    expect(screen.queryByText(/No market price history/)).toBeNull()
+    expect(screen.queryByText(/converted at the statement/)).toBeNull()
+  })
+
   it('repeats the engine basis note in the trust tooltip instead of a hardcoded claim (US-30.1)', () => {
     const { container } = render(
       <DriftBenchmarkPanel

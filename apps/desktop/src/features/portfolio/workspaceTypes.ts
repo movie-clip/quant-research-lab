@@ -30,6 +30,11 @@ export type PortfolioSnapshot = {
   }
   positions: PortfolioPositionSnapshot[]
   cashBalances: CashBalanceSnapshot[]
+  /** US-30.2 (audit F-6): statement-implied FX rates ("EURUSD" → rate) copied
+   *  from the imported snapshot's statement_totals.fx_rates (broker truth as
+   *  of the statement period end, US-28.1). Optional — absent on snapshots
+   *  persisted before this field existed (no migration, no fabrication). */
+  fxRates?: Record<string, number>
   metadata: {
     benchmarkSymbol?: string | null
     notes?: string | null

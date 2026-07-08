@@ -112,11 +112,27 @@ export function DriftBenchmarkPanel({ result, error = null, benchmarkSymbol, onB
               <WindowCard key={w.label} window={w} />
             ))}
           </div>
+          {(result.fx_static_rate_currencies?.length ?? 0) > 0 ? (
+            <p className="helper" style={{ margin: 'var(--space-md) 0 0 0' }}>
+              {/* US-30.2 (F-6): converted — but at ONE period-end rate, not a daily series. */}
+              {result.fx_static_rate_currencies!.join(', ')} converted at the statement&apos;s
+              implied period-end rate (static across the window) — levels are broker truth as of
+              the statement date; FX return dynamics are not modeled.
+            </p>
+          ) : null}
           {(result.fx_fallback_currencies?.length ?? 0) > 0 ? (
             <p className="helper" style={{ margin: 'var(--space-md) 0 0 0' }}>
               FX conversion unavailable for {result.fx_fallback_currencies!.join(', ')} — those
               positions are valued in their own currency (unconverted), so window returns and the
               chart are degraded for the non-USD sleeve.
+            </p>
+          ) : null}
+          {(result.statement_anchored_symbols?.length ?? 0) > 0 ? (
+            <p className="helper" style={{ margin: 'var(--space-md) 0 0 0' }}>
+              {/* US-30.2 (F-3): flat statement anchor — zero return contribution, disclosed. */}
+              No market price history for {result.statement_anchored_symbols!.join(', ')} — valued
+              flat at the statement close for the whole window (no return contribution), which
+              dampens the portfolio line.
             </p>
           ) : null}
           {hasSeries && (

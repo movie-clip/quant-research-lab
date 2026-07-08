@@ -4,8 +4,9 @@ from datetime import date, timedelta
 from typing import Literal
 
 from app.core.constants import DEFAULT_BENCHMARK_SYMBOL
-from app.analytics.performance import _time_weighted_daily_return, build_daily_portfolio_states_with_fx_disclosure
+from app.analytics.performance import _time_weighted_daily_return
 from app.analytics.risk import selected_history_price_map
+from app.engine.portfolio_state import PortfolioStateEngine
 from app.schemas.drift import DriftEngineRequest, DriftResult, DriftWindow, DriftDailyPoint
 from app.services.market_data import MarketDataService, VERIFIED_BENCHMARK_SYMBOL_ALLOWLIST
 from app.services.portfolio_snapshot_builder import build_imported_snapshot_from_request
@@ -176,6 +177,8 @@ def run_drift_engine(request: DriftEngineRequest) -> DriftResult:
     windows: list[DriftWindow] = []
     daily_series: list[DriftDailyPoint] = []
     fx_fallback_currencies: set[str] = set()
+    statement_anchored_symbols: set[str] = set()
+    base_currency = snapshot.statement.base_currency or "USD"
 
     for label, days in _WINDOWS:
         if days is not None:
@@ -200,13 +203,23 @@ def run_drift_engine(request: DriftEngineRequest) -> DriftResult:
         symbol_prices = market_data.get_historical_prices_for_symbols(symbols, start_str, today_str)
         valuation_dates = sorted({row["date"] for row in benchmark_rows})
 
-        daily_states, window_fx_fallback = build_daily_portfolio_states_with_fx_disclosure(
-            snapshot=snapshot,
-            price_histories=symbol_prices,
-            valuation_dates=valuation_dates,
-            fx_history={},
+        # US-30.2 (audit F-6): statement-implied rates applied as STATIC
+        # per-date entries — the engine's fx_history is keyed "EURUSD:date".
+        # Currencies without a supplied rate keep the US-27.8 fallback
+        # (carried unconverted + disclosed).
+        static_fx_history = {
+            f"{pair}:{valuation_date}": rate
+            for pair, rate in request.fx_rates.items()
+            for valuation_date in valuation_dates
+        }
+        state_engine = PortfolioStateEngine(
+            snapshot=snapshot, base_currency=base_currency, fx_history=static_fx_history,
         )
-        fx_fallback_currencies.update(window_fx_fallback)
+        daily_states = state_engine.build_daily_states(
+            price_histories=symbol_prices, valuation_dates=valuation_dates,
+        )
+        fx_fallback_currencies.update(state_engine.fx_fallback_currencies)
+        statement_anchored_symbols.update(state_engine.statement_anchored_symbols)
 
         p_ret, degraded = _portfolio_return(daily_states, use_ledger_basis=use_ledger_basis)
         b_ret = _benchmark_return(benchmark_rows)
@@ -234,10 +247,25 @@ def run_drift_engine(request: DriftEngineRequest) -> DriftResult:
         else "unavailable"
     )
 
+    # US-30.2 (audit F-6): three-tier FX disclosure — a non-base currency is
+    # either converted at the statement's implied static rate (rate supplied)
+    # or carried unconverted (fallback, recorded by the engine). Exactly one
+    # tier per currency.
+    non_base_currencies = {
+        p.currency for p in request.positions if p.currency and p.currency != base_currency
+    }
+    fx_static_rate_currencies = {
+        currency
+        for currency in non_base_currencies
+        if f"{currency}{base_currency}" in request.fx_rates
+    }
+
     return DriftResult(
         windows=windows,
         benchmark_symbol=benchmark_symbol,
         daily_series=daily_series,
         availability=availability,
-        fx_fallback_currencies=sorted(fx_fallback_currencies),
+        fx_fallback_currencies=sorted(fx_fallback_currencies - fx_static_rate_currencies),
+        fx_static_rate_currencies=sorted(fx_static_rate_currencies),
+        statement_anchored_symbols=sorted(statement_anchored_symbols),
     )
