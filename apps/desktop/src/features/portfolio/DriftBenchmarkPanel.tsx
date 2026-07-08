@@ -85,7 +85,15 @@ export function DriftBenchmarkPanel({ result, error = null, benchmarkSymbol, onB
       badge={
         <TrustBadge
           type="synthetic"
-          tooltip="Broker-ledger replay measured as a cash-flow-neutral time-weighted return over historical prices (US-27.8). Not verified broker return basis."
+          tooltip={
+            // US-30.1 (AC3): the tooltip repeats the engine's own basis note
+            // (per-path truth) instead of a hardcoded claim; the fallback
+            // (no window available yet) states the convention without
+            // hand-rolling the badge label (design-system audit rule).
+            (result?.windows.find((w) => w.note != null)?.note ??
+              'Computed from current holdings × historical prices (market-value chain)') +
+            '. Not verified broker return basis.'
+          }
         />
       }
       actions={benchmarkPicker}

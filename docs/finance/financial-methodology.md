@@ -1132,26 +1132,57 @@ Portfolio line (US-27.8 / audit F10 — TWR-indexed, NOT raw market value):
   would draw a move against the benchmark's price line that is not
   performance. The TWR chain makes the two lines commensurable.
 
-Drift window returns (same basis):
+Drift window returns (same chain as the chart — one code path, US-30.1 AC4):
   window_return_pct = (Π_t (1 + daily_return_t) − 1) × 100
-                      over the window's replayed daily states
-  The drift engine replays the imported broker ledger (opening positions +
-  trades + flows) — its basis label reads "Broker-ledger replay: compounded
-  time-weighted return (cash-flow-neutral)", never the synthetic
-  current-holdings convention (which it does not implement).
+                      over the window's daily states
+
+  The daily-return basis is chosen by what the snapshot actually carries
+  (US-30.1 / audit F-1):
+  - ledger entries present → the cash-flow-neutral TWR daily return above
+    (a broker-ledger replay; basis note "Broker-ledger replay: compounded
+    time-weighted return (cash-flow-neutral)").
+  - no ledger (the drift request path: positions + cash only) → the
+    market-value chain of current holdings,
+      daily_return_t = (MV_t / MV_{t-1}) − 1,
+    the synthetic-history convention (§Synthetic History) matching the
+    panel's Synthetic badge; basis note "Synthetic: current holdings ×
+    historical prices (market-value chain)". With no ledger there are no
+    external flows, so TWR machinery has nothing to neutralize — and the
+    reconstructed total_portfolio_value it would divide by is not broker
+    truth on this path (the audit F-1 failure fabricated a ~−$62.6k cash
+    anchor and produced ±thousands-of-percent windows).
+
+Fail-closed rule (US-30.1 / audit F-2):
+  a computed daily_return_t ≤ −100% is impossible for a long-only portfolio
+  and means the valuation inputs are broken. The window fails closed —
+  trust="unavailable", note "Unavailable: degraded valuation inputs produced
+  an impossible (≤ −100%) daily return", null return/spread — and the chart's
+  portfolio line is withheld entirely (explicit nulls). Never clamped, never
+  compounded.
+
+Cash anchor rule (US-30.1 / audit F-1, `PortfolioStateEngine`):
+  base_cash = starting_nav − opening_positions_value   (statement totals present)
+  base_cash = Σ cash_balances (base-converted)         (no starting NAV — e.g.
+                                                        request-path snapshots)
+  The old 0 − opening_value fallback fabricated a large negative cash balance
+  and collapsed day-one portfolio value to ~0.
 
 Edge cases:
   price_0 = 0 or null: return null for all benchmark points
   daily_return_t not computable (zero prior value): the portfolio index
     carries unchanged for that date — no return is claimable, never a
     fabricated move
+  no day in a window produces a computable return: window return is null
+    (unavailable), never a fabricated flat 0.0%
   a date with no portfolio state: portfolio_indexed = null for that point
     (no interpolation)
 ```
 
 Implementation:
-- `services/quant-engine/app/services/drift_engine.py` — `_portfolio_return`
-  (window TWR) + `_build_daily_series` (TWR-indexed chart line)
+- `services/quant-engine/app/services/drift_engine.py` — `_compound_chain`
+  (the shared indexed chain), `_portfolio_return` (window return),
+  `_build_daily_series` (chart line), `_basis_note` (per-path note);
+  `app/engine/portfolio_state.py` (cash anchor)
 
 Contract rule:
 - Indexed series points with null values must be emitted as null, not omitted.

@@ -86,9 +86,9 @@ def _drift_state(date_str: str, value: float, external_cash_flow: float = 0.0):
 
 
 def test_drift_portfolio_return_is_cash_flow_neutral():
-    """US-27.8 (audit F10) — a mid-window 1000 deposit with flat prices must
-    report ~0% (the pre-fix last/first market-value ratio reported +100%);
-    a real price move with no flows is measured exactly."""
+    """US-27.8 (audit F10), retained on the LEDGER basis (US-30.1 AC5) — a
+    mid-window 1000 deposit with flat prices must report ~0%; a real price
+    move with no flows is measured exactly."""
     from app.services.drift_engine import _portfolio_return
 
     deposit_only = [
@@ -96,19 +96,20 @@ def test_drift_portfolio_return_is_cash_flow_neutral():
         _drift_state("2026-01-03", 2000.0, external_cash_flow=1000.0),
         _drift_state("2026-01-04", 2000.0),
     ]
-    assert _portfolio_return(deposit_only) == 0.0
+    assert _portfolio_return(deposit_only, use_ledger_basis=True) == (0.0, False)
 
     price_move_only = [
         _drift_state("2026-01-02", 1000.0),
         _drift_state("2026-01-03", 1030.0),   # +3%
         _drift_state("2026-01-04", 1060.9),   # +3%
     ]
-    assert _portfolio_return(price_move_only) == 6.09  # 1.03² − 1
+    assert _portfolio_return(price_move_only, use_ledger_basis=True) == (6.09, False)  # 1.03² − 1
 
 
 def test_drift_daily_series_is_twr_indexed():
-    """US-27.8 (AC4) — the chart line is the TWR chain indexed to 100: the
-    deposit day stays flat instead of drawing a fake +100% move."""
+    """US-27.8 (AC4), retained on the LEDGER basis — the chart line is the TWR
+    chain indexed to 100: the deposit day stays flat instead of drawing a fake
+    +100% move."""
     from app.services.drift_engine import _build_daily_series
 
     states = [
@@ -122,7 +123,7 @@ def test_drift_daily_series_is_twr_indexed():
         {"date": "2026-01-04", "price": 102.0},
     ]
 
-    series = _build_daily_series(states, benchmark_rows)
+    series = _build_daily_series(states, benchmark_rows, use_ledger_basis=True)
     by_date = {p.date: p.portfolio_indexed for p in series}
 
     assert by_date["2026-01-02"] == 100.0
@@ -130,9 +131,10 @@ def test_drift_daily_series_is_twr_indexed():
     assert by_date["2026-01-04"] == 105.0   # the real +5%
 
 
-def test_drift_note_states_the_ledger_replay_twr_basis(mocker):
-    """US-27.8 (AC3) — the basis label on available windows describes what the
-    engine actually does (ledger replay + TWR), not the synthetic convention."""
+def test_drift_note_states_the_synthetic_basis_on_the_no_ledger_path(mocker):
+    """US-30.1 (AC3) — the request path carries no ledger, so available
+    windows state the synthetic market-value-chain convention; the
+    ledger-replay claim must NOT appear."""
     from app.tests.fixtures import install_market_data_mock, price_rows
 
     inst = install_market_data_mock(
@@ -140,8 +142,6 @@ def test_drift_note_states_the_ledger_replay_twr_basis(mocker):
         "app.services.drift_engine",
         histories={"SPY": price_rows(80), "AAPL": price_rows(80), "MSFT": price_rows(80)},
     )
-    # Drift fetches SPY through the verified-benchmark endpoint; serve the
-    # same deterministic rows there.
     inst.get_direct_verified_benchmark_history.side_effect = (
         lambda sym, *a, **k: price_rows(80)
     )
@@ -151,8 +151,25 @@ def test_drift_note_states_the_ledger_replay_twr_basis(mocker):
     synthetic = [w for w in result.windows if w.trust == "synthetic"]
     assert synthetic, "expected at least one available window"
     for w in synthetic:
-        assert "Broker-ledger replay" in (w.note or "")
-        assert "time-weighted" in (w.note or "")
+        assert "Synthetic: current holdings" in (w.note or "")
+        assert "Broker-ledger replay" not in (w.note or "")
+
+
+def test_drift_note_selection_per_basis_and_degradation():
+    """US-30.1 (AC3) — unit pin on the note chooser: ledger basis keeps the
+    US-27.8 replay claim; no-ledger gets the synthetic convention; a degraded
+    chain names the reason; unavailable-without-degradation stays bare."""
+    from app.services.drift_engine import (
+        DEGRADED_VALUATION_NOTE,
+        LEDGER_REPLAY_NOTE,
+        SYNTHETIC_BASIS_NOTE,
+        _basis_note,
+    )
+
+    assert _basis_note(5.0, False, use_ledger_basis=True) == LEDGER_REPLAY_NOTE
+    assert _basis_note(5.0, False, use_ledger_basis=False) == SYNTHETIC_BASIS_NOTE
+    assert _basis_note(None, True, use_ledger_basis=False) == DEGRADED_VALUATION_NOTE
+    assert _basis_note(None, False, use_ledger_basis=False) is None
 
 
 def test_drift_surfaces_fx_fallback_currencies_for_non_base_positions(mocker):
@@ -187,6 +204,172 @@ def test_drift_surfaces_fx_fallback_currencies_for_non_base_positions(mocker):
     )
     usd_only = run_drift_engine(make_request())
     assert usd_only.fx_fallback_currencies == []
+
+
+# ── US-30.1: drift valuation basis (audit F-1) + fail-closed chain (F-2) ─────
+
+def _mv_state(date_str: str, market_value: float, portfolio_value: float):
+    from app.schemas.reconciliation import DailyPortfolioState
+
+    return DailyPortfolioState(
+        date=date_str,
+        cash={"USD": 0.0},
+        positions=[],
+        total_market_value=market_value,
+        total_portfolio_value=portfolio_value,
+        external_cash_flow=0.0,
+    )
+
+
+def test_no_ledger_basis_is_the_market_value_chain():
+    """US-30.1 (AC1) — F-1 regression: the no-ledger basis compounds
+    total_market_value and NEVER touches total_portfolio_value. The fixture
+    reproduces the bug shape: sane market values, garbage portfolio values
+    (the broken −opening_value cash anchor)."""
+    from app.services.drift_engine import _portfolio_return
+
+    states = [
+        _mv_state("2026-01-02", 62000.0, 0.0),      # pv broken exactly as F-1
+        _mv_state("2026-01-03", 63240.0, -900.0),   # mv +2%
+        _mv_state("2026-01-04", 64504.8, 740.0),    # mv +2%
+    ]
+    pct, degraded = _portfolio_return(states, use_ledger_basis=False)
+    assert degraded is False
+    assert pct == 4.04  # 1.02² − 1 — from market values, untouched by the pv garbage
+
+
+def test_no_ledger_chain_reports_none_when_no_return_is_computable():
+    """US-30.1 — an all-zero market-value window has no claimable return:
+    None, never a fabricated flat 0.0%."""
+    from app.services.drift_engine import _portfolio_return
+
+    states = [_mv_state(f"2026-01-0{i}", 0.0, 0.0) for i in range(2, 5)]
+    assert _portfolio_return(states, use_ledger_basis=False) == (None, False)
+
+
+def test_impossible_daily_return_fails_the_window_closed():
+    """US-30.1 (AC2) — a ≤ −100% daily return on the ledger basis (the F-2
+    shape: portfolio value crossing zero) withholds the window: (None,
+    degraded=True), never a compounded number."""
+    from app.services.drift_engine import _portfolio_return
+
+    states = [
+        _drift_state("2026-01-02", 740.0),
+        _drift_state("2026-01-03", -226.0),   # −130% day — impossible
+        _drift_state("2026-01-04", 101.0),
+    ]
+    assert _portfolio_return(states, use_ledger_basis=True) == (None, True)
+
+
+def test_degraded_chain_withholds_the_chart_portfolio_line():
+    """US-30.1 (AC2/AC4) — the daily series built from a degraded chain keeps
+    the benchmark line and nulls every portfolio point (explicit withholding,
+    no partial fabricated chain)."""
+    from app.services.drift_engine import _build_daily_series
+
+    states = [
+        _drift_state("2026-01-02", 740.0),
+        _drift_state("2026-01-03", -226.0),
+        _drift_state("2026-01-04", 101.0),
+    ]
+    benchmark_rows = [{"date": s.date, "price": 100.0 + i} for i, s in enumerate(states)]
+
+    series = _build_daily_series(states, benchmark_rows, use_ledger_basis=True)
+
+    assert len(series) == 3
+    assert all(p.portfolio_indexed is None for p in series)
+    assert all(p.benchmark_indexed is not None for p in series)
+
+
+def test_chart_final_index_equals_the_window_return():
+    """US-30.1 (AC4) — one chain, two views: the chart's final indexed value
+    minus 100 IS the window return, on both bases."""
+    from app.services.drift_engine import _build_daily_series, _portfolio_return
+
+    states = [
+        _mv_state("2026-01-02", 1000.0, 1000.0),
+        _mv_state("2026-01-03", 1030.0, 1030.0),
+        _mv_state("2026-01-04", 1060.9, 1060.9),
+    ]
+    benchmark_rows = [{"date": s.date, "price": 100.0} for s in states]
+
+    for use_ledger in (False, True):
+        pct, _ = _portfolio_return(states, use_ledger_basis=use_ledger)
+        series = _build_daily_series(states, benchmark_rows, use_ledger_basis=use_ledger)
+        assert round(series[-1].portfolio_indexed - 100.0, 2) == pct
+
+
+def test_state_engine_anchors_cash_from_balances_when_starting_nav_absent():
+    """US-30.1 (AC6) — F-1 root-cause pin: without statement_totals the cash
+    anchor is the snapshot's own cash balances, so day-one portfolio value is
+    market value + real cash — not (market value − opening value) ≈ 0."""
+    from app.engine.portfolio_state import PortfolioStateEngine
+    from app.schemas.imports import ImportedPortfolioSnapshot
+    from app.tests.fixtures import imported_snapshot, position
+
+    dates = ["2026-01-02", "2026-01-03"]
+    rows = [{"date": dates[0], "price": 100.0}, {"date": dates[1], "price": 102.0}]
+    payload = imported_snapshot(
+        positions=[position("AAPL", market_value=1000.0, quantity=10.0, currency="USD")],
+    )
+    payload["statement_totals"] = None
+    payload["cash_balances"] = [{"currency": "USD", "ending_cash": 500.0}]
+    snapshot = ImportedPortfolioSnapshot.model_validate(payload)
+
+    engine = PortfolioStateEngine(snapshot=snapshot, base_currency="USD", fx_history={})
+    states = engine.build_daily_states(price_histories={"AAPL": rows}, valuation_dates=dates)
+
+    assert states[0].total_market_value == 1000.0   # 10 × 100
+    assert states[0].total_portfolio_value == 1500.0  # mv + REAL cash, not 0.0
+    assert states[1].total_portfolio_value == 1520.0  # 10 × 102 + 500
+
+
+def test_state_engine_keeps_starting_nav_anchor_when_totals_present():
+    """US-30.1 (AC6/AC7) — dashboard-path regression: with a starting NAV the
+    legacy anchor (starting_nav − opening value) is byte-identical."""
+    from app.engine.portfolio_state import PortfolioStateEngine
+    from app.schemas.imports import ImportedPortfolioSnapshot
+    from app.tests.fixtures import imported_snapshot, position
+
+    dates = ["2026-01-02", "2026-01-03"]
+    rows = [{"date": dates[0], "price": 100.0}, {"date": dates[1], "price": 102.0}]
+    payload = imported_snapshot(
+        positions=[position("AAPL", market_value=1000.0, quantity=10.0, currency="USD")],
+    )
+    payload["statement_totals"] = {"starting_nav": 1200.0}
+    payload["cash_balances"] = [{"currency": "USD", "ending_cash": 500.0}]
+    snapshot = ImportedPortfolioSnapshot.model_validate(payload)
+
+    engine = PortfolioStateEngine(snapshot=snapshot, base_currency="USD", fx_history={})
+    states = engine.build_daily_states(price_histories={"AAPL": rows}, valuation_dates=dates)
+
+    # base_cash = 1200 − (10 × 100) = 200; pv day one = 1000 + 200.
+    assert states[0].total_portfolio_value == 1200.0
+    assert states[1].total_portfolio_value == 1220.0
+
+
+def test_drift_end_to_end_returns_sane_windows_for_a_no_ledger_request(mocker):
+    """US-30.1 (AC1) — e2e smoke on the request path with deterministic
+    prices: every available window's return sits in (−100, +100)% and
+    availability is not 'unavailable' (the F-1 garbage was ±thousands)."""
+    from app.tests.fixtures import install_market_data_mock, price_rows
+
+    inst = install_market_data_mock(
+        mocker,
+        "app.services.drift_engine",
+        histories={"SPY": price_rows(400), "AAPL": price_rows(400), "MSFT": price_rows(400)},
+    )
+    inst.get_direct_verified_benchmark_history.side_effect = (
+        lambda sym, *a, **k: price_rows(400)
+    )
+
+    result = run_drift_engine(make_request(cash_balances=[{"currency": "USD", "amount": 1500.0}]))
+
+    available = [w for w in result.windows if w.portfolio_return_pct is not None]
+    assert available, "expected available windows with deterministic prices"
+    for w in available:
+        assert -100.0 < w.portfolio_return_pct < 100.0, w
+    assert result.availability != "unavailable"
 
 
 def test_portfolio_state_engine_records_fx_fallback_only_when_rate_missing():

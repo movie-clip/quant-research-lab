@@ -16,7 +16,7 @@ const baseResult: DriftResult = {
       benchmark_return_pct: 1.0,
       spread_pct: 0.5,
       trust: 'synthetic',
-      note: 'Broker-ledger replay: compounded time-weighted return (cash-flow-neutral)',
+      note: 'Synthetic: current holdings × historical prices (market-value chain)',
     },
   ],
   benchmark_symbol: 'SPY',
@@ -46,5 +46,18 @@ describe('DriftBenchmarkPanel (US-27.8)', () => {
       />,
     )
     expect(screen.queryByText(/FX conversion unavailable/)).toBeNull()
+  })
+
+  it('repeats the engine basis note in the trust tooltip instead of a hardcoded claim (US-30.1)', () => {
+    const { container } = render(
+      <DriftBenchmarkPanel
+        result={baseResult}
+        benchmarkSymbol="SPY"
+        onBenchmarkChange={() => {}}
+      />,
+    )
+    const badge = container.querySelector('[title]')
+    expect(badge?.getAttribute('title')).toContain('Synthetic: current holdings')
+    expect(badge?.getAttribute('title')).not.toContain('Broker-ledger replay')
   })
 })

@@ -9,10 +9,14 @@
 
 All fields in this contract are **synthetic history** trust class unless noted otherwise.
 - The correlation engines apply current holdings backwards over historical
-  prices. The drift engine is a **broker-ledger replay** (opening positions +
-  trades + flows from the imported statement) measured as a cash-flow-neutral
-  time-weighted return (US-27.8) — still synthetic-history trust (market
-  prices applied to the replay), but not the current-holdings convention.
+  prices. The drift engine's basis is **per-request** (US-30.1 / audit F-1):
+  when the snapshot carries ledger entries it is a broker-ledger replay
+  measured as a cash-flow-neutral time-weighted return (US-27.8); the
+  request path (positions + cash, no ledger — today's only caller) uses the
+  **market-value chain of current holdings** (the synthetic convention). The
+  per-window `note` field states which basis produced the number; a window
+  whose chain hits an impossible (≤ −100%) daily return fails closed
+  (`trust="unavailable"`, degradation note) instead of compounding it.
 - No field is ever `verified`. Every nullable field returns `null` when insufficient data is available — never a fabricated zero.
 - The UI must display a "Synthetic" badge wherever these fields are shown.
 
@@ -31,14 +35,14 @@ Data source: `DriftResult.daily_series` (from `POST /api/engines/drift/run`)
 | Field | Backend type (Python) | TS type | UI label | Trust class | Nullable | Notes |
 |---|---|---|---|---|---|---|
 | `date` | `str` | `string` | X-axis date | synthetic | No | ISO 8601 (YYYY-MM-DD) |
-| `portfolio_indexed` | `float \| None` | `number \| null` | Portfolio (rebased) | synthetic | Yes | **TWR-indexed** (US-27.8): the compounded cash-flow-neutral TWR chain starting at 100 — deposits/withdrawals/trades are not chart moves; see methodology §Indexed Return Series. Rebased to 100 at sub-window start in `IndexedReturnChart` via `sliceAndRebase()`. |
+| `portfolio_indexed` | `float \| None` | `number \| null` | Portfolio (rebased) | synthetic | Yes | **Indexed on the same chain as the window cards** (US-30.1 AC4, one `_compound_chain` code path): cash-flow-neutral TWR on the ledger path (US-27.8 — deposits are not chart moves); market-value chain of current holdings on the no-ledger path. A degraded chain withholds the whole line (nulls). See methodology §Indexed Return Series. Rebased to 100 at sub-window start in `IndexedReturnChart` via `sliceAndRebase()`. |
 | `benchmark_indexed` | `float \| None` | `number \| null` | Benchmark (rebased) | synthetic | Yes | Same index basis as `portfolio_indexed`. Rebased to 100 at sub-window start. |
 
 ### `DriftResult` (envelope)
 
 | Field | Backend type (Python) | TS type | UI label | Trust class | Nullable | Notes |
 |---|---|---|---|---|---|---|
-| `windows` | `list[DriftWindow]` | `DriftWindow[]` | Window selector | synthetic | No | One entry per window (1m, 3m, 6m, 12m, since-import) |
+| `windows` | `list[DriftWindow]` | `DriftWindow[]` | Window selector | synthetic | No | One entry per window (1m, 3m, 6m, 12m, since-import). Each window's `note` states the basis that produced it (US-30.1): `"Synthetic: current holdings × historical prices (market-value chain)"` on the no-ledger path, the US-27.8 ledger-replay wording when a ledger drove it, or the ≤ −100% degradation note on a failed-closed window. The panel TrustBadge tooltip repeats the engine note verbatim. |
 | `benchmark_symbol` | `str` | `string` | Benchmark label | — | No | E.g. `"SPY"` |
 | `daily_series` | `list[DriftDailyPoint]` | `DriftDailyPoint[]` | Chart data | synthetic | No (empty when unavailable) | |
 | `availability` | `Literal["available", "partial", "unavailable"]` | `'available' \| 'partial' \| 'unavailable'` | Availability state | synthetic | No | |

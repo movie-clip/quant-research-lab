@@ -26,29 +26,87 @@ def _fetch_benchmark_rows(market_data: MarketDataService, symbol: str, start: st
     return market_data.get_historical_prices(symbol, start, end)
 
 
-def _portfolio_return(daily_states: list) -> float | None:
-    """Compounded cash-flow-neutral TWR over the window's daily states
-    (US-27.8 / audit F10; methodology §Portfolio Return Methodology).
+# US-30.1 (audit F-2): a daily return at or below −100% is impossible for a
+# long-only portfolio — it means the valuation inputs are broken. The chain
+# fails closed (window → unavailable) instead of compounding a sign-flipped
+# growth into a plausible-looking number. Deliberately NOT a clamp: clamping
+# would fabricate.
+IMPOSSIBLE_DAILY_RETURN = -1.0
 
-    The previous implementation was `last/first − 1` on raw market value —
-    a mid-window deposit + BUY (or withdrawal) showed up as "return". The
-    TWR chain subtracts external flows before dividing by the prior value,
-    so only investment performance moves the number.
+# Per-path basis notes (US-30.1 / audit F-2): the note must state what the
+# engine actually computed for THIS request.
+LEDGER_REPLAY_NOTE = "Broker-ledger replay: compounded time-weighted return (cash-flow-neutral)"
+SYNTHETIC_BASIS_NOTE = "Synthetic: current holdings × historical prices (market-value chain)"
+DEGRADED_VALUATION_NOTE = (
+    "Unavailable: degraded valuation inputs produced an impossible (≤ −100%) daily return"
+)
+
+
+def _daily_return(previous_state, state, *, use_ledger_basis: bool) -> float | None:
+    """One day's return on the window's basis (US-30.1 / audit F-1).
+
+    With ledger entries the cash-flow-neutral TWR formula applies
+    (§Portfolio Return Methodology). Without a ledger there are no external
+    flows to neutralize and `total_portfolio_value` rests on a reconstructed
+    cash anchor the request cannot verify — the market-value chain of the
+    held positions is the honest synthetic-history basis (§Synthetic
+    History), matching the `Synthetic` trust badge this panel already shows.
     """
-    if len(daily_states) < 2:
+    if use_ledger_basis:
+        return _time_weighted_daily_return(previous_state, state)
+    if previous_state.total_market_value == 0:
         return None
-    growth = 1.0
-    computed_any_return = False
+    return (state.total_market_value / previous_state.total_market_value) - 1
+
+
+def _compound_chain(daily_states: list, *, use_ledger_basis: bool) -> tuple[dict[str, float] | None, bool, bool]:
+    """Indexed growth chain (100 on the first state) shared by the window
+    return and the daily series, so the chart can never disagree with the
+    cards (US-30.1 AC4). Returns (index_by_date, degraded, computed_any):
+    degraded=True means an impossible daily return was encountered and the
+    whole chain is withheld (fail-closed, audit F-2); computed_any=False
+    means no day produced a claimable return (the caller must report None,
+    never a fabricated flat 0.0%)."""
+    if not daily_states:
+        return None, False, False
+    index_by_date: dict[str, float] = {daily_states[0].date: 100.0}
+    index_value = 100.0
+    computed_any = False
     previous_state = daily_states[0]
     for state in daily_states[1:]:
-        daily_return = _time_weighted_daily_return(previous_state, state)
+        daily_return = _daily_return(previous_state, state, use_ledger_basis=use_ledger_basis)
         if daily_return is not None:
-            growth *= 1 + daily_return
-            computed_any_return = True
+            if daily_return <= IMPOSSIBLE_DAILY_RETURN:
+                return None, True, computed_any
+            index_value *= 1 + daily_return
+            computed_any = True
+        # daily_return None (zero prior value): index carries unchanged —
+        # no return is claimable for that day; never a fabricated move.
+        index_by_date[state.date] = index_value
         previous_state = state
-    if not computed_any_return:
-        return None
-    return round((growth - 1) * 100, 2)
+    return index_by_date, False, computed_any
+
+
+def _portfolio_return(daily_states: list, *, use_ledger_basis: bool) -> tuple[float | None, bool]:
+    """Window return from the shared chain. Returns (pct, degraded)."""
+    if len(daily_states) < 2:
+        return None, False
+    index_by_date, degraded, computed_any = _compound_chain(daily_states, use_ledger_basis=use_ledger_basis)
+    if degraded or index_by_date is None or not computed_any:
+        return None, degraded
+    return round(index_by_date[daily_states[-1].date] - 100.0, 2), False
+
+
+def _basis_note(p_ret: float | None, degraded: bool, *, use_ledger_basis: bool) -> str | None:
+    """The note states what the engine actually computed for THIS request
+    (US-30.1 AC3): the ledger-replay claim only when a ledger drove the
+    numbers, the synthetic convention otherwise, and the degradation reason
+    when the chain failed closed."""
+    if p_ret is not None:
+        return LEDGER_REPLAY_NOTE if use_ledger_basis else SYNTHETIC_BASIS_NOTE
+    if degraded:
+        return DEGRADED_VALUATION_NOTE
+    return None
 
 
 def _benchmark_return(benchmark_rows: list[dict]) -> float | None:
@@ -61,14 +119,16 @@ def _benchmark_return(benchmark_rows: list[dict]) -> float | None:
     return round(((sorted_prices[-1] / sorted_prices[0]) - 1) * 100, 2)
 
 
-def _build_daily_series(daily_states: list, benchmark_rows: list[dict]) -> list[DriftDailyPoint]:
+def _build_daily_series(daily_states: list, benchmark_rows: list[dict], *, use_ledger_basis: bool) -> list[DriftDailyPoint]:
     """Indexed daily series (start = 100) from the longest available window.
 
-    US-27.8 (AC4 decision): the portfolio line is the compounded
-    cash-flow-neutral TWR chain indexed to 100 — the same basis as the
-    window return cards — NOT raw market value (a deposit would draw a
-    fake up-move against the benchmark's price line). See methodology
-    §Indexed Return Series.
+    US-30.1 (AC4): built from the SAME `_compound_chain` as the window cards
+    — one basis, one code path, so the chart can never disagree with the
+    cards. On the ledger path this is the cash-flow-neutral TWR chain
+    (US-27.8: a deposit must not draw a fake up-move against the benchmark);
+    on the no-ledger path it is the market-value chain of current holdings.
+    A degraded chain (impossible daily return, audit F-2) withholds the
+    portfolio line entirely — benchmark-only series, explicit nulls.
     """
     if not daily_states or not benchmark_rows:
         return []
@@ -81,22 +141,13 @@ def _build_daily_series(daily_states: list, benchmark_rows: list[dict]) -> list[
     if not first_benchmark:
         return []
 
-    # TWR index by date: 100 on the first state, × (1 + r_t) per state.
-    twr_index_by_date: dict[str, float] = {daily_states[0].date: 100.0}
-    index_value = 100.0
-    previous_state = daily_states[0]
-    for state in daily_states[1:]:
-        daily_return = _time_weighted_daily_return(previous_state, state)
-        if daily_return is not None:
-            index_value *= 1 + daily_return
-        # daily_return None (zero prior value): index carries unchanged —
-        # no return is claimable for that day; never a fabricated move.
-        twr_index_by_date[state.date] = index_value
-        previous_state = state
+    index_by_date, degraded, computed_any = _compound_chain(daily_states, use_ledger_basis=use_ledger_basis)
+    if degraded or index_by_date is None or not computed_any:
+        index_by_date = {}
 
     series: list[DriftDailyPoint] = []
     for dt, bprice in sorted_prices:
-        indexed = twr_index_by_date.get(dt)
+        indexed = index_by_date.get(dt)
         series.append(DriftDailyPoint(
             date=dt,
             portfolio_indexed=round(indexed, 2) if indexed is not None else None,
@@ -109,6 +160,12 @@ def run_drift_engine(request: DriftEngineRequest) -> DriftResult:
     snapshot = build_imported_snapshot_from_request(request)
     benchmark_symbol = request.benchmark_symbol or DEFAULT_BENCHMARK_SYMBOL
     market_data = MarketDataService()
+
+    # US-30.1 (audit F-1): the basis is chosen by what the snapshot actually
+    # carries. Only a ledger justifies the cash-flow-neutral TWR claim; the
+    # request path (positions + cash, no ledger) gets the synthetic
+    # market-value chain — the convention its `Synthetic` badge states.
+    use_ledger_basis = bool(snapshot.ledger_entries)
 
     today = date.today()
     today_str = today.isoformat()
@@ -151,7 +208,7 @@ def run_drift_engine(request: DriftEngineRequest) -> DriftResult:
         )
         fx_fallback_currencies.update(window_fx_fallback)
 
-        p_ret = _portfolio_return(daily_states)
+        p_ret, degraded = _portfolio_return(daily_states, use_ledger_basis=use_ledger_basis)
         b_ret = _benchmark_return(benchmark_rows)
         spread = round(p_ret - b_ret, 2) if p_ret is not None and b_ret is not None else None
 
@@ -163,15 +220,12 @@ def run_drift_engine(request: DriftEngineRequest) -> DriftResult:
             benchmark_return_pct=b_ret,
             spread_pct=spread,
             trust="synthetic" if p_ret is not None else "unavailable",
-            # US-27.8 (AC3): the basis label states what the engine actually
-            # does — a broker-ledger replay measured as a cash-flow-neutral
-            # TWR — not the synthetic current-holdings convention.
-            note="Broker-ledger replay: compounded time-weighted return (cash-flow-neutral)" if p_ret is not None else None,
+            note=_basis_note(p_ret, degraded, use_ledger_basis=use_ledger_basis),
         ))
 
         # Use the Since Import (or the last processed) window for the daily series
         if label in ("Since Import", "12M") and not daily_series:
-            daily_series = _build_daily_series(daily_states, benchmark_rows)
+            daily_series = _build_daily_series(daily_states, benchmark_rows, use_ledger_basis=use_ledger_basis)
 
     available = sum(1 for w in windows if w.trust == "synthetic")
     availability: Literal["available", "partial", "unavailable"] = (
