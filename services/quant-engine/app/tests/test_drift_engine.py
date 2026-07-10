@@ -32,10 +32,54 @@ def test_drift_engine_returns_five_windows():
 
 
 def test_drift_engine_since_import_unavailable_without_imported_at():
-    request = make_request()  # no imported_at
+    # US-30.3 (AC5 fail-closed): no statement_period AND no imported_at → no
+    # anchor → the window fails closed.
+    request = make_request()  # neither statement_period nor imported_at
     result = run_drift_engine(request)
     since_import = next(w for w in result.windows if w.label == "Since Import")
     assert since_import.trust == "unavailable"
+
+
+def test_since_import_anchor_prefers_statement_period_start():
+    """US-30.3 (AC5 / F-5) — the anchor is the statement-period START (not the
+    import timestamp); a malformed/absent period falls back to imported_at,
+    then to None. Pure-function pin, no market data."""
+    from datetime import date, datetime
+
+    from app.services.drift_engine import _since_import_anchor
+
+    imported = datetime(2026, 7, 8, 12, 0, 0)
+    # Period start wins over imported_at (the F-5 fix).
+    assert _since_import_anchor("2026-01-01 - 2026-06-30", imported) == date(2026, 1, 1)
+    # No period → imported_at.date() (prior behaviour).
+    assert _since_import_anchor(None, imported) == date(2026, 7, 8)
+    # Malformed period → imported_at fallback (never raises).
+    assert _since_import_anchor("not-a-period", imported) == date(2026, 7, 8)
+    assert _since_import_anchor("2026-13-99 - x", imported) == date(2026, 7, 8)
+    # Neither → None (caller fails the window closed).
+    assert _since_import_anchor(None, None) is None
+
+
+def test_since_import_window_available_with_statement_period(mocker):
+    """US-30.3 (AC5 / F-5) — with a statement_period the "Since Import" window
+    is a real window (synthetic + computed return), not the pre-fix
+    `unavailable` that imported_at ≈ today produced."""
+    from app.tests.fixtures import install_market_data_mock, price_rows
+
+    inst = install_market_data_mock(
+        mocker,
+        "app.services.drift_engine",
+        histories={"SPY": price_rows(180), "AAPL": price_rows(180), "MSFT": price_rows(180)},
+    )
+    inst.get_direct_verified_benchmark_history.side_effect = (
+        lambda sym, *a, **k: price_rows(180)
+    )
+
+    result = run_drift_engine(make_request(statement_period="2026-01-01 - 2026-06-30"))
+
+    since_import = next(w for w in result.windows if w.label == "Since Import")
+    assert since_import.trust == "synthetic"
+    assert since_import.portfolio_return_pct is not None
 
 
 def test_drift_engine_returns_valid_availability():

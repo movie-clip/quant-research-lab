@@ -1,8 +1,12 @@
+import { useEffect, useState } from 'react'
 import type { DriftResult, DriftWindow } from './types'
+import type { PortfolioSnapshot } from './workspaceTypes'
+import { runDriftEngine } from './portfolioAnalysisAdapter'
 import { IndexedReturnChart } from './IndexedReturnChart'
 import { CardShell } from '../../app/primitives/CardShell'
 import { EmptyState } from '../../app/primitives/EmptyState'
 import { ErrorState } from '../../app/primitives/ErrorState'
+import { LoadingState } from '../../app/primitives/LoadingState'
 import { TrustBadge } from '../../app/primitives/TrustBadge'
 
 const BENCHMARK_OPTIONS = [
@@ -52,15 +56,51 @@ function WindowCard({ window: w }: { window: DriftWindow }) {
   )
 }
 
+type LoadState = 'idle' | 'loading' | 'error' | 'done'
+
 type DriftBenchmarkPanelProps = {
-  result: DriftResult | null
-  /** Error message from the most recent runDriftEngine call (null when no error). */
-  error?: string | null
-  benchmarkSymbol: string
-  onBenchmarkChange: (symbol: string) => void
+  /** The workspace snapshot (carries US-30.2 fxRates). The panel self-fetches
+   *  drift from it on mount and on benchmark change (US-30.3 / F-4) — no
+   *  App-level result plumbing, so no analyze path can forget to fetch. */
+  snapshot: PortfolioSnapshot | null
 }
 
-export function DriftBenchmarkPanel({ result, error = null, benchmarkSymbol, onBenchmarkChange }: DriftBenchmarkPanelProps) {
+export function DriftBenchmarkPanel({ snapshot }: DriftBenchmarkPanelProps) {
+  const [benchmarkSymbol, setBenchmarkSymbol] = useState('SPY')
+  const [loadState, setLoadState] = useState<LoadState>('idle')
+  const [result, setResult] = useState<DriftResult | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!snapshot) {
+      setResult(null)
+      setLoadState('idle')
+      return
+    }
+
+    let cancelled = false
+    setLoadState('loading')
+    setErrorMsg(null)
+
+    runDriftEngine(snapshot, benchmarkSymbol)
+      .then((driftResult) => {
+        if (!cancelled) {
+          setResult(driftResult)
+          setLoadState('done')
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setErrorMsg(err instanceof Error ? err.message : 'Drift engine failed')
+          setLoadState('error')
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [snapshot, benchmarkSymbol])
+
   const hasSeries = Boolean(result && result.daily_series.length > 0)
 
   const benchmarkPicker = (
@@ -70,7 +110,7 @@ export function DriftBenchmarkPanel({ result, error = null, benchmarkSymbol, onB
         id="drift-benchmark"
         className="path-input drift-benchmark-select"
         value={benchmarkSymbol}
-        onChange={(e) => { onBenchmarkChange(e.target.value) }}
+        onChange={(e) => { setBenchmarkSymbol(e.target.value) }}
       >
         {BENCHMARK_OPTIONS.map((opt) => (
           <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -99,8 +139,10 @@ export function DriftBenchmarkPanel({ result, error = null, benchmarkSymbol, onB
       actions={benchmarkPicker}
       className="drift-panel"
     >
-      {error != null ? (
-        <ErrorState title="Drift engine failed" detail={error} />
+      {loadState === 'error' ? (
+        <ErrorState title="Drift engine failed" detail={errorMsg ?? 'Drift engine failed'} />
+      ) : loadState === 'loading' ? (
+        <LoadingState message="Computing drift vs benchmark…" />
       ) : result == null ? (
         <EmptyState title="No drift data" detail="Import a portfolio to see drift vs benchmark." />
       ) : result.availability === 'unavailable' ? (

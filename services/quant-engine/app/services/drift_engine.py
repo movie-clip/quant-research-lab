@@ -13,12 +13,34 @@ from app.services.portfolio_snapshot_builder import build_imported_snapshot_from
 
 
 _WINDOWS: list[tuple[str, int | None]] = [
+    # `None` means the "Since Import" window: anchored at the statement-period
+    # start (the beginning of the imported statement's coverage), falling back
+    # to imported_at only when no period is available (US-30.3 / audit F-5).
     ("1M", 30),
     ("3M", 90),
     ("6M", 180),
     ("12M", 365),
-    ("Since Import", None),  # None means use imported_at as start
+    ("Since Import", None),
 ]
+
+
+def _since_import_anchor(statement_period: str | None, imported_at) -> date | None:
+    """Start date for the "Since Import" window (US-30.3 / audit F-5).
+
+    The meaningful anchor is the statement-period START — the beginning of the
+    imported statement's coverage — not the import timestamp (≈ today, which
+    left the window with <2 valuation dates and always `unavailable`). Parses
+    the ISO ``"YYYY-MM-DD - YYYY-MM-DD"`` shape the importers normalize to
+    (US-28.1); a malformed/absent period falls back to imported_at, then to
+    None (the caller fails the window closed). Never raises.
+    """
+    if statement_period and " - " in statement_period:
+        start_raw = statement_period.split(" - ", 1)[0].strip()
+        try:
+            return date.fromisoformat(start_raw)
+        except ValueError:
+            pass
+    return imported_at.date() if imported_at else None
 
 
 def _fetch_benchmark_rows(market_data: MarketDataService, symbol: str, start: str, end: str) -> list[dict]:
@@ -171,7 +193,7 @@ def run_drift_engine(request: DriftEngineRequest) -> DriftResult:
     today = date.today()
     today_str = today.isoformat()
 
-    since_import_date: date | None = request.imported_at.date() if request.imported_at else None
+    since_import_date = _since_import_anchor(request.statement_period, request.imported_at)
     symbols = [p.symbol for p in request.positions]
 
     windows: list[DriftWindow] = []
@@ -189,7 +211,7 @@ def run_drift_engine(request: DriftEngineRequest) -> DriftResult:
             windows.append(DriftWindow(
                 label=label,
                 trust="unavailable",
-                note="No import date available",
+                note="No statement period or import date available",
             ))
             continue
 
