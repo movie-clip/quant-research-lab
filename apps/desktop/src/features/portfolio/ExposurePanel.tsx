@@ -1,4 +1,5 @@
-import type { DriftResult, ExposureAnalysis, ImportAdmissionSummaryV1 } from './types'
+import type { ExposureAnalysis, ImportAdmissionSummaryV1 } from './types'
+import type { PortfolioSnapshot } from './workspaceTypes'
 import { BenchmarkCorrelationTable } from './BenchmarkCorrelationTable'
 import { CacheControlCard } from './CacheControlCard'
 import { DataSourcesPanel } from './DataSourcesPanel'
@@ -13,10 +14,8 @@ import { TrustBadge } from '../../app/primitives/TrustBadge'
 
 type ExposurePanelProps = {
   result: ExposureAnalysis | null
-  driftResult?: DriftResult | null
-  driftError?: string | null
-  driftBenchmark?: string
-  onDriftBenchmarkChange?: (symbol: string) => void
+  /** Workspace snapshot the drift panel self-fetches from (US-30.3 / F-4). */
+  driftSnapshot?: PortfolioSnapshot | null
   snapshotOptions?: Array<{ id: string; label: string }>
   selectedSnapshotId?: string
   snapshotExitOption?: { id: string; label: string }
@@ -115,10 +114,7 @@ function UnavailablePanel({ title, detail }: { title: string; detail: string }) 
 
 export function ExposurePanel({
   result,
-  driftResult = null,
-  driftError = null,
-  driftBenchmark = 'SPY',
-  onDriftBenchmarkChange,
+  driftSnapshot = null,
   snapshotOptions = [],
   selectedSnapshotId = 'current',
   snapshotExitOption,
@@ -188,10 +184,7 @@ export function ExposurePanel({
         <CacheControlCard />
 
         <DriftBenchmarkPanel
-          result={driftResult}
-          error={driftError}
-          benchmarkSymbol={driftBenchmark}
-          onBenchmarkChange={(symbol) => { onDriftBenchmarkChange?.(symbol) }}
+          snapshot={driftSnapshot}
         />
 
         {/* Combined Benchmark Correlation card — rolling chart on top,

@@ -1136,6 +1136,14 @@ Drift window returns (same chain as the chart — one code path, US-30.1 AC4):
   window_return_pct = (Π_t (1 + daily_return_t) − 1) × 100
                       over the window's daily states
 
+  Windows: 1M / 3M / 6M / 12M (calendar-day lookbacks from today) plus
+  "Since Import" — anchored at the statement-period START (US-30.3 / audit
+  F-5), the beginning of the imported statement's coverage. The prior anchor
+  (imported_at ≈ today) left <2 valuation dates and always reported
+  `unavailable`; the statement-period start makes it a real window.
+  Fallback: imported_at when no statement_period is available, then
+  `unavailable` (fail-closed) when neither exists.
+
   The daily-return basis is chosen by what the snapshot actually carries
   (US-30.1 / audit F-1):
   - ledger entries present → the cash-flow-neutral TWR daily return above

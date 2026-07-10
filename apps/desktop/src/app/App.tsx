@@ -3,12 +3,12 @@ import type { ChangeEvent } from 'react'
 
 import { canUseImportedReplay, collapseToHistoryContextSource, resolveEffectiveHistorySource } from '../features/portfolio/historySource'
 import { projectImportedBootstrap } from '../features/portfolio/importedBootstrapMapper'
-import { buildExposureFactorModel, buildPortfolioBaselineView, composeDashboardAnalysisFromEngines, composeDashboardAnalysisWithHistory, runDashboardHistoryEngine, runDiagnosticsEngine, runDriftEngine, runExposureEngine, composeExposureView, runImportedDashboardHistory, runImportedDiagnosticsEngine } from '../features/portfolio/portfolioAnalysisAdapter'
+import { buildExposureFactorModel, buildPortfolioBaselineView, composeDashboardAnalysisFromEngines, composeDashboardAnalysisWithHistory, runDashboardHistoryEngine, runDiagnosticsEngine, runExposureEngine, composeExposureView, runImportedDashboardHistory, runImportedDiagnosticsEngine } from '../features/portfolio/portfolioAnalysisAdapter'
 import { formatVariantNodeLabel, formatWorkingDraftLabel } from '../features/portfolio/variantLabels'
 import { buildPortfolioSnapshotFromAnalysis, overlayImportedSnapshot } from '../features/portfolio/portfolioSnapshot'
 import { composeDashboardSession, type DashboardSession } from './dashboardSession'
 import { resolveImportedWorkspaceStartupTruth } from './startupSelectionValidation'
-import type { ImportedBootstrapResponse, ImportedSnapshot, ImportedStatementImporter, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, DriftResult, ExposureAnalysis, ExposureFactorModelResponse } from '../features/portfolio/types'
+import type { ImportedBootstrapResponse, ImportedSnapshot, ImportedStatementImporter, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse } from '../features/portfolio/types'
 import type { ImportedHistoryContext, ImportedHistorySource, PortfolioNode, PortfolioWorkspace, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
 import { clearPortfolioWorkspaceState, createWorkspaceFromImport, getDraft, getLastOpenedWorkspaceState, getNode, getWorkspace, getWorkspaceNodes, resetLocalPortfolioDatabase, saveImportedSnapshotNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
 import { DashboardPanel } from '../features/portfolio/DashboardPanel'
@@ -286,9 +286,6 @@ export function App() {
   const [exposureAnalysis, setExposureAnalysis] = useState<ExposureAnalysis | null>(null)
   const [diagnosticsAnalysis, setDiagnosticsAnalysis] = useState<DiagnosticsEngineResponse | null>(null)
   const [exposureFactorModel, setExposureFactorModel] = useState<ExposureFactorModelResponse | null>(null)
-  const [driftResult, setDriftResult] = useState<DriftResult | null>(null)
-  const [driftError, setDriftError] = useState<string | null>(null)
-  const [driftBenchmark, setDriftBenchmark] = useState<string>('SPY')
   const [importingPortfolio, setImportingPortfolio] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [lastImportedFileNames, setLastImportedFileNames] = useState<string[]>([])
@@ -302,7 +299,6 @@ export function App() {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const importModeRef = useRef<ImportMode>('replace')
   const userSelectedTabRef = useRef(false)
-  const lastAnalyzedSnapshotRef = useRef<WorkingDraft['portfolioSnapshot'] | null>(null)
   const dashboardSnapshot = workingDraft?.portfolioSnapshot ?? activeNode?.portfolioSnapshot ?? null
   const importedExposureExitNode = resolveImportedExposureExitNode(
     selectedExposureSnapshotId,
@@ -477,25 +473,15 @@ export function App() {
       historySource?: ImportedHistorySource | null
     },
   ) {
-    // Drift is non-critical (never blocks exposure render) but we MUST capture
-    // its failure mode — silently swallowing meant the panel rendered a
-    // misleading "No drift data" instead of surfacing real errors.
-    const driftPromise = runDriftEngine(snapshot, driftBenchmark)
-      .then((d) => {
-        console.info('[drift] success', { windows: d.windows?.length, availability: d.availability, series: d.daily_series?.length })
-        return { result: d, error: null as string | null }
-      })
-      .catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : 'Drift engine failed'
-        console.error('[drift] FAILED:', msg, err)
-        return { result: null, error: msg }
-      })
-    const [exposure, diagnostics, drift] = await Promise.all([
+    // Drift is self-fetched by DriftBenchmarkPanel from the workspace snapshot
+    // (US-30.3 / F-4) — no App-level drift fetch here, so no analyze path can
+    // forget it (the restore-path bug that showed a blank chart until the
+    // benchmark dropdown was touched).
+    const [exposure, diagnostics] = await Promise.all([
       runExposureEngine(snapshot),
       options?.historySource?.kind === 'imported_replay'
         ? runImportedDiagnosticsEngine(options.historySource.importedHistorySnapshot)
         : runDiagnosticsEngine(snapshot, options?.historySource?.historyContext ?? getWorkspaceHistorySource(activeWorkspace)?.historyContext ?? null),
-      driftPromise,
     ])
     const exposureView = composeExposureView(exposure, diagnostics)
     let factorModel: ExposureFactorModelResponse | null
@@ -504,12 +490,9 @@ export function App() {
     } catch {
       factorModel = null
     }
-    lastAnalyzedSnapshotRef.current = snapshot
     setExposureAnalysis(exposureView)
     setDiagnosticsAnalysis(diagnostics)
     setExposureFactorModel(factorModel)
-    setDriftResult(drift.result)
-    setDriftError(drift.error)
     if (!options?.preserveDashboardAnalysis) {
       setAnalysis(composeDashboardAnalysisFromEngines(exposure, diagnostics))
     }
@@ -593,11 +576,9 @@ export function App() {
       : composeDashboardAnalysisFromEngines(exposure, diagnostics)
     const baselineView = buildPortfolioBaselineView(exposure)
 
-    // Stash the snapshot so `handleDriftBenchmarkChange` (the benchmark
-    // dropdown in the drift card header) can re-fetch when the user picks
-    // a different benchmark. Without this, the dropdown silently does
-    // nothing on a restored session.
-    lastAnalyzedSnapshotRef.current = snapshot
+    // Drift is self-fetched by DriftBenchmarkPanel from `dashboardSnapshot`
+    // (US-30.3 / F-4), so the restore path no longer needs to fetch it or
+    // stash the snapshot — the panel renders on mount without interaction.
 
     return {
       diagnostics,
@@ -688,28 +669,12 @@ export function App() {
     }
   }
 
-  async function handleDriftBenchmarkChange(benchmark: string) {
-    setDriftBenchmark(benchmark)
-    const snapshot = lastAnalyzedSnapshotRef.current
-    if (!snapshot) return
-    try {
-      const drift = await runDriftEngine(snapshot, benchmark)
-      setDriftResult(drift)
-      setDriftError(null)
-    } catch (err: unknown) {
-      setDriftResult(null)
-      setDriftError(err instanceof Error ? err.message : 'Drift engine failed')
-    }
-  }
-
   function handleClearImportedSession() {
     setAnalysis(null)
     setBaselineAnalysis(null)
     setExposureAnalysis(null)
     setDiagnosticsAnalysis(null)
     setExposureFactorModel(null)
-    setDriftResult(null)
-    setDriftError(null)
     setLastImportedFileNames([])
     setActiveWorkspace(null)
     setActiveNode(null)
@@ -898,10 +863,7 @@ export function App() {
           <Suspense fallback={<section className="panel"><p className="panel-label">Exposure</p><p className="helper">Loading exposure analytics...</p></section>}>
             <ExposurePanel
               result={exposureAnalysis}
-              driftResult={driftResult}
-              driftError={driftError}
-              driftBenchmark={driftBenchmark}
-              onDriftBenchmarkChange={(b) => { void handleDriftBenchmarkChange(b) }}
+              driftSnapshot={dashboardSnapshot}
               snapshotOptions={[
                 ...(workingDraft ? [{ id: 'draft', label: formatWorkingDraftLabel(activeNode, workspaceNodes) }] : []),
                 ...workspaceNodes.map((node) => ({ id: node.id, label: formatVariantNodeLabel(node, workspaceNodes) })),
