@@ -53,20 +53,20 @@ export const ib2026DashboardGolden = {
   "technologyHoldings": [
     "SXRV",
     "SEMI",
-    "CIBR",
     "LQQ",
+    "CIBR",
     "CRM",
     "ADBE"
   ],
   "technologyHoldingWeights": {
-    "SXRV": "12.93%",
-    "SEMI": "4.61%",
+    "SXRV": "14.77%",
+    "SEMI": "6.11%",
+    "LQQ": "3.99%",
     "CIBR": "3.81%",
-    "LQQ": "3.50%",
     "CRM": "1.87%",
     "ADBE": "0.70%"
   },
-  "sxrvValue": "7577",
+  "sxrvValue": "8654.45",
   "broadMarketHoldings": [
     "VUAA"
   ],
@@ -3932,9 +3932,9 @@ export const ib2026ImportedDashboardGoldenFixture = {
     "positions_count": 20,
     "instruments_count": 65,
     "ledger_entries_count": 204,
-    "total_market_value": 58588.76,
-    "total_cost_basis": 57967.49,
-    "total_unrealized_pnl": 621.27,
+    "total_market_value": 61238.53,
+    "total_cost_basis": 60235.08,
+    "total_unrealized_pnl": 1003.45,
     "cash_by_currency": {
       "EUR": 0.0,
       "GBP": 0.0,
@@ -3944,228 +3944,228 @@ export const ib2026ImportedDashboardGoldenFixture = {
       {
         "symbol": "VDST",
         "market_value": 11826.4,
-        "weight": 0.2019,
+        "weight": 0.1931,
         "unrealized_pnl": 72.92
       },
       {
         "symbol": "VUAA",
         "market_value": 11556.8,
-        "weight": 0.1973,
+        "weight": 0.1887,
         "unrealized_pnl": 1475.34
       },
       {
         "symbol": "SXRV",
-        "market_value": 7577.0,
-        "weight": 0.1293,
-        "unrealized_pnl": 1083.69
+        "market_value": 8654.45,
+        "weight": 0.1413,
+        "unrealized_pnl": 1237.79
+      },
+      {
+        "symbol": "SEMI",
+        "market_value": 3580.07,
+        "weight": 0.0585,
+        "unrealized_pnl": 875.23
+      },
+      {
+        "symbol": "DEFS",
+        "market_value": 3218.15,
+        "weight": 0.0526,
+        "unrealized_pnl": 24.01
       },
       {
         "symbol": "IDFN",
         "market_value": 3121.2,
-        "weight": 0.0533,
+        "weight": 0.051,
         "unrealized_pnl": 22.69
-      },
-      {
-        "symbol": "DEFS",
-        "market_value": 2817.5,
-        "weight": 0.0481,
-        "unrealized_pnl": 21.02
       },
       {
         "symbol": "IAUP",
         "market_value": 2760.0,
-        "weight": 0.0471,
+        "weight": 0.0451,
         "unrealized_pnl": -649.1
       },
       {
         "symbol": "ICOM",
         "market_value": 2730.0,
-        "weight": 0.0466,
+        "weight": 0.0446,
         "unrealized_pnl": -217.65
       },
       {
         "symbol": "SGLD",
         "market_value": 2714.32,
-        "weight": 0.0463,
+        "weight": 0.0443,
         "unrealized_pnl": 1327.22
-      },
-      {
-        "symbol": "SEMI",
-        "market_value": 2699.7,
-        "weight": 0.0461,
-        "unrealized_pnl": 660.0
       },
       {
         "symbol": "AMZN",
         "market_value": 2383.4,
-        "weight": 0.0407,
+        "weight": 0.0389,
         "unrealized_pnl": 729.32
       }
     ],
     "sector_allocation": [
       {
         "sector": "Technology",
-        "market_value": 16062.26,
-        "weight": 0.2742
+        "market_value": 18311.38,
+        "weight": 0.299
       },
       {
         "sector": "Fixed Income",
         "market_value": 11826.4,
-        "weight": 0.2019
+        "weight": 0.1931
       },
       {
         "sector": "Broad Market",
         "market_value": 11556.8,
-        "weight": 0.1973
+        "weight": 0.1887
       },
       {
         "sector": "Commodities",
         "market_value": 8204.32,
-        "weight": 0.14
+        "weight": 0.134
       },
       {
         "sector": "Defense",
-        "market_value": 5938.7,
-        "weight": 0.1014
+        "market_value": 6339.35,
+        "weight": 0.1035
       },
       {
         "sector": "Consumer Discretionary",
         "market_value": 2967.8,
-        "weight": 0.0507
+        "weight": 0.0485
       },
       {
         "sector": "Communication Services",
         "market_value": 805.14,
-        "weight": 0.0137
+        "weight": 0.0131
       },
       {
         "sector": "Health Care",
         "market_value": 666.0,
-        "weight": 0.0114
+        "weight": 0.0109
       },
       {
         "sector": "Financials",
         "market_value": 561.34,
-        "weight": 0.0096
+        "weight": 0.0092
       }
     ],
     "sector_position_breakdown": {
       "Defense": [
         {
-          "symbol": "IDFN",
-          "market_value": 3121.2,
-          "weight": 0.0533
+          "symbol": "DEFS",
+          "market_value": 3218.15,
+          "weight": 0.0526
         },
         {
-          "symbol": "DEFS",
-          "market_value": 2817.5,
-          "weight": 0.0481
+          "symbol": "IDFN",
+          "market_value": 3121.2,
+          "weight": 0.051
         }
       ],
       "Technology": [
         {
           "symbol": "SXRV",
-          "market_value": 7577.0,
-          "weight": 0.1293
+          "market_value": 8654.45,
+          "weight": 0.1413
         },
         {
           "symbol": "SEMI",
-          "market_value": 2699.7,
-          "weight": 0.0461
+          "market_value": 3580.07,
+          "weight": 0.0585
+        },
+        {
+          "symbol": "LQQ",
+          "market_value": 2339.8,
+          "weight": 0.0382
         },
         {
           "symbol": "CIBR",
           "market_value": 2230.4,
-          "weight": 0.0381
-        },
-        {
-          "symbol": "LQQ",
-          "market_value": 2048.5,
-          "weight": 0.035
+          "weight": 0.0364
         },
         {
           "symbol": "CRM",
           "market_value": 1096.62,
-          "weight": 0.0187
+          "weight": 0.0179
         },
         {
           "symbol": "ADBE",
           "market_value": 410.04,
-          "weight": 0.007
+          "weight": 0.0067
         }
       ],
       "Health Care": [
         {
           "symbol": "CRSP",
           "market_value": 436.32,
-          "weight": 0.0074
+          "weight": 0.0071
         },
         {
           "symbol": "EDIT",
           "market_value": 136.08,
-          "weight": 0.0023
+          "weight": 0.0022
         },
         {
           "symbol": "ALLO",
           "market_value": 93.6,
-          "weight": 0.0016
+          "weight": 0.0015
         }
       ],
       "Consumer Discretionary": [
         {
           "symbol": "AMZN",
           "market_value": 2383.4,
-          "weight": 0.0407
+          "weight": 0.0389
         },
         {
           "symbol": "LYFT",
           "market_value": 584.4,
-          "weight": 0.01
+          "weight": 0.0095
         }
       ],
       "Communication Services": [
         {
           "symbol": "DUOL",
           "market_value": 805.14,
-          "weight": 0.0137
+          "weight": 0.0131
         }
       ],
       "Commodities": [
         {
           "symbol": "IAUP",
           "market_value": 2760.0,
-          "weight": 0.0471
+          "weight": 0.0451
         },
         {
           "symbol": "ICOM",
           "market_value": 2730.0,
-          "weight": 0.0466
+          "weight": 0.0446
         },
         {
           "symbol": "SGLD",
           "market_value": 2714.32,
-          "weight": 0.0463
+          "weight": 0.0443
         }
       ],
       "Financials": [
         {
           "symbol": "PYPL",
           "market_value": 561.34,
-          "weight": 0.0096
+          "weight": 0.0092
         }
       ],
       "Fixed Income": [
         {
           "symbol": "VDST",
           "market_value": 11826.4,
-          "weight": 0.2019
+          "weight": 0.1931
         }
       ],
       "Broad Market": [
         {
           "symbol": "VUAA",
           "market_value": 11556.8,
-          "weight": 0.1973
+          "weight": 0.1887
         }
       ]
     },

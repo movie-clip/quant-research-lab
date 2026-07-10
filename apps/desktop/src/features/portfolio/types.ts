@@ -1152,6 +1152,9 @@ export type ImportedExposureSource = {
   lookthrough_sector_exposure: LookThroughSectorExposure[]
   market_overlap: MarketOverlapSummary
   current_state_concentration: ExposureCurrentStateConcentration
+  /** US-30.5a (audit F-8): the currency basis behind every weight on the tab. */
+  fx_static_rate_currencies?: string[]
+  fx_fallback_currencies?: string[]
   exposure_availability?: ExposureAvailability | null
   risk_summary: PortfolioRiskSummary
   rolling_risk: RollingRiskPoint[]
@@ -1201,6 +1204,12 @@ export type ExposureEngineResponse = {
   market_overlap: MarketOverlapSummary
   current_state_concentration: ExposureCurrentStateConcentration
   availability: ExposureAvailability
+  /** US-30.5a (audit F-8): currencies converted at the statement's implied
+   *  period-end rate (static across the window). */
+  fx_static_rate_currencies?: string[]
+  /** US-30.5a (audit F-8): non-base currencies with no rate — values carried
+   *  unconverted (never dropped, never a 1:1 claim). */
+  fx_fallback_currencies?: string[]
 }
 
 export type DashboardHistoryEngineResponse = {

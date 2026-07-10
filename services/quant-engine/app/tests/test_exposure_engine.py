@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
+import pytest
+
 from app.schemas.imports import ImportedCashBalance, ImportedPortfolioSnapshot, ImportedPosition, ImportedStatement
 from app.services.exposure_engine import build_exposure_result
 from app.services.diagnostics_engine import run_imported_diagnostics_engine
@@ -615,3 +617,75 @@ def test_full_portfolio_imported_diagnostics_produces_deterministic_growth_facto
     assert first_window_20.status == "degraded_unverified_return_basis"
     assert second_window_20.status == "degraded_unverified_return_basis"
     assert first_window_20.model_dump() == second_window_20.model_dump()
+
+
+# ── US-30.5a (audit F-7 / F-8): base-currency weights + FX disclosure ────────
+
+def test_exposure_result_discloses_static_rate_currencies_for_real_statement(mocker):
+    """F-8: the exposure response states the currency basis behind its weights.
+    IB2026 holds EUR + GBP and the statement supplies both implied rates."""
+    snapshot = import_statements([str(STATEMENT_2026_PATH)])
+    mocker.patch("app.services.exposure_engine.MarketDataService", return_value=StubMarketDataService())
+
+    result = build_exposure_result(snapshot, "SPY")
+
+    assert result.fx_static_rate_currencies == ["EUR", "GBP"]
+    assert result.fx_fallback_currencies == []
+    # F-7: the denominator is the statement's own stock total, not the raw sum.
+    assert result.lookthrough.portfolio_market_value == pytest.approx(61238.53, abs=0.01)
+
+
+def test_exposure_result_has_empty_disclosure_for_single_currency_portfolio(mocker):
+    snapshot = _build_snapshot([
+        ImportedPosition(as_of_date=date(2026, 4, 11), symbol="AAPL", quantity=10, cost_basis=1000.0,
+                         close_price=100.0, market_value=1000.0, unrealized_pnl=0.0, currency="USD"),
+    ])
+    mocker.patch("app.services.exposure_engine.MarketDataService", return_value=StubMarketDataService())
+
+    result = build_exposure_result(snapshot, "SPY")
+
+    assert result.fx_static_rate_currencies == []
+    assert result.fx_fallback_currencies == []
+
+
+def test_exposure_carries_unconverted_currency_into_the_fallback_tier(mocker):
+    """AC3: a non-base position with no rate is carried raw (never dropped,
+    never converted 1:1) and disclosed."""
+    from app.schemas.imports import ImportedStatementTotals
+
+    snapshot = _build_snapshot([
+        ImportedPosition(as_of_date=date(2026, 4, 11), symbol="AAPL", quantity=10, cost_basis=1000.0,
+                         close_price=100.0, market_value=1000.0, unrealized_pnl=0.0, currency="USD"),
+        ImportedPosition(as_of_date=date(2026, 4, 11), symbol="SEMI", quantity=10, cost_basis=1000.0,
+                         close_price=100.0, market_value=1000.0, unrealized_pnl=0.0, currency="GBP"),
+    ])
+    snapshot.statement_totals = ImportedStatementTotals(fx_rates={"EURUSD": 1.1422})  # no GBPUSD
+    mocker.patch("app.services.exposure_engine.MarketDataService", return_value=StubMarketDataService())
+
+    result = build_exposure_result(snapshot, "SPY")
+
+    assert result.fx_fallback_currencies == ["GBP"]
+    assert result.fx_static_rate_currencies == []
+    # Carried raw: 1000 + 1000, the position is never dropped from the total.
+    assert result.lookthrough.portfolio_market_value == pytest.approx(2000.0, abs=0.01)
+
+
+def test_request_snapshot_builder_materialises_statement_totals_only_with_rates():
+    """AC6/AC7: fx_rates reach the request path via PortfolioEngineRequest;
+    without them `statement_totals` stays None (byte-identical behaviour)."""
+    from app.schemas.exposure import ExposureEngineRequest
+    from app.services.portfolio_snapshot_builder import build_imported_snapshot_from_request
+
+    positions = [{"symbol": "SXRV", "market_value": 1000.0, "quantity": 10.0, "currency": "EUR"}]
+
+    without_rates = build_imported_snapshot_from_request(
+        ExposureEngineRequest(benchmark_symbol="SPY", base_currency="USD", positions=positions, cash_balances=[])
+    )
+    assert without_rates.statement_totals is None
+
+    with_rates = build_imported_snapshot_from_request(
+        ExposureEngineRequest(benchmark_symbol="SPY", base_currency="USD", positions=positions,
+                              cash_balances=[], fx_rates={"EURUSD": 1.1422})
+    )
+    assert with_rates.statement_totals is not None
+    assert with_rates.statement_totals.fx_rates == {"EURUSD": 1.1422}

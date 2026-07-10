@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from math import isfinite, sqrt
 from typing import Literal, Protocol
 
+from app.analytics.currency import position_base_market_values
 from app.instruments import InstrumentRegistry
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.reconciliation import (
@@ -580,11 +581,13 @@ def build_rolling_risk_series(daily_states: list, benchmark_rows: list[dict]) ->
 
 
 def build_position_risk_contributions(snapshot: ImportedPortfolioSnapshot, price_histories: dict[str, list[dict]], benchmark_rows: list[dict]) -> list[PortfolioRiskContribution]:
-    total_market_value = sum(position.market_value for position in snapshot.positions)
+    # US-30.5a (audit F-7): weights on the base-currency denominator.
+    base_values, _ = position_base_market_values(snapshot)
+    total_market_value = sum(base_values)
     benchmark_returns = _selected_history_return_series(benchmark_rows)
 
     contributions: list[PortfolioRiskContribution] = []
-    for position in snapshot.positions:
+    for position, base_value in zip(snapshot.positions, base_values):
         price_rows = price_histories.get(position.symbol, [])
         symbol_returns = _selected_history_return_series(price_rows)
         paired = [(symbol_returns[date], benchmark_returns[date]) for date in sorted(set(symbol_returns) & set(benchmark_returns))]
@@ -592,11 +595,11 @@ def build_position_risk_contributions(snapshot: ImportedPortfolioSnapshot, price
         benchmark_samples = [item[1] for item in paired]
         beta = _calculate_beta(symbol_samples, benchmark_samples)
         correlation = _calculate_correlation(symbol_samples, benchmark_samples)
-        weight = (position.market_value / total_market_value) if total_market_value else 0.0
+        weight = (base_value / total_market_value) if total_market_value else 0.0
         contributions.append(
             PortfolioRiskContribution(
                 symbol=position.symbol,
-                market_value=round(position.market_value, 2),
+                market_value=round(base_value, 2),
                 portfolio_weight=round(weight, 4),
                 beta=round(beta, 4) if beta is not None else None,
                 correlation=round(correlation, 4) if correlation is not None else None,
@@ -628,7 +631,10 @@ def build_lookthrough_exposure(snapshot: ImportedPortfolioSnapshot, market_data:
     """
     registry = InstrumentRegistry()
     metadata = registry.attach_snapshot_metadata(snapshot)
-    total_market_value = sum(position.market_value for position in snapshot.positions)
+    # US-30.5a (audit F-7): look through in the BASE currency — a EUR-listed
+    # ETF's constituents must not be summed against USD holdings raw.
+    base_values, _ = position_base_market_values(snapshot)
+    total_market_value = sum(base_values)
     constituent_values: defaultdict[str, float] = defaultdict(float)
     constituent_names: dict[str, str] = {}
     constituent_sources: defaultdict[str, list[LookThroughSource]] = defaultdict(list)
@@ -636,26 +642,26 @@ def build_lookthrough_exposure(snapshot: ImportedPortfolioSnapshot, market_data:
     uncovered_positions: list[str] = []
     covered_market_value = 0.0
 
-    for position in sorted(snapshot.positions, key=lambda item: item.market_value, reverse=True):
+    for position, position_value in sorted(zip(snapshot.positions, base_values), key=lambda item: item[1], reverse=True):
         instrument = metadata.get(position.symbol)
         if instrument and instrument.asset_class == "etf":
             resolved_symbol, holdings = market_data.get_etf_holdings(position.symbol, symbol_overrides)
             if holdings:
                 etf_resolution[position.symbol] = resolved_symbol or position.symbol
-                covered_market_value += position.market_value
+                covered_market_value += position_value
                 for row in holdings:
                     holding_symbol = str(row.get("asset") or "").strip().upper()
                     holding_name = str(row.get("name") or holding_symbol).strip()
                     holding_weight_pct = float(row.get("weightPercentage") or 0.0)
                     if not holding_symbol or holding_weight_pct <= 0:
                         continue
-                    effective_market_value = position.market_value * (holding_weight_pct / 100.0)
+                    effective_market_value = position_value * (holding_weight_pct / 100.0)
                     constituent_values[holding_symbol] += effective_market_value
                     constituent_names.setdefault(holding_symbol, holding_name)
                     constituent_sources[holding_symbol].append(
                         LookThroughSource(
                             source_symbol=position.symbol,
-                            source_market_value=round(position.market_value, 2),
+                            source_market_value=round(position_value, 2),
                             source_weight=round(holding_weight_pct / 100.0, 6),
                             resolved_via=resolved_symbol or position.symbol,
                         )
@@ -663,29 +669,29 @@ def build_lookthrough_exposure(snapshot: ImportedPortfolioSnapshot, market_data:
                 continue
 
             uncovered_positions.append(position.symbol)
-            constituent_values[position.symbol] += position.market_value
+            constituent_values[position.symbol] += position_value
             constituent_names.setdefault(position.symbol, instrument.name if instrument and instrument.name else position.symbol)
             constituent_sources[position.symbol].append(
                 LookThroughSource(
                     source_symbol=position.symbol,
-                    source_market_value=round(position.market_value, 2),
+                    source_market_value=round(position_value, 2),
                     source_weight=1.0,
                     resolved_via=position.symbol,
                 )
             )
             continue
 
-        constituent_values[position.symbol] += position.market_value
+        constituent_values[position.symbol] += position_value
         constituent_names.setdefault(position.symbol, instrument.name if instrument and instrument.name else position.symbol)
         constituent_sources[position.symbol].append(
             LookThroughSource(
                 source_symbol=position.symbol,
-                source_market_value=round(position.market_value, 2),
+                source_market_value=round(position_value, 2),
                 source_weight=1.0,
                 resolved_via=position.symbol,
             )
         )
-        covered_market_value += position.market_value
+        covered_market_value += position_value
 
     constituents = [
         LookThroughConstituent(
@@ -1984,7 +1990,9 @@ def _build_position_risk_contributions(
     snapshot: ImportedPortfolioSnapshot,
     price_histories: dict[str, list[dict]],
 ) -> tuple[list[PositionRiskContributionItem], float, int]:
-    total_market_value = sum(position.market_value for position in snapshot.positions)
+    # US-30.5a (audit F-7): risk-share weights on the base-currency denominator.
+    base_values, _ = position_base_market_values(snapshot)
+    total_market_value = sum(base_values)
     position_returns = {
         position.symbol: _selected_history_return_series(price_histories.get(position.symbol, []))
         for position in snapshot.positions
@@ -1992,7 +2000,10 @@ def _build_position_risk_contributions(
     common_dates = sorted(set.intersection(*[set(values.keys()) for values in position_returns.values() if values])) if any(position_returns.values()) else []
     window_dates = common_dates[-RISK_CONTRIBUTION_WINDOW_DAYS:]
     symbols = [position.symbol for position in snapshot.positions]
-    weights = {position.symbol: (position.market_value / total_market_value) if total_market_value else 0.0 for position in snapshot.positions}
+    weights = {
+        position.symbol: (base_value / total_market_value) if total_market_value else 0.0
+        for position, base_value in zip(snapshot.positions, base_values)
+    }
     covariance_matrix = _compute_covariance_matrix(symbols, position_returns, window_dates)
     component_contributions, portfolio_variance = _component_risk_contributions(symbols, weights, covariance_matrix)
 

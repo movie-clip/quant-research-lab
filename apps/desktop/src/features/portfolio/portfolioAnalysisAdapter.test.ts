@@ -290,3 +290,27 @@ describe('runDriftEngine fx_rates plumbing (US-30.2)', () => {
     expect(body.fx_rates).toBeUndefined()
   })
 })
+
+describe('runExposureEngine fx_rates plumbing (US-30.5a)', () => {
+  it('posts fx_rates from snapshot.fxRates so weights sum in the base currency', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(createExposureEngineFixture()))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await runExposureEngine({ ...snapshot, fxRates: { EURUSD: 1.1422, GBPUSD: 1.3261 } })
+
+    const init = fetchMock.mock.calls[0]?.[1] as { body?: string } | undefined
+    const body = JSON.parse(init!.body!) as { fx_rates?: Record<string, number> }
+    expect(body.fx_rates).toEqual({ EURUSD: 1.1422, GBPUSD: 1.3261 })
+  })
+
+  it('omits fx_rates when the snapshot has none (pre-US-30.2 persisted snapshots)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(createExposureEngineFixture()))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await runExposureEngine(snapshot)
+
+    const init = fetchMock.mock.calls[0]?.[1] as { body?: string } | undefined
+    const body = JSON.parse(init!.body!) as { fx_rates?: Record<string, number> }
+    expect(body.fx_rates).toBeUndefined()
+  })
+})

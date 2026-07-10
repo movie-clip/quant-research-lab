@@ -19,6 +19,7 @@ from app.schemas.exposure import (
     ExposureRunReproducibilityMetadata,
     ExposureRunSourceStatus,
 )
+from app.analytics.currency import position_base_market_values, snapshot_fx_disclosure, total_base_market_value
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.portfolio_engine import PortfolioEngineRequest
 from app.schemas.reconciliation import LookThroughOverview, PortfolioOverview
@@ -45,7 +46,9 @@ def build_exposure_result(snapshot: ImportedPortfolioSnapshot, benchmark_symbol:
 
     market_data = MarketDataService()
     lookthrough_constituents, etf_resolution, uncovered_positions, covered_market_value = build_lookthrough_exposure(snapshot, market_data, symbol_overrides)
-    total_market_value = round(sum(position.market_value for position in snapshot.positions), 2)
+    # US-30.5a (audit F-7): base-currency denominator, never a raw mixed-currency sum.
+    total_market_value = round(total_base_market_value(snapshot), 2)
+    fx_disclosure = snapshot_fx_disclosure(snapshot)
     _, benchmark_holdings = market_data.get_etf_holdings(benchmark_symbol)
     lookthrough_sector_exposure = build_lookthrough_sector_exposure(lookthrough_constituents)
     market_overlap = build_market_overlap_summary(lookthrough_constituents, benchmark_symbol, benchmark_holdings)
@@ -91,6 +94,11 @@ def build_exposure_result(snapshot: ImportedPortfolioSnapshot, benchmark_symbol:
         market_overlap=market_overlap,
         current_state_concentration=current_state_concentration,
         availability=availability,
+        # US-30.5a (audit F-8): state the currency basis behind every weight
+        # above — converted at the statement's static period-end rate, or
+        # carried unconverted. Never a silent mixed-currency sum.
+        fx_static_rate_currencies=fx_disclosure.sorted_static(),
+        fx_fallback_currencies=fx_disclosure.sorted_fallback(),
     )
 
 
@@ -189,8 +197,10 @@ def _build_exposure_availability(
 def _build_current_state_concentration(snapshot: ImportedPortfolioSnapshot, overview: PortfolioOverview) -> ExposureCurrentStateConcentration:
     top_positions = [_coerce_concentration_item(item, "symbol") for item in overview.top_positions]
     top_sectors = [_coerce_concentration_item(item, "sector") for item in overview.sector_allocation[:8]]
-    total_market_value = round(sum(position.market_value for position in snapshot.positions), 2)
-    position_weights = [round(position.market_value / total_market_value, 4) for position in snapshot.positions if total_market_value > 0 and position.market_value >= 0]
+    # US-30.5a (audit F-7): concentration/HHI on base-currency weights.
+    base_values, _ = position_base_market_values(snapshot)
+    total_market_value = round(sum(base_values), 2)
+    position_weights = [round(value / total_market_value, 4) for value in base_values if total_market_value > 0 and value >= 0]
     sector_weights = [float(item.get("weight") or 0.0) for item in overview.sector_allocation]
     position_hhi = _herfindahl_index(position_weights)
     sector_hhi = _herfindahl_index(sector_weights)

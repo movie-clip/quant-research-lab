@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.portfolio_engine import PortfolioEngineRequest
@@ -85,3 +85,8 @@ class ExposureResult(BaseModel):
     market_overlap: MarketOverlapSummary
     current_state_concentration: ExposureCurrentStateConcentration
     availability: ExposureAvailability
+    # US-30.5a (audit F-8): the currency basis behind every weight on this
+    # response. Exactly one tier per non-base currency; the base currency
+    # appears in neither. Static-rate conversion never upgrades trust.
+    fx_static_rate_currencies: list[str] = Field(default_factory=list)
+    fx_fallback_currencies: list[str] = Field(default_factory=list)

@@ -803,6 +803,45 @@ Consumer rule:
 
 The project reports position and factor risk contribution metrics plus concentration diagnostics.
 
+### Base-currency weighting rule (US-30.5a / audit F-7)
+
+Every portfolio weight — and therefore every concentration, HHI, sector share,
+look-through value, risk share, and diversification metric derived from one —
+is computed on **base-currency** position values.
+
+```text
+w_i = value_base(i) / Σ_j value_base(j)
+
+value_base(i) = market_value_i × fx_rate(currency_i → base)   when a rate exists
+              = market_value_i                                 otherwise (carried
+                                                               unconverted, disclosed)
+
+Rates: the statement's own implied period-end rates
+       (statement_totals.fx_rates, US-28.1 broker truth). STATIC across the
+       window — correct levels as of the statement date; FX return dynamics
+       are not modeled (that is Epic 26 scope).
+```
+
+Raw-summing `market_value` across currencies mixes numerals. On the committed
+IB2026 statement the raw sum is $58,588.76 while the converted total is
+$61,238.53 — which reproduces the statement's own `stock_total` to the cent.
+**The statement is the arbiter**, so this is a unit-correctness rule.
+
+Edge cases / contract rules:
+  no rate for a non-base currency: the position is carried UNCONVERTED and its
+    currency disclosed — never dropped from the denominator (that would
+    silently shrink the portfolio and inflate every other weight), never
+    converted 1:1
+  disclosure is mandatory: `fx_static_rate_currencies` (converted at the
+    static period-end rate) and `fx_fallback_currencies` (carried
+    unconverted). Exactly one tier per non-base currency
+  conversion never upgrades trust — Exposure stays snapshot/synthetic class
+
+Implementation:
+- `services/quant-engine/app/analytics/currency.py`
+- consumers: `analytics/overview.py`, `analytics/risk.py`,
+  `services/exposure_engine.py`, `services/intra_correlation_engine.py`
+
 ### Risk share
 
 Each position or factor's variance-based share of total portfolio risk.

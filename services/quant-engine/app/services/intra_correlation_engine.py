@@ -30,6 +30,7 @@ from app.schemas.intra_correlation import (
     IntraCorrelationResult,
     PairStat,
 )
+from app.analytics.currency import base_market_value_by_symbol
 from app.core.constants import MIN_DAILY_OBSERVATIONS, lookback_calendar_days
 from app.services.correlation_engine import _returns_from_price_series
 from app.services.market_data import MarketDataService
@@ -88,10 +89,10 @@ def run_intra_correlation(request: IntraCorrelationRequest) -> IntraCorrelationR
         return _unavailable([])
 
     # Aggregate market value by symbol (dedupe lots); rank by weight desc,
-    # breaking ties by symbol for determinism.
-    mv_by_symbol: dict[str, float] = {}
-    for pos in snapshot.positions:
-        mv_by_symbol[pos.symbol] = mv_by_symbol.get(pos.symbol, 0.0) + pos.market_value
+    # breaking ties by symbol for determinism. US-30.5a (audit F-7): values are
+    # base-currency converted, so the DR / ENB weights are not distorted by
+    # raw-summing EUR/GBP/USD numerals.
+    mv_by_symbol = base_market_value_by_symbol(snapshot)
     ranked_symbols = [
         sym for sym, _ in sorted(mv_by_symbol.items(), key=lambda kv: (-kv[1], kv[0]))
     ]

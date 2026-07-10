@@ -177,6 +177,25 @@ export function ExposurePanel({
       </header>
 
       <div className="exposure-shell-stack">
+        {/* US-30.5a (audit F-8): state the currency basis behind every weight
+            on this tab — converted at the statement's static period-end rate,
+            or carried unconverted. Never a silent mixed-currency sum. */}
+        {(result.fx_static_rate_currencies?.length ?? 0) > 0 ? (
+          <p className="helper">
+            Weights for {result.fx_static_rate_currencies!.join(', ')} positions are converted to
+            the base currency at the statement&apos;s implied period-end rate (static across the
+            window) — levels are broker truth as of the statement date; FX return dynamics are not
+            modeled.
+          </p>
+        ) : null}
+        {(result.fx_fallback_currencies?.length ?? 0) > 0 ? (
+          <p className="helper">
+            No FX rate available for {result.fx_fallback_currencies!.join(', ')} — those positions
+            are counted in their own currency (unconverted), so every weight, concentration and
+            sector share on this tab is degraded for that sleeve.
+          </p>
+        ) : null}
+
         <DataSourcesPanel snapshot={result.snapshot ?? null} />
 
         <ImportAdmissionReviewCard summary={admissionSummary} />
