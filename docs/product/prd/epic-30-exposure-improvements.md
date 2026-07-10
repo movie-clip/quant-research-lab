@@ -54,6 +54,44 @@ cache data; diagnosis evidence at each file:line.
 | F-5 | **Low** | **"Since Import" window is structurally unavailable on a fresh import.** `since_import_date = imported_at.date()` is the *import timestamp* (today), so the window has <2 valuation dates and reports unavailable; the statement period start is the meaningful anchor. | `drift_engine.py:116,126-134`; reproduction: `Since Import portfolio=None trust=unavailable`. |
 | F-6 | **Low** | **FX conversion of EUR/GBP position values uses the 1.0 fallback inside drift valuations** (disclosed via `fx_fallback_currencies` since US-27.8, so not silent — but with US-28.1's statement-implied `fx_rates` now available on imported snapshots, the drift request path could carry real broker-truth rates instead of degrading). Interacts with Epic 26. | `drift_engine.py:150` (`fx_history={}`); reproduction: `fx_fallback: ['EUR', 'GBP']`. |
 
+## Verified findings (2026-07-08 — the rest of the Exposure tab, F-7..F-10)
+
+Produced by US-30.4, findings-first (no fixes applied). Every quantified claim
+was reproduced against the committed `docs/IB2026.csv` portfolio.
+
+| # | Severity | Finding | Evidence |
+|---|---|---|---|
+| F-7 | **Critical** | **Every Exposure weight denominator raw-sums market values across currencies.** `sum(position.market_value)` mixes EUR/GBP/USD numerals with no FX conversion anywhere in the exposure path, so all weights, concentration/HHI, sector shares, look-through and overlap values are wrong. Reproduction on IB2026.csv: raw mixed sum **$58,588.76** vs FX-converted **$61,238.53** — the converted figure reproduces the statement's own stock total to the cent, so the statement is the arbiter, not a modelling preference (4.33% understatement). Per-position weight errors: SEMI (GBP) **+1.24pp** (4.61% → 5.85%), SXRV (EUR) **+1.20pp** (12.93% → 14.13%), VDST (USD) **−0.87pp**, VUAA (USD) **−0.85pp**; position **HHI off by −2.29%** (0.11536 vs 0.11272). Broker-truth rates are already available (`statement_totals.fx_rates`, US-28.1) and already plumbed to the drift engine (US-30.2). | `analytics/overview.py:13`; `services/exposure_engine.py:48,192`; `analytics/risk.py:583,631,1987` (position risk contributions), `:652,1049` (look-through effective value + sector exposure); `services/intra_correlation_engine.py:94` (DR/ENB weights). No `to_base_currency`/`fx_rates` reference exists in any of them. |
+| F-8 | **High** | **No Exposure card discloses the currency degradation behind its numbers.** The drift panel gained a three-tier FX/coverage disclosure (US-30.2), but every other Exposure card renders a confident `Synthetic` badge over silently currency-mixed weights (F-7). This is the F-2 lesson repeating: a confident label on a degraded path. The exposure engine emits only look-through/benchmark-coverage notes — no FX field at all. | `services/exposure_engine.py:172-178` (only coverage notes); no `fx_fallback`/`fx_static`/`statement_anchored` field on the exposure response. |
+| F-9 | **Medium** | **Per-position beta and correlation are published from as few as 2 overlapping observations.** `build_position_risk_contributions` calls `_calculate_beta`/`_calculate_correlation`, which gate only on `len >= 2` — contradicting methodology §Beta ("len(series) < 20 trading days: return null (insufficient data for stable estimate)") and §Rolling Pearson Correlation's edge cases. `MIN_DAILY_OBSERVATIONS = 20` exists in `core/constants.py` but is **never imported by `risk.py`**. A newly-listed holding with 2 paired days therefore gets a published `beta` and a `contribution_to_portfolio_beta` that feeds the concentration/risk-share views. (The *rolling* series is correctly gated at `len(samples) >= window`.) | `analytics/risk.py:582-605` (no gate), `:2197-2213` (`len < 2` only); `core/constants.py` `MIN_DAILY_OBSERVATIONS`; contrast `analytics/correlation.py:91,158` which gate correctly. |
+| F-10 | **Medium** | **Two incompatible portfolio-return bases coexist on the Exposure tab.** Drift windows + chart use the **market-value chain** of current holdings (US-30.1, no-ledger path). Rolling correlation & beta, factor attribution, and multi-benchmark correlation use the **TWR chain on `total_portfolio_value`** — market value **plus cash**. Cash is a zero-return asset, so those series are systematically diluted: with the real portfolio's $1,993.65 cash on ~$61k, the daily return scale factor is **0.9805**, understating **beta by ~1.95%** (correlation is scale-invariant, so unaffected). Today's code matches its *own* doc section in both places, so this is also a **doc-vs-doc contradiction**: §Indexed Return Series (rewritten by US-30.1) and §Rolling Pearson Correlation now specify different bases. Recommendation: exclude cash — the synthetic convention projects *holdings* backwards, and today's cash balance was never held on those historical dates. | `analytics/risk.py:1540-1555` (`total_portfolio_value`, `external_cash_flow`); `analytics/attribution.py:58-75` (explicitly "mirrors" it); `services/correlation_engine.py:132`; vs `services/drift_engine.py` `_daily_return` (market-value chain). |
+
+### Examined and found correct (audit coverage record)
+
+So a future reader knows these were checked, not missed:
+
+- **`analytics/correlation.py`** — multi-benchmark ρ/β/R² and intra-portfolio
+  ρ correctly gate on `MIN_DAILY_OBSERVATIONS` (`:91`, `:158`) and return null
+  on zero-variance / insufficient-overlap series, matching §Multi-Benchmark
+  Correlation and §Intra-Portfolio Correlation edge cases.
+- **Rolling series windowing** — `build_rolling_risk_series` requires
+  `len(samples) >= window` before emitting ρ/β (no partial-window fill),
+  matching §Rolling Pearson Correlation ("Available dates < w: return null for
+  those prefix dates").
+- **`_calculate_beta` / `_calculate_correlation` denominators** — return null
+  on `var(benchmark) == 0` / `std == 0` rather than dividing (matching the
+  §Beta and §Rolling Pearson Correlation edge cases). The defect in F-9 is the
+  *missing minimum-observation gate at the call site*, not these guards.
+- **Factor Drift Summary card (Epic 16)** — frontend-only; consumes the
+  engine's existing `rolling_loadings_<window>` series, excludes
+  window-endpoint nulls rather than zero-imputing. No independent math to
+  audit; it inherits the factor model's correctness (audited in Epic 27,
+  US-27.5/27.6).
+- **Look-through constituent resolution** — `effective_market_value =
+  position.market_value × holding_weight_pct / 100` is the documented
+  pass-through weighting; its defect is the *currency* of `market_value`
+  (F-7), not the look-through math itself.
+
 ## Audit scope (findings-first, before any fix lands)
 
 The remaining Exposure surfaces get the Epic 27 treatment — verify each
@@ -78,8 +116,8 @@ before fixing:
 | US-30.1 | Fix the drift valuation basis (F-1, F-2): honest portfolio-value anchor on the no-ledger path, fail-closed TWR, truthful basis note | **Critical** |
 | US-30.2 | Drift coverage + FX disclosure (F-3, F-6): surface zero-coverage exclusions per US-27.7 conventions; carry statement-implied FX where available | High |
 | US-30.3 | Exposure-tab first-render reliability (F-4, F-5): self-fetching drift panel + Since-Import anchor | Medium |
-| US-30.4 | Findings-first audit of the remaining Exposure calculation surfaces (audit scope above; produces this PRD's F-7..F-n table) | High |
-| US-30.5 | Fix the audit findings (scoped once US-30.4 lands; may split) | — |
+| US-30.4 | Findings-first audit of the remaining Exposure calculation surfaces (audit scope above; produced this PRD's F-7..F-10 table) | High — **done** |
+| US-30.5 | **Fix findings F-7..F-10**: FX-convert every Exposure weight denominator using the statement's implied rates (F-7, Critical); disclose the currency/coverage degradation on the Exposure cards (F-8); gate per-position beta/correlation on `MIN_DAILY_OBSERVATIONS` (F-9); reconcile the two portfolio-return bases and the two contradicting methodology sections (F-10). May split — F-7 alone will shift goldens. | **Critical** |
 | US-30.6 | Exposure UI polish pass (design-system audit against ui-polish baseline; a11y; empty/error states) | Low |
 
 Recommended order: 30.1 → 30.2 → 30.3 (verified, wrong-numbers-today fixes)
