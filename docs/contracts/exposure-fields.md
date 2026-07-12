@@ -129,6 +129,36 @@ Implementation:
 
 - `services/quant-engine/app/services/exposure_engine.py` -> `_build_current_state_concentration(...)`
 
+### Base-currency weighting rule (US-30.5a / audit F-7)
+
+**Every weight denominator on this tab is summed in the base currency.**
+Raw-summing `position.market_value` across currencies mixes EUR/GBP/USD
+numerals: on the committed IB2026 statement the raw sum is $58,588.76 while
+the FX-converted total is $61,238.53 — which reproduces the statement's own
+`stock_total` to the cent. The statement is the arbiter, so this is a
+unit-correctness rule, not a modelling preference.
+
+- rates come from `statement_totals.fx_rates` (US-28.1 broker truth, as of the
+  statement period end) on imported snapshots, and from
+  `PortfolioEngineRequest.fx_rates` on the request path
+- conversion is applied to the value *before* it enters any denominator,
+  weight, HHI, sector total, look-through effective value, or DR/ENB weight
+- a non-base position whose pair has **no** rate is carried **unconverted**
+  (never dropped from the denominator, never converted 1:1) and disclosed
+- disclosure is mandatory: `fx_static_rate_currencies` (converted at the
+  static period-end rate) and `fx_fallback_currencies` (carried unconverted).
+  Exactly one tier per non-base currency; base currency in neither. Trust is
+  never upgraded by conversion — Exposure remains snapshot/synthetic class.
+
+Implementation:
+
+- `services/quant-engine/app/analytics/currency.py` (`convert_to_base`,
+  `position_base_market_values`, `total_base_market_value`,
+  `snapshot_fx_disclosure`)
+- consumers: `analytics/overview.py`, `analytics/risk.py`
+  (position risk contributions, look-through, risk-share weights),
+  `services/exposure_engine.py`, `services/intra_correlation_engine.py`
+
 ## Field Inventory
 
 ### Availability and degraded-state messaging

@@ -62,3 +62,11 @@ class PortfolioEngineRequest(BaseModel):
     source_file_names: list[str] = Field(default_factory=list)
     positions: list[PortfolioPositionSnapshot] = Field(default_factory=list)
     cash_balances: list[PortfolioCashBalanceSnapshot] = Field(default_factory=list)
+    # US-30.5a (audit F-7): statement-implied FX rates from the imported
+    # snapshot's statement_totals.fx_rates (broker truth as of the statement
+    # period end, US-28.1), keyed "EURUSD"-style. Applied as STATIC rates and
+    # shared by every engine on the request path (exposure, diagnostics,
+    # drift, ...) so weight denominators sum in the base currency instead of
+    # raw-summing mixed-currency numerals. Empty → values are carried
+    # unconverted and disclosed (the US-27.8 fallback tier).
+    fx_rates: dict[str, float] = Field(default_factory=dict)

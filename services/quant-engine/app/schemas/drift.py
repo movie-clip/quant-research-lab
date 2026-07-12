@@ -31,13 +31,11 @@ class DriftDailyPoint(BaseModel):
 
 
 class DriftEngineRequest(PortfolioEngineRequest):
-    # benchmark_symbol (default "SPY") and imported_at already in PortfolioEngineRequest.
-    # US-30.2 (audit F-6): statement-implied FX rates from the imported
-    # snapshot's statement_totals.fx_rates (broker truth as of the statement
-    # period end, US-28.1), keyed "EURUSD"-style. Applied as STATIC rates to
-    # every valuation date; currencies converted this way are disclosed in
-    # DriftResult.fx_static_rate_currencies. Empty → US-27.8 fallback tier.
-    fx_rates: dict[str, float] = {}
+    # benchmark_symbol, imported_at and `fx_rates` all come from
+    # PortfolioEngineRequest. `fx_rates` (US-30.2 / audit F-6) moved up to the
+    # shared base in US-30.5a so exposure + diagnostics get it too; drift's
+    # behaviour is unchanged (same field, same default).
+    pass
 
 
 class DriftResult(BaseModel):

@@ -168,3 +168,34 @@ describe('ExposurePanel', () => {
     expect(screen.getByText('Concentration read unavailable')).toBeTruthy()
   })
 })
+
+describe('ExposurePanel currency-basis disclosure (US-30.5a / F-8)', () => {
+  it('states the static-rate basis when non-base currencies were converted', () => {
+    render(
+      <ExposurePanel
+        result={{ ...mockExposureView, fx_static_rate_currencies: ['EUR', 'GBP'], fx_fallback_currencies: [] }}
+      />,
+    )
+    expect(screen.getByText(/Weights for EUR, GBP positions are converted/)).toBeTruthy()
+    expect(screen.queryByText(/No FX rate available/)).toBeNull()
+  })
+
+  it('warns when a currency was carried unconverted', () => {
+    render(
+      <ExposurePanel
+        result={{ ...mockExposureView, fx_static_rate_currencies: [], fx_fallback_currencies: ['GBP'] }}
+      />,
+    )
+    expect(screen.getByText(/No FX rate available for GBP/)).toBeTruthy()
+  })
+
+  it('renders neither note for a single-currency portfolio', () => {
+    render(
+      <ExposurePanel
+        result={{ ...mockExposureView, fx_static_rate_currencies: [], fx_fallback_currencies: [] }}
+      />,
+    )
+    expect(screen.queryByText(/are converted to/)).toBeNull()
+    expect(screen.queryByText(/No FX rate available/)).toBeNull()
+  })
+})

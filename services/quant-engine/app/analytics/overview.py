@@ -1,5 +1,6 @@
 from collections import Counter, defaultdict
 
+from app.analytics.currency import convert_to_base, snapshot_fx_context
 from app.domain.ledger import snapshot_to_ledger
 from app.instruments import InstrumentRegistry
 from app.schemas.imports import ImportedPortfolioSnapshot
@@ -10,9 +11,22 @@ def build_portfolio_overview(snapshot: ImportedPortfolioSnapshot) -> PortfolioOv
     ledger = snapshot_to_ledger(snapshot)
     instrument_registry = InstrumentRegistry()
     metadata = instrument_registry.attach_snapshot_metadata(snapshot)
-    total_market_value = round(sum(position.market_value for position in snapshot.positions), 2)
-    total_cost_basis = round(sum(position.cost_basis for position in snapshot.positions), 2)
-    total_unrealized_pnl = round(sum(position.unrealized_pnl for position in snapshot.positions), 2)
+
+    # US-30.5a (audit F-7): every total and weight below is summed in the BASE
+    # currency. Raw-summing `position.market_value` mixed EUR/GBP/USD numerals
+    # and understated the portfolio by 4.33% on the committed statement.
+    base_currency, fx_rates = snapshot_fx_context(snapshot)
+
+    def to_base(value: float, position) -> float:
+        return convert_to_base(value, position.currency, base_currency, fx_rates)[0]
+
+    # (position, base-currency market value) pairs — the single source for
+    # every total, weight and ordering below.
+    valued_positions = [(position, to_base(position.market_value, position)) for position in snapshot.positions]
+
+    total_market_value = round(sum(value for _, value in valued_positions), 2)
+    total_cost_basis = round(sum(to_base(p.cost_basis, p) for p in snapshot.positions), 2)
+    total_unrealized_pnl = round(sum(to_base(p.unrealized_pnl, p) for p in snapshot.positions), 2)
 
     cash_by_currency = {
         balance.currency: round(balance.ending_cash or 0, 2)
@@ -22,24 +36,24 @@ def build_portfolio_overview(snapshot: ImportedPortfolioSnapshot) -> PortfolioOv
     top_positions = [
         {
             "symbol": position.symbol,
-            "market_value": round(position.market_value, 2),
-            "weight": round(position.market_value / total_market_value, 4) if total_market_value else 0,
-            "unrealized_pnl": round(position.unrealized_pnl, 2),
+            "market_value": round(value, 2),
+            "weight": round(value / total_market_value, 4) if total_market_value else 0,
+            "unrealized_pnl": round(to_base(position.unrealized_pnl, position), 2),
         }
-        for position in sorted(snapshot.positions, key=lambda item: item.market_value, reverse=True)[:10]
+        for position, value in sorted(valued_positions, key=lambda item: item[1], reverse=True)[:10]
     ]
 
     sector_totals: defaultdict[str, float] = defaultdict(float)
     sector_position_breakdown: defaultdict[str, list[dict[str, float | str]]] = defaultdict(list)
-    for position in snapshot.positions:
+    for position, value in valued_positions:
         instrument = metadata.get(position.symbol)
         sector = instrument.sector if instrument and instrument.sector else instrument_registry.get_sector(position.symbol)
-        sector_totals[sector] += position.market_value
+        sector_totals[sector] += value
         sector_position_breakdown[sector].append(
             {
                 "symbol": position.symbol,
-                "market_value": round(position.market_value, 2),
-                "weight": round(position.market_value / total_market_value, 4) if total_market_value else 0,
+                "market_value": round(value, 2),
+                "weight": round(value / total_market_value, 4) if total_market_value else 0,
             }
         )
 

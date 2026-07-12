@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from app.schemas.imports import ImportedCashBalance, ImportedPortfolioSnapshot, ImportedPosition, ImportedStatement, SnapshotAnalysisRequest
+from app.schemas.imports import ImportedCashBalance, ImportedPortfolioSnapshot, ImportedPosition, ImportedStatement, ImportedStatementTotals, SnapshotAnalysisRequest
 from app.schemas.portfolio_engine import PortfolioEngineRequest
 
 
@@ -16,10 +16,19 @@ def build_imported_snapshot_from_request(request: PortfolioEngineRequest | Snaps
         statement_period=request.statement_period,
         page_count=None,
     )
+    # US-30.5a (audit F-7): carry the request's statement-implied FX rates so
+    # the analytics can sum weight denominators in the base currency. Only
+    # materialised when rates are actually supplied — otherwise
+    # `statement_totals` stays None and behaviour is byte-identical to before
+    # (US-30.1's cash anchor guards on `starting_nav`, and the terminal
+    # reconciliation guards on `ending_nav`/`cash_total`, all None here).
+    fx_rates = dict(getattr(request, "fx_rates", {}) or {})
+    statement_totals = ImportedStatementTotals(fx_rates=fx_rates) if fx_rates else None
+
     return ImportedPortfolioSnapshot(
         statement=statement,
         statements=[statement],
-        statement_totals=None,
+        statement_totals=statement_totals,
         instruments=[],
         cash_balances=[ImportedCashBalance(currency=item.currency, ending_cash=item.amount) for item in request.cash_balances],
         positions=[

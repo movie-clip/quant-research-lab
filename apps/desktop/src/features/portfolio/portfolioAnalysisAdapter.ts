@@ -22,6 +22,9 @@ type SnapshotAnalysisRequest = {
     currency: string
     amount: number
   }>
+  /** US-30.5a: statement-implied FX rates ("EURUSD" → rate). Omitted when the
+   *  snapshot has none (pre-US-30.2 persisted snapshots). */
+  fx_rates?: Record<string, number>
 }
 
 type DashboardHistoryRequest = SnapshotAnalysisRequest & {
@@ -61,6 +64,11 @@ function buildSnapshotAnalysisRequest(snapshot: PortfolioSnapshot): SnapshotAnal
       currency: balance.currency,
       amount: balance.amount,
     })),
+    // US-30.5a (audit F-7): every engine on the request path needs the
+    // statement-implied rates so weight denominators sum in the base currency.
+    // Absent on snapshots persisted before US-30.2 — the engine then carries
+    // values unconverted and discloses it.
+    ...(snapshot.fxRates ? { fx_rates: snapshot.fxRates } : {}),
   }
 }
 
@@ -96,14 +104,8 @@ export async function runDriftEngine(
   benchmarkSymbol: string,
   apiUrlOptions?: ResolveDesktopApiUrlOptions,
 ): Promise<DriftResult> {
-  const requestBody = {
-    ...buildSnapshotAnalysisRequest(snapshot),
-    benchmark_symbol: benchmarkSymbol,
-    // US-30.2 (audit F-6): statement-implied FX rates (absent on snapshots
-    // persisted before the field existed — the engine then keeps the
-    // US-27.8 carried-unconverted fallback, disclosed).
-    ...(snapshot.fxRates ? { fx_rates: snapshot.fxRates } : {}),
-  }
+  // `fx_rates` (US-30.2 / US-30.5a) comes from buildSnapshotAnalysisRequest.
+  const requestBody = { ...buildSnapshotAnalysisRequest(snapshot), benchmark_symbol: benchmarkSymbol }
   // Debug log: confirm the adapter is reached and inspect the actual outgoing
   // payload. Removeable once drift-card "No drift data" issue is diagnosed.
   console.info('[drift] POST', {
@@ -219,6 +221,9 @@ export function composeExposureView(exposure: ExposureEngineResponse, diagnostic
     overview: exposure.overview,
     lookthrough: exposure.lookthrough,
     lookthrough_sector_exposure: exposure.lookthrough_sector_exposure,
+    // US-30.5a (audit F-8): forward the currency-basis disclosure to the tab.
+    fx_static_rate_currencies: exposure.fx_static_rate_currencies,
+    fx_fallback_currencies: exposure.fx_fallback_currencies,
     market_overlap: exposure.market_overlap,
     current_state_concentration: exposure.current_state_concentration,
     risk_summary: diagnostics.risk_summary,
