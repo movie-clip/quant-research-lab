@@ -842,6 +842,33 @@ Implementation:
 - consumers: `analytics/overview.py`, `analytics/risk.py`,
   `services/exposure_engine.py`, `services/intra_correlation_engine.py`
 
+### Per-position minimum-observation rule (US-30.5b / audit F-9)
+
+A **published** per-position estimated statistic — beta, correlation, or
+annualised volatility — requires at least `MIN_DAILY_OBSERVATIONS` (20)
+overlapping daily return observations, consistent with §Beta ("len(series)
+< 20 → null") and §Rolling Pearson Correlation. Below the floor the statistic
+is **null** (withheld), never a confident number from a handful of days; the
+position's non-estimated fields (weight, market value, risk share) still
+render.
+
+```text
+beta_i / correlation_i / volatility_i:
+  null            when n_overlap(i) < MIN_DAILY_OBSERVATIONS
+  computed value  otherwise
+```
+
+Scope: this floor governs statistics published *per position*
+(`build_position_risk_contributions` beta/correlation;
+`_build_position_risk_contributions` volatility). The covariance-matrix cells
+feeding the variance decomposition keep their pairwise `≥ 2` floor (US-27.3) —
+they are intermediate inputs, not published per-position betas, and the
+decomposition surfaces its own `observation_count`.
+
+Implementation:
+- `services/quant-engine/app/analytics/risk.py`
+  (`MIN_DAILY_OBSERVATIONS` from `core/constants.py`)
+
 ### Risk share
 
 Each position or factor's variance-based share of total portfolio risk.

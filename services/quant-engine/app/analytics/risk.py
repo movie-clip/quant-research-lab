@@ -6,6 +6,7 @@ from math import isfinite, sqrt
 from typing import Literal, Protocol
 
 from app.analytics.currency import position_base_market_values
+from app.core.constants import MIN_DAILY_OBSERVATIONS
 from app.instruments import InstrumentRegistry
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.reconciliation import (
@@ -593,8 +594,14 @@ def build_position_risk_contributions(snapshot: ImportedPortfolioSnapshot, price
         paired = [(symbol_returns[date], benchmark_returns[date]) for date in sorted(set(symbol_returns) & set(benchmark_returns))]
         symbol_samples = [item[0] for item in paired]
         benchmark_samples = [item[1] for item in paired]
-        beta = _calculate_beta(symbol_samples, benchmark_samples)
-        correlation = _calculate_correlation(symbol_samples, benchmark_samples)
+        # US-30.5b (audit F-9): a per-position beta/correlation needs at least
+        # MIN_DAILY_OBSERVATIONS overlapping days to be a defensible estimate
+        # (methodology §Beta: "len(series) < 20 → null"). Below the floor the
+        # statistic is withheld (null), never a confident number from a
+        # handful of days — the position's weight/market_value still render.
+        has_enough_history = len(symbol_samples) >= MIN_DAILY_OBSERVATIONS
+        beta = _calculate_beta(symbol_samples, benchmark_samples) if has_enough_history else None
+        correlation = _calculate_correlation(symbol_samples, benchmark_samples) if has_enough_history else None
         weight = (base_value / total_market_value) if total_market_value else 0.0
         contributions.append(
             PortfolioRiskContribution(
@@ -2022,7 +2029,11 @@ def _build_position_risk_contributions(
             PositionRiskContributionItem(
                 symbol=symbol,
                 weight=round(weight, 4),
-                volatility=round(_calculate_annualized_volatility(returns) * 100, 2) if len(returns) >= 2 else None,
+                # US-30.5b (audit F-9): a published per-position volatility needs
+                # at least MIN_DAILY_OBSERVATIONS days — a 2-day annualised
+                # vol for a freshly-listed holding is not an estimate. Null
+                # below the floor; weight/risk-share still render.
+                volatility=round(_calculate_annualized_volatility(returns) * 100, 2) if len(returns) >= MIN_DAILY_OBSERVATIONS else None,
                 marginal_contribution=round(marginal, 8) if marginal is not None else None,
                 component_contribution=round(component, 8) if component is not None else None,
                 risk_share=round((component / sqrt(portfolio_variance)), 4) if component is not None and portfolio_variance > 0 else None,
