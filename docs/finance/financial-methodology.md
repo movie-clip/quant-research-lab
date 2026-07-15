@@ -1331,7 +1331,7 @@ rho_t(w) = cov(r_p[t-w+1 : t], r_b[t-w+1 : t])
            / (std(r_p[t-w+1 : t]) * std(r_b[t-w+1 : t]))
 
 where:
-  r_p_t  = daily portfolio return (cash-flow-neutral formula, see Portfolio Return Methodology)
+  r_p_t  = daily portfolio return (basis selected by provenance — see below)
   r_b_t  = (price_b_t / price_b_(t-1)) - 1  (simple daily price return)
   w      = rolling window in trading days: 20, 60, or 252
   t      = current date index in the sorted series
@@ -1346,6 +1346,41 @@ Edge cases:
   len(series) < 2: return null
   Available dates < w: return null for those prefix dates (no partial-window fill)
 ```
+
+Return basis (provenance-selected — US-30.5c / audit F-10). `r_p_t` is chosen
+by **what the daily portfolio states were built from**, the same rule
+§Indexed Return Series applies to the drift chart:
+
+- **Imported ledger-replay** (`historical_basis="imported_portfolio_history"` —
+  a broker-ledger replay carrying real trades) → the cash-flow-neutral TWR
+  daily return, `r_p_t = (PV_t − external_cash_flow_t) / PV_{t−1} − 1`
+  (§Portfolio Return Methodology). This basis is **trade-safe**: a buy moves
+  cash → stock with the two legs cancelling in `PV`, so it fabricates no
+  return. A plain market-value chain here would read a BUY as a gain — the
+  audit F-1 failure class (reproduced against IB2026: a 37.23% single-day
+  fabrication on the 2026-06-19 trade day). The imported path therefore keeps
+  the TWR basis.
+- **Synthetic history** (`historical_basis="market_data_history"`, and the
+  standalone attribution / multi-benchmark-correlation / stress surfaces — all
+  current holdings × historical prices, **no trades**) → the market-value chain
+  of current holdings, `r_p_t = MV_t / MV_{t−1} − 1`, the synthetic-history
+  convention (§Synthetic History). On a synthetic series cash is a flat carry
+  (constant on every reconstructed day, `external_cash_flow ≡ 0`), so the TWR
+  denominator `MV + cash` would dilute every equity return toward zero by the
+  cash weight — a distortion, not a correction. With no trades present the
+  market-value chain cannot fabricate a return, so it is both correct and safe.
+
+This is the same market-value chain the VaR (§Value-at-Risk and Distribution)
+and drawdown (§Wealth Index and Drawdown) engines already use for their
+synthetic return series; US-30.5c
+brought the correlation / beta / factor-attribution / factor-model / stress
+surfaces onto it too, resolving a prior split where those read the
+cash-inclusive TWR while VaR/drawdown read the cash-excluded chain. Deliberately
+**not** changed: de-diluting cash on the *imported ledger-replay* path (so the
+imported portfolio's own rolling correlation excludes its ~3% cash) needs
+per-day trade-flow neutralization in market-value space — a `DailyPortfolioState`
+field that does not exist today; deferred to the tech-debt register. On that
+path TWR already handles cash correctly.
 
 Academic precedent:
 - Pearson, K. (1895). "Note on regression and inheritance in the case of two

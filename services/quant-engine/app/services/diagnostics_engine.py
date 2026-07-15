@@ -6,6 +6,7 @@ from app.analytics.risk import (
     FACTOR_PROXY_MAP,
     RISK_CONTRIBUTION_WINDOW_DAYS,
     ROLLING_WINDOWS,
+    ReturnBasis,
     WINDOW_MIN_OBSERVATIONS,
     apply_return_basis_status_to_factor_model,
     apply_return_basis_status_to_model_reliability,
@@ -387,14 +388,23 @@ def build_historical_diagnostics_result(
         factor_return_basis=factor_return_basis,
         historical_sections_available=True,
     )
+    # Return-series basis is selected by provenance (US-30.5c / PRD F-10):
+    # the synthetic path (current holdings × prices, no trades) uses the plain
+    # market-value chain so a flat cash carry does not dilute the return; the
+    # imported ledger-replay path (real trades) keeps the trade-safe TWR, since
+    # a market-value chain there would fabricate a return from a cash↔stock
+    # swap (the F-1 bug). See methodology §Rolling Pearson Correlation.
+    return_basis: ReturnBasis = (
+        "market_value" if provenance.historical_basis == "market_data_history" else "portfolio_value"
+    )
     allow_relative_return_outputs = _allow_diagnostics_relative_return_outputs()
-    risk_summary = build_portfolio_risk_summary(daily_states, benchmark_rows, benchmark_symbol)
-    rolling_risk = build_rolling_risk_series(daily_states, benchmark_rows)
+    risk_summary = build_portfolio_risk_summary(daily_states, benchmark_rows, benchmark_symbol, return_basis=return_basis)
+    rolling_risk = build_rolling_risk_series(daily_states, benchmark_rows, return_basis=return_basis)
     relative_risk = _apply_diagnostics_relative_return_output_policy(
-        build_relative_risk_summary(daily_states, benchmark_rows, benchmark_symbol),
+        build_relative_risk_summary(daily_states, benchmark_rows, benchmark_symbol, return_basis=return_basis),
         allow_relative_return_outputs=allow_relative_return_outputs,
     )
-    statistical_factor_model = build_statistical_factor_model(daily_states, factor_histories, benchmark_symbol)
+    statistical_factor_model = build_statistical_factor_model(daily_states, factor_histories, benchmark_symbol, return_basis=return_basis)
     statistical_factor_model = apply_return_basis_status_to_factor_model(
         statistical_factor_model,
         benchmark_rows=benchmark_rows,
@@ -402,7 +412,7 @@ def build_historical_diagnostics_result(
     )
     allow_drawdown_outputs = _allow_diagnostics_drawdown_outputs()
     volatility_regime = _apply_diagnostics_drawdown_output_policy(
-        build_volatility_regime_payload(daily_states, benchmark_rows),
+        build_volatility_regime_payload(daily_states, benchmark_rows, return_basis=return_basis),
         allow_drawdown_outputs=allow_drawdown_outputs,
     )
     factor_shift_diagnostics = build_factor_shift_diagnostics(factor_registry, statistical_factor_model, volatility_regime)

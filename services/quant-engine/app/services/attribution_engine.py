@@ -104,8 +104,13 @@ def run_attribution_engine(request: FactorAttributionRequest) -> FactorAttributi
     if not daily_states:
         return _unavailable_response(window).model_copy(update={"coverage": coverage})
 
+    # Attribution states are synthetic (current holdings × historical prices,
+    # no trades), so the portfolio return series uses the cash-excluded
+    # market-value chain (US-30.5c / PRD F-10) — a flat cash carry must not
+    # dilute the equity returns the factor model regresses on.
     return build_factor_attribution(
         daily_states=daily_states,
         factor_histories=factor_histories,
         window=window,
+        return_basis="market_value",
     ).model_copy(update={"coverage": coverage})

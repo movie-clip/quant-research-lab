@@ -127,9 +127,13 @@ def run_multi_benchmark_correlation(
     if not daily_states:
         return empty_result.model_copy(update={"coverage": coverage})
 
-    # Derive portfolio daily return series from synthetic states.
+    # Derive portfolio daily return series from synthetic states. The states are
+    # synthetic (current holdings × historical prices, no trades), so the series
+    # is the cash-excluded market-value chain (US-30.5c / PRD F-10): a flat cash
+    # carry must not dilute the equity returns that drive the benchmark
+    # correlations. See methodology §Rolling Pearson Correlation.
     portfolio_value_by_date: dict[str, float] = {
-        state.date: state.total_portfolio_value
+        state.date: state.total_market_value
         for state in sorted(daily_states, key=lambda s: s.date)
     }
     portfolio_price_series = {d: portfolio_value_by_date[d] for d in valuation_dates if d in portfolio_value_by_date}

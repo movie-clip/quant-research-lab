@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 
 from app.analytics.correlation import beta, pearson, r_squared
 from app.api.main import app
+from app.services import correlation_engine
 from app.tests.fixtures import imported_snapshot, install_market_data_mock, position, price_rows
 
 
@@ -273,3 +274,53 @@ class TestSortOrder:
         assert data["benchmarks"][1]["symbol"] == "SPY"
         # Last 3 are all unavailable
         assert trusts[2:] == ["unavailable", "unavailable", "unavailable"]
+
+
+# ── US-30.5c: cash-excluded market-value basis (PRD F-10) ─────────────────────
+
+
+class TestReturnBasis:
+    """AC5 — the multi-benchmark portfolio return series is derived from
+    total_market_value (cash-excluded market-value chain), not
+    total_portfolio_value, so a flat synthetic cash carry does not dilute the
+    equity returns that drive the benchmark correlations."""
+
+    def test_portfolio_series_uses_total_market_value_not_portfolio_value(self, mocker, client):
+        import datetime as _dt
+
+        from app.schemas.reconciliation import DailyPortfolioState, SyntheticHistoryCoverage
+
+        # Align to the mock SPY grid: price_rows(80) starts 2025-01-01, one row
+        # per consecutive calendar day, which defines the engine's valuation_dates.
+        dates = [(_dt.date(2025, 1, 1) + _dt.timedelta(days=i)).isoformat() for i in range(80)]
+        # Synthetic states: equity rises, cash is a constant flat carry, so
+        # total_portfolio_value (MV + 500) differs from total_market_value (MV).
+        crafted_states = [
+            DailyPortfolioState(
+                date=d,
+                cash={"USD": 500.0},
+                positions=[],
+                total_market_value=round(1000.0 + 10.0 * i, 2),
+                total_portfolio_value=round(1000.0 + 10.0 * i + 500.0, 2),
+                external_cash_flow=0.0,
+            )
+            for i, d in enumerate(dates)
+        ]
+        mocker.patch(
+            "app.services.correlation_engine._build_synthetic_snapshot_history_states_with_coverage",
+            return_value=(crafted_states, SyntheticHistoryCoverage(requested_start_date=dates[0])),
+        )
+        _install_correlation_market_data_mock(mocker)
+        spy = mocker.spy(correlation_engine, "_returns_from_price_series")
+
+        payload = {"snapshot": _minimal_snapshot(), "lookback_days": 60}
+        response = client.post("/engines/correlation/multi", json=payload)
+        assert response.status_code == 200
+
+        # The first _returns_from_price_series call builds the PORTFOLIO series.
+        portfolio_price_series = spy.call_args_list[0].args[0]
+        expected_mv = {s.date: s.total_market_value for s in crafted_states if s.date in portfolio_price_series}
+        assert portfolio_price_series == expected_mv
+        # Guard: it must NOT be the cash-inclusive total_portfolio_value.
+        cash_inclusive = {s.date: s.total_portfolio_value for s in crafted_states if s.date in portfolio_price_series}
+        assert portfolio_price_series != cash_inclusive

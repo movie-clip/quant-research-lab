@@ -98,8 +98,12 @@ def run_stress_engine(request: StressEngineRequest) -> StressEngineResponse:
         valuation_dates=valuation_dates,
     )
 
+    # Synthetic states (current holdings × historical prices, no trades) → the
+    # factor model regresses on the cash-excluded market-value chain so a flat
+    # cash carry does not dilute the loadings that drive the stress projections
+    # (US-30.5c / PRD F-10). See methodology §Rolling Pearson Correlation.
     model = build_statistical_factor_model(
-        daily_states, factor_histories, benchmark_symbol
+        daily_states, factor_histories, benchmark_symbol, return_basis="market_value"
     )
 
     if not _has_any_factor_loading(model):
