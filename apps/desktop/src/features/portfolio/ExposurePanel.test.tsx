@@ -167,6 +167,53 @@ describe('ExposurePanel', () => {
 
     expect(screen.getByText('Concentration read unavailable')).toBeTruthy()
   })
+
+  // US-30.6: the Concentration Pack migrated onto CardShell — landmark + a11y.
+  it('exposes the Concentration Pack as a named region landmark (US-30.6 AC1)', () => {
+    render(<ExposurePanel result={mockExposureView} />)
+
+    expect(screen.getByRole('region', { name: /Concentration Pack/i })).toBeTruthy()
+  })
+
+  it('names the Top Positions and Top Sectors subsections individually (US-30.6 AC2)', () => {
+    render(<ExposurePanel result={mockExposureView} />)
+
+    expect(screen.getByRole('region', { name: 'Top Positions' })).toBeTruthy()
+    expect(screen.getByRole('region', { name: 'Top Sectors' })).toBeTruthy()
+  })
+
+  it('keeps the pack snapshot-analytics: no Synthetic badge, availability chip preserved, withheld when unavailable (US-30.6 AC3/AC4)', () => {
+    const { rerender } = render(<ExposurePanel result={mockExposureView} />)
+
+    // Snapshot analytics, not synthetic history — the pack must never claim a Synthetic badge.
+    const pack = screen.getByRole('region', { name: /Concentration Pack/i })
+    expect(pack.textContent).not.toContain('Synthetic')
+    // The Availability status chip is retained (metadata, not a trust badge).
+    expect(screen.getByText('available')).toBeTruthy()
+
+    // Unavailable snapshot → the whole pack is withheld, never fabricated.
+    rerender(
+      <ExposurePanel
+        result={{
+          ...mockExposureView,
+          current_state_concentration: {
+            ...mockExposureView.current_state_concentration,
+            top_positions: [],
+            top_sectors: [],
+            top_1_position_weight: null,
+            top_3_position_weight: null,
+            top_5_position_weight: null,
+            top_sector_weight: null,
+            top_3_sector_weight: null,
+            position_hhi: null,
+            sector_hhi: null,
+            effective_holdings: null,
+          },
+        }}
+      />,
+    )
+    expect(screen.getByText('Concentration read unavailable')).toBeTruthy()
+  })
 })
 
 describe('ExposurePanel currency-basis disclosure (US-30.5a / F-8)', () => {

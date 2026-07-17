@@ -1,3 +1,5 @@
+import { useId } from 'react'
+
 import type { ExposureAnalysis, ImportAdmissionSummaryV1 } from './types'
 import type { PortfolioSnapshot } from './workspaceTypes'
 import { BenchmarkCorrelationTable } from './BenchmarkCorrelationTable'
@@ -121,6 +123,10 @@ export function ExposurePanel({
   onSnapshotSelect,
   admissionSummary = null,
 }: ExposurePanelProps) {
+  // Stable ids so the Concentration Pack subsections carry accessible names
+  // (US-30.6) — declared before any conditional return (Rules of Hooks).
+  const topPositionsTitleId = useId()
+  const topSectorsTitleId = useId()
   if (!result) {
     return (
       <article className="panel exposure-panel exposure-shell-frame">
@@ -234,11 +240,11 @@ export function ExposurePanel({
 
         <FactorDriftSummaryCard result={result} />
 
-        <section className="dashboard-bottom-grid exposure-primary-section exposure-shell-section">
-          <div className="section-header-inline sector-list-header exposure-section-header">
-            <div className="panel-section-title-block"><p className="panel-label">Concentration Pack</p></div>
-            <p className="helper">Current-state composition only.</p>
-          </div>
+        <CardShell
+          title="Concentration Pack"
+          className="dashboard-bottom-grid exposure-primary-section exposure-shell-section"
+          actions={<p className="helper">Current-state composition only.</p>}
+        >
         {hasConcentrationFacts ? (
           <>
             <div className="concentration-pack-status-strip">
@@ -256,9 +262,9 @@ export function ExposurePanel({
               <UnavailablePanel title="Concentration summary unavailable" detail="Current-state concentration metrics are withheld for this snapshot." />
             )}
             <div className="split-grid dashboard-bottom-grid concentration-pack-grid">
-              <section>
+              <section aria-labelledby={topPositionsTitleId}>
                 <div className="section-header-inline sector-list-header exposure-section-header exposure-subsection-header">
-                  <div className="panel-section-title-block"><p className="panel-label">Top Positions</p></div>
+                  <div className="panel-section-title-block"><p id={topPositionsTitleId} className="panel-label">Top Positions</p></div>
                   <p className="helper">Top 5 current holdings.</p>
                 </div>
                 {topPositions.length ? (
@@ -274,9 +280,9 @@ export function ExposurePanel({
                   </div>
                 ) : <UnavailablePanel title="Top positions unavailable" detail="No imported holdings concentration list is available for this snapshot." />}
               </section>
-              <section>
+              <section aria-labelledby={topSectorsTitleId}>
                 <div className="section-header-inline sector-list-header exposure-section-header exposure-subsection-header">
-                  <div className="panel-section-title-block"><p className="panel-label">Top Sectors</p></div>
+                  <div className="panel-section-title-block"><p id={topSectorsTitleId} className="panel-label">Top Sectors</p></div>
                   <p className="helper">Top 5 current sectors.</p>
                 </div>
                 {topSectors.length ? (
@@ -297,7 +303,7 @@ export function ExposurePanel({
         ) : (
           <UnavailablePanel title="Concentration read unavailable" detail="Current-state concentration facts are unavailable for this snapshot, so the module is withheld rather than filled with estimates." />
         )}
-        </section>
+        </CardShell>
       </div>
     </article>
   )
