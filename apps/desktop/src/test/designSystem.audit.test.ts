@@ -43,6 +43,12 @@ const ALL_CARD_FILES = [
   'DataSourcesPanel.tsx',
   'CacheControlCard.tsx',
   'ImportAdmissionReviewCard.tsx',
+  // US-30.6: the Concentration Pack (hosted inline in ExposurePanel) migrated
+  // onto CardShell; bring the host file under the no-hex / no-px /
+  // single-source-"Synthetic" checks. It renders no synthetic badge (snapshot
+  // analytics, not synthetic history) and no chart, so it is deliberately NOT
+  // in CARDS_WITH_BADGE or CHART_FILES.
+  'ExposurePanel.tsx',
 ]
 
 const HEX_REGEX = /#[0-9a-fA-F]{3,8}\b/g
