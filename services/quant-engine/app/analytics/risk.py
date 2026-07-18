@@ -49,6 +49,14 @@ from app.schemas.reconciliation import (
 )
 from app.services.market_data import detect_histories_return_basis, detect_history_return_basis
 
+# Return-series basis selected by provenance (US-30.5c / PRD F-10).
+# "portfolio_value": cash-flow-neutral TWR on total_portfolio_value — trade-safe,
+#   used on the imported ledger-replay path (real trades present).
+# "market_value": plain market-value chain on total_market_value — excludes the
+#   flat synthetic cash balance, used ONLY on synthetic series (no trades).
+# See methodology §Rolling Pearson Correlation / §Indexed Return Series.
+ReturnBasis = Literal["portfolio_value", "market_value"]
+
 
 @dataclass(frozen=True)
 class UcitsCandidateMapping:
@@ -536,8 +544,8 @@ def _availability_fit_score(definition: FactorDefinition, mapping: UcitsCandidat
     return 1.0 if mapping.example_tickers else 0.50
 
 
-def build_portfolio_risk_summary(daily_states: list, benchmark_rows: list[dict], benchmark_symbol: str) -> PortfolioRiskSummary:
-    paired_returns = _paired_portfolio_and_benchmark_returns(daily_states, benchmark_rows)
+def build_portfolio_risk_summary(daily_states: list, benchmark_rows: list[dict], benchmark_symbol: str, *, return_basis: ReturnBasis = "portfolio_value") -> PortfolioRiskSummary:
+    paired_returns = _paired_portfolio_and_benchmark_returns(daily_states, benchmark_rows, basis=return_basis)
     portfolio_samples = [item[1] for item in paired_returns]
     benchmark_samples = [item[2] for item in paired_returns]
     beta = _calculate_beta(portfolio_samples, benchmark_samples)
@@ -557,8 +565,8 @@ def build_portfolio_risk_summary(daily_states: list, benchmark_rows: list[dict],
     )
 
 
-def build_rolling_risk_series(daily_states: list, benchmark_rows: list[dict]) -> list[RollingRiskPoint]:
-    paired_returns = _paired_portfolio_and_benchmark_returns(daily_states, benchmark_rows)
+def build_rolling_risk_series(daily_states: list, benchmark_rows: list[dict], *, return_basis: ReturnBasis = "portfolio_value") -> list[RollingRiskPoint]:
+    paired_returns = _paired_portfolio_and_benchmark_returns(daily_states, benchmark_rows, basis=return_basis)
     points: list[RollingRiskPoint] = []
 
     for index, (date, _, _) in enumerate(paired_returns):
@@ -829,8 +837,8 @@ def _build_benchmark_positioning_cues(
     return top_overweights, top_underweights
 
 
-def build_relative_risk_summary(daily_states: list, benchmark_rows: list[dict], benchmark_symbol: str) -> RelativeRiskSummary:
-    paired_returns = _paired_portfolio_and_benchmark_returns(daily_states, benchmark_rows)
+def build_relative_risk_summary(daily_states: list, benchmark_rows: list[dict], benchmark_symbol: str, *, return_basis: ReturnBasis = "portfolio_value") -> RelativeRiskSummary:
+    paired_returns = _paired_portfolio_and_benchmark_returns(daily_states, benchmark_rows, basis=return_basis)
     if not paired_returns:
         return RelativeRiskSummary(benchmark_symbol=benchmark_symbol, tracking_error_pct=None, active_return_pct=None, information_ratio=None)
 
@@ -901,8 +909,8 @@ def _selected_history_return_series(rows: list[dict]) -> dict[str, float]:
     return _series_to_returns(series.points)
 
 
-def build_volatility_regime_payload(daily_states: list, benchmark_rows: list[dict]) -> VolatilityRegimePayload:
-    rolling_series = _build_rolling_volatility_series(daily_states, benchmark_rows)
+def build_volatility_regime_payload(daily_states: list, benchmark_rows: list[dict], *, return_basis: ReturnBasis = "portfolio_value") -> VolatilityRegimePayload:
+    rolling_series = _build_rolling_volatility_series(daily_states, benchmark_rows, basis=return_basis)
     snapshot = _build_volatility_snapshot(rolling_series)
     regime = _classify_volatility_regime(snapshot)
     return VolatilityRegimePayload(
@@ -1212,8 +1220,8 @@ def _build_collinearity_diagnostics(common_dates: list[str], factor_series: dict
     return diagnostics
 
 
-def _build_rolling_volatility_series(daily_states: list, benchmark_rows: list[dict]) -> list[RollingVolatilityPoint]:
-    portfolio_returns = _portfolio_time_weighted_return_series(daily_states)
+def _build_rolling_volatility_series(daily_states: list, benchmark_rows: list[dict], *, basis: ReturnBasis = "portfolio_value") -> list[RollingVolatilityPoint]:
+    portfolio_returns = _portfolio_time_weighted_return_series(daily_states, basis=basis)
     if not portfolio_returns:
         return []
 
@@ -1387,8 +1395,8 @@ def _max_abs_rolling_correlation(left: list[float], right: list[float], window: 
     return max_correlation
 
 
-def build_statistical_factor_model(daily_states: list, factor_histories: dict[str, list[dict]], benchmark_symbol: str) -> StatisticalFactorModel:
-    portfolio_returns = dict((date, value) for date, value in [(item[0], item[1]) for item in _paired_portfolio_and_benchmark_returns(daily_states, factor_histories.get(benchmark_symbol, []))])
+def build_statistical_factor_model(daily_states: list, factor_histories: dict[str, list[dict]], benchmark_symbol: str, *, return_basis: ReturnBasis = "portfolio_value") -> StatisticalFactorModel:
+    portfolio_returns = dict((date, value) for date, value in [(item[0], item[1]) for item in _paired_portfolio_and_benchmark_returns(daily_states, factor_histories.get(benchmark_symbol, []), basis=return_basis)])
     factor_returns = {
         factor: _selected_history_return_series(rows)
         for factor, rows in factor_histories.items()
@@ -1544,13 +1552,36 @@ def build_etf_overlap_pairs(snapshot: ImportedPortfolioSnapshot, market_data: Ho
     return sorted(pairs, key=lambda item: item.overlap_weight, reverse=True)
 
 
-def _paired_portfolio_and_benchmark_returns(daily_states: list, benchmark_rows: list[dict]) -> list[tuple[str, float, float]]:
-    portfolio_returns = _portfolio_time_weighted_return_series(daily_states)
+def _paired_portfolio_and_benchmark_returns(
+    daily_states: list,
+    benchmark_rows: list[dict],
+    *,
+    basis: ReturnBasis = "portfolio_value",
+) -> list[tuple[str, float, float]]:
+    portfolio_returns = _portfolio_time_weighted_return_series(daily_states, basis=basis)
     benchmark_returns = _benchmark_return_series(benchmark_rows)
     return [(date, portfolio_return, benchmark_returns[date]) for date, portfolio_return in portfolio_returns if date in benchmark_returns]
 
 
-def _portfolio_time_weighted_return_series(daily_states: list) -> list[tuple[str, float]]:
+def _portfolio_time_weighted_return_series(
+    daily_states: list,
+    *,
+    basis: ReturnBasis = "portfolio_value",
+) -> list[tuple[str, float]]:
+    """Daily portfolio return series under a provenance-selected basis
+    (methodology §Rolling Pearson Correlation, §Indexed Return Series).
+
+    - ``"portfolio_value"`` (default) — cash-flow-neutral TWR on
+      ``total_portfolio_value``: ``(PV_t − external_cash_flow_t) / PV_{t−1} − 1``.
+      Trade-safe (a buy moves cash → stock with the legs cancelling in ``PV``),
+      so it is the correct basis on the imported ledger-replay path, which
+      carries real trades (US-30.1 F-1).
+    - ``"market_value"`` — plain market-value chain on ``total_market_value``:
+      ``MV_t / MV_{t−1} − 1``. Excludes the flat synthetic cash balance that
+      would otherwise dilute every return toward zero. Used ONLY on synthetic
+      series (current holdings × historical prices), which carry no trades, so
+      the chain cannot fabricate a return from a cash↔stock swap.
+    """
     ordered_states = sorted(daily_states, key=lambda item: item.date)
     returns: list[tuple[str, float]] = []
     previous_state = None
@@ -1558,11 +1589,18 @@ def _portfolio_time_weighted_return_series(daily_states: list) -> list[tuple[str
         if previous_state is None:
             previous_state = state
             continue
-        previous_value = previous_state.total_portfolio_value
-        if previous_value == 0:
-            previous_state = state
-            continue
-        daily_return = ((state.total_portfolio_value - state.external_cash_flow) / previous_value) - 1
+        if basis == "market_value":
+            previous_value = previous_state.total_market_value
+            if previous_value == 0:
+                previous_state = state
+                continue
+            daily_return = (state.total_market_value / previous_value) - 1
+        else:
+            previous_value = previous_state.total_portfolio_value
+            if previous_value == 0:
+                previous_state = state
+                continue
+            daily_return = ((state.total_portfolio_value - state.external_cash_flow) / previous_value) - 1
         returns.append((state.date, daily_return))
         previous_state = state
     return returns

@@ -30,6 +30,7 @@ from app.analytics.risk import (
     FACTOR_KEY_MAP,
     FACTOR_PROXY_MAP,
     ROLLING_RIDGE_FLOOR,
+    ReturnBasis,
     _fit_factor_model,
     _orthogonalize_factors_window,
     _selected_history_return_series,
@@ -55,11 +56,18 @@ _FACTOR_LABEL: dict[str, str] = {d.key: d.label for d in DEFAULT_FACTOR_DEFINITI
 _FACTOR_ORDER: dict[str, int] = {d.key: d.orthogonalization_order for d in DEFAULT_FACTOR_DEFINITIONS}
 
 
-def _portfolio_return_series(daily_states: list[DailyPortfolioState]) -> dict[str, float]:
-    """Cash-flow-neutral daily portfolio return keyed by date.
+def _portfolio_return_series(
+    daily_states: list[DailyPortfolioState],
+    *,
+    basis: ReturnBasis = "portfolio_value",
+) -> dict[str, float]:
+    """Daily portfolio return keyed by date, under a provenance-selected basis.
 
-    Mirrors _portfolio_time_weighted_return_series from risk.py but returns a
-    dict instead of a list of tuples, for easier intersection with factor dates.
+    Mirrors _portfolio_time_weighted_return_series from risk.py (same basis
+    semantics — see its docstring) but returns a dict instead of a list of
+    tuples, for easier intersection with factor dates. Defaults to the
+    cash-flow-neutral TWR (`"portfolio_value"`); the attribution engine, which
+    is always synthetic, passes `"market_value"`.
     """
     ordered = sorted(daily_states, key=lambda s: s.date)
     returns: dict[str, float] = {}
@@ -68,12 +76,18 @@ def _portfolio_return_series(daily_states: list[DailyPortfolioState]) -> dict[st
         if prev is None:
             prev = state
             continue
-        if prev.total_portfolio_value == 0.0:
-            prev = state
-            continue
-        daily_return = (
-            (state.total_portfolio_value - state.external_cash_flow) / prev.total_portfolio_value
-        ) - 1.0
+        if basis == "market_value":
+            if prev.total_market_value == 0.0:
+                prev = state
+                continue
+            daily_return = (state.total_market_value / prev.total_market_value) - 1.0
+        else:
+            if prev.total_portfolio_value == 0.0:
+                prev = state
+                continue
+            daily_return = (
+                (state.total_portfolio_value - state.external_cash_flow) / prev.total_portfolio_value
+            ) - 1.0
         returns[state.date] = daily_return
         prev = state
     return returns
@@ -83,6 +97,8 @@ def build_factor_attribution(
     daily_states: list[DailyPortfolioState],
     factor_histories: dict[str, list[dict]],
     window: int = 60,
+    *,
+    return_basis: ReturnBasis = "portfolio_value",
 ) -> FactorAttributionResponse:
     """Decompose portfolio daily returns into per-factor contributions.
 
@@ -91,6 +107,9 @@ def build_factor_attribution(
         factor_histories: Mapping proxy_symbol → list of price-history dicts
                           (same format as diagnostics engine input).
         window:           Rolling estimation window in trading days (20/60/252).
+        return_basis:     Portfolio return basis (see _portfolio_return_series).
+                          The attribution engine is always synthetic and passes
+                          "market_value"; defaults to "portfolio_value" (TWR).
 
     Returns:
         FactorAttributionResponse with cumulative_series and period_attribution,
@@ -101,7 +120,7 @@ def build_factor_attribution(
                     _RECONCILIATION_TOLERANCE (should never happen in practice;
                     indicates a bug in the implementation).
     """
-    portfolio_returns = _portfolio_return_series(daily_states)
+    portfolio_returns = _portfolio_return_series(daily_states, basis=return_basis)
 
     # Build daily factor return series keyed by proxy symbol.
     factor_returns: dict[str, dict[str, float]] = {

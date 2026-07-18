@@ -14,6 +14,8 @@ from app.analytics.portfolio_imports import (
 from app.analytics.risk import DEFAULT_FACTOR_DEFINITIONS, build_etf_overlap_pairs, build_factor_exposures, build_factor_registry, build_factor_shift_diagnostics, build_lookthrough_exposure, build_lookthrough_sector_exposure, build_market_overlap_summary, build_model_reliability_snapshot, build_portfolio_risk_summary, build_relative_risk_summary, build_risk_contribution_breakdown, build_rolling_risk_series, build_statistical_factor_model, build_stress_scenarios, build_volatility_regime_payload, is_history_series_verified_adjusted, select_history_price_series, selected_history_price_map
 from app.analytics.risk import apply_return_basis_status_to_factor_model, apply_return_basis_status_to_model_reliability
 from app.analytics.risk import _apply_mapping_hard_caps, _build_factor_risk_contributions, _classify_volatility_regime, _compute_covariance_matrix, _mapping_match_label
+from app.analytics.risk import _portfolio_time_weighted_return_series
+from app.analytics.attribution import _portfolio_return_series
 from app.core.constants import DEFAULT_BENCHMARK_SYMBOL, MIN_DAILY_OBSERVATIONS, lookback_calendar_days
 from app.core.symbols import canonicalize_symbol
 from app.domain.ledger import reconstruct_position_lots, snapshot_to_ledger
@@ -7603,3 +7605,175 @@ def test_orthogonalize_factors_window_reports_dropped_duplicate() -> None:
 
     assert dropped == ["Growth"]
     assert [label for label, _, _ in orthogonalized] == ["Market"]
+
+
+# ── US-30.5c: provenance-selected return basis (PRD F-10) ─────────────────────
+
+
+def _basis_state(date_str: str, market_value: float, cash: float, external_cash_flow: float = 0.0) -> DailyPortfolioState:
+    """A DailyPortfolioState with explicit market value and flat cash.
+
+    total_portfolio_value = market_value + cash (the cash-inclusive TWR base);
+    total_market_value = market_value (the cash-excluded chain base).
+    """
+    return DailyPortfolioState(
+        date=date_str,
+        cash={"USD": cash},
+        positions=[],
+        total_market_value=round(market_value, 2),
+        total_portfolio_value=round(market_value + cash, 2),
+        external_cash_flow=external_cash_flow,
+    )
+
+
+def test_portfolio_return_series_market_value_excludes_cash_dilution() -> None:
+    """AC1/AC4 — with flat cash present, the market-value chain yields a larger
+    return than the cash-inclusive TWR (cash no longer divides the equity move)."""
+    states = [
+        _basis_state("2026-01-02", market_value=1000.0, cash=100.0),
+        _basis_state("2026-01-03", market_value=1100.0, cash=100.0),
+    ]
+
+    market = _portfolio_time_weighted_return_series(states, basis="market_value")
+    portfolio = _portfolio_time_weighted_return_series(states, basis="portfolio_value")
+
+    # MV chain: 1100/1000 - 1 = 0.10; PV (TWR): 1200/1100 - 1 ≈ 0.0909
+    assert market == [("2026-01-03", pytest.approx(0.10))]
+    assert portfolio == [("2026-01-03", pytest.approx(1200.0 / 1100.0 - 1.0))]
+    assert abs(market[0][1]) > abs(portfolio[0][1])
+    # Default basis is the cash-inclusive TWR (no silent behaviour change).
+    assert _portfolio_time_weighted_return_series(states) == portfolio
+
+
+def test_portfolio_return_series_bases_identical_when_no_cash() -> None:
+    """AC4 boundary — with zero cash, market_value ≡ portfolio_value (there is
+    no cash weight to exclude), so the change only bites when cash is present."""
+    states = [
+        _basis_state("2026-01-02", market_value=1000.0, cash=0.0),
+        _basis_state("2026-01-03", market_value=1100.0, cash=0.0),
+        _basis_state("2026-01-04", market_value=1045.0, cash=0.0),
+    ]
+
+    market = _portfolio_time_weighted_return_series(states, basis="market_value")
+    portfolio = _portfolio_time_weighted_return_series(states, basis="portfolio_value")
+
+    assert market == portfolio
+
+
+def test_portfolio_return_series_portfolio_value_basis_is_trade_safe() -> None:
+    """AC3 — the F-1 guard. A same-day cash→stock swap (a BUY: cash down, MV up
+    by the same amount, PV and external_cash_flow unchanged) fabricates NO
+    return under the default portfolio_value basis, but WOULD fabricate a large
+    return under the market-value chain — which is exactly why the ledger path
+    must never adopt it."""
+    states = [
+        _basis_state("2026-06-18", market_value=1000.0, cash=500.0),
+        # BUY $300 of stock: MV 1000 → 1300, cash 500 → 200, PV stays 1500.
+        _basis_state("2026-06-19", market_value=1300.0, cash=200.0, external_cash_flow=0.0),
+    ]
+
+    portfolio = _portfolio_time_weighted_return_series(states, basis="portfolio_value")
+    market = _portfolio_time_weighted_return_series(states, basis="market_value")
+
+    # Trade-safe: PV unchanged (1500 → 1500) ⇒ 0% return on the trade day.
+    assert portfolio == [("2026-06-19", pytest.approx(0.0))]
+    # The danger the ledger path must avoid: the MV chain reads the BUY as +30%.
+    assert market == [("2026-06-19", pytest.approx(0.30))]
+
+
+def test_attribution_portfolio_return_series_honours_basis() -> None:
+    """Mirror — attribution's _portfolio_return_series honours the same basis
+    parameter with the same portfolio_value default as the risk.py series."""
+    states = [
+        _basis_state("2026-01-02", market_value=1000.0, cash=100.0),
+        _basis_state("2026-01-03", market_value=1100.0, cash=100.0),
+    ]
+
+    market = _portfolio_return_series(states, basis="market_value")
+    portfolio = _portfolio_return_series(states, basis="portfolio_value")
+
+    assert market["2026-01-03"] == pytest.approx(0.10)
+    assert portfolio["2026-01-03"] == pytest.approx(1200.0 / 1100.0 - 1.0)
+    # Same default as risk.py, and same values as the risk.py series (parity).
+    assert _portfolio_return_series(states) == portfolio
+    risk_series = dict(_portfolio_time_weighted_return_series(states, basis="market_value"))
+    assert market == risk_series
+
+
+def test_diagnostics_synthetic_path_threads_market_value_basis(mocker) -> None:
+    """AC2 — on the synthetic (market_data_history) path, every return-series
+    builder receives basis='market_value'."""
+    spy = mocker.spy(risk_module, "_portfolio_time_weighted_return_series")
+
+    market_data = mocker.patch("app.services.diagnostics_engine.MarketDataService")
+    service = market_data.return_value
+    bench = [{"date": f"2026-04-{d:02d}", "price": 100.0 + i} for i, d in enumerate(range(10, 24))]
+    service.get_historical_prices.return_value = bench
+    service.get_historical_prices_for_symbols.return_value = {
+        "AAPL": [{"date": r["date"], "price": 100.0 + i} for i, r in enumerate(bench)],
+        "SPY": bench,
+        **{d.us_proxy: [{"date": r["date"], "price": 100.0 + i * 0.1} for i, r in enumerate(bench)] for d in DEFAULT_FACTOR_DEFINITIONS},
+    }
+
+    request = DiagnosticsEngineRequest(
+        benchmark_symbol="SPY",
+        base_currency="USD",
+        statement_period="2026-04-10 - 2026-04-23",
+        imported_at=datetime(2026, 4, 23),
+        importer="interactive_brokers",
+        source_file_names=["snapshot.json"],
+        positions=[PortfolioPositionSnapshot(symbol="AAPL", market_value=1000.0, quantity=10.0, currency="USD")],
+        cash_balances=[PortfolioCashBalanceSnapshot(currency="USD", amount=100.0)],
+        history_context=PortfolioHistoryContext(
+            benchmark_symbol="SPY",
+            history_start_date="2026-04-10",
+            history_end_date="2026-04-23",
+        ),
+    )
+
+    result = run_diagnostics_engine(request)
+
+    assert result.provenance.historical_basis == "market_data_history"
+    assert spy.call_count > 0
+    assert all(call.kwargs.get("basis") == "market_value" for call in spy.call_args_list)
+
+
+def test_diagnostics_imported_path_threads_portfolio_value_basis(mocker) -> None:
+    """AC2/AC6 — on the imported ledger-replay path, every return-series builder
+    receives basis='portfolio_value' (the trade-safe TWR), so the ledger path
+    never adopts the market-value chain (the F-1 guard, end-to-end)."""
+    spy = mocker.spy(risk_module, "_portfolio_time_weighted_return_series")
+
+    market_data = mocker.patch("app.services.diagnostics_engine.MarketDataService")
+    service = market_data.return_value
+    bench = [{"date": f"2026-04-{d:02d}", "price": 100.0 + i} for i, d in enumerate(range(10, 24))]
+    service.get_historical_prices.return_value = bench
+    service.get_historical_prices_for_symbols.return_value = {
+        "AAPL": [{"date": r["date"], "price": 100.0 + i} for i, r in enumerate(bench)],
+        "SPY": bench,
+        **{d.us_proxy: [{"date": r["date"], "price": 100.0 + i * 0.1} for i, r in enumerate(bench)] for d in DEFAULT_FACTOR_DEFINITIONS},
+    }
+
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 23),
+            source_path="IB2026.csv",
+            detected_format="csv",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-23",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=100.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 23), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=109.0, market_value=1090.0, unrealized_pnl=90.0, currency="USD")],
+        ledger_entries=[ImportedLedgerEntry(entry_type="BUY", trade_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=1000.0, currency="USD", source_section="Trades")],
+    )
+    result = run_imported_diagnostics_engine(snapshot, "SPY")
+
+    assert result.provenance.historical_basis == "imported_portfolio_history"
+    assert spy.call_count > 0
+    assert all(call.kwargs.get("basis") == "portfolio_value" for call in spy.call_args_list)
