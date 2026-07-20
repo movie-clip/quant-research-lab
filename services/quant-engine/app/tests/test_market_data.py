@@ -455,9 +455,11 @@ def test_fmp_client_exposes_statement_endpoints(mocker) -> None:
     mocked_settings = mocker.patch("app.clients.fmp.get_settings")
     mocked_settings.return_value.fmp_api_key = "test-key"
     mocked_settings.return_value.fmp_base_url = "https://financialmodelingprep.com/stable"
+    mocked_settings.return_value.fmp_legacy_base_url = "https://financialmodelingprep.com/api/v3"
     mocked_settings.return_value.fmp_quote_cache_ttl_seconds = 300
     mocked_settings.return_value.fmp_history_cache_ttl_seconds = 86400
     mocked_settings.return_value.fmp_max_requests_per_minute = 0
+    mocked_settings.return_value.fmp_request_timeout_seconds = 30.0
     mocked_settings.return_value.fmp_cache_enabled = False
     mocked_settings.return_value.fmp_cache_dir = "unused"
 
@@ -472,3 +474,106 @@ def test_fmp_client_exposes_statement_endpoints(mocker) -> None:
     assert client_get.call_args_list[0].args[0].endswith("/income-statement")
     assert client_get.call_args_list[1].args[0].endswith("/balance-sheet-statement")
     assert client_get.call_args_list[2].args[0].endswith("/cash-flow-statement")
+
+
+# ── US-24.6: FMP client transport config (escaped URL + timeout) ──────────────
+
+
+def _mock_fmp_settings(mocker, **overrides):
+    """Patch app.clients.fmp.get_settings with explicit values for every
+    setting FmpClient reads (no Mock auto-attributes standing in for real
+    transport config — US-24.6 AC7)."""
+    mocked = mocker.patch("app.clients.fmp.get_settings")
+    values = {
+        "fmp_api_key": "test-key",
+        "fmp_base_url": "https://financialmodelingprep.com/stable",
+        "fmp_legacy_base_url": "https://financialmodelingprep.com/api/v3",
+        "fmp_quote_cache_ttl_seconds": 300,
+        "fmp_history_cache_ttl_seconds": 86400,
+        "fmp_max_requests_per_minute": 0,
+        "fmp_request_timeout_seconds": 30.0,
+        "fmp_cache_enabled": False,
+        "fmp_cache_dir": "unused",
+    }
+    values.update(overrides)
+    for key, value in values.items():
+        setattr(mocked.return_value, key, value)
+    return mocked
+
+
+def test_get_etf_holders_builds_url_from_configured_legacy_base(mocker) -> None:
+    """AC1/AC2 — the etf-holder call is redirectable: its URL comes from
+    fmp_legacy_base_url, not a hardcoded vendor host."""
+    response_mock = mocker.Mock()
+    response_mock.json.return_value = [{"asset": "AAPL", "weightPercentage": 7.1}]
+    response_mock.raise_for_status.return_value = None
+    client_get = mocker.patch("app.clients.fmp.httpx.Client.get", return_value=response_mock)
+    _mock_fmp_settings(mocker, fmp_legacy_base_url="https://proxy.internal/v3-mirror")
+
+    from app.clients.fmp import FmpClient
+
+    rows = FmpClient().get_etf_holders("SPY")
+
+    assert rows == [{"asset": "AAPL", "weightPercentage": 7.1}]
+    assert client_get.call_args.args[0] == "https://proxy.internal/v3-mirror/etf-holder/SPY"
+
+
+def test_get_etf_holders_default_url_matches_pre_refactor_endpoint(mocker) -> None:
+    """AC2/AC5 — at default settings the URL is byte-identical to the previous
+    hardcoded literal, so live behaviour is unchanged."""
+    response_mock = mocker.Mock()
+    response_mock.json.return_value = []
+    response_mock.raise_for_status.return_value = None
+    client_get = mocker.patch("app.clients.fmp.httpx.Client.get", return_value=response_mock)
+    _mock_fmp_settings(mocker)
+
+    from app.clients.fmp import FmpClient
+
+    FmpClient().get_etf_holders("SPY")
+
+    assert client_get.call_args.args[0] == "https://financialmodelingprep.com/api/v3/etf-holder/SPY"
+
+
+def test_get_etf_holders_cache_identity_is_unchanged_by_url_refactor(mocker) -> None:
+    """AC4 — the cache key is derived from the v3 PATH string, deliberately
+    independent of the (now configurable) host. Changing the base URL must not
+    invalidate cached holdings entries or break in-flight coalescing."""
+    import json
+
+    response_mock = mocker.Mock()
+    response_mock.json.return_value = [{"asset": "AAPL"}]
+    response_mock.raise_for_status.return_value = None
+    mocker.patch("app.clients.fmp.httpx.Client.get", return_value=response_mock)
+
+    build_key = mocker.Mock(return_value="holdings-key")
+    cache = mocker.Mock()
+    cache.build_key = build_key
+    cache.get.return_value = None
+    mocker.patch("app.clients.fmp.JsonFileCache", return_value=cache)
+    # A non-default host proves the cache identity does NOT track the base URL.
+    _mock_fmp_settings(mocker, fmp_cache_enabled=True, fmp_legacy_base_url="https://proxy.internal/v3")
+
+    from app.clients.fmp import FmpClient
+
+    FmpClient().get_etf_holders("SPY")
+
+    namespace, identifier = build_key.call_args.args
+    assert namespace == "holdings"
+    assert identifier == json.dumps({"path": "api/v3/etf-holder/SPY", "params": {}}, sort_keys=True)
+
+
+def test_fmp_client_timeout_comes_from_settings(mocker) -> None:
+    """AC3 — the transport timeout is configurable, defaulting to 30.0."""
+    httpx_client = mocker.patch("app.clients.fmp.httpx.Client")
+    _mock_fmp_settings(mocker, fmp_request_timeout_seconds=7.5)
+
+    from app.clients.fmp import FmpClient
+
+    FmpClient()
+
+    assert httpx_client.call_args.kwargs["timeout"] == 7.5
+
+    from app.core.settings import Settings
+
+    assert Settings().fmp_request_timeout_seconds == 30.0
+    assert Settings().fmp_legacy_base_url == "https://financialmodelingprep.com/api/v3"
