@@ -31,6 +31,11 @@ class Settings(BaseSettings):
 
     fmp_api_key: str = Field(default="")
     fmp_base_url: str = Field(default="https://financialmodelingprep.com/stable")
+    # Legacy FMP v3 surface. Kept separate from `fmp_base_url` (which points at
+    # /stable) because some endpoints — currently `etf-holder`, used for ETF
+    # look-through — exist ONLY on v3 and would 404 under /stable (US-24.6).
+    # Configurable so every outbound call can be redirected to a proxy/mock.
+    fmp_legacy_base_url: str = Field(default="https://financialmodelingprep.com/api/v3")
     fmp_cache_enabled: bool = Field(default=True)
     fmp_cache_dir: str = Field(default=DEFAULT_FMP_CACHE_DIR)
     fmp_holdings_snapshot_dir: str = Field(default=DEFAULT_FMP_HOLDINGS_SNAPSHOT_DIR)
@@ -46,6 +51,9 @@ class Settings(BaseSettings):
     fmp_quote_cache_ttl_seconds: int = Field(default=300)
     fmp_history_cache_ttl_seconds: int = Field(default=86400)
     fmp_max_requests_per_minute: int = Field(default=250)
+    # HTTP transport timeout for every FMP request (US-24.6 — was a literal
+    # 30.0 in the client, the one transport knob that was not configurable).
+    fmp_request_timeout_seconds: float = Field(default=30.0)
     log_level: str = Field(default="INFO")
 
 

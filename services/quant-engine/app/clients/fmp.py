@@ -27,10 +27,14 @@ class FmpClient:
         settings = get_settings()
         self.api_key = settings.fmp_api_key
         self.base_url = settings.fmp_base_url.rstrip("/")
+        # Legacy v3 base — see Settings.fmp_legacy_base_url (US-24.6). Endpoints
+        # that exist only on v3 build their URL from this, so no call escapes
+        # configuration by hardcoding the vendor host.
+        self.legacy_base_url = settings.fmp_legacy_base_url.rstrip("/")
         self.quote_ttl_seconds = settings.fmp_quote_cache_ttl_seconds
         self.history_ttl_seconds = settings.fmp_history_cache_ttl_seconds
         self.max_requests_per_minute = settings.fmp_max_requests_per_minute
-        self.client = httpx.Client(timeout=30.0)
+        self.client = httpx.Client(timeout=settings.fmp_request_timeout_seconds)
         self.cache = JsonFileCache(Path(settings.fmp_cache_dir)) if settings.fmp_cache_enabled else None
 
     def _wait_for_rate_limit(self) -> None:
@@ -180,7 +184,7 @@ class FmpClient:
         try:
             self._wait_for_rate_limit()
             response = self.client.get(
-                f"https://financialmodelingprep.com/api/v3/etf-holder/{symbol}",
+                f"{self.legacy_base_url}/etf-holder/{symbol}",
                 params={"apikey": self.api_key},
             )
             response.raise_for_status()
