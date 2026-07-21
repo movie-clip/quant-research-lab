@@ -4,6 +4,46 @@
 
 ---
 
+## Active Epic: Epic 31 — Ledger Replay Correctness
+
+**PRD:** [`docs/product/prd/epic-31-ledger-replay-correctness.md`](product/prd/epic-31-ledger-replay-correctness.md)
+
+Created 2026-07-18 from a defect found while scoping tech-debt US-24.9: the
+**imported ledger-replay** path — the truth class the product presents as
+broker truth — publishes a **fabricated −36.34% single-day return** on the
+committed IB2026 portfolio, inflating its annualised volatility **+79%**
+(36.05% → 64.55%). Root-caused to one causal chain, reproduced against the
+**frozen** golden market data (deterministic, network-free): price histories
+are fetched only for *current* holdings while the replay reconstructs *opening*
+positions (**11 of 38 priced on day 1**, opening MV $14,582 vs ~$50,116); the
+`base_cash = starting_nav − opening_positions_value` anchor then absorbs the
+**$35,534** error as a cash plug that rides the whole window; and the terminal
+reconciliation snaps it out on the final day, where the return series reads the
+accounting correction as performance.
+
+The impact map (PRD) shows the policy gates do **not** contain it: the Exposure
+rolling correlation & beta chart, the risk summary's beta/correlation/volatility,
+and the factor model are all **surfaced and corrupted**; only the relative-return
+and drawdown families are gated to `null`.
+
+| Story | Title | Status |
+|---|---|---|
+| US-31.1 | Findings-first audit of the imported ledger replay (F-1..F-3 + impact map) | Done |
+| US-31.2 | Fix F-1: price history for the full reconstructed symbol set | Backlog |
+| US-31.3 | Fix F-2/F-3: stop cash absorbing valuation error; never publish a reconciliation adjustment as a return | Backlog |
+
+**Blocks tech-debt US-24.9** (ledger-path cash de-dilution): refining the
+return-series basis is meaningless while the series itself is corrupted, and
+shipping it first would regenerate goldens around a fabricated number.
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-07-18 | US-31.1 | **Opened Epic 31 from a defect found while scoping US-24.9 — findings-first, no fixes.** Recorded **F-1..F-3** as one causal chain with `file:line` evidence, every number reproduced against the **frozen** `golden_market_data.json` (deterministic, network-free — not a local-cache artifact): **F-1 (Critical)** market data is fetched for *current* holdings only (`[p.symbol for p in snapshot.positions]`) while `build_daily_states` reconstructs *opening* positions by rolling back BUY/SELL — 38 opening symbols vs 20 current, leaving **27 of 38 unpriced on day 1** and opening MV at **$14,582.03** vs implied **$50,116.24**. **F-2 (Critical)** `base_cash = starting_nav − opening_positions_value` makes cash a **plug**: the $35,534.21 undervaluation is absorbed into opening cash ($37,799.09 vs implied $2,264.88) and rides every daily state, with no disclosure and no fail-closed — the same structural defect Epic 30 F-1 fixed only for the *no-ledger* path. **F-3 (High)** `_reconcile_terminal_state_to_statement_totals` corrects the whole drift on the final day, so the return series reads it as performance: last-day return **−36.34%** with reconciliation vs **+0.57%** without; annualised volatility **36.05% → 64.55% (+79%)** from that one day, contaminating every rolling window touching 2026-06-30. Added an **impact map**: the policy gates do *not* contain the defect — the Exposure rolling correlation/beta chart, risk-summary beta/correlation/volatility and the factor model are **surfaced and corrupted**; only the relative-return and drawdown families are gated to `null`. Also recorded an examined-and-found-correct list (synthetic path unaffected; `external_cash_flow` scope correct; no ledger entry type dropped by `snapshot_to_ledger`; `portfolio_proof` already builds with `apply_terminal_reconciliation=False`). Tech-debt **US-24.9** annotated as **blocked by Epic 31**. Audit-only: no production code touched, `dashboardGoldens.ts` byte-identical. |
+
+---
+
 ## Backlog Epic: Epic 30 — Exposure Improvements
 
 **PRD:** [`docs/product/prd/epic-30-exposure-improvements.md`](product/prd/epic-30-exposure-improvements.md)

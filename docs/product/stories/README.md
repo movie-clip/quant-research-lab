@@ -18,6 +18,16 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
+### Epic 31 — Ledger Replay Correctness (active)
+
+PRD: [`prd/epic-31-ledger-replay-correctness.md`](../prd/epic-31-ledger-replay-correctness.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-31.1](US-31.1-ledger-replay-audit.md) | Findings-first audit of the imported ledger replay | Audit-only (no code): records F-1..F-3 as one causal chain with file:line evidence, reproduced against the frozen golden market data — price history fetched for current holdings only while the replay reconstructs opening positions (11/38 priced on day 1), the `starting_nav − opening_value` cash anchor absorbing the $35,534 error as a plug, and the terminal reconciliation publishing that correction as a −36.34% single-day return (+79% volatility). Includes the surfaced-vs-gated impact map. Blocks tech-debt US-24.9 | Done |
+
+---
+
 ### Epic 29 — Chart First-Render Reliability (complete)
 
 PRD: [`prd/epic-29-chart-first-render-reliability.md`](../prd/epic-29-chart-first-render-reliability.md)
