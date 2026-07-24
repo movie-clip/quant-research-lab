@@ -158,3 +158,80 @@ def test_f3_terminal_reconciliation_is_published_as_a_return(replay_context) -> 
     )
     # The correction still flips a positive day negative — that is the defect.
     assert without_reconciliation > 0 > with_reconciliation
+
+
+# ── F-4 / F-5 (recorded 2026-07-24, US-31.4 / US-31.5) ──────────────────────
+#
+# These pin KNOWN-WRONG behaviour found while re-measuring F-2/F-3 for US-31.3.
+# Both are network-free: resolution candidates are pure, and the price series
+# come from the frozen fixture.
+
+
+def test_f5_bare_symbol_fallback_substitutes_a_different_security(replay_context) -> None:
+    """PINS F-5 (High) — KNOWN WRONG.
+
+    `SEMI` is the LSE UCITS line *iShares MSCI Global Semiconductors*
+    (ISIN IE000I8KRLL9, GBP, statement close 17.998). `SEMI.L` is unavailable on
+    the current FMP plan, so `resolve_symbol_candidates` falls through to the
+    bare US-listed `SEMI` — a different security quoting 40.58 (2.2547×),
+    overstating the holding by $2,506.93.
+
+    Expected AFTER the fix (US-31.4): either the venue-qualified line resolves,
+    or the symbol is reported as having NO history (and disclosed via
+    `unpriced_replay_symbols`) — never silently valued from another security.
+    """
+    from app.core.symbols import resolve_symbol_candidates
+
+    snapshot, price_histories, _valuation_dates = replay_context
+
+    assert resolve_symbol_candidates("SEMI", None, kind="history") == ["SEMI.L", "SEMI"], (
+        "F-5 pin: SEMI still carries an unguarded bare fallback (contrast CIBR, "
+        "pinned to ['CIBR.L']) — see US-31.4"
+    )
+
+    position = next(p for p in snapshot.positions if p.symbol == "SEMI")
+    rows = price_histories.get("SEMI") or []
+    assert rows, "frozen fixture lost SEMI — re-capture"
+    quote = max(rows, key=lambda row: row["date"])["price"]
+
+    # Current behaviour: the served quote cannot be the held line in any currency.
+    assert quote / position.close_price == pytest.approx(2.2547, abs=0.01), (
+        "F-5 appears fixed or changed — update this pin and see US-31.4"
+    )
+
+
+def test_f4_provider_quote_currency_is_not_the_position_currency(replay_context) -> None:
+    """PINS F-4 (High) — KNOWN WRONG.
+
+    The replay carries every value unconverted (`fx_history={}`), and a blanket
+    `position.currency` conversion is NOT the fix: the provider's quote currency
+    varies per resolved line. DEFS is held in EUR but `DEFS.L` quotes USD (ratio
+    ≈ EURUSD, so converting would double-count); SXRV is held in EUR and
+    `SXRV.DE` quotes EUR (ratio 1.0, so conversion IS required).
+
+    Expected AFTER the fix (US-31.5): a per-symbol quote currency is recorded and
+    conversion is applied only where the quote currency differs from the base.
+    """
+    snapshot, price_histories, _valuation_dates = replay_context
+    totals = snapshot.statement_totals
+    assert totals is not None and totals.fx_rates
+
+    def ratio(symbol: str) -> float:
+        position = next(p for p in snapshot.positions if p.symbol == symbol)
+        rows = price_histories.get(symbol) or []
+        assert rows, f"frozen fixture lost {symbol} — re-capture"
+        return max(rows, key=lambda row: row["date"])["price"] / position.close_price
+
+    eurusd = totals.fx_rates["EURUSD"]
+
+    # DEFS: EUR position, USD-quoted line — already in base, must NOT be converted.
+    assert ratio("DEFS") == pytest.approx(eurusd, abs=0.01)
+    # SXRV: EUR position, EUR-quoted line — must be converted.
+    assert ratio("SXRV") == pytest.approx(1.0, abs=0.01)
+    # The two cases are indistinguishable from the snapshot alone: same currency,
+    # opposite required treatment. That is precisely the F-4 gap.
+    assert (
+        next(p for p in snapshot.positions if p.symbol == "DEFS").currency
+        == next(p for p in snapshot.positions if p.symbol == "SXRV").currency
+        == "EUR"
+    )
