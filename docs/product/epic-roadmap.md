@@ -1,6 +1,6 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-07-08 (Epic 30 — Exposure Improvements **backlog** (created from the verified drift-panel findings F-1..F-6; calculations-first); Epic 29 — Chart First-Render Reliability **complete** (salvaged from a parallel session, renumbered from its "Epic 27"); Epic 28 — IBKR CSV Importer & Statement-Refresh Resilience **complete** (all 3 stories done 2026-07-07); Epic 27 — Financial Calculation Correctness **complete** (all 9 stories done, findings F1–F13 resolved); Epic 25 — Dashboard Performance & Risk Summary complete; Epic 24 — Codebase Improvement active; Epic 26 — Currency Exposure & Risk backlog (research brief only); Epic 23 — dead-code cleanup & codebase review complete; Epics 13/18/19/20/21/22 complete).*
+*Living execution snapshot. Updated: 2026-07-18 (Epic 31 — Ledger Replay Correctness **active** (US-31.1 audit done; F-1..F-3 open, blocks tech-debt US-24.9); Epic 30 — Exposure Improvements **complete** (all 8 stories done, closed 2026-07-16; created from the verified drift-panel findings F-1..F-6, extended by the US-30.4 audit's F-7..F-10; calculations-first); Epic 29 — Chart First-Render Reliability **complete** (salvaged from a parallel session, renumbered from its "Epic 27"); Epic 28 — IBKR CSV Importer & Statement-Refresh Resilience **complete** (all 3 stories done 2026-07-07); Epic 27 — Financial Calculation Correctness **complete** (all 9 stories done, findings F1–F13 resolved); Epic 25 — Dashboard Performance & Risk Summary complete; Epic 24 — Codebase Improvement active; Epic 26 — Currency Exposure & Risk backlog (research brief only); Epic 23 — dead-code cleanup & codebase review complete; Epics 13/18/19/20/21/22 complete).*
 
 ---
 
@@ -29,7 +29,7 @@ and drawdown families are gated to `null`.
 | Story | Title | Status |
 |---|---|---|
 | US-31.1 | Findings-first audit of the imported ledger replay (F-1..F-3 + impact map) | Done |
-| US-31.2 | Fix F-1: price history for the full reconstructed symbol set | Backlog |
+| US-31.2 | Fix F-1: price history for the full reconstructed symbol set | Done |
 | US-31.3 | Fix F-2/F-3: stop cash absorbing valuation error; never publish a reconciliation adjustment as a return | Backlog |
 
 **Blocks tech-debt US-24.9** (ledger-path cash de-dilution): refining the
@@ -40,11 +40,12 @@ shipping it first would regenerate goldens around a fabricated number.
 
 | Date | Story | What shipped |
 |---|---|---|
+| 2026-07-24 | US-31.2 | **Fixed F-1: the ledger replay now prices every position it reconstructs — and that alone removes most of F-3.** New `replay_symbol_universe(snapshot)` derives the fetch set from the SAME BUY/SELL scan that builds `opening_positions` (the US-30.1 "one shared chain" lesson), so the symbols fetched can never drift from the symbols valued. **Scoping correction:** the PRD's "38" is the count of non-zero *opening* positions, not the set needing prices — the universe is **63** (38 opening ∪ **16 bought AND sold entirely inside the window**, which appear in neither the opening nor the ending set yet are held on interior days, ∪ 9 opened in-window and still held). Both ledger-replay callers (`dashboard_history_engine`, `diagnostics_engine`) fetch it **separately** from `symbol_price_histories`, which still feeds the return-basis evidence and the downstream fan-out on the current-holdings basis those consumers are specified against; the synthetic branch is untouched (AC3 negative-pinned). **Two latent traps that the wider fetch armed, both closed:** (1) `_effective_valuation_dates` scored an unknown symbol `weight_by_symbol.get(symbol, 1.0)` — harmless only because since-sold symbols had no history to reach `first_covered`; they are now excluded from the truncation reference set (they have no current weight to evaluate), else any one with mid-window coverage would truncate the replay for every holding; (2) `fallback_prices` is keyed on current positions, so an unfetchable since-sold symbol contributed 0 in silence — new `unpriced_replay_symbols` disclosure on `DashboardHistoryRunMetadata` (TS + contract row mirrored). **Results (frozen data, network-free):** day-one opening MV **$14,582.03 → $49,024.04** vs implied $50,116.24 (70.9% short → 2.2%; residual is LQQ's US-27.7 statement-close anchor); opening-cash drift **$35,534.21 → $1,097.18 (−96.9%)**, confirming F-1 as the dominant term of the F-2 plug (AC8's falsification check). **F-3 materially re-scoped:** the fabricated terminal return fell **−36.34% → −2.56%** and its annualised-volatility inflation **+79% (36.21%→64.82%) → +1.1% (23.65%→23.91%)** — US-31.3 is still required on principle (guardrail #3: never publish an accounting adjustment as a return) but is no longer Critical in magnitude. **FF2026 caught the same defect on a second statement:** opening SCHD 28 / VWO 4 were unpriced, inflating start_value to 39% above the broker's own `starting_nav`, which fabricated a **−23.86%** period loss; corrected to **+3.75%** (2960.00 → 3071.00), with the US-27.2 chaining invariant Π(1+mᵢ)−1 still matching exactly. Goldens + `golden_market_data.json` re-captured **deliberately** (23 → 68 series) and itemized per family: market_value/market_price/portfolio_value/cash/return series moved; **statement-identity, ledger-count, weight, sector, cost-basis, ISIN and cash-by-currency families byte-identical**. Four `test_analytics.py` fixtures converted from ordered `side_effect` lists to a symbol-keyed dispatch (US-21.5: call order/count is not the contract). 578 backend (+13) + 285 frontend green; tsc + dead-code gate clean. |
 | 2026-07-18 | US-31.1 | **Opened Epic 31 from a defect found while scoping US-24.9 — findings-first, no fixes.** Recorded **F-1..F-3** as one causal chain with `file:line` evidence, every number reproduced against the **frozen** `golden_market_data.json` (deterministic, network-free — not a local-cache artifact): **F-1 (Critical)** market data is fetched for *current* holdings only (`[p.symbol for p in snapshot.positions]`) while `build_daily_states` reconstructs *opening* positions by rolling back BUY/SELL — 38 opening symbols vs 20 current, leaving **27 of 38 unpriced on day 1** and opening MV at **$14,582.03** vs implied **$50,116.24**. **F-2 (Critical)** `base_cash = starting_nav − opening_positions_value` makes cash a **plug**: the $35,534.21 undervaluation is absorbed into opening cash ($37,799.09 vs implied $2,264.88) and rides every daily state, with no disclosure and no fail-closed — the same structural defect Epic 30 F-1 fixed only for the *no-ledger* path. **F-3 (High)** `_reconcile_terminal_state_to_statement_totals` corrects the whole drift on the final day, so the return series reads it as performance: last-day return **−36.34%** with reconciliation vs **+0.57%** without; annualised volatility **36.05% → 64.55% (+79%)** from that one day, contaminating every rolling window touching 2026-06-30. Added an **impact map**: the policy gates do *not* contain the defect — the Exposure rolling correlation/beta chart, risk-summary beta/correlation/volatility and the factor model are **surfaced and corrupted**; only the relative-return and drawdown families are gated to `null`. Also recorded an examined-and-found-correct list (synthetic path unaffected; `external_cash_flow` scope correct; no ledger entry type dropped by `snapshot_to_ledger`; `portfolio_proof` already builds with `apply_terminal_reconciliation=False`). Tech-debt **US-24.9** annotated as **blocked by Epic 31**. Audit-only: no production code touched, `dashboardGoldens.ts` byte-identical. |
 
 ---
 
-## Backlog Epic: Epic 30 — Exposure Improvements
+## Completed Epic: Epic 30 — Exposure Improvements
 
 **PRD:** [`docs/product/prd/epic-30-exposure-improvements.md`](product/prd/epic-30-exposure-improvements.md)
 
@@ -62,6 +63,8 @@ Six stories: verified drift fixes first (US-30.1..30.3), then a
 findings-first audit of every remaining Exposure calculation surface
 (US-30.4/30.5), UI polish last (US-30.6). **Calculations must be accurate —
 that is the epic's bar.** Stories authored via `write-story` on pickup.
+*Closed 2026-07-16 with eight stories — the audit's four findings (F-7..F-10)
+split US-30.5 into 30.5a/b/c.*
 
 ### Story snapshot
 
@@ -345,6 +348,7 @@ surfaced value becomes a named, documented constant.
 | US-24.6 | Market-data client config hygiene — escaped URL + timeout | Done |
 | US-24.7 | Reconcile minor hardcodes + de-export + test smells | Backlog |
 | US-24.8 | Harden the IBKR importer parsing (fail-safe) | Done |
+| US-24.9 | Cash de-dilution on the imported ledger-replay return series | Backlog — **blocked by Epic 31** |
 
 Recommended order: US-24.1 first (highest-impact latent bugs, low effort), then
 US-24.2/24.3 (the analytics-constant work), then US-24.4/24.5/24.6, with US-24.7
@@ -356,6 +360,10 @@ CSV importer is a third producer coupled to `domain/ledger.py`'s section
 strings); US-24.6 valid verbatim; US-24.7 downgraded to Low — its EURUSD item
 was resolved incidentally by US-28.1 and the de-export motivation is obsolete
 (knip gate uses `ignoreExportsUsedInFile`); see the tech-debt register rows.*
+*US-24.9 was logged by US-30.5c and renumbered from 24.8 by US-24.6 (the
+original number collided with the shipped IBKR-importer story); US-31.1 then
+marked it **blocked** — refining the ledger-path return basis is meaningless
+while Epic 31's F-1..F-3 corrupt the series itself.*
 
 ### Slice log
 

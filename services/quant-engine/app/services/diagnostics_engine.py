@@ -24,6 +24,7 @@ from app.analytics.risk import (
     factor_model_methodology,
 )
 from app.analytics.performance import build_daily_portfolio_states
+from app.engine.portfolio_state import replay_symbol_universe
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.diagnostics import (
     DiagnosticsAvailability,
@@ -696,9 +697,21 @@ def _run_diagnostics_with_history(
 
     valuation_dates = sorted({row['date'] for row in benchmark_rows})
     if historical_basis == "imported_portfolio_history":
+        # US-31.2 (Epic 31 F-1): the replay reconstructs OPENING positions and
+        # walks them forward, so it values since-sold symbols absent from
+        # `symbol_price_histories` (today's holdings). Fetched SEPARATELY and
+        # used ONLY here — the downstream fan-out keeps the current-holdings
+        # basis it is specified against. The synthetic branch below is
+        # deliberately untouched (it builds forward from today's holdings and
+        # never reconstructs opening positions — Epic 30 / US-30.5c).
+        replay_price_histories = market_data.get_historical_prices_for_symbols(
+            replay_symbol_universe(snapshot),
+            history_start_date,
+            history_end_date,
+        )
         daily_states = build_daily_portfolio_states(
             snapshot=snapshot,
-            price_histories=symbol_price_histories,
+            price_histories=replay_price_histories,
             valuation_dates=valuation_dates,
             fx_history={},
         )

@@ -73,25 +73,37 @@ STATEMENT_2026_PATH = STATEMENT_2026_FIXTURE_PATH
 FF2026_DASHBOARD_GOLDEN = {
     "account_id": "185960",
     "statement_period": "2025-12-31 - 2026-04-11",
+    # US-31.2 (Epic 31 F-1) re-pinned these deliberately. FF2026 opens with
+    # VTI 3 / SCHD 28 / VWO 4 and sells SCHD+VWO on the first valuation date.
+    # Fetching prices for current holdings only left SCHD and VWO unpriced, so
+    # `opening_positions_value` was understated and the
+    # `starting_nav − opening_value` cash anchor absorbed the difference as a
+    # plug: start_value read 4033.48, **39% above the statement's own
+    # starting_nav of 2900.12**, which fabricated a −23.86% period loss. With
+    # all three opening positions priced the start value is 2960.00 (≈2% above
+    # starting_nav, the residual being statement-vs-market opening prices) and
+    # the period return is **+3.75%** — the portfolio genuinely went
+    # 2960.00 → 3071.00. `end_value` is unchanged, as expected: the terminal
+    # state was always reconciled to the statement.
     "summary": {
-        "start_value": 4033.48,
+        "start_value": 2960.00,
         "end_value": 3071.00,
         "net_contributions": 0.0,
         "time_weighted_return_pct": None,
-        "money_weighted_return_pct": -23.86,
+        "money_weighted_return_pct": 3.75,
         "max_drawdown_pct": None,
     },
     # US-27.2 (audit F3): monthly returns chain across month boundaries — each
     # month now includes its first trading day's return (baseline = prior
-    # month's last state). Sanity: Π(1+mᵢ) − 1 = −23.86%, matching the
-    # zero-flow money_weighted_return_pct above (the pre-fix values compounded
-    # to −24.8% and did not chain).
+    # month's last state). Sanity: Π(1+mᵢ) − 1 = +3.75%, matching the zero-flow
+    # money_weighted_return_pct above — the chaining invariant still holds after
+    # the US-31.2 re-pin (1.0019 × 1.0307 × 0.9891 × 0.9471 × 1.0724 = 1.0374).
     "monthly_returns": [
-        ("2025-12", 0.14),
-        ("2026-01", 2.26),
-        ("2026-02", -0.81),
-        ("2026-03", -3.90),
-        ("2026-04", -22.00),
+        ("2025-12", 0.19),
+        ("2026-01", 3.07),
+        ("2026-02", -1.09),
+        ("2026-03", -5.29),
+        ("2026-04", 7.24),
     ],
     "overview": {
         "total_market_value": 3018.96,
@@ -1310,6 +1322,22 @@ def test_run_imported_diagnostics_engine_returns_unavailable_without_imported_hi
     market_data.assert_not_called()
 
 
+def _histories_dispatch(position_histories: dict, factor_histories: dict):
+    """Order-independent `get_historical_prices_for_symbols` stub.
+
+    The imported ledger-replay path makes THREE such calls: position histories,
+    factor proxies, and (US-31.2) the reconstructed replay universe. An ordered
+    `side_effect` list breaks the moment a call is added, for a reason unrelated
+    to what the test asserts (US-21.5 assertion conventions). Dispatch on the
+    requested symbols instead, so call order and count are free to change.
+    """
+    def _serve(symbols, *args, **kwargs):
+        requested = list(symbols)
+        if any(symbol in factor_histories for symbol in requested):
+            return {s: factor_histories[s] for s in requested if s in factor_histories}
+        return {s: position_histories[s] for s in requested if s in position_histories}
+
+    return _serve
 def test_run_imported_diagnostics_engine_populates_history_derived_summary_fields(mocker) -> None:
     market_data = mocker.patch("app.services.diagnostics_engine.MarketDataService")
     service = market_data.return_value
@@ -1325,7 +1353,7 @@ def test_run_imported_diagnostics_engine_populates_history_derived_summary_field
         {"date": "2026-04-22", "price": 108.0},
         {"date": "2026-04-23", "price": 109.0},
     ]
-    service.get_historical_prices_for_symbols.side_effect = [
+    service.get_historical_prices_for_symbols.side_effect = _histories_dispatch(
         {
             "AAPL": [
                 {"date": "2026-04-10", "price": 100.0},
@@ -1355,7 +1383,7 @@ def test_run_imported_diagnostics_engine_populates_history_derived_summary_field
             ]
             for definition in DEFAULT_FACTOR_DEFINITIONS
         },
-    ]
+    )
     snapshot = ImportedPortfolioSnapshot(
         statement=ImportedStatement(
             importer="interactive_brokers",
@@ -1958,7 +1986,7 @@ def test_run_imported_diagnostics_engine_marks_verified_adjusted_close_when_all_
         {"date": "2026-04-10", "price": 100.0, "adjClose": 99.5},
         {"date": "2026-04-11", "price": 101.0, "adjClose": 100.4},
     ]
-    service.get_historical_prices_for_symbols.side_effect = [
+    service.get_historical_prices_for_symbols.side_effect = _histories_dispatch(
         {
             "AAPL": [
                 {"date": "2026-04-10", "price": 100.0, "adjClose": 99.5},
@@ -1975,7 +2003,7 @@ def test_run_imported_diagnostics_engine_marks_verified_adjusted_close_when_all_
                 {"date": "2026-04-11", "price": 202.0, "adjusted_close": 199.5},
             ],
         },
-    ]
+    )
     snapshot = ImportedPortfolioSnapshot(
         statement=ImportedStatement(
             importer="interactive_brokers",
@@ -2025,7 +2053,7 @@ def test_run_imported_diagnostics_engine_keeps_unverified_status_when_any_factor
         {"date": "2026-04-10", "price": 100.0, "adjClose": 99.5},
         {"date": "2026-04-11", "price": 101.0, "adjClose": 100.4},
     ]
-    service.get_historical_prices_for_symbols.side_effect = [
+    service.get_historical_prices_for_symbols.side_effect = _histories_dispatch(
         {
             "AAPL": [
                 {"date": "2026-04-10", "price": 100.0, "adjClose": 99.5},
@@ -2038,7 +2066,7 @@ def test_run_imported_diagnostics_engine_keeps_unverified_status_when_any_factor
                 {"date": "2026-04-11", "price": 202.0},
             ],
         },
-    ]
+    )
     snapshot = ImportedPortfolioSnapshot(
         statement=ImportedStatement(
             importer="interactive_brokers",
@@ -2089,7 +2117,7 @@ def test_run_imported_diagnostics_engine_refuses_drawdown_family_even_when_histo
         {"date": "2026-04-11", "price": 105.0},
         {"date": "2026-04-14", "price": 104.0},
     ]
-    service.get_historical_prices_for_symbols.side_effect = [
+    service.get_historical_prices_for_symbols.side_effect = _histories_dispatch(
         {
             "AAPL": [
                 {"date": "2026-04-10", "price": 100.0},
@@ -2105,7 +2133,7 @@ def test_run_imported_diagnostics_engine_refuses_drawdown_family_even_when_histo
             ]
             for definition in DEFAULT_FACTOR_DEFINITIONS
         },
-    ]
+    )
     snapshot = ImportedPortfolioSnapshot(
         statement=ImportedStatement(
             importer="interactive_brokers",
@@ -7192,9 +7220,24 @@ def test_ff2026_dashboard_truth_values_match_imported_history_and_overview(mocke
     def _spy_rows(symbol: str, from_date: str, to_date: str) -> list[dict]:
         return [{"date": d, "price": 500.0} for d in _ff2026_trading_dates(from_date, to_date)]
 
+    # US-31.2: the replay now also prices FF2026's since-sold opening positions
+    # (SCHD 28, VWO 4). This stub used to serve VTI's price curve for EVERY
+    # requested symbol, which was harmless while only VTI was fetched but would
+    # now value SCHD/VWO at ~$322/share — inflating opening value past the
+    # statement's own starting_nav (2900.12) and driving early portfolio values
+    # negative. Anchor them to their broker-truth statement sell prices instead.
+    _FF2026_SINCE_SOLD_PRICES = {"SCHD": 30.632, "VWO": 53.946}
+
     def _vti_rows_by_symbol(symbols: list[str], from_date: str, to_date: str) -> dict[str, list[dict]]:
         dates = _ff2026_trading_dates(from_date, to_date)
-        return {sym: [{"date": d, "price": _ff2026_vti_price(d)} for d in dates] for sym in symbols if sym}
+        return {
+            sym: [
+                {"date": d, "price": _FF2026_SINCE_SOLD_PRICES.get(sym) or _ff2026_vti_price(d)}
+                for d in dates
+            ]
+            for sym in symbols
+            if sym
+        }
 
     market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
     inst = market_data.return_value
@@ -7777,3 +7820,122 @@ def test_diagnostics_imported_path_threads_portfolio_value_basis(mocker) -> None
     assert result.provenance.historical_basis == "imported_portfolio_history"
     assert spy.call_count > 0
     assert all(call.kwargs.get("basis") == "portfolio_value" for call in spy.call_args_list)
+
+
+# ── US-31.2 (Epic 31 F-1): replay symbol coverage + unpriced disclosure ──
+
+
+def _us312_snapshot(*, sold_symbol: str | None = None) -> ImportedPortfolioSnapshot:
+    """Snapshot holding AAPL today, optionally having SOLD `sold_symbol` in the
+    window (so the replay reconstructs it as an opening position)."""
+    ledger = [
+        ImportedLedgerEntry(
+            entry_type="BUY", trade_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0,
+            price=100.0, gross_amount=1000.0, net_amount=1000.0, currency="USD", source_section="Trades",
+        )
+    ]
+    if sold_symbol is not None:
+        ledger.append(
+            ImportedLedgerEntry(
+                entry_type="SELL", trade_date=date(2026, 4, 11), symbol=sold_symbol, quantity=4.0,
+                price=50.0, gross_amount=200.0, net_amount=200.0, currency="USD", source_section="Trades",
+            )
+        )
+    return ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers", imported_at=datetime(2026, 4, 10),
+            source_path="snapshot.pdf", detected_format="pdf", account_id="U123",
+            base_currency="USD", statement_period="2026-04-10 - 2026-04-11", page_count=1,
+        ),
+        statements=[], statement_totals=None, instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=100.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 11), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=115.0, market_value=1150.0, unrealized_pnl=150.0, currency="USD")],
+        ledger_entries=ledger,
+    )
+
+
+_US312_ROWS = {
+    "AAPL": [{"date": "2026-04-10", "price": 110.0}, {"date": "2026-04-11", "price": 115.0}],
+    "ZZZ": [{"date": "2026-04-10", "price": 50.0}, {"date": "2026-04-11", "price": 55.0}],
+}
+
+
+def test_dashboard_history_discloses_no_unpriced_symbols_when_replay_is_fully_covered(mocker) -> None:
+    """US-31.2 AC5: the disclosure stays empty (never null, never absent) when
+    every reconstructed symbol is priced."""
+    service = mocker.patch("app.services.dashboard_history_engine.MarketDataService").return_value
+    service.get_direct_verified_benchmark_history.return_value = [
+        {"date": "2026-04-10", "price": 100.0},
+        {"date": "2026-04-11", "price": 120.0},
+    ]
+    service.get_historical_prices_for_symbols.side_effect = (
+        lambda symbols, *a, **k: {s: _US312_ROWS[s] for s in symbols if s in _US312_ROWS}
+    )
+
+    result = run_imported_dashboard_history(_us312_snapshot(sold_symbol="ZZZ"), "SPY")
+
+    assert result.run_metadata.unpriced_replay_symbols == []
+
+
+def test_dashboard_history_discloses_unpriced_since_sold_symbol(mocker) -> None:
+    """US-31.2 AC5: a reconstructed symbol with no history and no statement
+    anchor contributed 0 — the run metadata must say so."""
+    service = mocker.patch("app.services.dashboard_history_engine.MarketDataService").return_value
+    service.get_direct_verified_benchmark_history.return_value = [
+        {"date": "2026-04-10", "price": 100.0},
+        {"date": "2026-04-11", "price": 120.0},
+    ]
+    # NOCOV is never served, so the replay holds it unvaluable on day one.
+    service.get_historical_prices_for_symbols.side_effect = (
+        lambda symbols, *a, **k: {s: _US312_ROWS[s] for s in symbols if s in _US312_ROWS}
+    )
+
+    result = run_imported_dashboard_history(_us312_snapshot(sold_symbol="NOCOV"), "SPY")
+
+    assert "NOCOV" in result.run_metadata.unpriced_replay_symbols
+    assert "AAPL" not in result.run_metadata.unpriced_replay_symbols
+
+
+def test_imported_diagnostics_fetches_the_full_reconstructed_symbol_universe(mocker) -> None:
+    """US-31.2 AC2: the imported ledger-replay path must request since-sold
+    symbols, not just today's holdings."""
+    service = mocker.patch("app.services.diagnostics_engine.MarketDataService").return_value
+    rows = [{"date": "2026-04-10", "price": 100.0}, {"date": "2026-04-11", "price": 101.0}]
+    service.get_historical_prices.return_value = rows
+    service.get_historical_prices_for_symbols.side_effect = (
+        lambda symbols, *a, **k: {s: rows for s in symbols}
+    )
+
+    run_imported_diagnostics_engine(_us312_snapshot(sold_symbol="ZZZ"), "SPY")
+
+    requested = [set(call.args[0]) for call in service.get_historical_prices_for_symbols.call_args_list]
+    assert any("ZZZ" in symbols for symbols in requested), (
+        f"replay fetch never requested the since-sold symbol: {requested}"
+    )
+
+
+def test_snapshot_diagnostics_still_fetches_current_holdings_only(mocker) -> None:
+    """US-31.2 AC3 (negative pin): the SYNTHETIC path builds forward from
+    today's holdings and must not gain since-sold symbols."""
+    service = mocker.patch("app.services.diagnostics_engine.MarketDataService").return_value
+    rows = [{"date": "2026-04-10", "price": 100.0}, {"date": "2026-04-11", "price": 101.0}]
+    service.get_historical_prices.return_value = rows
+    service.get_historical_prices_for_symbols.side_effect = (
+        lambda symbols, *a, **k: {s: rows for s in symbols}
+    )
+    snapshot = _us312_snapshot(sold_symbol="ZZZ")
+    request = DiagnosticsEngineRequest(
+        positions=[PortfolioPositionSnapshot(symbol="AAPL", quantity=10.0, market_value=1150.0, currency="USD")],
+        cash_balances=[PortfolioCashBalanceSnapshot(currency="USD", amount=100.0)],
+        benchmark_symbol="SPY",
+        history_context=PortfolioHistoryContext(history_start_date="2026-04-10", history_end_date="2026-04-11", benchmark_symbol="SPY"),
+    )
+
+    run_diagnostics_engine(request)
+
+    requested = [set(call.args[0]) for call in service.get_historical_prices_for_symbols.call_args_list]
+    assert requested, "no symbol history was requested at all"
+    assert all("ZZZ" not in symbols for symbols in requested), (
+        f"synthetic path leaked a since-sold symbol into its fetch: {requested}"
+    )
+    assert snapshot.ledger_entries, "fixture sanity: the snapshot does carry a SELL"

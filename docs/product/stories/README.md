@@ -25,6 +25,7 @@ PRD: [`prd/epic-31-ledger-replay-correctness.md`](../prd/epic-31-ledger-replay-c
 | Story | Title | Scope | Status |
 |---|---|---|---|
 | [US-31.1](US-31.1-ledger-replay-audit.md) | Findings-first audit of the imported ledger replay | Audit-only (no code): records F-1..F-3 as one causal chain with file:line evidence, reproduced against the frozen golden market data — price history fetched for current holdings only while the replay reconstructs opening positions (11/38 priced on day 1), the `starting_nav − opening_value` cash anchor absorbing the $35,534 error as a plug, and the terminal reconciliation publishing that correction as a −36.34% single-day return (+79% volatility). Includes the surfaced-vs-gated impact map. Blocks tech-debt US-24.9 | Done |
+| [US-31.2](US-31.2-ledger-replay-opening-symbol-coverage.md) | Price the full reconstructed symbol set on the ledger-replay path | Backend — fixes F-1: one shared pure function derives the replay symbol universe (current holdings ∪ every BUY/SELL symbol, 63 vs 20 for IB2026) and both ledger-replay callers fetch it; closes the `_effective_valuation_dates` default-weight-1.0 trap that the wider fetch set would otherwise arm; discloses residual unpriced opening positions on the run metadata. Deliberate `golden_market_data.json` re-capture + itemized goldens diff. Opening MV $14,582 → $49,024; cash plug −96.9%; F-3 re-scoped (−36.34% → −2.56%). F-2/F-3 stay untouched (US-31.3) | Done |
 
 ---
 

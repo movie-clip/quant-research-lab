@@ -10,6 +10,54 @@ from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.reconciliation import DailyPortfolioState, DailyStatePosition
 
 
+def _trade_quantity_totals(
+    trade_entries: list,
+) -> tuple[defaultdict[str, float], defaultdict[str, float]]:
+    """Per-symbol BUY / SELL quantity totals from a canonical ledger.
+
+    Shared by `replay_symbol_universe` and `build_daily_states` so the set of
+    symbols we FETCH prices for can never drift from the set the replay
+    actually values (US-31.2 / Epic 31 F-1 — the two were derived
+    independently, which is exactly how they diverged).
+    """
+    buy_totals: defaultdict[str, float] = defaultdict(float)
+    sell_totals: defaultdict[str, float] = defaultdict(float)
+    for entry in trade_entries:
+        if entry.entry_type == "BUY" and entry.symbol and entry.quantity:
+            buy_totals[entry.symbol] += entry.quantity
+        elif entry.entry_type == "SELL" and entry.symbol and entry.quantity:
+            sell_totals[entry.symbol] += entry.quantity
+    return buy_totals, sell_totals
+
+
+def replay_symbol_universe(snapshot: ImportedPortfolioSnapshot) -> list[str]:
+    """Every symbol the ledger replay may need a price for (US-31.2, F-1).
+
+    The replay rolls ending positions BACK through BUY/SELL to reconstruct
+    opening positions, then walks them forward again — so it values three
+    populations, not one:
+
+      1. symbols still held today (the snapshot's positions),
+      2. symbols held at the window open and since sold,
+      3. symbols bought AND sold entirely inside the window (they appear in
+         neither the opening nor the ending set, but are held on interior days).
+
+    Callers previously fetched only (1) — `[p.symbol for p in
+    snapshot.positions]` — leaving (2) and (3) with no price rows at all, so
+    they silently contributed 0 to market value (Epic 31 F-1: 27 of 38 opening
+    positions unpriced on the IB2026 day one).
+
+    Returns a sorted list so the fetch order — and therefore the recorded
+    golden fixture — is deterministic.
+    """
+    buy_totals, sell_totals = _trade_quantity_totals(snapshot_to_ledger(snapshot))
+    return sorted(
+        {position.symbol for position in snapshot.positions if position.symbol}
+        | {symbol for symbol in buy_totals if symbol}
+        | {symbol for symbol in sell_totals if symbol}
+    )
+
+
 @dataclass
 class PortfolioStateEngine:
     snapshot: ImportedPortfolioSnapshot
@@ -27,6 +75,13 @@ class PortfolioStateEngine:
     # broker-path anchor). Zero return contribution — callers must disclose,
     # never let the flat segment pass as market data.
     statement_anchored_symbols: set[str] = field(default_factory=set)
+    # US-31.2 (Epic 31 F-1): symbols the replay held on some day of the window
+    # for which there was NO fetchable price history AND no statement close
+    # price to anchor on — they contributed 0 to that day's market value. The
+    # common case is a since-sold symbol: it is absent from the current
+    # snapshot, so it is absent from `fallback_prices` too. Recorded so callers
+    # disclose the gap instead of publishing a silently understated NAV.
+    unpriced_replay_symbols: set[str] = field(default_factory=set)
 
     def build_daily_states(
         self,
@@ -37,6 +92,7 @@ class PortfolioStateEngine:
     ) -> list[DailyPortfolioState]:
         self.fx_fallback_currencies = set()
         self.statement_anchored_symbols = set()
+        self.unpriced_replay_symbols = set()
         if not valuation_dates:
             return []
 
@@ -47,13 +103,7 @@ class PortfolioStateEngine:
         )
 
         ending_positions = {position.symbol: position.quantity for position in self.snapshot.positions}
-        buy_totals: defaultdict[str, float] = defaultdict(float)
-        sell_totals: defaultdict[str, float] = defaultdict(float)
-        for entry in trade_entries:
-            if entry.entry_type == "BUY" and entry.symbol and entry.quantity:
-                buy_totals[entry.symbol] += entry.quantity
-            elif entry.entry_type == "SELL" and entry.symbol and entry.quantity:
-                sell_totals[entry.symbol] += entry.quantity
+        buy_totals, sell_totals = _trade_quantity_totals(trade_entries)
 
         opening_positions: defaultdict[str, float] = defaultdict(float)
         initial_portfolio_value = self.snapshot.statement_totals.starting_nav if self.snapshot.statement_totals and self.snapshot.statement_totals.starting_nav is not None else 0.0
@@ -127,10 +177,18 @@ class PortfolioStateEngine:
         first_date = valuation_dates[0]
         opening_positions_value = 0.0
         for symbol, opening_quantity in opening_positions.items():
+            if abs(opening_quantity) < 1e-9:
+                continue
             opening_price = price_for(symbol, first_date)
             currency = instrument_currency.get(symbol, self.base_currency)
             if opening_price is not None:
                 opening_positions_value += to_base_currency(opening_quantity * opening_price, currency, first_date)
+            else:
+                # Unvaluable opening position — it contributes 0 to
+                # `opening_positions_value`, which the cash anchor below then
+                # absorbs as a plug (Epic 31 F-2, fixed in US-31.3). Disclose
+                # the input gap here (US-31.2 / F-1).
+                self.unpriced_replay_symbols.add(symbol)
 
         if self.snapshot.statement_totals is not None and self.snapshot.statement_totals.starting_nav is not None:
             base_cash = initial_portfolio_value - opening_positions_value
@@ -180,6 +238,12 @@ class PortfolioStateEngine:
                     continue
                 currency = instrument_currency.get(symbol, self.base_currency)
                 price = price_for(symbol, day_str)
+                if price is None:
+                    # Held on this day but unvaluable (no quote yet, or no
+                    # history and no statement anchor) — it contributes 0 to
+                    # total_market_value below. Disclose rather than publish a
+                    # silently understated NAV (US-31.2 / Epic 31 F-1).
+                    self.unpriced_replay_symbols.add(symbol)
                 market_value = round(to_base_currency(quantity * price, currency, day_str), 2) if price is not None else None
                 if market_value is not None:
                     total_market_value += market_value
@@ -224,6 +288,16 @@ class PortfolioStateEngine:
         sub-de-minimis late-coverage symbols do not truncate either — their
         pre-coverage days simply carry no market price (bounded by the
         de-minimis weight, never a fabricated flat segment).
+
+        US-31.2 (Epic 31 F-1): materiality is DEFINED against current snapshot
+        weight, so a reconstructed since-sold symbol has no weight to evaluate.
+        Such symbols are excluded from the truncation reference set rather than
+        scoring the `.get(symbol, 1.0)` maximum default — otherwise any one of
+        them whose history happens to begin mid-window would truncate (or
+        wholly eliminate) the replay window for every other holding. This was
+        latent until US-31.2 started fetching their history: with no rows they
+        never reached `first_covered`. Their coverage gap is surfaced through
+        `unpriced_replay_symbols` instead of silently reshaping the window.
         """
         total_value = sum(float(position.market_value) for position in self.snapshot.positions)
         weight_by_symbol = {
@@ -238,12 +312,16 @@ class PortfolioStateEngine:
             symbol_history = history_by_symbol.get(symbol)
             if not symbol_history:
                 continue
+            # Only symbols the current snapshot can weight participate in the
+            # truncation decision (US-31.2 — see the docstring).
+            if symbol not in weight_by_symbol:
+                continue
             first_covered[symbol] = min(symbol_history)
 
         material = {
             symbol: first_date
             for symbol, first_date in first_covered.items()
-            if weight_by_symbol.get(symbol, 1.0) >= SYNTHETIC_COVERAGE_DE_MINIMIS_WEIGHT
+            if weight_by_symbol[symbol] >= SYNTHETIC_COVERAGE_DE_MINIMIS_WEIGHT
         }
         reference = material or first_covered
         if not reference:

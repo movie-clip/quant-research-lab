@@ -116,6 +116,13 @@ class DashboardHistoryRunMetadata(BaseModel):
     # available — affected values are carried UNCONVERTED and this discloses
     # the degradation (never a silent 1:1 fallback claim).
     fx_fallback_currencies: list[str] = []
+    # US-31.2 (Epic 31 F-1): reconstructed opening/interior positions that had
+    # NO fetchable price history AND no statement close-price anchor, so they
+    # contributed 0 to the replayed market value on the days they were held.
+    # Since-sold symbols are the common case (they are absent from the current
+    # snapshot, hence from `fallback_prices`). Disclosed rather than silently
+    # zeroed — guardrail #3.
+    unpriced_replay_symbols: list[str] = []
 
 
 class DashboardHistoryResult(BaseModel):

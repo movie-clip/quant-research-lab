@@ -441,6 +441,11 @@ export type DashboardHistoryRunMetadata = {
    *  rate during the replay — values carried unconverted (disclosed, never a
    *  silent 1:1 conversion claim). */
   fx_fallback_currencies?: string[]
+  /** US-31.2 (Epic 31 F-1): reconstructed positions held during the window with
+   *  no fetchable price history and no statement close-price anchor — they
+   *  contributed 0 to the replayed market value. Disclosed, never silently
+   *  zeroed. */
+  unpriced_replay_symbols?: string[]
   source_status: {
     performance_history: string
     monthly_returns: string

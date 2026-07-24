@@ -206,6 +206,29 @@ Broker-path specifics:
     hold) and does not truncate the window
   - sub-de-minimis opening holdings with late coverage carry no market price
     on their pre-coverage days (bounded by the de-minimis weight)
+  - RECONSTRUCTED symbols (US-31.2 / Epic 31 F-1) — the replay rolls ending
+    positions back through BUY/SELL, so it values three populations: symbols
+    still held, symbols held at the window open and since sold, and symbols
+    bought AND sold entirely inside the window. Price history is fetched for
+    all of them (`replay_symbol_universe`), not just current holdings; the
+    narrow fetch left since-sold positions unpriced, contributing 0 to market
+    value (27 of 38 IB2026 opening positions; opening MV $14,582 vs an implied
+    $50,116) with the shortfall absorbed by the cash anchor.
+  - a since-sold symbol has NO current snapshot weight, so materiality cannot
+    be evaluated for it: such symbols are EXCLUDED from the truncation
+    reference set rather than defaulting to the maximum weight. Otherwise any
+    one of them whose coverage happens to begin mid-window would truncate the
+    replay for every other holding. Their coverage gap is disclosed instead
+    (see below), never allowed to silently reshape the window.
+
+Unpriced-symbol disclosure (US-31.2):
+  a symbol the replay holds on a given day but cannot value at all — no
+  fetchable history AND no statement close anchor (the usual case being a
+  since-sold symbol, which is absent from the current snapshot and therefore
+  from the statement-price map) — contributes 0 to that day's market value
+  and is recorded in `unpriced_replay_symbols`, surfaced on the
+  dashboard-history run metadata. Weaker degradation than the statement-close
+  anchor above, and disclosed rather than published as an understated NAV.
 
 Fail-closed interaction:
   the MIN_DAILY_OBSERVATIONS floors apply to the EFFECTIVE (post-truncation)

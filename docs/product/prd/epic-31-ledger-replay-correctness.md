@@ -59,9 +59,36 @@ Reproduced against the committed `docs/IB2026.csv` portfolio using the **frozen*
 
 | # | Severity | Finding | Evidence |
 |---|---|---|---|
-| F-1 | **Critical** | **Price histories are fetched only for *current* positions, but the replay reconstructs *opening* positions — so every since-sold symbol is unpriced.** `PortfolioStateEngine.build_daily_states` rolls ending positions back through BUY/SELL to derive opening positions, producing **38** opening symbols for a snapshot that holds **20** today. Market data is fetched with `[p.symbol for p in snapshot.positions]` (the 20 current holdings), so the 18 since-sold symbols have **no price rows at all**. On day 1 (2026-01-08) only **11 of 38** positions are priced; the 27 unpriced (AAPL, ACN, ASML, GOOG, NFLX, TSM, …) contribute **$0** to opening market value. | `engine/portfolio_state.py:31-60` (opening reconstruction), `:176-190` (`if market_value is not None: total_market_value += market_value` — unpriced silently contribute 0); callers fetch current-symbol history only: `services/diagnostics_engine.py:668-672`, `analytics/performance.py` (`build_daily_portfolio_states`). Reproduction: day-1 opening MV **$14,582.03** vs implied true **$50,116.24**. |
+| F-1 | ✅ **RESOLVED (US-31.2)** | **Price histories are fetched only for *current* positions, but the replay reconstructs *opening* positions — so every since-sold symbol is unpriced.** `PortfolioStateEngine.build_daily_states` rolls ending positions back through BUY/SELL to derive opening positions, producing **38** opening symbols for a snapshot that holds **20** today. Market data is fetched with `[p.symbol for p in snapshot.positions]` (the 20 current holdings), so the 18 since-sold symbols have **no price rows at all**. On day 1 (2026-01-08) only **11 of 38** positions are priced; the 27 unpriced (AAPL, ACN, ASML, GOOG, NFLX, TSM, …) contribute **$0** to opening market value. | `engine/portfolio_state.py:31-60` (opening reconstruction), `:176-190` (`if market_value is not None: total_market_value += market_value` — unpriced silently contribute 0); callers fetch current-symbol history only: `services/diagnostics_engine.py:668-672`, `analytics/performance.py` (`build_daily_portfolio_states`). Reproduction: day-1 opening MV **$14,582.03** vs implied true **$50,116.24**. |
 | F-2 | **Critical** | **Cash is a plug variable that silently absorbs any opening-position valuation error.** The opening cash anchor is `base_cash = starting_nav − opening_positions_value` (`portfolio_state.py:52,124`). Because F-1 undervalues opening positions by **$35,534.21**, that exact amount is absorbed into opening cash: the engine anchors **$37,799.09** where the statement implies **$2,264.88** (true ending cash $1,993.65 minus net window flow −$271.23). The error then rides **every** daily state in the window — every `total_portfolio_value` on the imported path is overstated by ~$35.5k — with **no disclosure and no fail-closed**: the states still carry full confidence. This is the same structural defect as Epic 30 F-1 (a derived cash anchor absorbing an error), which was fixed only for the *no-ledger* request path. | `engine/portfolio_state.py:52,124`; reproduction: engine opening cash **$37,799.09** vs implied **$2,264.88**, drift **$35,534.21** — exactly the F-1 undervaluation. |
 | F-3 | **High** | **The terminal reconciliation converts the accumulated error into a fabricated single-day return.** `_reconcile_terminal_state_to_statement_totals` (`portfolio_state.py:254-268`) overwrites the **final** state's `total_portfolio_value` with the statement's ending NAV (and back-solves cash), correcting the whole F-2 drift at once. The return series reads that correction as performance: the last day yields **−36.34%** (with reconciliation) vs **+0.57%** (without). One fabricated day inflates annualised volatility from **36.05% → 64.55%** (**+79%**), and contaminates every rolling window (20/60/252-day) that touches 2026-06-30. Nothing marks the day as an adjustment. | `engine/portfolio_state.py:207,254-268`; reproduction (frozen data): terminal PV 99,900.94 → 63,234.80 while market value moves only 61,812.06 → 62,378.06 and `external_cash_flow = 0`. |
+
+### Post-US-31.2 status (2026-07-24) — F-2/F-3 magnitudes re-measured
+
+US-31.2 resolved F-1. Because the three findings are **one** causal chain, the
+downstream magnitudes recorded above were measured with the F-1 input defect
+still present and are now substantially smaller:
+
+| Quantity | At audit (US-31.1) | After US-31.2 | Change |
+|---|---|---|---|
+| Day-one opening market value | $14,582.03 (vs implied $50,116.24) | **$49,024.04** | 70.9% short → 2.2% |
+| Opening-cash drift (F-2 plug) | $35,534.21 | **$1,097.18** | −96.9% |
+| Fabricated terminal return (F-3) | −36.34% | **−2.56%** | — |
+| Annualised volatility inflation | +79% (36.05% → 64.55%) | **+1.1%** (23.65% → 23.91%) | — |
+
+**US-31.3 remains necessary but is no longer Critical in magnitude.** Publishing
+*any* accounting adjustment as a return violates guardrail #3 regardless of
+size, and the correction still flips a genuinely positive final day negative.
+But the "+79% volatility" framing that motivated the epic's severity no longer
+holds, and the remaining F-2 residual is **not** the since-sold gap F-1
+described — it is LQQ's US-27.7 statement-close anchor (a held symbol with no
+fetchable history), a different and much narrower problem. US-31.3 should be
+re-scoped against these numbers before implementation.
+
+*A second statement independently confirmed the F-1 class: FF2026's opening
+SCHD/VWO were unpriced, inflating start_value to 39% above the broker's own
+`starting_nav` and fabricating a **−23.86%** period loss where the truth is
+**+3.75%**.*
 
 ### Causal chain (the three findings are one defect)
 
@@ -129,7 +156,7 @@ Recorded so a future reader knows the audit covered them:
 | Story | Title | Priority |
 |---|---|---|
 | US-31.1 | Findings-first audit of the imported ledger replay (this table) + scope which surfaced metrics are affected vs policy-gated | **Critical** |
-| US-31.2 | *(to be scoped from US-31.1)* Fix F-1: fetch price history for the full reconstructed symbol set, not just current holdings | TBD |
+| US-31.2 | Fix F-1: fetch price history for the full reconstructed symbol set, not just current holdings — [scoped + ticketed 2026-07-24](../stories/US-31.2-ledger-replay-opening-symbol-coverage.md) | **Critical** |
 | US-31.3 | *(to be scoped)* Fix F-2/F-3: stop cash absorbing valuation error — disclose or fail closed, and never publish a reconciliation adjustment as a return | TBD |
 
 ## Success signals

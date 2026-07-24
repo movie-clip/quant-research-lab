@@ -1,7 +1,8 @@
 from typing import TypedDict, cast
 
 from app.core.constants import DEFAULT_BENCHMARK_SYMBOL
-from app.analytics.performance import build_daily_portfolio_states_with_fx_disclosure, build_true_performance_series
+from app.analytics.performance import build_daily_portfolio_states_with_replay_disclosure, build_true_performance_series
+from app.engine.portfolio_state import replay_symbol_universe
 from app.analytics.risk import (
     _build_drawdown_from_return_index,
     _build_wealth_index,
@@ -456,9 +457,20 @@ def run_imported_dashboard_history(
         )
 
     valuation_dates = sorted({row["date"] for row in benchmark_rows})
-    daily_states, fx_fallback_currencies = build_daily_portfolio_states_with_fx_disclosure(
+    # US-31.2 (Epic 31 F-1): the replay reconstructs OPENING positions and walks
+    # them forward, so it values since-sold symbols that are absent from
+    # `symbol_price_histories` (today's holdings). Fetched SEPARATELY and used
+    # ONLY for the replay — `symbol_price_histories` still feeds the
+    # return-basis evidence and the downstream fan-out on the current-holdings
+    # basis those consumers are specified against.
+    replay_price_histories = market_data.get_historical_prices_for_symbols(
+        replay_symbol_universe(snapshot),
+        history_start_date,
+        history_end_date,
+    )
+    daily_states, fx_fallback_currencies, unpriced_replay_symbols = build_daily_portfolio_states_with_replay_disclosure(
         snapshot=snapshot,
-        price_histories=symbol_price_histories,
+        price_histories=replay_price_histories,
         valuation_dates=valuation_dates,
         fx_history={},
     )
@@ -536,6 +548,7 @@ def run_imported_dashboard_history(
             investor_economics_status=_build_dashboard_investor_economics_status(),
             investor_economics_partial_unlock=_build_dashboard_investor_economics_partial_unlock(),
             fx_fallback_currencies=fx_fallback_currencies,
+            unpriced_replay_symbols=unpriced_replay_symbols,
             reproducibility=DashboardHistoryRunReproducibility(
                 input_imported_at=snapshot.statement.imported_at.isoformat() if snapshot.statement.imported_at is not None else None,
                 snapshot_as_of_date=_derive_snapshot_as_of_date(snapshot),
