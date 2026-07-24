@@ -20,7 +20,7 @@ from __future__ import annotations
 import pytest
 
 from app.domain.ledger import snapshot_to_ledger
-from app.engine.portfolio_state import PortfolioStateEngine
+from app.engine.portfolio_state import PortfolioStateEngine, replay_symbol_universe
 from app.scripts.export_dashboard_goldens import _docs_statement_path, _repo_root
 from app.scripts.frozen_market_data import FrozenMarketData
 from app.services.statement_importer import import_statements
@@ -41,8 +41,13 @@ def replay_context():
 
     benchmark_rows = market_data.get_historical_prices("SPY", start, end)
     valuation_dates = sorted({row["date"] for row in benchmark_rows})
+    # US-31.2: mirrors what the ledger-replay callers now fetch. Before that
+    # story this was `[p.symbol for p in snapshot.positions]` (current holdings
+    # only) — which WAS F-1. Every pin below is therefore re-stated against
+    # post-US-31.2 production behaviour; the pre-fix numbers are kept in the
+    # comments so the PRD's evidence trail stays readable.
     price_histories = market_data.get_historical_prices_for_symbols(
-        [p.symbol for p in snapshot.positions], start, end
+        replay_symbol_universe(snapshot), start, end
     )
     return snapshot, price_histories, valuation_dates
 
@@ -60,17 +65,16 @@ def _build_states(snapshot, price_histories, valuation_dates, *, reconcile: bool
     )
 
 
-def test_f1_opening_positions_are_largely_unpriced(replay_context) -> None:
-    """PINS F-1 (Critical) — KNOWN WRONG.
+def test_f1_opening_positions_are_priced(replay_context) -> None:
+    """F-1 (Critical) — **RESOLVED by US-31.2**.
 
-    Price history is fetched for the snapshot's *current* holdings, but the
-    replay reconstructs *opening* positions by rolling back BUY/SELL, so every
-    since-sold symbol has no price rows at all and contributes $0 to opening
-    market value.
+    Price history was fetched for the snapshot's *current* holdings while the
+    replay reconstructs *opening* positions, so every since-sold symbol had no
+    price rows and contributed $0 (27 of 38 unpriced on day one; opening market
+    value $14,582.03 against an implied $50,116.24).
 
-    Expected AFTER the fix (US-31.2): every reconstructed opening position is
-    priced (or its absence is explicitly disclosed), and this test flips to
-    asserting `unpriced == 0`.
+    The callers now fetch `replay_symbol_universe(snapshot)`. This pin is
+    inverted accordingly — it fails if the narrow fetch ever comes back.
     """
     snapshot, price_histories, valuation_dates = replay_context
     states = _build_states(snapshot, price_histories, valuation_dates, reconcile=False)
@@ -78,13 +82,9 @@ def test_f1_opening_positions_are_largely_unpriced(replay_context) -> None:
 
     unpriced = [p.symbol for p in day_one.positions if p.market_value is None]
 
-    # Current behaviour: the majority of reconstructed opening positions are unpriced.
-    assert unpriced, "F-1 appears fixed — update this pin and see US-31.2"
-    assert len(unpriced) > len(day_one.positions) / 2, (
-        f"F-1 pin: expected most opening positions unpriced, got "
-        f"{len(unpriced)}/{len(day_one.positions)}"
-    )
-    # The snapshot holds far fewer symbols today than the replay reconstructs.
+    assert unpriced == [], f"F-1 has regressed — opening positions unpriced: {unpriced}"
+    # The replay still values more symbols than the snapshot holds today; that
+    # is the reconstruction working, and is exactly why the wider fetch matters.
     assert len(day_one.positions) > len(snapshot.positions)
 
 
@@ -111,9 +111,11 @@ def test_f2_opening_cash_absorbs_the_valuation_error(replay_context) -> None:
 
     drift = engine_opening_cash - implied_opening_cash
 
-    # Current behaviour: a large, undisclosed drift.
-    assert abs(drift) > 1_000.0, (
-        f"F-2 appears fixed (drift={drift:,.2f}) — update this pin and see US-31.3"
+    # Still open, but US-31.2 shrank it by 96.9%: $35,534.21 → $1,097.18. The
+    # residual is LQQ's statement-close anchor (a held symbol with no fetchable
+    # history), NOT the since-sold gap F-1 described.
+    assert abs(drift) == pytest.approx(1_097.18, abs=1.0), (
+        f"F-2 drift moved (drift={drift:,.2f}) — re-check before US-31.3"
     )
 
 
@@ -127,6 +129,14 @@ def test_f3_terminal_reconciliation_is_published_as_a_return(replay_context) -> 
     Expected AFTER the fix (US-31.3): the reconciliation is disclosed,
     distributed, or fails closed — never published as a single-day return. This
     test then flips to asserting the two series' final returns agree.
+
+    **US-31.2 materially re-scoped this finding.** The adjustment was never an
+    independent defect — it is the accumulated F-1/F-2 error snapping out on the
+    last day. With opening positions priced, the fabricated terminal return fell
+    from **−36.34% to −2.56%**, and its annualised-volatility inflation from
+    **+79% (36.21% → 64.82%) to +1.1% (23.65% → 23.91%)**. US-31.3 remains
+    necessary on principle — publishing ANY accounting adjustment as a return
+    violates guardrail #3 — but its magnitude is now small, not Critical.
     """
     snapshot, price_histories, valuation_dates = replay_context
 
@@ -138,11 +148,13 @@ def test_f3_terminal_reconciliation_is_published_as_a_return(replay_context) -> 
     with_reconciliation = final_return(reconcile=True)
     without_reconciliation = final_return(reconcile=False)
 
-    # Current behaviour: the adjustment dominates the final day's "return".
-    assert abs(with_reconciliation - without_reconciliation) > 0.10, (
+    # Still open: the final day's "return" is still driven by the correction,
+    # not by market movement — only much smaller than the PRD recorded.
+    assert with_reconciliation == pytest.approx(-0.0256, abs=0.002)
+    assert without_reconciliation == pytest.approx(0.0087, abs=0.002)
+    assert abs(with_reconciliation - without_reconciliation) > 0.01, (
         "F-3 appears fixed — update this pin and see US-31.3 "
         f"(with={with_reconciliation:.4f}, without={without_reconciliation:.4f})"
     )
-    # ...and it is a large negative move driven purely by the correction.
-    assert with_reconciliation < -0.10
-    assert abs(without_reconciliation) < 0.10
+    # The correction still flips a positive day negative — that is the defect.
+    assert without_reconciliation > 0 > with_reconciliation

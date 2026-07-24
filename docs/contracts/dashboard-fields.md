@@ -78,6 +78,7 @@ Dashboard-history now exposes an explicit run-metadata slice alongside the light
 - `run_metadata.investor_economics_status`
 - `run_metadata.investor_economics_partial_unlock`
 - `run_metadata.fx_fallback_currencies` (US-27.8)
+- `run_metadata.unpriced_replay_symbols` (US-31.2)
 - `run_metadata.return_basis_evidence.portfolio_path`
 - `run_metadata.return_basis_evidence.benchmark_path`
 - `run_metadata.reproducibility.input_imported_at`
@@ -259,3 +260,5 @@ Import admission is informational on Dashboard: workspace creation is non-blocki
 - backend analytics coverage includes direct `FF2026.pdf` imported dashboard truth assertions for summary metrics, monthly returns, and overview composition, similar in spirit to the stronger `IB2026` truth path.
 
 - `run_metadata.fx_fallback_currencies` (US-27.8 / audit F9): currencies that required base-currency conversion during the ledger replay but had no FX rate — the affected values are carried **unconverted** and this field discloses it (never a silent 1:1 conversion claim); see `financial-methodology.md` §FX Conversion Fallback Disclosure. Currently every non-base position appears here because no engine wires real FX rates yet (Epic 26 scope).
+
+- `run_metadata.unpriced_replay_symbols` (US-31.2 / Epic 31 F-1): symbols the ledger replay reconstructed as held during the window (opening positions, or bought-and-sold entirely inside it) for which **no** price history was fetchable **and** no statement close-price anchor exists — they contributed **0** to that day's market value. Since-sold symbols are the common case: they are absent from the current snapshot, so they are absent from the engine's `fallback_prices` map. Empty list = full replay coverage; the field is never `null` and never absent. Distinct from the statement-anchored disclosure (a *held* symbol valued flat at its statement close, US-30.2), which is a weaker degradation than no valuation at all. See `financial-methodology.md` §Synthetic History Coverage Rule.

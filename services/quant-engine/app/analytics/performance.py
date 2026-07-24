@@ -70,9 +70,32 @@ def build_daily_portfolio_states_with_fx_disclosure(
     no rate in fx_history — those values are carried unconverted and the
     consuming response must surface the degradation.
     """
+    states, fx_fallback_currencies, _unpriced = build_daily_portfolio_states_with_replay_disclosure(
+        snapshot=snapshot,
+        price_histories=price_histories,
+        valuation_dates=valuation_dates,
+        fx_history=fx_history,
+    )
+    return states, fx_fallback_currencies
+
+
+def build_daily_portfolio_states_with_replay_disclosure(
+    snapshot: ImportedPortfolioSnapshot,
+    price_histories: dict[str, list[dict]],
+    valuation_dates: list[str],
+    fx_history: dict[str, float],
+) -> tuple[list[DailyPortfolioState], list[str], list[str]]:
+    """Daily broker-replay states + the FX-fallback (US-27.8) and unpriced-symbol
+    (US-31.2 / Epic 31 F-1) disclosures.
+
+    The third element lists symbols the replay held on some day of the window
+    that could not be valued at all (no fetchable history, no statement close
+    anchor) — they contributed 0, and the consuming response must surface that
+    rather than publish an understated NAV.
+    """
     engine = PortfolioStateEngine(snapshot=snapshot, base_currency=snapshot.statement.base_currency or "USD", fx_history=fx_history)
     states = engine.build_daily_states(price_histories=price_histories, valuation_dates=valuation_dates)
-    return states, sorted(engine.fx_fallback_currencies)
+    return states, sorted(engine.fx_fallback_currencies), sorted(engine.unpriced_replay_symbols)
 
 
 def build_true_performance_series(

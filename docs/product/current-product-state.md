@@ -117,6 +117,20 @@ The researcher imports statements via the Import flow:
 
 Never collapse `withheld` into `unavailable`. Never fabricate or silently fallback.
 
+**Replay coverage disclosures** (imported ledger-replay path). The replay
+reconstructs the positions held on each day of the statement window, so it
+values symbols the portfolio no longer holds. Two degradations are surfaced
+rather than absorbed:
+
+| Disclosure | Meaning |
+|---|---|
+| `statement_anchored_symbols` (US-30.2) | Held symbol with no fetchable price history — valued flat at its statement close price (broker-truth-adjacent) |
+| `run_metadata.unpriced_replay_symbols` (US-31.2) | Symbol held on a day with **no** price history **and** no statement anchor — contributed 0 to that day's market value |
+
+The second is the weaker case and the newer one: before US-31.2 those symbols
+were never fetched at all, so a since-sold position silently contributed $0 to
+the replayed NAV for the whole window.
+
 ---
 
 ## What is intentionally not in the product
