@@ -2,7 +2,7 @@ from pathlib import Path
 
 from app.services.market_data import MarketDataService, detect_histories_return_basis, detect_history_return_basis
 from app.services.holdings_history import HoldingsHistoryStore
-from app.core.symbols import canonicalize_symbol, resolve_symbol_candidates
+from app.core.symbols import canonicalize_symbol, resolve_proxy_candidates, resolve_symbol_candidates
 
 
 def test_symbol_resolver_canonicalizes_aliases() -> None:
@@ -37,6 +37,32 @@ def test_defs_and_idfn_resolution_unchanged() -> None:
     # US-18.3 AC3: these already resolved correctly via US-18.1 — leading .L line.
     assert resolve_symbol_candidates("DEFS", kind="history")[0] == "DEFS.L"
     assert resolve_symbol_candidates("IDFN", kind="history")[0] == "IDFN.L"
+
+
+def test_semi_never_maps_to_bare_us_listed_line() -> None:
+    # US-31.4 (Epic 31 F-5): bare "SEMI" on FMP is a DIFFERENT US-listed
+    # security (40.58 vs the held SEMI.L 17.998 GBP). It must never appear in
+    # any real-data candidate list — the wrong-fund guard, mirroring
+    # test_dfnd_never_maps_to_vaneck_lines.
+    for kind in ("quote", "history", "holdings"):
+        candidates = resolve_symbol_candidates("SEMI", kind=kind)
+        assert "SEMI" not in candidates
+        assert candidates == ["SEMI.L"]
+
+
+def test_semi_resolves_to_lse_ucits_line() -> None:
+    # US-31.4 AC2: SEMI.L (iShares MSCI Global Semiconductors UCITS, GBP) is the
+    # sole leading real-data candidate; the alias still canonicalizes.
+    assert resolve_symbol_candidates("SEMI", kind="history")[0] == "SEMI.L"
+    assert canonicalize_symbol("SEMI.L") == "SEMI"
+
+
+def test_semi_us_line_only_reachable_as_labeled_proxy() -> None:
+    # US-31.4 AC3: the US line is reachable ONLY via the explicit proxy path;
+    # bare "SEMI" is not silently reintroduced as a proxy, and the deliberate
+    # SOXX/SMH semiconductor proxies are unchanged.
+    assert resolve_symbol_candidates("SEMI", kind="history", include_proxy=True) == ["SEMI.L", "SOXX", "SMH"]
+    assert resolve_proxy_candidates("SEMI") == ["SOXX", "SMH"]
 
 
 def test_icom_and_vdst_resolve_to_lse_lines() -> None:

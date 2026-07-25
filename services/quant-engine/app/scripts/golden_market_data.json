@@ -31956,718 +31956,844 @@
       "from": "2026-01-08",
       "rows": [
         {
-          "date": "2026-06-30",
-          "price": 40.58,
-          "symbol": "SEMI",
-          "volume": 5634
-        },
-        {
-          "date": "2026-06-29",
-          "price": 39.53,
-          "symbol": "SEMI",
-          "volume": 9836
-        },
-        {
-          "date": "2026-06-26",
-          "price": 38.39,
-          "symbol": "SEMI",
-          "volume": 30700
-        },
-        {
-          "date": "2026-06-25",
-          "price": 39.31,
-          "symbol": "SEMI",
-          "volume": 5500
-        },
-        {
-          "date": "2026-06-24",
-          "price": 38.49,
-          "symbol": "SEMI",
-          "volume": 10429
-        },
-        {
-          "date": "2026-06-23",
-          "price": 38.7,
-          "symbol": "SEMI",
-          "volume": 9300
-        },
-        {
-          "date": "2026-06-22",
-          "price": 40.72,
-          "symbol": "SEMI",
-          "volume": 5620
-        },
-        {
-          "date": "2026-06-18",
-          "price": 40.58,
-          "symbol": "SEMI",
-          "volume": 23000
-        },
-        {
-          "date": "2026-06-17",
-          "price": 39.22,
-          "symbol": "SEMI",
-          "volume": 8033
-        },
-        {
-          "date": "2026-06-16",
-          "price": 39.13,
-          "symbol": "SEMI",
-          "volume": 5131
-        },
-        {
-          "date": "2026-06-15",
-          "price": 40.15,
-          "symbol": "SEMI",
-          "volume": 6200
-        },
-        {
-          "date": "2026-06-12",
-          "price": 38.55,
-          "symbol": "SEMI",
-          "volume": 5020
-        },
-        {
-          "date": "2026-06-11",
-          "price": 38.43,
-          "symbol": "SEMI",
-          "volume": 7300
-        },
-        {
-          "date": "2026-06-10",
-          "price": 36.78,
-          "symbol": "SEMI",
-          "volume": 5900
-        },
-        {
-          "date": "2026-06-09",
-          "price": 37.9,
-          "symbol": "SEMI",
-          "volume": 5643
-        },
-        {
-          "date": "2026-06-08",
-          "price": 38.15,
-          "symbol": "SEMI",
-          "volume": 8300
-        },
-        {
-          "date": "2026-06-05",
-          "price": 37.34,
-          "symbol": "SEMI",
-          "volume": 16534
-        },
-        {
-          "date": "2026-06-04",
-          "price": 40,
-          "symbol": "SEMI",
-          "volume": 9238
-        },
-        {
-          "date": "2026-06-03",
-          "price": 40.47,
-          "symbol": "SEMI",
-          "volume": 7250
-        },
-        {
-          "date": "2026-06-02",
-          "price": 40.66,
-          "symbol": "SEMI",
-          "volume": 16700
-        },
-        {
-          "date": "2026-06-01",
-          "price": 39.95,
-          "symbol": "SEMI",
-          "volume": 9000
-        },
-        {
-          "date": "2026-05-29",
-          "price": 39.12,
-          "symbol": "SEMI",
-          "volume": 9400
-        },
-        {
-          "date": "2026-05-28",
-          "price": 38.75,
-          "symbol": "SEMI",
-          "volume": 6100
-        },
-        {
-          "date": "2026-05-27",
-          "price": 38.47,
-          "symbol": "SEMI",
-          "volume": 11447
-        },
-        {
-          "date": "2026-05-26",
-          "price": 38.55,
-          "symbol": "SEMI",
-          "volume": 17100
-        },
-        {
-          "date": "2026-05-22",
-          "price": 37.56,
-          "symbol": "SEMI",
-          "volume": 7100
-        },
-        {
-          "date": "2026-05-21",
-          "price": 37.47,
-          "symbol": "SEMI",
-          "volume": 13000
-        },
-        {
-          "date": "2026-05-20",
-          "price": 37.29,
-          "symbol": "SEMI",
-          "volume": 172005
-        },
-        {
-          "date": "2026-05-19",
-          "price": 36.34,
-          "symbol": "SEMI",
-          "volume": 154926
-        },
-        {
-          "date": "2026-05-18",
-          "price": 36.74,
-          "symbol": "SEMI",
-          "volume": 8747
-        },
-        {
-          "date": "2026-05-15",
-          "price": 37.35,
-          "symbol": "SEMI",
-          "volume": 11500
-        },
-        {
-          "date": "2026-05-14",
-          "price": 38.18,
-          "symbol": "SEMI",
-          "volume": 7500
-        },
-        {
-          "date": "2026-05-13",
-          "price": 37.56,
-          "symbol": "SEMI",
-          "volume": 4719
-        },
-        {
-          "date": "2026-05-12",
-          "price": 37.02,
-          "symbol": "SEMI",
-          "volume": 11626
-        },
-        {
-          "date": "2026-05-11",
-          "price": 37.46,
-          "symbol": "SEMI",
-          "volume": 13878
-        },
-        {
-          "date": "2026-05-08",
-          "price": 37.2,
-          "symbol": "SEMI",
-          "volume": 7923
-        },
-        {
-          "date": "2026-05-07",
-          "price": 36.28,
-          "symbol": "SEMI",
-          "volume": 9422
-        },
-        {
-          "date": "2026-05-06",
-          "price": 36.51,
-          "symbol": "SEMI",
-          "volume": 9963
-        },
-        {
-          "date": "2026-05-05",
-          "price": 35.48,
-          "symbol": "SEMI",
-          "volume": 4239
-        },
-        {
-          "date": "2026-05-04",
-          "price": 34.9,
-          "symbol": "SEMI",
-          "volume": 5727
-        },
-        {
-          "date": "2026-05-01",
-          "price": 34.85,
-          "symbol": "SEMI",
-          "volume": 5600
-        },
-        {
-          "date": "2026-04-30",
-          "price": 34.61,
-          "symbol": "SEMI",
-          "volume": 4700
-        },
-        {
-          "date": "2026-04-29",
-          "price": 34.48,
-          "symbol": "SEMI",
-          "volume": 4640
-        },
-        {
-          "date": "2026-04-28",
-          "price": 34.35,
-          "symbol": "SEMI",
-          "volume": 6318
-        },
-        {
-          "date": "2026-04-27",
-          "price": 34.98,
-          "symbol": "SEMI",
-          "volume": 5708
-        },
-        {
-          "date": "2026-04-24",
-          "price": 34.91,
-          "symbol": "SEMI",
-          "volume": 39700
-        },
-        {
-          "date": "2026-04-23",
-          "price": 34.03,
-          "symbol": "SEMI",
-          "volume": 4541
-        },
-        {
-          "date": "2026-04-22",
-          "price": 34.44,
-          "symbol": "SEMI",
-          "volume": 4028
-        },
-        {
-          "date": "2026-04-21",
-          "price": 33.66,
-          "symbol": "SEMI",
-          "volume": 4300
-        },
-        {
-          "date": "2026-04-20",
-          "price": 33.77,
-          "symbol": "SEMI",
-          "volume": 12200
-        },
-        {
-          "date": "2026-04-17",
-          "price": 33.83,
-          "symbol": "SEMI",
-          "volume": 4021
-        },
-        {
-          "date": "2026-04-16",
-          "price": 33.33,
-          "symbol": "SEMI",
-          "volume": 4100
-        },
-        {
-          "date": "2026-04-15",
-          "price": 33.35,
-          "symbol": "SEMI",
-          "volume": 21600
-        },
-        {
-          "date": "2026-04-14",
-          "price": 32.9,
-          "symbol": "SEMI",
-          "volume": 3765
-        },
-        {
-          "date": "2026-04-13",
-          "price": 32.27,
-          "symbol": "SEMI",
-          "volume": 7100
-        },
-        {
-          "date": "2026-04-10",
-          "price": 31.66,
-          "symbol": "SEMI",
-          "volume": 34800
-        },
-        {
-          "date": "2026-04-09",
-          "price": 31.52,
-          "symbol": "SEMI",
-          "volume": 6020
-        },
-        {
-          "date": "2026-04-08",
-          "price": 31.14,
-          "symbol": "SEMI",
-          "volume": 5000
-        },
-        {
-          "date": "2026-04-07",
-          "price": 29.81,
-          "symbol": "SEMI",
-          "volume": 3500
-        },
-        {
-          "date": "2026-04-06",
-          "price": 29.56,
-          "symbol": "SEMI",
-          "volume": 2900
-        },
-        {
-          "date": "2026-04-02",
-          "price": 29.41,
-          "symbol": "SEMI",
-          "volume": 15600
-        },
-        {
-          "date": "2026-04-01",
-          "price": 29.35,
-          "symbol": "SEMI",
-          "volume": 36003
-        },
-        {
-          "date": "2026-03-31",
-          "price": 28.87,
-          "symbol": "SEMI",
-          "volume": 6052
-        },
-        {
-          "date": "2026-03-30",
-          "price": 27.56,
-          "symbol": "SEMI",
-          "volume": 41312
-        },
-        {
-          "date": "2026-03-27",
-          "price": 28.15,
-          "symbol": "SEMI",
-          "volume": 11100
-        },
-        {
-          "date": "2026-03-26",
-          "price": 28.66,
-          "symbol": "SEMI",
-          "volume": 17746
-        },
-        {
-          "date": "2026-03-25",
-          "price": 29.78,
-          "symbol": "SEMI",
-          "volume": 3700
-        },
-        {
-          "date": "2026-03-24",
-          "price": 29.68,
-          "symbol": "SEMI",
-          "volume": 4730
-        },
-        {
-          "date": "2026-03-23",
-          "price": 29.94,
-          "symbol": "SEMI",
-          "volume": 19221
-        },
-        {
-          "date": "2026-03-20",
-          "price": 29.4,
-          "symbol": "SEMI",
-          "volume": 4100
-        },
-        {
-          "date": "2026-03-19",
-          "price": 30.12,
-          "symbol": "SEMI",
-          "volume": 14400
-        },
-        {
-          "date": "2026-03-18",
-          "price": 30.01,
-          "symbol": "SEMI",
-          "volume": 15900
-        },
-        {
-          "date": "2026-03-17",
-          "price": 30.42,
-          "symbol": "SEMI",
-          "volume": 8800
-        },
-        {
-          "date": "2026-03-16",
-          "price": 30.27,
-          "symbol": "SEMI",
-          "volume": 8525
-        },
-        {
-          "date": "2026-03-13",
-          "price": 29.75,
-          "symbol": "SEMI",
-          "volume": 20500
-        },
-        {
-          "date": "2026-03-12",
-          "price": 30.05,
-          "symbol": "SEMI",
-          "volume": 12300
-        },
-        {
-          "date": "2026-03-11",
-          "price": 30.71,
-          "symbol": "SEMI",
-          "volume": 19231
-        },
-        {
-          "date": "2026-03-10",
-          "price": 30.49,
-          "symbol": "SEMI",
-          "volume": 9200
-        },
-        {
-          "date": "2026-03-09",
-          "price": 30.42,
-          "symbol": "SEMI",
-          "volume": 26200
-        },
-        {
-          "date": "2026-03-06",
-          "price": 29.65,
-          "symbol": "SEMI",
-          "volume": 8714
-        },
-        {
-          "date": "2026-03-05",
-          "price": 30.52,
-          "symbol": "SEMI",
-          "volume": 11600
-        },
-        {
-          "date": "2026-03-04",
-          "price": 30.53,
-          "symbol": "SEMI",
-          "volume": 24024
-        },
-        {
-          "date": "2026-03-03",
-          "price": 30.18,
-          "symbol": "SEMI",
-          "volume": 13514
-        },
-        {
-          "date": "2026-03-02",
-          "price": 30.64,
-          "symbol": "SEMI",
-          "volume": 7000
-        },
-        {
-          "date": "2026-02-27",
-          "price": 30.55,
-          "symbol": "SEMI",
-          "volume": 10845
-        },
-        {
-          "date": "2026-02-26",
-          "price": 30.95,
-          "symbol": "SEMI",
-          "volume": 6800
-        },
-        {
-          "date": "2026-02-25",
-          "price": 31.68,
-          "symbol": "SEMI",
-          "volume": 6116
-        },
-        {
-          "date": "2026-02-24",
-          "price": 31.08,
-          "symbol": "SEMI",
-          "volume": 8178
-        },
-        {
-          "date": "2026-02-23",
-          "price": 30.78,
-          "symbol": "SEMI",
-          "volume": 8740
-        },
-        {
-          "date": "2026-02-20",
-          "price": 31.1,
-          "symbol": "SEMI",
-          "volume": 3049
-        },
-        {
-          "date": "2026-02-19",
-          "price": 30.8,
-          "symbol": "SEMI",
-          "volume": 9500
-        },
-        {
-          "date": "2026-02-18",
-          "price": 30.98,
-          "symbol": "SEMI",
-          "volume": 6708
-        },
-        {
-          "date": "2026-02-17",
-          "price": 30.62,
-          "symbol": "SEMI",
-          "volume": 5800
-        },
-        {
-          "date": "2026-02-13",
-          "price": 30.47,
-          "symbol": "SEMI",
-          "volume": 3700
-        },
-        {
-          "date": "2026-02-12",
-          "price": 30.56,
-          "symbol": "SEMI",
-          "volume": 9800
-        },
-        {
-          "date": "2026-02-11",
-          "price": 31.23,
-          "symbol": "SEMI",
-          "volume": 33300
-        },
-        {
-          "date": "2026-02-10",
-          "price": 31.03,
-          "symbol": "SEMI",
-          "volume": 15100
-        },
-        {
-          "date": "2026-02-09",
-          "price": 31.17,
-          "symbol": "SEMI",
-          "volume": 13729
-        },
-        {
-          "date": "2026-02-06",
-          "price": 30.74,
-          "symbol": "SEMI",
-          "volume": 7600
-        },
-        {
-          "date": "2026-02-05",
-          "price": 29.65,
-          "symbol": "SEMI",
-          "volume": 7403
-        },
-        {
-          "date": "2026-02-04",
-          "price": 29.92,
-          "symbol": "SEMI",
-          "volume": 12100
-        },
-        {
-          "date": "2026-02-03",
-          "price": 30.82,
-          "symbol": "SEMI",
-          "volume": 14934
-        },
-        {
-          "date": "2026-02-02",
-          "price": 31.6,
-          "symbol": "SEMI",
-          "volume": 13815
-        },
-        {
-          "date": "2026-01-30",
-          "price": 31.44,
-          "symbol": "SEMI",
-          "volume": 20600
-        },
-        {
-          "date": "2026-01-29",
-          "price": 32.02,
-          "symbol": "SEMI",
-          "volume": 14600
-        },
-        {
-          "date": "2026-01-28",
-          "price": 32.2,
-          "symbol": "SEMI",
-          "volume": 18209
-        },
-        {
-          "date": "2026-01-27",
-          "price": 32.02,
-          "symbol": "SEMI",
-          "volume": 17900
-        },
-        {
-          "date": "2026-01-26",
-          "price": 31.48,
-          "symbol": "SEMI",
-          "volume": 17400
-        },
-        {
-          "date": "2026-01-23",
-          "price": 31.23,
-          "symbol": "SEMI",
-          "volume": 11200
-        },
-        {
-          "date": "2026-01-22",
-          "price": 31.08,
-          "symbol": "SEMI",
-          "volume": 9037
-        },
-        {
-          "date": "2026-01-21",
-          "price": 30.93,
-          "symbol": "SEMI",
-          "volume": 7919
-        },
-        {
-          "date": "2026-01-20",
-          "price": 30.62,
-          "symbol": "SEMI",
-          "volume": 13900
-        },
-        {
-          "date": "2026-01-16",
-          "price": 31.54,
-          "symbol": "SEMI",
-          "volume": 12314
-        },
-        {
-          "date": "2026-01-15",
-          "price": 31.36,
-          "symbol": "SEMI",
-          "volume": 14000
-        },
-        {
-          "date": "2026-01-14",
-          "price": 31.02,
-          "symbol": "SEMI",
-          "volume": 13900
-        },
-        {
-          "date": "2026-01-13",
-          "price": 31.53,
-          "symbol": "SEMI",
-          "volume": 15413
-        },
-        {
-          "date": "2026-01-12",
-          "price": 31.74,
-          "symbol": "SEMI",
-          "volume": 15413
-        },
-        {
-          "date": "2026-01-09",
-          "price": 31.58,
-          "symbol": "SEMI",
-          "volume": 24900
-        },
-        {
+          "adjClose": 8.772000312805176,
           "date": "2026-01-08",
-          "price": 31.07,
-          "symbol": "SEMI",
-          "volume": 32209
+          "price": 8.772000312805176,
+          "symbol": "SEMI.L",
+          "volume": 85141
+        },
+        {
+          "adjClose": 9.07699966430664,
+          "date": "2026-01-09",
+          "price": 9.07699966430664,
+          "symbol": "SEMI.L",
+          "volume": 75957
+        },
+        {
+          "adjClose": 9.107999801635742,
+          "date": "2026-01-12",
+          "price": 9.107999801635742,
+          "symbol": "SEMI.L",
+          "volume": 111177
+        },
+        {
+          "adjClose": 9.220000267028809,
+          "date": "2026-01-13",
+          "price": 9.220000267028809,
+          "symbol": "SEMI.L",
+          "volume": 139632
+        },
+        {
+          "adjClose": 9.093999862670898,
+          "date": "2026-01-14",
+          "price": 9.093999862670898,
+          "symbol": "SEMI.L",
+          "volume": 191422
+        },
+        {
+          "adjClose": 9.484000205993652,
+          "date": "2026-01-15",
+          "price": 9.484000205993652,
+          "symbol": "SEMI.L",
+          "volume": 311161
+        },
+        {
+          "adjClose": 9.472000122070312,
+          "date": "2026-01-16",
+          "price": 9.472000122070312,
+          "symbol": "SEMI.L",
+          "volume": 286830
+        },
+        {
+          "adjClose": 9.32450008392334,
+          "date": "2026-01-19",
+          "price": 9.32450008392334,
+          "symbol": "SEMI.L",
+          "volume": 151178
+        },
+        {
+          "adjClose": 9.402000427246094,
+          "date": "2026-01-20",
+          "price": 9.402000427246094,
+          "symbol": "SEMI.L",
+          "volume": 229061
+        },
+        {
+          "adjClose": 9.585000038146973,
+          "date": "2026-01-21",
+          "price": 9.585000038146973,
+          "symbol": "SEMI.L",
+          "volume": 290884
+        },
+        {
+          "adjClose": 9.612000465393066,
+          "date": "2026-01-22",
+          "price": 9.612000465393066,
+          "symbol": "SEMI.L",
+          "volume": 327000
+        },
+        {
+          "adjClose": 9.494999885559082,
+          "date": "2026-01-23",
+          "price": 9.494999885559082,
+          "symbol": "SEMI.L",
+          "volume": 328177
+        },
+        {
+          "adjClose": 9.385000228881836,
+          "date": "2026-01-26",
+          "price": 9.385000228881836,
+          "symbol": "SEMI.L",
+          "volume": 215929
+        },
+        {
+          "adjClose": 9.645999908447266,
+          "date": "2026-01-27",
+          "price": 9.645999908447266,
+          "symbol": "SEMI.L",
+          "volume": 117108
+        },
+        {
+          "adjClose": 9.84000015258789,
+          "date": "2026-01-28",
+          "price": 9.84000015258789,
+          "symbol": "SEMI.L",
+          "volume": 242035
+        },
+        {
+          "adjClose": 9.64900016784668,
+          "date": "2026-01-29",
+          "price": 9.64900016784668,
+          "symbol": "SEMI.L",
+          "volume": 217561
+        },
+        {
+          "adjClose": 9.73799991607666,
+          "date": "2026-01-30",
+          "price": 9.73799991607666,
+          "symbol": "SEMI.L",
+          "volume": 280002
+        },
+        {
+          "adjClose": 9.696000099182129,
+          "date": "2026-02-02",
+          "price": 9.696000099182129,
+          "symbol": "SEMI.L",
+          "volume": 368845
+        },
+        {
+          "adjClose": 9.552000045776367,
+          "date": "2026-02-03",
+          "price": 9.552000045776367,
+          "symbol": "SEMI.L",
+          "volume": 331654
+        },
+        {
+          "adjClose": 9.185999870300293,
+          "date": "2026-02-04",
+          "price": 9.185999870300293,
+          "symbol": "SEMI.L",
+          "volume": 410070
+        },
+        {
+          "adjClose": 9.232500076293945,
+          "date": "2026-02-05",
+          "price": 9.232500076293945,
+          "symbol": "SEMI.L",
+          "volume": 135467
+        },
+        {
+          "adjClose": 9.557999610900879,
+          "date": "2026-02-06",
+          "price": 9.557999610900879,
+          "symbol": "SEMI.L",
+          "volume": 358022
+        },
+        {
+          "adjClose": 9.708999633789062,
+          "date": "2026-02-09",
+          "price": 9.708999633789062,
+          "symbol": "SEMI.L",
+          "volume": 278337
+        },
+        {
+          "adjClose": 9.689000129699707,
+          "date": "2026-02-10",
+          "price": 9.689000129699707,
+          "symbol": "SEMI.L",
+          "volume": 140797
+        },
+        {
+          "adjClose": 9.843999862670898,
+          "date": "2026-02-11",
+          "price": 9.843999862670898,
+          "symbol": "SEMI.L",
+          "volume": 235842
+        },
+        {
+          "adjClose": 9.704999923706055,
+          "date": "2026-02-12",
+          "price": 9.704999923706055,
+          "symbol": "SEMI.L",
+          "volume": 227796
+        },
+        {
+          "adjClose": 9.760000228881836,
+          "date": "2026-02-13",
+          "price": 9.760000228881836,
+          "symbol": "SEMI.L",
+          "volume": 266772
+        },
+        {
+          "adjClose": 9.690999984741211,
+          "date": "2026-02-16",
+          "price": 9.690999984741211,
+          "symbol": "SEMI.L",
+          "volume": 115581
+        },
+        {
+          "adjClose": 9.859999656677246,
+          "date": "2026-02-17",
+          "price": 9.859999656677246,
+          "symbol": "SEMI.L",
+          "volume": 206260
+        },
+        {
+          "adjClose": 10.041999816894531,
+          "date": "2026-02-18",
+          "price": 10.041999816894531,
+          "symbol": "SEMI.L",
+          "volume": 123109
+        },
+        {
+          "adjClose": 9.935999870300293,
+          "date": "2026-02-19",
+          "price": 9.935999870300293,
+          "symbol": "SEMI.L",
+          "volume": 149631
+        },
+        {
+          "adjClose": 10.071999549865723,
+          "date": "2026-02-20",
+          "price": 10.071999549865723,
+          "symbol": "SEMI.L",
+          "volume": 274158
+        },
+        {
+          "adjClose": 9.991999626159668,
+          "date": "2026-02-23",
+          "price": 9.991999626159668,
+          "symbol": "SEMI.L",
+          "volume": 192511
+        },
+        {
+          "adjClose": 10.22599983215332,
+          "date": "2026-02-24",
+          "price": 10.22599983215332,
+          "symbol": "SEMI.L",
+          "volume": 347201
+        },
+        {
+          "adjClose": 10.362000465393066,
+          "date": "2026-02-25",
+          "price": 10.362000465393066,
+          "symbol": "SEMI.L",
+          "volume": 358549
+        },
+        {
+          "adjClose": 10.116000175476074,
+          "date": "2026-02-26",
+          "price": 10.116000175476074,
+          "symbol": "SEMI.L",
+          "volume": 682429
+        },
+        {
+          "adjClose": 10.0600004196167,
+          "date": "2026-02-27",
+          "price": 10.0600004196167,
+          "symbol": "SEMI.L",
+          "volume": 235600
+        },
+        {
+          "adjClose": 9.994000434875488,
+          "date": "2026-03-02",
+          "price": 9.994000434875488,
+          "symbol": "SEMI.L",
+          "volume": 279992
+        },
+        {
+          "adjClose": 9.576000213623047,
+          "date": "2026-03-03",
+          "price": 9.576000213623047,
+          "symbol": "SEMI.L",
+          "volume": 509473
+        },
+        {
+          "adjClose": 9.791999816894531,
+          "date": "2026-03-04",
+          "price": 9.791999816894531,
+          "symbol": "SEMI.L",
+          "volume": 323759
+        },
+        {
+          "adjClose": 9.718000411987305,
+          "date": "2026-03-05",
+          "price": 9.718000411987305,
+          "symbol": "SEMI.L",
+          "volume": 215132
+        },
+        {
+          "adjClose": 9.484999656677246,
+          "date": "2026-03-06",
+          "price": 9.484999656677246,
+          "symbol": "SEMI.L",
+          "volume": 269538
+        },
+        {
+          "adjClose": 9.385000228881836,
+          "date": "2026-03-09",
+          "price": 9.385000228881836,
+          "symbol": "SEMI.L",
+          "volume": 450589
+        },
+        {
+          "adjClose": 9.763999938964844,
+          "date": "2026-03-10",
+          "price": 9.763999938964844,
+          "symbol": "SEMI.L",
+          "volume": 202885
+        },
+        {
+          "adjClose": 9.793999671936035,
+          "date": "2026-03-11",
+          "price": 9.793999671936035,
+          "symbol": "SEMI.L",
+          "volume": 164062
+        },
+        {
+          "adjClose": 9.562999725341797,
+          "date": "2026-03-12",
+          "price": 9.562999725341797,
+          "symbol": "SEMI.L",
+          "volume": 107032
+        },
+        {
+          "adjClose": 9.59000015258789,
+          "date": "2026-03-13",
+          "price": 9.59000015258789,
+          "symbol": "SEMI.L",
+          "volume": 230766
+        },
+        {
+          "adjClose": 9.807000160217285,
+          "date": "2026-03-16",
+          "price": 9.807000160217285,
+          "symbol": "SEMI.L",
+          "volume": 139312
+        },
+        {
+          "adjClose": 9.762999534606934,
+          "date": "2026-03-17",
+          "price": 9.762999534606934,
+          "symbol": "SEMI.L",
+          "volume": 119509
+        },
+        {
+          "adjClose": 9.85099983215332,
+          "date": "2026-03-18",
+          "price": 9.85099983215332,
+          "symbol": "SEMI.L",
+          "volume": 151797
+        },
+        {
+          "adjClose": 9.659000396728516,
+          "date": "2026-03-19",
+          "price": 9.659000396728516,
+          "symbol": "SEMI.L",
+          "volume": 176073
+        },
+        {
+          "adjClose": 9.513999938964844,
+          "date": "2026-03-20",
+          "price": 9.513999938964844,
+          "symbol": "SEMI.L",
+          "volume": 130753
+        },
+        {
+          "adjClose": 9.569999694824219,
+          "date": "2026-03-23",
+          "price": 9.569999694824219,
+          "symbol": "SEMI.L",
+          "volume": 401932
+        },
+        {
+          "adjClose": 9.621999740600586,
+          "date": "2026-03-24",
+          "price": 9.621999740600586,
+          "symbol": "SEMI.L",
+          "volume": 193211
+        },
+        {
+          "adjClose": 9.802000045776367,
+          "date": "2026-03-25",
+          "price": 9.802000045776367,
+          "symbol": "SEMI.L",
+          "volume": 281440
+        },
+        {
+          "adjClose": 9.442999839782715,
+          "date": "2026-03-26",
+          "price": 9.442999839782715,
+          "symbol": "SEMI.L",
+          "volume": 156702
+        },
+        {
+          "adjClose": 9.255999565124512,
+          "date": "2026-03-27",
+          "price": 9.255999565124512,
+          "symbol": "SEMI.L",
+          "volume": 202267
+        },
+        {
+          "adjClose": 9.074999809265137,
+          "date": "2026-03-30",
+          "price": 9.074999809265137,
+          "symbol": "SEMI.L",
+          "volume": 342680
+        },
+        {
+          "adjClose": 9.10099983215332,
+          "date": "2026-03-31",
+          "price": 9.10099983215332,
+          "symbol": "SEMI.L",
+          "volume": 254519
+        },
+        {
+          "adjClose": 9.652999877929688,
+          "date": "2026-04-01",
+          "price": 9.652999877929688,
+          "symbol": "SEMI.L",
+          "volume": 267896
+        },
+        {
+          "adjClose": 9.543000221252441,
+          "date": "2026-04-02",
+          "price": 9.543000221252441,
+          "symbol": "SEMI.L",
+          "volume": 266172
+        },
+        {
+          "adjClose": 9.619999885559082,
+          "date": "2026-04-07",
+          "price": 9.619999885559082,
+          "symbol": "SEMI.L",
+          "volume": 449594
+        },
+        {
+          "adjClose": 10.289999961853027,
+          "date": "2026-04-08",
+          "price": 10.289999961853027,
+          "symbol": "SEMI.L",
+          "volume": 510366
+        },
+        {
+          "adjClose": 10.435999870300293,
+          "date": "2026-04-09",
+          "price": 10.435999870300293,
+          "symbol": "SEMI.L",
+          "volume": 171558
+        },
+        {
+          "adjClose": 10.760000228881836,
+          "date": "2026-04-10",
+          "price": 10.760000228881836,
+          "symbol": "SEMI.L",
+          "volume": 244243
+        },
+        {
+          "adjClose": 10.720000267028809,
+          "date": "2026-04-13",
+          "price": 10.720000267028809,
+          "symbol": "SEMI.L",
+          "volume": 169808
+        },
+        {
+          "adjClose": 10.968000411987305,
+          "date": "2026-04-14",
+          "price": 10.968000411987305,
+          "symbol": "SEMI.L",
+          "volume": 446839
+        },
+        {
+          "adjClose": 11.001999855041504,
+          "date": "2026-04-15",
+          "price": 11.001999855041504,
+          "symbol": "SEMI.L",
+          "volume": 645065
+        },
+        {
+          "adjClose": 11.239999771118164,
+          "date": "2026-04-16",
+          "price": 11.239999771118164,
+          "symbol": "SEMI.L",
+          "volume": 764963
+        },
+        {
+          "adjClose": 11.418000221252441,
+          "date": "2026-04-17",
+          "price": 11.418000221252441,
+          "symbol": "SEMI.L",
+          "volume": 440404
+        },
+        {
+          "adjClose": 11.345999717712402,
+          "date": "2026-04-20",
+          "price": 11.345999717712402,
+          "symbol": "SEMI.L",
+          "volume": 432197
+        },
+        {
+          "adjClose": 11.473999977111816,
+          "date": "2026-04-21",
+          "price": 11.473999977111816,
+          "symbol": "SEMI.L",
+          "volume": 273869
+        },
+        {
+          "adjClose": 11.73799991607666,
+          "date": "2026-04-22",
+          "price": 11.73799991607666,
+          "symbol": "SEMI.L",
+          "volume": 597343
+        },
+        {
+          "adjClose": 11.98799991607666,
+          "date": "2026-04-23",
+          "price": 11.98799991607666,
+          "symbol": "SEMI.L",
+          "volume": 926098
+        },
+        {
+          "adjClose": 12.425999641418457,
+          "date": "2026-04-24",
+          "price": 12.425999641418457,
+          "symbol": "SEMI.L",
+          "volume": 1150678
+        },
+        {
+          "adjClose": 12.272000312805176,
+          "date": "2026-04-27",
+          "price": 12.272000312805176,
+          "symbol": "SEMI.L",
+          "volume": 835289
+        },
+        {
+          "adjClose": 11.878000259399414,
+          "date": "2026-04-28",
+          "price": 11.878000259399414,
+          "symbol": "SEMI.L",
+          "volume": 621713
+        },
+        {
+          "adjClose": 12.206000328063965,
+          "date": "2026-04-29",
+          "price": 12.206000328063965,
+          "symbol": "SEMI.L",
+          "volume": 371578
+        },
+        {
+          "adjClose": 12.381999969482422,
+          "date": "2026-04-30",
+          "price": 12.381999969482422,
+          "symbol": "SEMI.L",
+          "volume": 524599
+        },
+        {
+          "adjClose": 12.527999877929688,
+          "date": "2026-05-01",
+          "price": 12.527999877929688,
+          "symbol": "SEMI.L",
+          "volume": 585588
+        },
+        {
+          "adjClose": 13.263999938964844,
+          "date": "2026-05-05",
+          "price": 13.263999938964844,
+          "symbol": "SEMI.L",
+          "volume": 815691
+        },
+        {
+          "adjClose": 13.727999687194824,
+          "date": "2026-05-06",
+          "price": 13.727999687194824,
+          "symbol": "SEMI.L",
+          "volume": 1379598
+        },
+        {
+          "adjClose": 13.760000228881836,
+          "date": "2026-05-07",
+          "price": 13.760000228881836,
+          "symbol": "SEMI.L",
+          "volume": 619515
+        },
+        {
+          "adjClose": 14.178000450134277,
+          "date": "2026-05-08",
+          "price": 14.178000450134277,
+          "symbol": "SEMI.L",
+          "volume": 805707
+        },
+        {
+          "adjClose": 14.630000114440918,
+          "date": "2026-05-11",
+          "price": 14.630000114440918,
+          "symbol": "SEMI.L",
+          "volume": 1473109
+        },
+        {
+          "adjClose": 13.958000183105469,
+          "date": "2026-05-12",
+          "price": 13.958000183105469,
+          "symbol": "SEMI.L",
+          "volume": 1488269
+        },
+        {
+          "adjClose": 14.555999755859375,
+          "date": "2026-05-13",
+          "price": 14.555999755859375,
+          "symbol": "SEMI.L",
+          "volume": 1492390
+        },
+        {
+          "adjClose": 14.744000434875488,
+          "date": "2026-05-14",
+          "price": 14.744000434875488,
+          "symbol": "SEMI.L",
+          "volume": 1553173
+        },
+        {
+          "adjClose": 14.381999969482422,
+          "date": "2026-05-15",
+          "price": 14.381999969482422,
+          "symbol": "SEMI.L",
+          "volume": 1186527
+        },
+        {
+          "adjClose": 13.923999786376953,
+          "date": "2026-05-18",
+          "price": 13.923999786376953,
+          "symbol": "SEMI.L",
+          "volume": 893270
+        },
+        {
+          "adjClose": 13.576000213623047,
+          "date": "2026-05-19",
+          "price": 13.576000213623047,
+          "symbol": "SEMI.L",
+          "volume": 1166885
+        },
+        {
+          "adjClose": 14.255999565124512,
+          "date": "2026-05-20",
+          "price": 14.255999565124512,
+          "symbol": "SEMI.L",
+          "volume": 990245
+        },
+        {
+          "adjClose": 14.355999946594238,
+          "date": "2026-05-21",
+          "price": 14.355999946594238,
+          "symbol": "SEMI.L",
+          "volume": 1001584
+        },
+        {
+          "adjClose": 14.899999618530273,
+          "date": "2026-05-22",
+          "price": 14.899999618530273,
+          "symbol": "SEMI.L",
+          "volume": 921485
+        },
+        {
+          "adjClose": 15.64799976348877,
+          "date": "2026-05-26",
+          "price": 15.64799976348877,
+          "symbol": "SEMI.L",
+          "volume": 1360505
+        },
+        {
+          "adjClose": 15.550000190734863,
+          "date": "2026-05-27",
+          "price": 15.550000190734863,
+          "symbol": "SEMI.L",
+          "volume": 2137399
+        },
+        {
+          "adjClose": 16.010000228881836,
+          "date": "2026-05-28",
+          "price": 16.010000228881836,
+          "symbol": "SEMI.L",
+          "volume": 946313
+        },
+        {
+          "adjClose": 15.88599967956543,
+          "date": "2026-05-29",
+          "price": 15.88599967956543,
+          "symbol": "SEMI.L",
+          "volume": 1305402
+        },
+        {
+          "adjClose": 15.96399974822998,
+          "date": "2026-06-01",
+          "price": 15.96399974822998,
+          "symbol": "SEMI.L",
+          "volume": 796857
+        },
+        {
+          "adjClose": 16.43199920654297,
+          "date": "2026-06-02",
+          "price": 16.43199920654297,
+          "symbol": "SEMI.L",
+          "volume": 1155921
+        },
+        {
+          "adjClose": 16.82200050354004,
+          "date": "2026-06-03",
+          "price": 16.82200050354004,
+          "symbol": "SEMI.L",
+          "volume": 1322267
+        },
+        {
+          "adjClose": 16.31999969482422,
+          "date": "2026-06-04",
+          "price": 16.31999969482422,
+          "symbol": "SEMI.L",
+          "volume": 1299718
+        },
+        {
+          "adjClose": 15.432000160217285,
+          "date": "2026-06-05",
+          "price": 15.432000160217285,
+          "symbol": "SEMI.L",
+          "volume": 1063540
+        },
+        {
+          "adjClose": 15.692000389099121,
+          "date": "2026-06-08",
+          "price": 15.692000389099121,
+          "symbol": "SEMI.L",
+          "volume": 1974228
+        },
+        {
+          "adjClose": 15.178000450134277,
+          "date": "2026-06-09",
+          "price": 15.178000450134277,
+          "symbol": "SEMI.L",
+          "volume": 1223606
+        },
+        {
+          "adjClose": 15.097999572753906,
+          "date": "2026-06-10",
+          "price": 15.097999572753906,
+          "symbol": "SEMI.L",
+          "volume": 1668707
+        },
+        {
+          "adjClose": 15.612000465393066,
+          "date": "2026-06-11",
+          "price": 15.612000465393066,
+          "symbol": "SEMI.L",
+          "volume": 967151
+        },
+        {
+          "adjClose": 16.507999420166016,
+          "date": "2026-06-12",
+          "price": 16.507999420166016,
+          "symbol": "SEMI.L",
+          "volume": 1004891
+        },
+        {
+          "adjClose": 17.170000076293945,
+          "date": "2026-06-15",
+          "price": 17.170000076293945,
+          "symbol": "SEMI.L",
+          "volume": 1296340
+        },
+        {
+          "adjClose": 16.761999130249023,
+          "date": "2026-06-16",
+          "price": 16.761999130249023,
+          "symbol": "SEMI.L",
+          "volume": 929943
+        },
+        {
+          "adjClose": 17.100000381469727,
+          "date": "2026-06-17",
+          "price": 17.100000381469727,
+          "symbol": "SEMI.L",
+          "volume": 575287
+        },
+        {
+          "adjClose": 17.95199966430664,
+          "date": "2026-06-18",
+          "price": 17.95199966430664,
+          "symbol": "SEMI.L",
+          "volume": 1368634
+        },
+        {
+          "adjClose": 18.0,
+          "date": "2026-06-19",
+          "price": 18.0,
+          "symbol": "SEMI.L",
+          "volume": 452576
+        },
+        {
+          "adjClose": 18.365999221801758,
+          "date": "2026-06-22",
+          "price": 18.365999221801758,
+          "symbol": "SEMI.L",
+          "volume": 1321555
+        },
+        {
+          "adjClose": 17.1200008392334,
+          "date": "2026-06-23",
+          "price": 17.1200008392334,
+          "symbol": "SEMI.L",
+          "volume": 2316522
+        },
+        {
+          "adjClose": 17.016000747680664,
+          "date": "2026-06-24",
+          "price": 17.016000747680664,
+          "symbol": "SEMI.L",
+          "volume": 1576571
+        },
+        {
+          "adjClose": 17.48200035095215,
+          "date": "2026-06-25",
+          "price": 17.48200035095215,
+          "symbol": "SEMI.L",
+          "volume": 1442234
+        },
+        {
+          "adjClose": 17.04400062561035,
+          "date": "2026-06-26",
+          "price": 17.04400062561035,
+          "symbol": "SEMI.L",
+          "volume": 782706
+        },
+        {
+          "adjClose": 17.073999404907227,
+          "date": "2026-06-29",
+          "price": 17.073999404907227,
+          "symbol": "SEMI.L",
+          "volume": 1372921
+        },
+        {
+          "adjClose": 17.99799919128418,
+          "date": "2026-06-30",
+          "price": 17.99799919128418,
+          "symbol": "SEMI.L",
+          "volume": 998857
         }
       ],
       "symbol": "SEMI",
