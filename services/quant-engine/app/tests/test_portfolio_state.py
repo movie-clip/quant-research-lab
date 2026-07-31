@@ -59,11 +59,20 @@ def _rows(symbol: str, dates: list[str], price: float = 100.0) -> list[dict]:
     return [{"date": d, "price": price, "symbol": symbol} for d in dates]
 
 
-def _build(snapshot, price_histories, valuation_dates, *, reconcile: bool = False):
+def _build(
+    snapshot,
+    price_histories,
+    valuation_dates,
+    *,
+    reconcile: bool = False,
+    fx_history: dict | None = None,
+    symbol_fund_currencies: dict | None = None,
+):
     engine = PortfolioStateEngine(
         snapshot=snapshot,
         base_currency=(snapshot.statement.base_currency or "USD"),
-        fx_history={},
+        fx_history=fx_history or {},
+        symbol_fund_currencies=symbol_fund_currencies or {},
     )
     states = engine.build_daily_states(
         price_histories=price_histories,
@@ -71,6 +80,11 @@ def _build(snapshot, price_histories, valuation_dates, *, reconcile: bool = Fals
         apply_terminal_reconciliation=reconcile,
     )
     return engine, states
+
+
+def _static_fx(dates: list[str], rates: dict[str, float]) -> dict[str, float]:
+    """Static per-date fx_history keyed `{CCY}{BASE}:{date}` (the US-30.2 shape)."""
+    return {f"{pair}:{d}": rate for d in dates for pair, rate in rates.items()}
 
 
 @pytest.fixture(scope="module")
@@ -277,3 +291,135 @@ class TestUnpricedSymbolDisclosure:
         engine, _states = _build(snapshot, price_histories, dates)
 
         assert engine.unpriced_replay_symbols == set()
+
+
+class TestFundCurrencyConversion:
+    """US-31.5 (Epic 31 F-4): market values convert by the FUND currency (the
+    resolved line's quote currency), not the broker listing currency; anchored
+    values keep the position currency."""
+
+    def test_market_value_converts_by_fund_currency_not_listing(self) -> None:
+        # Two EUR-listed positions. AAA's fund currency is USD (like DEFS.L,
+        # which quotes USD) → must NOT be converted. BBB's fund currency is EUR
+        # (like SXRV.DE) → must be converted by EURUSD. The listing currency is
+        # identical for both, so the engine must be reading the fund currency.
+        dates = ["2025-01-01", "2025-01-02"]
+        snapshot = _snapshot(
+            positions=[
+                position("AAA", market_value=1000.0, currency="EUR"),
+                position("BBB", market_value=1000.0, currency="EUR"),
+            ],
+        )
+        price_histories = {"AAA": _rows("AAA", dates, price=10.0), "BBB": _rows("BBB", dates, price=10.0)}
+        fx = _static_fx(dates, {"EURUSD": 1.20})
+
+        _engine, states = _build(
+            snapshot, price_histories, dates,
+            fx_history=fx,
+            symbol_fund_currencies={"AAA": "USD", "BBB": "EUR"},
+        )
+        by_symbol = {p.symbol: p for p in states[-1].positions}
+        # AAA (fund USD): 10 qty × 10.0 = 100.0, no conversion.
+        assert by_symbol["AAA"].market_value == pytest.approx(100.0)
+        # BBB (fund EUR): 100.0 × 1.20 = 120.0.
+        assert by_symbol["BBB"].market_value == pytest.approx(120.0)
+
+    def test_statement_anchored_holding_converts_by_position_currency(self) -> None:
+        # AAA has market data (fund USD). BBB has NO history → statement-anchored
+        # at its close (2.0) in its POSITION currency EUR, converted by EURUSD,
+        # NOT by any fund currency (the anchor is the statement close).
+        dates = ["2025-01-01", "2025-01-02"]
+        snapshot = _snapshot(
+            positions=[
+                position("AAA", market_value=1000.0, currency="USD", quantity=10.0),
+                position("BBB", market_value=100.0, currency="EUR", quantity=50.0, close_price=2.0),
+            ],
+        )
+        price_histories = {"AAA": _rows("AAA", dates, price=100.0)}  # BBB absent → anchored
+        fx = _static_fx(dates, {"EURUSD": 1.30})
+
+        engine, states = _build(
+            snapshot, price_histories, dates,
+            fx_history=fx,
+            symbol_fund_currencies={"AAA": "USD"},  # BBB deliberately absent
+        )
+        by_symbol = {p.symbol: p for p in states[-1].positions}
+        # BBB anchored at 2.0 EUR × 50 = 100 EUR × 1.30 = 130.0.
+        assert by_symbol["BBB"].market_value == pytest.approx(130.0)
+        assert "BBB" in engine.statement_anchored_symbols
+
+    def test_no_fx_rates_carries_unconverted_and_discloses(self) -> None:
+        # US-27.8 contract preserved: with an empty fx_history a non-base value
+        # is carried raw and the currency recorded in the fallback set.
+        dates = ["2025-01-01", "2025-01-02"]
+        snapshot = _snapshot(positions=[position("BBB", market_value=1000.0, currency="EUR")])
+        price_histories = {"BBB": _rows("BBB", dates, price=10.0)}
+
+        engine, states = _build(
+            snapshot, price_histories, dates,
+            fx_history={},
+            symbol_fund_currencies={"BBB": "EUR"},
+        )
+        assert states[-1].positions[0].market_value == pytest.approx(100.0)  # unconverted
+        assert "EUR" in engine.fx_fallback_currencies
+
+    def test_missing_fund_currency_falls_back_to_position_currency(self) -> None:
+        # A symbol absent from the fund-currency map uses its position currency,
+        # and converts by that — never a silent 1:1 base assumption.
+        dates = ["2025-01-01", "2025-01-02"]
+        snapshot = _snapshot(positions=[position("BBB", market_value=1000.0, currency="EUR")])
+        price_histories = {"BBB": _rows("BBB", dates, price=10.0)}
+        fx = _static_fx(dates, {"EURUSD": 1.10})
+
+        _engine, states = _build(
+            snapshot, price_histories, dates,
+            fx_history=fx,
+            symbol_fund_currencies={},  # BBB absent → position currency EUR
+        )
+        # 100 EUR × 1.10 = 110.0 (converted by position currency, not left raw).
+        assert states[-1].positions[0].market_value == pytest.approx(110.0)
+
+
+class TestIB2026FundCurrencyReconciliation:
+    def test_ib2026_terminal_market_value_reconciles_to_statement(self, ib2026_snapshot) -> None:
+        """US-31.5 AC1/AC2: with fund-currency conversion the replayed terminal
+        total market value reconciles to the statement's own stock_total."""
+        from app.instruments import InstrumentRegistry
+
+        snapshot = ib2026_snapshot
+        market_data = FrozenMarketData.from_file()
+        history_dates = [e.trade_date.isoformat() for e in snapshot.ledger_entries if e.trade_date]
+        history_dates += [p.as_of_date.isoformat() for p in snapshot.positions if p.as_of_date]
+        start, end = min(history_dates), max(history_dates)
+        valuation_dates = sorted({row["date"] for row in market_data.get_historical_prices("SPY", start, end)})
+        price_histories = market_data.get_historical_prices_for_symbols(
+            replay_symbol_universe(snapshot), start, end
+        )
+
+        registry = InstrumentRegistry()
+        fund_currencies = {}
+        for symbol in replay_symbol_universe(snapshot):
+            inst = registry.get_instrument(symbol)
+            if inst is not None and inst.currency:
+                fund_currencies[symbol] = inst.currency
+        fx = _static_fx(valuation_dates, {
+            pair[:3] + pair[3:]: rate for pair, rate in (snapshot.statement_totals.fx_rates or {}).items()
+        })
+
+        _engine, states = _build(
+            snapshot, price_histories, valuation_dates,
+            fx_history=fx, symbol_fund_currencies=fund_currencies,
+        )
+        terminal = states[-1]
+        by_symbol = {p.symbol: p for p in terminal.positions}
+
+        assert by_symbol["SXRV"].market_value == pytest.approx(8_654.45, abs=1.0)
+        assert by_symbol["SEMI"].market_value == pytest.approx(3_580.07, abs=1.0)
+        assert by_symbol["LQQ"].market_value == pytest.approx(2_339.80, abs=1.0)
+        # DEFS (DEFS.L quotes USD): unchanged, never double-converted.
+        assert by_symbol["DEFS"].market_value == pytest.approx(
+            next(p for p in snapshot.positions if p.symbol == "DEFS").quantity
+            * max(price_histories["DEFS"], key=lambda r: r["date"])["price"],
+            abs=1.0,
+        )
+        assert terminal.total_market_value == pytest.approx(61_238.53, abs=2.0)

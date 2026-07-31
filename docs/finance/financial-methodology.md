@@ -1318,6 +1318,32 @@ Statement-implied static-rate tier (US-30.2 / audit F-6):
   fx_fallback_currencies    = the remainder (carried unconverted)
   A currency appears in exactly one tier.
 
+Fund-currency conversion basis (US-31.5 / Epic 31 F-4):
+  the currency a holding's market value is converted FROM is the FUND (quote)
+  currency of the resolved provider line — NOT the broker's listing
+  `position.currency`. These differ: a fund can be LISTED in one currency and
+  QUOTED in another (e.g. DEFS is listed EUR but its resolved line DEFS.L
+  quotes USD; converting a USD quote by EURUSD would double-count). A blanket
+  position-currency conversion was measured 4.3× worse on the committed
+  portfolio. The fund currency is read from the InstrumentRegistry
+  (`get_instrument(sym).currency`), which is curated to the fund currency and
+  matches the observed quote basis for every priced holding (0 mismatches).
+
+  Rule (imported ledger-replay path):
+    - MARKET-priced value  → convert FROM the registry fund currency
+    - STATEMENT-anchored value (no fetchable history; the flat statement close)
+                           → convert FROM the position/listing currency, since
+                             the anchor is the broker's own statement close
+    - fund currency unknown → fall back to the position currency; unknown rate
+                             → carried unconverted + disclosed (never a silent
+                             1:1 base assumption)
+  The static rates come from the statement's own implied `fx_rates` (US-28.1),
+  applied per the static-rate tier above. Dependency: the registry currency
+  must equal the resolved line's quote currency — pinned by a golden-master
+  guard so a mis-curated currency fails at golden-regen. With F-1/F-4/F-5
+  resolved the IB2026 terminal market value reconciles to the statement's
+  `stock_total` ($61,239.88 vs $61,238.53), leaving only the F-2 cash anchor.
+
 Statement-anchored symbols (US-30.2 / audit F-3):
   a held symbol with NO fetchable in-window price history is valued flat at
   the statement close (the US-27.7 broker-path anchor — broker-truth-
