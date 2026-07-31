@@ -208,43 +208,43 @@ def test_f5_semi_resolves_to_held_line_not_bare_us_ticker(replay_context) -> Non
     assert position.quantity * quote == pytest.approx(2_699.70, abs=1.0)
 
 
-def test_f4_provider_quote_currency_is_not_the_position_currency(replay_context) -> None:
-    """PINS F-4 (High) — KNOWN WRONG.
+def test_f4_resolved_by_fund_currency_conversion(replay_context) -> None:
+    """F-4 (High) — **RESOLVED by US-31.5**.
 
-    The replay carries every value unconverted (`fx_history={}`), and a blanket
-    `position.currency` conversion is NOT the fix: the provider's quote currency
-    varies per resolved line. DEFS is held in EUR but `DEFS.L` quotes USD (ratio
-    ≈ EURUSD, so converting would double-count); SXRV is held in EUR and
-    `SXRV.DE` quotes EUR (ratio 1.0, so conversion IS required).
-
-    Expected AFTER the fix (US-31.5): a per-symbol quote currency is recorded and
-    conversion is applied only where the quote currency differs from the base.
+    The replay used to carry every value unconverted (`fx_history={}`), and a
+    blanket `position.currency` conversion would have been wrong: the provider's
+    quote currency varies per resolved line. It now converts each holding by its
+    FUND currency (registry) using the statement's implied rates, so:
+      - DEFS (`DEFS.L` quotes USD): the fetched series is already in base and is
+        NOT converted — the raw ratio ≈ EURUSD stands as the proof it was USD.
+      - SXRV (`SXRV.DE` quotes EUR) and SEMI (`SEMI.L` quotes GBP): converted.
+    The end-to-end reconciliation is pinned in
+    `test_portfolio_state.py::test_ib2026_terminal_market_value_reconciles_to_statement`;
+    here we pin the underlying per-line currency basis that makes it correct.
     """
-    snapshot, price_histories, _valuation_dates = replay_context
+    from app.analytics.performance import build_replay_currency_context
+    from app.engine.portfolio_state import replay_symbol_universe
+
+    snapshot, price_histories, valuation_dates = replay_context
     totals = snapshot.statement_totals
     assert totals is not None and totals.fx_rates
 
-    def ratio(symbol: str) -> float:
+    def raw_ratio(symbol: str) -> float:
         position = next(p for p in snapshot.positions if p.symbol == symbol)
         rows = price_histories.get(symbol) or []
         assert rows, f"frozen fixture lost {symbol} — re-capture"
         return max(rows, key=lambda row: row["date"])["price"] / position.close_price
 
     eurusd = totals.fx_rates["EURUSD"]
+    # The raw fetched series still show the per-line quote currency:
+    assert raw_ratio("DEFS") == pytest.approx(eurusd, abs=0.01)  # DEFS.L quotes USD
+    assert raw_ratio("SXRV") == pytest.approx(1.0, abs=0.01)     # SXRV.DE quotes EUR
+    assert raw_ratio("SEMI") == pytest.approx(1.0, abs=0.01)     # SEMI.L quotes GBP
 
-    # DEFS: EUR position, USD-quoted line — already in base, must NOT be converted.
-    assert ratio("DEFS") == pytest.approx(eurusd, abs=0.01)
-    # SXRV: EUR position, EUR-quoted line — must be converted.
-    assert ratio("SXRV") == pytest.approx(1.0, abs=0.01)
-    # SEMI (post-US-31.4): now the correct fund — GBP position, GBP-quoted
-    # SEMI.L line (ratio ~1.0), so it too must be converted. It moved from a
-    # wrong-fund F-5 case to a clean F-4 case.
-    assert ratio("SEMI") == pytest.approx(1.0, abs=0.01)
-    assert next(p for p in snapshot.positions if p.symbol == "SEMI").currency == "GBP"
-    # The two EUR cases are indistinguishable from the snapshot alone: same
-    # currency, opposite required treatment. That is precisely the F-4 gap.
-    assert (
-        next(p for p in snapshot.positions if p.symbol == "DEFS").currency
-        == next(p for p in snapshot.positions if p.symbol == "SXRV").currency
-        == "EUR"
+    # The fix reads the FUND currency (registry), which resolves the ambiguity:
+    fund_currencies, _fx = build_replay_currency_context(
+        snapshot, replay_symbol_universe(snapshot), valuation_dates
     )
+    assert fund_currencies["DEFS"] == "USD"  # NOT the EUR listing → not converted
+    assert fund_currencies["SXRV"] == "EUR"  # converted
+    assert fund_currencies["SEMI"] == "GBP"  # converted
