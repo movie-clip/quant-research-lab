@@ -130,13 +130,18 @@ def test_f3_terminal_reconciliation_is_published_as_a_return(replay_context) -> 
     distributed, or fails closed — never published as a single-day return. This
     test then flips to asserting the two series' final returns agree.
 
-    **US-31.2 materially re-scoped this finding.** The adjustment was never an
-    independent defect — it is the accumulated F-1/F-2 error snapping out on the
-    last day. With opening positions priced, the fabricated terminal return fell
-    from **−36.34% to −2.56%**, and its annualised-volatility inflation from
-    **+79% (36.21% → 64.82%) to +1.1% (23.65% → 23.91%)**. US-31.3 remains
-    necessary on principle — publishing ANY accounting adjustment as a return
-    violates guardrail #3 — but its magnitude is now small, not Critical.
+    **Re-scoped twice as F-1 and F-5 were fixed.** The adjustment was never an
+    independent defect — it is the accumulated F-1/F-2/F-4/F-5 error snapping out
+    on the last day, so its size AND SIGN move as the upstream inputs are
+    corrected. US-31.2 (F-1) took it from −36.34% to −2.56%; US-31.4 (F-5, the
+    SEMI wrong-fund fix) removed a $2,506.93 terminal overstatement, so the
+    engine now slightly UNDER-values the terminal MV (SEMI's correct GBP line is
+    carried unconverted — the F-4 residual) and the reconciliation snaps UP,
+    fabricating a **+2.77%** return where the un-reconciled day is **+0.89%**.
+    The sign flip is itself the point: an accounting adjustment is being read as
+    performance, positive or negative. US-31.3 remains necessary on principle
+    (guardrail #3) but its magnitude is small and will settle only once F-4
+    (US-31.5) lands. That sign-dependence is exactly why US-31.3 is ordered last.
     """
     snapshot, price_histories, valuation_dates = replay_context
 
@@ -149,15 +154,18 @@ def test_f3_terminal_reconciliation_is_published_as_a_return(replay_context) -> 
     without_reconciliation = final_return(reconcile=False)
 
     # Still open: the final day's "return" is still driven by the correction,
-    # not by market movement — only much smaller than the PRD recorded.
-    assert with_reconciliation == pytest.approx(-0.0256, abs=0.002)
-    assert without_reconciliation == pytest.approx(0.0087, abs=0.002)
+    # not by market movement.
+    assert with_reconciliation == pytest.approx(0.0277, abs=0.002)
+    assert without_reconciliation == pytest.approx(0.0089, abs=0.002)
     assert abs(with_reconciliation - without_reconciliation) > 0.01, (
         "F-3 appears fixed — update this pin and see US-31.3 "
         f"(with={with_reconciliation:.4f}, without={without_reconciliation:.4f})"
     )
-    # The correction still flips a positive day negative — that is the defect.
-    assert without_reconciliation > 0 > with_reconciliation
+    # The reconciliation still injects a non-market move into the last day —
+    # that is the defect, whatever its sign. Post-US-31.4 the adjustment is
+    # positive (the engine under-values terminal MV via SEMI's unconverted GBP),
+    # so the earlier "flips positive to negative" assertion no longer holds.
+    assert with_reconciliation > without_reconciliation
 
 
 # ── F-4 / F-5 (recorded 2026-07-24, US-31.4 / US-31.5) ──────────────────────
@@ -167,26 +175,27 @@ def test_f3_terminal_reconciliation_is_published_as_a_return(replay_context) -> 
 # come from the frozen fixture.
 
 
-def test_f5_bare_symbol_fallback_substitutes_a_different_security(replay_context) -> None:
-    """PINS F-5 (High) — KNOWN WRONG.
+def test_f5_semi_resolves_to_held_line_not_bare_us_ticker(replay_context) -> None:
+    """F-5 (High) — **RESOLVED by US-31.4**.
 
     `SEMI` is the LSE UCITS line *iShares MSCI Global Semiconductors*
-    (ISIN IE000I8KRLL9, GBP, statement close 17.998). `SEMI.L` is unavailable on
-    the current FMP plan, so `resolve_symbol_candidates` falls through to the
-    bare US-listed `SEMI` — a different security quoting 40.58 (2.2547×),
+    (ISIN IE000I8KRLL9, GBP, statement close 17.998). The rule used to carry a
+    bare `SEMI` fallback; when `SEMI.L` was unavailable on FMP it fell through
+    to the bare US-listed `SEMI` — a different security quoting 40.58 (2.2547×),
     overstating the holding by $2,506.93.
 
-    Expected AFTER the fix (US-31.4): either the venue-qualified line resolves,
-    or the symbol is reported as having NO history (and disclosed via
-    `unpriced_replay_symbols`) — never silently valued from another security.
+    The bare candidate is now removed (mirroring CIBR/DFND). `SEMI.L` resolves
+    via the yfinance fallback to the held fund's GBP line, so the replayed
+    terminal value is the correct-fund 150 × 17.998 = $2,699.70 (GBP,
+    unconverted — the F-4 residual US-31.5 owns), never the wrong-fund
+    $6,087.00. This pin is inverted: it fails if the bare fallback returns.
     """
     from app.core.symbols import resolve_symbol_candidates
 
     snapshot, price_histories, _valuation_dates = replay_context
 
-    assert resolve_symbol_candidates("SEMI", None, kind="history") == ["SEMI.L", "SEMI"], (
-        "F-5 pin: SEMI still carries an unguarded bare fallback (contrast CIBR, "
-        "pinned to ['CIBR.L']) — see US-31.4"
+    assert resolve_symbol_candidates("SEMI", None, kind="history") == ["SEMI.L"], (
+        "F-5 has regressed — SEMI carries a bare fallback again (contrast CIBR)"
     )
 
     position = next(p for p in snapshot.positions if p.symbol == "SEMI")
@@ -194,10 +203,9 @@ def test_f5_bare_symbol_fallback_substitutes_a_different_security(replay_context
     assert rows, "frozen fixture lost SEMI — re-capture"
     quote = max(rows, key=lambda row: row["date"])["price"]
 
-    # Current behaviour: the served quote cannot be the held line in any currency.
-    assert quote / position.close_price == pytest.approx(2.2547, abs=0.01), (
-        "F-5 appears fixed or changed — update this pin and see US-31.4"
-    )
+    # The served quote is now the held GBP line, matching the statement close.
+    assert quote == pytest.approx(position.close_price, rel=0.001)
+    assert position.quantity * quote == pytest.approx(2_699.70, abs=1.0)
 
 
 def test_f4_provider_quote_currency_is_not_the_position_currency(replay_context) -> None:
@@ -228,8 +236,13 @@ def test_f4_provider_quote_currency_is_not_the_position_currency(replay_context)
     assert ratio("DEFS") == pytest.approx(eurusd, abs=0.01)
     # SXRV: EUR position, EUR-quoted line — must be converted.
     assert ratio("SXRV") == pytest.approx(1.0, abs=0.01)
-    # The two cases are indistinguishable from the snapshot alone: same currency,
-    # opposite required treatment. That is precisely the F-4 gap.
+    # SEMI (post-US-31.4): now the correct fund — GBP position, GBP-quoted
+    # SEMI.L line (ratio ~1.0), so it too must be converted. It moved from a
+    # wrong-fund F-5 case to a clean F-4 case.
+    assert ratio("SEMI") == pytest.approx(1.0, abs=0.01)
+    assert next(p for p in snapshot.positions if p.symbol == "SEMI").currency == "GBP"
+    # The two EUR cases are indistinguishable from the snapshot alone: same
+    # currency, opposite required treatment. That is precisely the F-4 gap.
     assert (
         next(p for p in snapshot.positions if p.symbol == "DEFS").currency
         == next(p for p in snapshot.positions if p.symbol == "SXRV").currency

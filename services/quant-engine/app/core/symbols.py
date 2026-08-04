@@ -41,7 +41,14 @@ DEFAULT_SYMBOL_RULES: tuple[SymbolResolutionRule, ...] = (
     # UCITS ETFs without direct FMP coverage — exchange suffixes tried first; proxy is a US-listed equivalent
     # used as a fallback when allow_proxy_fallback=True is passed to MarketDataService.
     SymbolResolutionRule(canonical_symbol="IUIT", quote_candidates=("IUIT.L", "IUIT"), history_candidates=("IUIT.L", "IUIT"), holdings_candidates=("IUIT.L", "IUIT"), proxy_candidates=("XLK",), aliases=("IUIT.L",)),
-    SymbolResolutionRule(canonical_symbol="SEMI", quote_candidates=("SEMI.L", "SEMI"), history_candidates=("SEMI.L", "SEMI"), holdings_candidates=("SEMI.L", "SEMI"), proxy_candidates=("SOXX", "SMH"), aliases=("SEMI.L",)),
+    # SEMI = iShares MSCI Global Semiconductors UCITS ETF (LSE, GBP, ISIN
+    # IE000I8KRLL9) → SEMI.L on Yahoo. Deliberately NO bare "SEMI" candidate:
+    # on FMP that symbol is a DIFFERENT US-listed security (2026-06-30 quote
+    # 40.58 vs the held line's 17.998 GBP, 2.25×; Epic 31 F-5). Same wrong-fund
+    # trap as CIBR/DFND. The US line is reachable only as a labeled proxy; the
+    # real fund comes from SEMI.L via the yfinance fallback. SOXX/SMH are the
+    # deliberate US semiconductor proxies (allow_proxy_fallback=True).
+    SymbolResolutionRule(canonical_symbol="SEMI", quote_candidates=("SEMI.L",), history_candidates=("SEMI.L",), holdings_candidates=("SEMI.L",), proxy_candidates=("SOXX", "SMH"), aliases=("SEMI.L",)),
     SymbolResolutionRule(canonical_symbol="SXRV", quote_candidates=("SXRV.DE", "SXRV"), history_candidates=("SXRV.DE", "SXRV"), holdings_candidates=("SXRV.DE", "SXRV"), proxy_candidates=("QQQ",), aliases=("SXRV.DE",)),
     SymbolResolutionRule(canonical_symbol="DEFS", quote_candidates=("DEFS.L", "DEFS"), history_candidates=("DEFS.L", "DEFS"), holdings_candidates=("DEFS.L", "DEFS"), proxy_candidates=("ITA", "PPA"), aliases=("DEFS.L",)),
     SymbolResolutionRule(canonical_symbol="IAUP", quote_candidates=("IAUP.L", "IAUP"), history_candidates=("IAUP.L", "IAUP"), holdings_candidates=("IAUP.L", "IAUP"), proxy_candidates=("GDX",), aliases=("IAUP.L",)),

@@ -270,7 +270,7 @@ All 10 of these are LSE/IBIS2-listed and return 402 on FMP basic:
 | DFND | iShares Global Aerospace & Defence UCITS ETF (LSE, GBP) | ITA, PPA |  Yahoo line is **DFND.L**. Do **not** use DFNS.L/DFEN.DE/DFNG.L — those are VanEck Defense, a different fund. See US-18.3. |
 | VDST | Vanguard USD 0-1 Year Treasury Bond UCITS ETF | BIL, VGSH |
 | IUIT | iShares S&P 500 IT Sector UCITS ETF | XLK |
-| SEMI | iShares MSCI Global Semiconductors UCITS ETF | SOXX, SMH |
+| SEMI | iShares MSCI Global Semiconductors UCITS ETF (LSE, GBP, ISIN IE000I8KRLL9) | SOXX, SMH | Yahoo line is **SEMI.L**. Do **not** use the bare `SEMI` — on FMP it is a different US-listed security (~40 vs the held ~18 GBP). Bare candidate removed; US line reachable only as a labeled proxy. See US-31.4 / Epic 31 F-5. |
 | SXRV | iShares Nasdaq 100 UCITS ETF (EUR, Xetra) | QQQ |
 | DEFS | Amundi STOXX Europe Defense UCITS ETF | ITA, PPA |
 | IAUP | iShares Gold Producers UCITS ETF | GDX |
