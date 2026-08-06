@@ -1,25 +1,24 @@
-"""Epic 31 / US-31.1 — reproduction pins for the imported ledger-replay defects.
+"""Epic 31 — regression pins for the imported ledger-replay findings F-1..F-5.
 
-These tests **document current, known-WRONG behaviour**. They are not
-assertions that the engine is correct; they exist so that:
+Originally authored by US-31.1 to pin **known-WRONG** behaviour so each defect
+stayed reproducible for whoever picked up the fix. **All five findings are now
+resolved** (US-31.2 → F-1, US-31.4 → F-5, US-31.5 → F-4, US-31.3 → F-2/F-3), so
+every pin has been *inverted*: each one now asserts the corrected behaviour and
+fails if the defect returns.
 
-  1. the F-1..F-3 findings stay reproducible for whoever picks up the fixes, and
-  2. a future fix has to flip them *deliberately* rather than surprising someone
-     with an unexplained failure.
-
-Each test names the finding it pins, the expected post-fix behaviour, and the
-story that will change it (the US-27 "documented defect" convention).
+Each test keeps the finding's history in its docstring — including the numbers
+as they moved while upstream fixes landed — because F-1..F-5 were one causal
+chain and the magnitudes only make sense in that order.
 
 All numbers come from the **frozen** `app/scripts/golden_market_data.json`
 (deterministic, network-free), so these are not local FMP-cache artifacts.
 
-See `docs/product/prd/epic-31-ledger-replay-correctness.md` F-1..F-3.
+See `docs/product/prd/epic-31-ledger-replay-correctness.md` F-1..F-5.
 """
 from __future__ import annotations
 
 import pytest
 
-from app.domain.ledger import snapshot_to_ledger
 from app.engine.portfolio_state import PortfolioStateEngine, replay_symbol_universe
 from app.scripts.export_dashboard_goldens import _docs_statement_path, _repo_root
 from app.scripts.frozen_market_data import FrozenMarketData
@@ -88,84 +87,89 @@ def test_f1_opening_positions_are_priced(replay_context) -> None:
     assert len(day_one.positions) > len(snapshot.positions)
 
 
-def test_f2_opening_cash_absorbs_the_valuation_error(replay_context) -> None:
-    """PINS F-2 (Critical) — KNOWN WRONG.
+def test_f2_opening_cash_anchor_is_disclosed_not_silently_plugged(replay_context) -> None:
+    """F-2 (Critical) — **RESOLVED by US-31.3** (disclosed, per the owner's
+    fail-closed decision).
 
-    `base_cash = starting_nav - opening_positions_value` makes cash a plug: the
-    F-1 undervaluation is absorbed into opening cash and rides every daily
-    state, with no disclosure and no fail-closed.
-
-    Expected AFTER the fix (US-31.3): opening cash reconciles to the
-    statement-implied opening cash within a documented tolerance, or the
-    degradation is surfaced with an explicit trust level.
+    `base_cash = starting_nav - opening_positions_value` still absorbs a
+    residual, because the two terms are dated differently: `starting_nav` is as
+    of the statement-period start (2026-01-01) while the positions are valued at
+    the replay window start (2026-01-08). The replay cannot value the
+    period-start date (no prices exist before the window), so the residual is an
+    irreducible information gap — it is now MEASURED and DISCLOSED with an
+    explicit trust level instead of riding silently at full confidence.
     """
+    from app.analytics.performance import build_replay_currency_context
+
     snapshot, price_histories, valuation_dates = replay_context
-    states = _build_states(snapshot, price_histories, valuation_dates, reconcile=False)
+    fund_currencies, fx_history = build_replay_currency_context(
+        snapshot, replay_symbol_universe(snapshot), valuation_dates
+    )
+    engine = PortfolioStateEngine(
+        snapshot=snapshot,
+        base_currency=(snapshot.statement.base_currency or "USD"),
+        fx_history=fx_history,
+        symbol_fund_currencies=fund_currencies,
+    )
+    engine.build_daily_states(
+        price_histories=price_histories,
+        valuation_dates=valuation_dates,
+        apply_terminal_reconciliation=False,
+    )
+    anchor = engine.cash_anchor
 
-    totals = snapshot.statement_totals
-    assert totals is not None and totals.cash_total is not None
+    assert anchor is not None, "F-2 has regressed — the anchor is undisclosed again"
+    assert anchor.trust == "degraded", "a date-mismatched anchor must never claim verified"
+    assert anchor.basis == "statement_nav_date_mismatch"
+    assert anchor.nav_as_of == "2026-01-01" and anchor.window_start == "2026-01-08"
+    # The residual is the market move between those two dates.
+    assert anchor.residual == pytest.approx(-1_196.61, abs=2.0)
 
-    net_window_flow = sum(e.cash_effect or 0.0 for e in snapshot_to_ledger(snapshot))
-    implied_opening_cash = totals.cash_total - net_window_flow
-    engine_opening_cash = states[0].cash[snapshot.statement.base_currency or "USD"]
 
-    drift = engine_opening_cash - implied_opening_cash
+def test_f3_terminal_reconciliation_is_never_published_as_a_return(replay_context) -> None:
+    """F-3 (High) — **RESOLVED by US-31.3**.
 
-    # Still open, but US-31.2 shrank it by 96.9%: $35,534.21 → $1,097.18. The
-    # residual is LQQ's statement-close anchor (a held symbol with no fetchable
-    # history), NOT the since-sold gap F-1 described.
-    assert abs(drift) == pytest.approx(1_097.18, abs=1.0), (
-        f"F-2 drift moved (drift={drift:,.2f}) — re-check before US-31.3"
+    `_reconcile_terminal_state_to_statement_totals` still snaps the final state's
+    value to the statement's ending NAV (that is correct — it IS the broker's
+    number), but the correction is now RECORDED as
+    `reconciliation_adjustment` and the affected day's return is WITHHELD
+    instead of published as performance.
+
+    History of the magnitude, since it moved as each upstream finding was fixed:
+    US-31.1 recorded −36.34%; US-31.2 (F-1) took it to −2.56%; US-31.4 (F-5)
+    flipped its sign to +2.77%; post-US-31.5 (F-4) it is +2.95% against an
+    un-reconciled +1.00%. The sign-dependence is exactly why this story was
+    ordered last — and why the fix is to withhold rather than to chase a
+    "correct" value for a day whose value was overwritten.
+    """
+    from app.analytics.performance import build_replay_currency_context
+    from app.analytics.risk import _portfolio_time_weighted_return_series
+
+    snapshot, price_histories, valuation_dates = replay_context
+    fund_currencies, fx_history = build_replay_currency_context(
+        snapshot, replay_symbol_universe(snapshot), valuation_dates
+    )
+    engine = PortfolioStateEngine(
+        snapshot=snapshot,
+        base_currency=(snapshot.statement.base_currency or "USD"),
+        fx_history=fx_history,
+        symbol_fund_currencies=fund_currencies,
+    )
+    states = engine.build_daily_states(
+        price_histories=price_histories,
+        valuation_dates=valuation_dates,
+        apply_terminal_reconciliation=True,
     )
 
-
-def test_f3_terminal_reconciliation_is_published_as_a_return(replay_context) -> None:
-    """PINS F-3 (High) — KNOWN WRONG.
-
-    `_reconcile_terminal_state_to_statement_totals` corrects the whole
-    accumulated drift on the final day, and the return series reads that
-    accounting adjustment as performance.
-
-    Expected AFTER the fix (US-31.3): the reconciliation is disclosed,
-    distributed, or fails closed — never published as a single-day return. This
-    test then flips to asserting the two series' final returns agree.
-
-    **Re-scoped twice as F-1 and F-5 were fixed.** The adjustment was never an
-    independent defect — it is the accumulated F-1/F-2/F-4/F-5 error snapping out
-    on the last day, so its size AND SIGN move as the upstream inputs are
-    corrected. US-31.2 (F-1) took it from −36.34% to −2.56%; US-31.4 (F-5, the
-    SEMI wrong-fund fix) removed a $2,506.93 terminal overstatement, so the
-    engine now slightly UNDER-values the terminal MV (SEMI's correct GBP line is
-    carried unconverted — the F-4 residual) and the reconciliation snaps UP,
-    fabricating a **+2.77%** return where the un-reconciled day is **+0.89%**.
-    The sign flip is itself the point: an accounting adjustment is being read as
-    performance, positive or negative. US-31.3 remains necessary on principle
-    (guardrail #3) but its magnitude is small and will settle only once F-4
-    (US-31.5) lands. That sign-dependence is exactly why US-31.3 is ordered last.
-    """
-    snapshot, price_histories, valuation_dates = replay_context
-
-    def final_return(*, reconcile: bool) -> float:
-        states = _build_states(snapshot, price_histories, valuation_dates, reconcile=reconcile)
-        previous, last = states[-2], states[-1]
-        return (last.total_portfolio_value - last.external_cash_flow) / previous.total_portfolio_value - 1
-
-    with_reconciliation = final_return(reconcile=True)
-    without_reconciliation = final_return(reconcile=False)
-
-    # Still open: the final day's "return" is still driven by the correction,
-    # not by market movement.
-    assert with_reconciliation == pytest.approx(0.0277, abs=0.002)
-    assert without_reconciliation == pytest.approx(0.0089, abs=0.002)
-    assert abs(with_reconciliation - without_reconciliation) > 0.01, (
-        "F-3 appears fixed — update this pin and see US-31.3 "
-        f"(with={with_reconciliation:.4f}, without={without_reconciliation:.4f})"
+    terminal = states[-1]
+    # The adjustment is recorded, not hidden...
+    assert terminal.reconciliation_adjustment == pytest.approx(1_197.88, abs=2.0)
+    # ...and the day it lands on publishes NO return.
+    assert terminal.return_is_publishable is False
+    series_dates = [d for d, _ in _portfolio_time_weighted_return_series(states)]
+    assert terminal.date not in series_dates, (
+        "F-3 has regressed — an accounting adjustment is being published as a return"
     )
-    # The reconciliation still injects a non-market move into the last day —
-    # that is the defect, whatever its sign. Post-US-31.4 the adjustment is
-    # positive (the engine under-values terminal MV via SEMI's unconverted GBP),
-    # so the earlier "flips positive to negative" assertion no longer holds.
-    assert with_reconciliation > without_reconciliation
 
 
 # ── F-4 / F-5 (recorded 2026-07-24, US-31.4 / US-31.5) ──────────────────────

@@ -39,3 +39,17 @@ def lookback_calendar_days(window_trading_days: int) -> int:
 # weight jump. Heuristic policy value with no academic basis — tune only as
 # a reviewed change (US-24.2 discipline).
 SYNTHETIC_COVERAGE_DE_MINIMIS_WEIGHT = 0.01
+
+
+# Tolerance (base-currency units) for the imported ledger-replay reconciliation
+# (US-31.3 / Epic 31 F-2, F-3). Two uses, both fail-closed:
+#   1. the opening cash anchor's residual vs the statement-implied opening cash
+#      — at or below this the anchor is `verified`, above it `degraded`;
+#   2. the terminal reconciliation adjustment — above this the affected day's
+#      return is WITHHELD, because an accounting correction of that size would
+#      otherwise be published as a market move (guardrail #3).
+# $1.00 admits cent-level rounding across ~120 daily states and per-currency
+# conversions while catching any real plug (the IB2026 anchor residual is
+# ~$1,192). Heuristic policy value, no academic basis — tune only as a
+# reviewed change (US-24.2 discipline).
+REPLAY_RECONCILIATION_TOLERANCE = 1.00

@@ -126,6 +126,8 @@ rather than absorbed:
 |---|---|
 | `statement_anchored_symbols` (US-30.2) | Held symbol with no fetchable price history — valued flat at its statement close price (broker-truth-adjacent) |
 | `run_metadata.unpriced_replay_symbols` (US-31.2) | Symbol held on a day with **no** price history **and** no statement anchor — contributed 0 to that day's market value |
+| `run_metadata.replay_cash_anchor` (US-31.3) | How opening cash was derived + its trust. `degraded` when the statement NAV's as-of date differs from the replay window start (market movement between them is plugged into cash) |
+| `run_metadata.withheld_return_dates` (US-31.3) | Days whose return was **withheld** because the state carried a reconciliation adjustment — an accounting correction is never published as performance |
 
 The second is the weaker case and the newer one: before US-31.2 those symbols
 were never fetched at all, so a since-sold position silently contributed $0 to

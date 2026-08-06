@@ -18,7 +18,7 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
-### Epic 31 — Ledger Replay Correctness (active)
+### Epic 31 — Ledger Replay Correctness (complete)
 
 PRD: [`prd/epic-31-ledger-replay-correctness.md`](../prd/epic-31-ledger-replay-correctness.md)
 
@@ -28,6 +28,7 @@ PRD: [`prd/epic-31-ledger-replay-correctness.md`](../prd/epic-31-ledger-replay-c
 | [US-31.2](US-31.2-ledger-replay-opening-symbol-coverage.md) | Price the full reconstructed symbol set on the ledger-replay path | Backend — fixes F-1: one shared pure function derives the replay symbol universe (current holdings ∪ every BUY/SELL symbol, 63 vs 20 for IB2026) and both ledger-replay callers fetch it; closes the `_effective_valuation_dates` default-weight-1.0 trap that the wider fetch set would otherwise arm; discloses residual unpriced opening positions on the run metadata. Deliberate `golden_market_data.json` re-capture + itemized goldens diff. Opening MV $14,582 → $49,024; cash plug −96.9%; F-3 re-scoped (−36.34% → −2.56%). F-2/F-3 stay untouched (US-31.3) | Done |
 | [US-31.4](US-31.4-remove-semi-bare-symbol-fallback.md) | Stop the bare-symbol fallback substituting a different security for SEMI | Backend — fixes F-5: removes the bare `SEMI` candidate so resolution no longer falls through from the unavailable held line (`SEMI.L`, iShares MSCI Global Semiconductors UCITS, GBP) to a different US-listed fund (40.58 vs the held 17.998 GBP, +$2,506.93 on IB2026). Mirrors the CIBR/DFND wrong-fund guards in `app/core/symbols.py`; yfinance then returns the correct `SEMI.L` line. Deliberate golden re-capture. Residual GBP-unconverted value is F-4/US-31.5. | Done |
 | [US-31.5](US-31.5-per-symbol-quote-currency-conversion.md) | Convert each replayed holding by its fund currency, not the broker listing | Backend — fixes F-4: the replay converts each holding's market value by its **fund currency** (InstrumentRegistry, = the resolved line's quote currency; 0 mismatches on IB2026) using the statement's implied rates, not `position.currency` (a blanket listing-currency conversion is 4.3× worse — DEFS.L quotes USD for an EUR listing). Statement-anchored holdings keep the position currency. Terminal MV reconciles to the statement `stock_total` ($61,239.88 vs $61,238.53, $1.35 residual). No re-capture (conversion-only); `golden_market_data.json` untouched. Leaves F-2 cash plug for US-31.3. | Done |
+| [US-31.3](US-31.3-cash-anchor-and-terminal-reconciliation.md) | Stop cash absorbing valuation error, and never publish a reconciliation adjustment as a return | Backend — fixes F-2/F-3, the last Epic 31 findings. Root-caused F-2 to a **date mismatch**: `base_cash = starting_nav − opening_positions_value` subtracts a window-start (2026-01-08) market value from a period-start (2026-01-01) NAV, plugging ~$1,192 into cash — constant across the window, so in-window flows are correct. Owner decision: **fail-closed + disclose** — a `replay_cash_anchor` disclosure (basis/dates/residual/trust) plus a recorded `reconciliation_adjustment`, and **no return is published for the adjusted terminal day** (the fabricated +2.95% disappears). Vol 23.63% → 23.32%. Closes Epic 31; unblocks US-24.9. | Done |
 
 ---
 

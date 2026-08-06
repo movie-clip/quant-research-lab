@@ -1318,6 +1318,42 @@ Statement-implied static-rate tier (US-30.2 / audit F-6):
   fx_fallback_currencies    = the remainder (carried unconverted)
   A currency appears in exactly one tier.
 
+Opening cash anchor + reconciliation adjustments (US-31.3 / Epic 31 F-2, F-3):
+  the replay's opening cash is `starting_nav − opening_positions_value`. That is
+  only sound when BOTH terms share an as-of date. On a statement whose period
+  starts before the replay window (IB2026: NAV as of 2026-01-01, positions
+  valued 2026-01-08 — the first trade date), market movement between the two
+  dates is absorbed into cash as a plug. The replay cannot value the
+  period-start date (no prices exist before the window), so the gap is
+  irreducible and is DISCLOSED rather than fabricated:
+
+    ReplayCashAnchor { basis, nav_as_of, window_start, residual, trust }
+      residual = base_cash − statement_implied_opening_cash
+      statement_implied_opening_cash = cash_total − net_window_flow
+        where net_window_flow is FX-CONVERTED per entry. The raw per-currency
+        sum of `cash_effect` is currency-mixed and gives a wrong figure
+        (IB2026: −271.23 raw vs −2,459.29 converted).
+      trust = verified  iff nav_as_of == window_start AND
+                            |residual| <= REPLAY_RECONCILIATION_TOLERANCE
+              degraded  otherwise   (never verified on a date mismatch)
+
+  The terminal reconciliation snaps the final state's `total_portfolio_value` to
+  the statement's ending NAV — correct, since that is the broker's own number —
+  but the move is an ACCOUNTING CORRECTION, not performance. It is recorded as
+  `DailyPortfolioState.reconciliation_adjustment`, and:
+
+    Rule: no return is published for a day whose |reconciliation_adjustment|
+          exceeds REPLAY_RECONCILIATION_TOLERANCE. The day is WITHHELD (absent
+          from the return series, disclosed via `withheld_return_dates` with a
+          stated reason) — never computed, never substituted with the
+          un-reconciled value, because the state's value was overwritten and no
+          trustworthy return exists for it.
+
+  The predicate lives on `DailyPortfolioState.return_is_publishable` so every
+  return builder (performance / risk / attribution) shares one definition. A
+  withheld day therefore cannot leak into volatility, beta, correlation, factor
+  attribution or any rolling window (IB2026: annualised vol 23.63% → 23.32%).
+
 Fund-currency conversion basis (US-31.5 / Epic 31 F-4):
   the currency a holding's market value is converted FROM is the FUND (quote)
   currency of the resolved provider line — NOT the broker's listing
