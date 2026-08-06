@@ -63,6 +63,15 @@ class PortfolioStateEngine:
     snapshot: ImportedPortfolioSnapshot
     base_currency: str
     fx_history: dict[str, float]
+    # US-31.5 (Epic 31 F-4): fund (quote) currency per symbol — the currency the
+    # resolved market line is actually quoted in, which is NOT the broker's
+    # listing `position.currency` (e.g. DEFS is listed EUR but DEFS.L quotes
+    # USD). Sourced from the InstrumentRegistry by the caller. Used for
+    # MARKET-priced values; statement-anchored values keep `position.currency`
+    # (the anchor is the statement close, in the listing currency). A symbol
+    # absent from this map falls back to `position.currency` — never a silent
+    # 1:1 base assumption.
+    symbol_fund_currencies: dict[str, str] = field(default_factory=dict)
     # US-27.8 (audit F9): currencies for which a base-currency conversion was
     # required but no rate was found in fx_history during the last
     # build_daily_states run. The value is carried UNCONVERTED in that case
@@ -143,7 +152,20 @@ class PortfolioStateEngine:
         if not valuation_dates:
             return []
 
-        instrument_currency = {position.symbol: position.currency for position in self.snapshot.positions}
+        position_currency = {position.symbol: position.currency for position in self.snapshot.positions}
+
+        def valuation_currency(symbol: str) -> str:
+            # US-31.5 (Epic 31 F-4): a MARKET-priced value is quoted in the
+            # symbol's FUND currency (the resolved line's quote currency, from
+            # the registry) — NOT the broker's listing `position.currency`
+            # (e.g. DEFS is listed EUR but DEFS.L quotes USD). A STATEMENT-
+            # anchored value (no fetchable history) is the statement close,
+            # which IS in the listing currency. Falls back to position currency
+            # when the fund currency is unknown, then to base — never a silent
+            # 1:1 assumption for a known non-base currency.
+            if history_by_symbol.get(symbol):
+                return self.symbol_fund_currencies.get(symbol) or position_currency.get(symbol, self.base_currency)
+            return position_currency.get(symbol, self.base_currency)
 
         def to_base_currency(value: float, currency: str, day_str: str) -> float:
             if currency == self.base_currency:
@@ -180,7 +202,7 @@ class PortfolioStateEngine:
             if abs(opening_quantity) < 1e-9:
                 continue
             opening_price = price_for(symbol, first_date)
-            currency = instrument_currency.get(symbol, self.base_currency)
+            currency = valuation_currency(symbol)
             if opening_price is not None:
                 opening_positions_value += to_base_currency(opening_quantity * opening_price, currency, first_date)
             else:
@@ -236,7 +258,7 @@ class PortfolioStateEngine:
                 quantity = running_positions.get(symbol, 0.0)
                 if abs(quantity) < 1e-9:
                     continue
-                currency = instrument_currency.get(symbol, self.base_currency)
+                currency = valuation_currency(symbol)
                 price = price_for(symbol, day_str)
                 if price is None:
                     # Held on this day but unvaluable (no quote yet, or no

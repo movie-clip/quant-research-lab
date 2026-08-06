@@ -43,17 +43,53 @@ def build_enriched_positions(snapshot: ImportedPortfolioSnapshot, quotes: dict[s
     return positions
 
 
+def build_replay_currency_context(
+    snapshot: ImportedPortfolioSnapshot,
+    symbols: list[str],
+    valuation_dates: list[str],
+) -> tuple[dict[str, str], dict[str, float]]:
+    """US-31.5 (Epic 31 F-4): the fund-currency map + statement-rate fx_history
+    a ledger-replay caller must pass so market values convert correctly.
+
+    - fund currency per symbol comes from the InstrumentRegistry (the resolved
+      line's quote currency; e.g. DEFS.L → USD though DEFS is listed EUR);
+    - fx_history is a static per-date table built from the statement's own
+      implied `fx_rates` (US-28.1 broker truth), the same basis US-30.2 uses for
+      the drift path. Empty when the statement carries no rates, so behaviour is
+      unchanged for snapshots without them (values carried unconverted, US-27.8).
+    """
+    from app.instruments import InstrumentRegistry
+
+    registry = InstrumentRegistry()
+    fund_currencies: dict[str, str] = {}
+    for symbol in symbols:
+        instrument = registry.get_instrument(symbol)
+        if instrument is not None and instrument.currency:
+            fund_currencies[symbol] = instrument.currency
+
+    rates = (snapshot.statement_totals.fx_rates if snapshot.statement_totals else None) or {}
+    fx_history: dict[str, float] = {}
+    for pair, rate in rates.items():
+        if rate is None:
+            continue
+        for day in valuation_dates:
+            fx_history[f"{pair}:{day}"] = rate
+    return fund_currencies, fx_history
+
+
 def build_daily_portfolio_states(
     snapshot: ImportedPortfolioSnapshot,
     price_histories: dict[str, list[dict]],
     valuation_dates: list[str],
     fx_history: dict[str, float],
+    symbol_fund_currencies: dict[str, str] | None = None,
 ) -> list[DailyPortfolioState]:
     states, _fx_fallback_currencies = build_daily_portfolio_states_with_fx_disclosure(
         snapshot=snapshot,
         price_histories=price_histories,
         valuation_dates=valuation_dates,
         fx_history=fx_history,
+        symbol_fund_currencies=symbol_fund_currencies,
     )
     return states
 
@@ -63,6 +99,7 @@ def build_daily_portfolio_states_with_fx_disclosure(
     price_histories: dict[str, list[dict]],
     valuation_dates: list[str],
     fx_history: dict[str, float],
+    symbol_fund_currencies: dict[str, str] | None = None,
 ) -> tuple[list[DailyPortfolioState], list[str]]:
     """Daily broker-replay states + the FX-fallback disclosure (US-27.8).
 
@@ -75,6 +112,7 @@ def build_daily_portfolio_states_with_fx_disclosure(
         price_histories=price_histories,
         valuation_dates=valuation_dates,
         fx_history=fx_history,
+        symbol_fund_currencies=symbol_fund_currencies,
     )
     return states, fx_fallback_currencies
 
@@ -84,6 +122,7 @@ def build_daily_portfolio_states_with_replay_disclosure(
     price_histories: dict[str, list[dict]],
     valuation_dates: list[str],
     fx_history: dict[str, float],
+    symbol_fund_currencies: dict[str, str] | None = None,
 ) -> tuple[list[DailyPortfolioState], list[str], list[str]]:
     """Daily broker-replay states + the FX-fallback (US-27.8) and unpriced-symbol
     (US-31.2 / Epic 31 F-1) disclosures.
@@ -92,8 +131,18 @@ def build_daily_portfolio_states_with_replay_disclosure(
     that could not be valued at all (no fetchable history, no statement close
     anchor) — they contributed 0, and the consuming response must surface that
     rather than publish an understated NAV.
+
+    `symbol_fund_currencies` (US-31.5 / Epic 31 F-4) maps each symbol to the
+    currency its market price is quoted in (the fund currency, from the
+    registry) so market values convert correctly; omit it to keep values in the
+    position currency (backward-compatible).
     """
-    engine = PortfolioStateEngine(snapshot=snapshot, base_currency=snapshot.statement.base_currency or "USD", fx_history=fx_history)
+    engine = PortfolioStateEngine(
+        snapshot=snapshot,
+        base_currency=snapshot.statement.base_currency or "USD",
+        fx_history=fx_history,
+        symbol_fund_currencies=symbol_fund_currencies or {},
+    )
     states = engine.build_daily_states(price_histories=price_histories, valuation_dates=valuation_dates)
     return states, sorted(engine.fx_fallback_currencies), sorted(engine.unpriced_replay_symbols)
 

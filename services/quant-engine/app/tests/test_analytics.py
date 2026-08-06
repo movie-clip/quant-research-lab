@@ -7896,6 +7896,40 @@ def test_dashboard_history_discloses_unpriced_since_sold_symbol(mocker) -> None:
     assert "AAPL" not in result.run_metadata.unpriced_replay_symbols
 
 
+def test_imported_replay_converts_eur_gbp_and_empties_fx_fallback() -> None:
+    """US-31.5 AC5: with the statement's implied rates the EUR/GBP holdings are
+    converted (by fund currency), so they no longer appear as FX fallbacks and
+    the terminal market value reconciles to the statement stock_total."""
+    from app.scripts.frozen_market_data import FrozenMarketData
+    from app.scripts.export_dashboard_goldens import _docs_statement_path, _repo_root
+
+    snapshot = import_statements(
+        [str(_docs_statement_path(_repo_root(), "IB2026.csv", "IB2026.pdf", "2026.pdf"))]
+    )
+    result = run_imported_dashboard_history(snapshot, "SPY", market_data=FrozenMarketData.from_file())
+
+    # EUR and GBP now carry a statement rate → converted, not disclosed as fallback.
+    assert set(result.run_metadata.fx_fallback_currencies).isdisjoint({"EUR", "GBP"})
+    assert result.daily_states[-1].total_market_value == pytest.approx(
+        snapshot.statement_totals.stock_total, abs=2.0
+    )
+
+
+def test_imported_replay_without_statement_rates_still_discloses_fallback() -> None:
+    """US-31.5 AC6: strip the statement rates and behaviour reverts to US-27.8 —
+    non-base currencies are carried unconverted and disclosed as FX fallbacks."""
+    from app.scripts.frozen_market_data import FrozenMarketData
+    from app.scripts.export_dashboard_goldens import _docs_statement_path, _repo_root
+
+    snapshot = import_statements(
+        [str(_docs_statement_path(_repo_root(), "IB2026.csv", "IB2026.pdf", "2026.pdf"))]
+    )
+    snapshot.statement_totals.fx_rates = {}
+    result = run_imported_dashboard_history(snapshot, "SPY", market_data=FrozenMarketData.from_file())
+
+    assert {"EUR", "GBP"} <= set(result.run_metadata.fx_fallback_currencies)
+
+
 def test_imported_diagnostics_fetches_the_full_reconstructed_symbol_universe(mocker) -> None:
     """US-31.2 AC2: the imported ledger-replay path must request since-sold
     symbols, not just today's holdings."""

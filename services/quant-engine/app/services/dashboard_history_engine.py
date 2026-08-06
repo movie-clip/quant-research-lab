@@ -1,7 +1,7 @@
 from typing import TypedDict, cast
 
 from app.core.constants import DEFAULT_BENCHMARK_SYMBOL
-from app.analytics.performance import build_daily_portfolio_states_with_replay_disclosure, build_true_performance_series
+from app.analytics.performance import build_daily_portfolio_states_with_replay_disclosure, build_replay_currency_context, build_true_performance_series
 from app.engine.portfolio_state import replay_symbol_universe
 from app.analytics.risk import (
     _build_drawdown_from_return_index,
@@ -463,16 +463,23 @@ def run_imported_dashboard_history(
     # ONLY for the replay — `symbol_price_histories` still feeds the
     # return-basis evidence and the downstream fan-out on the current-holdings
     # basis those consumers are specified against.
+    replay_symbols = replay_symbol_universe(snapshot)
     replay_price_histories = market_data.get_historical_prices_for_symbols(
-        replay_symbol_universe(snapshot),
+        replay_symbols,
         history_start_date,
         history_end_date,
+    )
+    # US-31.5 (Epic 31 F-4): convert each holding by its fund currency using the
+    # statement's implied rates, instead of carrying values unconverted.
+    replay_fund_currencies, replay_fx_history = build_replay_currency_context(
+        snapshot, replay_symbols, valuation_dates
     )
     daily_states, fx_fallback_currencies, unpriced_replay_symbols = build_daily_portfolio_states_with_replay_disclosure(
         snapshot=snapshot,
         price_histories=replay_price_histories,
         valuation_dates=valuation_dates,
-        fx_history={},
+        fx_history=replay_fx_history,
+        symbol_fund_currencies=replay_fund_currencies,
     )
     verified_benchmark_scope = _validate_verified_benchmark_slice(
         benchmark_symbol=resolved_benchmark_symbol,

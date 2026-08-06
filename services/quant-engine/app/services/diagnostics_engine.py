@@ -23,7 +23,7 @@ from app.analytics.risk import (
     build_volatility_regime_payload,
     factor_model_methodology,
 )
-from app.analytics.performance import build_daily_portfolio_states
+from app.analytics.performance import build_daily_portfolio_states, build_replay_currency_context
 from app.engine.portfolio_state import replay_symbol_universe
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.diagnostics import (
@@ -704,16 +704,23 @@ def _run_diagnostics_with_history(
         # basis it is specified against. The synthetic branch below is
         # deliberately untouched (it builds forward from today's holdings and
         # never reconstructs opening positions — Epic 30 / US-30.5c).
+        replay_symbols = replay_symbol_universe(snapshot)
         replay_price_histories = market_data.get_historical_prices_for_symbols(
-            replay_symbol_universe(snapshot),
+            replay_symbols,
             history_start_date,
             history_end_date,
+        )
+        # US-31.5 (Epic 31 F-4): convert each holding by its fund currency using
+        # the statement's implied rates, instead of carrying values unconverted.
+        replay_fund_currencies, replay_fx_history = build_replay_currency_context(
+            snapshot, replay_symbols, valuation_dates
         )
         daily_states = build_daily_portfolio_states(
             snapshot=snapshot,
             price_histories=replay_price_histories,
             valuation_dates=valuation_dates,
-            fx_history={},
+            fx_history=replay_fx_history,
+            symbol_fund_currencies=replay_fund_currencies,
         )
     else:
         daily_states = _build_synthetic_snapshot_history_states(
