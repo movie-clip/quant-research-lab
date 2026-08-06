@@ -1601,6 +1601,12 @@ def _portfolio_time_weighted_return_series(
                 previous_state = state
                 continue
             daily_return = ((state.total_portfolio_value - state.external_cash_flow) / previous_value) - 1
+        # US-31.3 (Epic 31 F-3): skip a day whose value was moved by the terminal
+        # reconciliation — an accounting correction must never enter a return
+        # series (and thus volatility, beta, correlation or any rolling window).
+        if not state.return_is_publishable:
+            previous_state = state
+            continue
         returns.append((state.date, daily_return))
         previous_state = state
     return returns

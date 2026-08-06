@@ -88,6 +88,31 @@ class DashboardHistoryInvestorEconomicsPartialUnlock(BaseModel):
     ]
 
 
+class ReplayCashAnchor(BaseModel):
+    """US-31.3 (Epic 31 F-2): provenance + trust of the replay's opening cash.
+
+    `base_cash = starting_nav − opening_positions_value` is only sound when both
+    terms are dated the same day. On the committed IB2026 statement they are
+    not: `starting_nav` is as of the statement-period start while the positions
+    are valued at the replay window start, so market movement between the two
+    dates is absorbed into cash as a plug. The residual is measured against the
+    statement-implied opening cash (computed from FX-CONVERTED ledger flows —
+    the raw per-currency sum is currency-mixed and would give a wrong figure)
+    and the trust level is set from it.
+    """
+
+    basis: Literal[
+        "statement_nav_at_window_start",
+        "statement_nav_date_mismatch",
+        "snapshot_cash_balances",
+        "unavailable",
+    ]
+    nav_as_of: str | None = None
+    window_start: str | None = None
+    residual: float | None = None
+    trust: Literal["verified", "degraded", "unavailable"]
+
+
 class DashboardHistoryRunMetadata(BaseModel):
     class SectionTrust(BaseModel):
         portfolio_path: str
@@ -123,6 +148,18 @@ class DashboardHistoryRunMetadata(BaseModel):
     # snapshot, hence from `fallback_prices`). Disclosed rather than silently
     # zeroed — guardrail #3.
     unpriced_replay_symbols: list[str] = []
+    # US-31.3 (Epic 31 F-2): how the replay's OPENING CASH was derived and
+    # whether that derivation is trustworthy. The anchor is
+    # `starting_nav − opening_positions_value`; when the NAV's as-of date and
+    # the replay window start differ, market movement between them is absorbed
+    # into cash as a plug, so the anchor is `degraded`, never `verified`.
+    replay_cash_anchor: ReplayCashAnchor | None = None
+    # US-31.3 (Epic 31 F-3): dates whose replayed return was WITHHELD because
+    # the state carried a material reconciliation adjustment (an accounting
+    # correction, not a market move). Empty when nothing was withheld — a
+    # visible gap with a stated reason, never a silent missing point.
+    withheld_return_dates: list[str] = []
+    withheld_return_reason: str | None = None
 
 
 class DashboardHistoryResult(BaseModel):

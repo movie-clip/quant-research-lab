@@ -1,6 +1,6 @@
 # Epic 31 — Ledger Replay Correctness
 
-**Status:** Active (created 2026-07-18)
+**Status:** ✅ Complete (created 2026-07-18, closed 2026-08-04)
 **Created:** 2026-07-18
 **Seeded by:** A defect found while scoping tech-debt **US-24.9** (the deferred
 ledger-path cash de-dilution from Epic 30 / PRD F-10). Investigating the
@@ -60,8 +60,37 @@ Reproduced against the committed `docs/IB2026.csv` portfolio using the **frozen*
 | # | Severity | Finding | Evidence |
 |---|---|---|---|
 | F-1 | ✅ **RESOLVED (US-31.2)** | **Price histories are fetched only for *current* positions, but the replay reconstructs *opening* positions — so every since-sold symbol is unpriced.** `PortfolioStateEngine.build_daily_states` rolls ending positions back through BUY/SELL to derive opening positions, producing **38** opening symbols for a snapshot that holds **20** today. Market data is fetched with `[p.symbol for p in snapshot.positions]` (the 20 current holdings), so the 18 since-sold symbols have **no price rows at all**. On day 1 (2026-01-08) only **11 of 38** positions are priced; the 27 unpriced (AAPL, ACN, ASML, GOOG, NFLX, TSM, …) contribute **$0** to opening market value. | `engine/portfolio_state.py:31-60` (opening reconstruction), `:176-190` (`if market_value is not None: total_market_value += market_value` — unpriced silently contribute 0); callers fetch current-symbol history only: `services/diagnostics_engine.py:668-672`, `analytics/performance.py` (`build_daily_portfolio_states`). Reproduction: day-1 opening MV **$14,582.03** vs implied true **$50,116.24**. |
-| F-2 | **Critical** | **Cash is a plug variable that silently absorbs any opening-position valuation error.** The opening cash anchor is `base_cash = starting_nav − opening_positions_value` (`portfolio_state.py:52,124`). Because F-1 undervalues opening positions by **$35,534.21**, that exact amount is absorbed into opening cash: the engine anchors **$37,799.09** where the statement implies **$2,264.88** (true ending cash $1,993.65 minus net window flow −$271.23). The error then rides **every** daily state in the window — every `total_portfolio_value` on the imported path is overstated by ~$35.5k — with **no disclosure and no fail-closed**: the states still carry full confidence. This is the same structural defect as Epic 30 F-1 (a derived cash anchor absorbing an error), which was fixed only for the *no-ledger* request path. | `engine/portfolio_state.py:52,124`; reproduction: engine opening cash **$37,799.09** vs implied **$2,264.88**, drift **$35,534.21** — exactly the F-1 undervaluation. |
-| F-3 | **High** | **The terminal reconciliation converts the accumulated error into a fabricated single-day return.** `_reconcile_terminal_state_to_statement_totals` (`portfolio_state.py:254-268`) overwrites the **final** state's `total_portfolio_value` with the statement's ending NAV (and back-solves cash), correcting the whole F-2 drift at once. The return series reads that correction as performance: the last day yields **−36.34%** (with reconciliation) vs **+0.57%** (without). One fabricated day inflates annualised volatility from **36.05% → 64.55%** (**+79%**), and contaminates every rolling window (20/60/252-day) that touches 2026-06-30. Nothing marks the day as an adjustment. | `engine/portfolio_state.py:207,254-268`; reproduction (frozen data): terminal PV 99,900.94 → 63,234.80 while market value moves only 61,812.06 → 62,378.06 and `external_cash_flow = 0`. |
+| F-2 | ✅ **RESOLVED (US-31.3)** | **Cash is a plug variable that silently absorbs any opening-position valuation error.** The opening cash anchor is `base_cash = starting_nav − opening_positions_value` (`portfolio_state.py:52,124`). Because F-1 undervalues opening positions by **$35,534.21**, that exact amount is absorbed into opening cash: the engine anchors **$37,799.09** where the statement implies **$2,264.88** (true ending cash $1,993.65 minus net window flow −$271.23). The error then rides **every** daily state in the window — every `total_portfolio_value` on the imported path is overstated by ~$35.5k — with **no disclosure and no fail-closed**: the states still carry full confidence. This is the same structural defect as Epic 30 F-1 (a derived cash anchor absorbing an error), which was fixed only for the *no-ledger* request path. | `engine/portfolio_state.py:52,124`; reproduction: engine opening cash **$37,799.09** vs implied **$2,264.88**, drift **$35,534.21** — exactly the F-1 undervaluation. |
+| F-3 | ✅ **RESOLVED (US-31.3)** | **The terminal reconciliation converts the accumulated error into a fabricated single-day return.** `_reconcile_terminal_state_to_statement_totals` (`portfolio_state.py:254-268`) overwrites the **final** state's `total_portfolio_value` with the statement's ending NAV (and back-solves cash), correcting the whole F-2 drift at once. The return series reads that correction as performance: the last day yields **−36.34%** (with reconciliation) vs **+0.57%** (without). One fabricated day inflates annualised volatility from **36.05% → 64.55%** (**+79%**), and contaminates every rolling window (20/60/252-day) that touches 2026-06-30. Nothing marks the day as an adjustment. | `engine/portfolio_state.py:207,254-268`; reproduction (frozen data): terminal PV 99,900.94 → 63,234.80 while market value moves only 61,812.06 → 62,378.06 and `external_cash_flow = 0`. |
+
+## Epic close-out (2026-08-04)
+
+All five findings resolved. The imported ledger-replay path now reconciles to
+the broker statement, and every remaining gap is disclosed rather than absorbed.
+
+| Finding | Fixed by | Outcome |
+|---|---|---|
+| F-1 opening symbols unpriced | US-31.2 | day-one MV $14,582 → $49,024 |
+| F-5 wrong-fund SEMI | US-31.4 | +$2,506.93 overstatement removed |
+| F-4 quote-currency conversion | US-31.5 | terminal MV reconciles to `stock_total` (±$1.35) |
+| F-2 cash plug | US-31.3 | root-caused to a **date mismatch**; measured (−$1,196.61) and disclosed as `degraded` |
+| F-3 adjustment as return | US-31.3 | recorded as `reconciliation_adjustment`; the day's return is **withheld** |
+
+**F-2's root cause, found only after F-1/F-4/F-5 cleared the noise:** the anchor
+`starting_nav − opening_positions_value` subtracts a **window-start** market
+value (2026-01-08) from a **period-start** NAV (2026-01-01). The replay cannot
+value the period-start date (no prices exist before the window), so the residual
+is an irreducible information gap — disclosed, never fabricated. The residual is
+identical at the anchor and at the terminal state (−$1,196.61), which proves the
+in-window flows are correct.
+
+**Measurement trap recorded for future work:** the statement-implied opening
+cash must use **FX-converted** ledger flows. The raw `cash_effect` sum is
+currency-mixed (−$271.23 vs −$2,459.29 converted) and yields a wrong implied
+figure. The F-2/F-3 numbers in the sections below predate that correction.
+
+**Unblocks tech-debt US-24.9** (ledger-path cash de-dilution), which can now be
+built on a trustworthy series.
 
 ## Verified findings (2026-07-24 — F-4, F-5)
 
@@ -226,7 +255,7 @@ Recorded so a future reader knows the audit covered them:
 |---|---|---|
 | US-31.1 | Findings-first audit of the imported ledger replay (this table) + scope which surfaced metrics are affected vs policy-gated | **Critical** |
 | US-31.2 | Fix F-1: fetch price history for the full reconstructed symbol set, not just current holdings — [scoped + ticketed 2026-07-24](../stories/US-31.2-ledger-replay-opening-symbol-coverage.md) | **Critical** |
-| US-31.3 | Fix F-2/F-3: stop cash absorbing valuation error — disclose or fail closed, and never publish a reconciliation adjustment as a return | **High** (re-rated down from Critical — see the re-measured table) |
+| US-31.3 | Fix F-2/F-3: stop cash absorbing valuation error — disclose or fail closed, and never publish a reconciliation adjustment as a return — [scoped + ticketed 2026-08-04](../stories/US-31.3-cash-anchor-and-terminal-reconciliation.md) | **High** (re-rated down from Critical — see the re-measured table) |
 | US-31.4 | Fix F-5: stop the bare-symbol fallback substituting a different security (SEMI → US-listed line) — [scoped + ticketed 2026-07-25](../stories/US-31.4-remove-semi-bare-symbol-fallback.md) | **High** — largest single error ($2,506.93) and the widest blast radius |
 | US-31.5 | Fix F-4: convert each replayed holding by its fund currency (registry) using statement rates — [scoped + ticketed 2026-07-25](../stories/US-31.5-per-symbol-quote-currency-conversion.md) | **High** — unblocked by US-31.4 (SEMI now the correct GBP line) |
 

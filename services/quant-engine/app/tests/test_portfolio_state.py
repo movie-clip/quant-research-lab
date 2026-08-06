@@ -20,7 +20,7 @@ import pytest
 from app.core.constants import SYNTHETIC_COVERAGE_DE_MINIMIS_WEIGHT
 from app.domain.ledger import snapshot_to_ledger
 from app.engine.portfolio_state import PortfolioStateEngine, replay_symbol_universe
-from app.schemas.imports import ImportedPortfolioSnapshot
+from app.schemas.imports import ImportedPortfolioSnapshot, ImportedStatementTotals
 from app.scripts.export_dashboard_goldens import _docs_statement_path, _repo_root
 from app.scripts.frozen_market_data import FrozenMarketData
 from app.services.statement_importer import import_statements
@@ -423,3 +423,151 @@ class TestIB2026FundCurrencyReconciliation:
             abs=1.0,
         )
         assert terminal.total_market_value == pytest.approx(61_238.53, abs=2.0)
+
+
+class TestCashAnchorDisclosure:
+    """US-31.3 (Epic 31 F-2): the opening cash anchor discloses its provenance
+    and trust. `starting_nav - opening_positions_value` is only sound when both
+    terms share an as-of date."""
+
+    def test_cash_anchor_discloses_date_mismatch(self, ib2026_snapshot) -> None:
+        from app.analytics.performance import build_replay_currency_context
+
+        snapshot = ib2026_snapshot
+        market_data = FrozenMarketData.from_file()
+        hd = [e.trade_date.isoformat() for e in snapshot.ledger_entries if e.trade_date]
+        hd += [p.as_of_date.isoformat() for p in snapshot.positions if p.as_of_date]
+        start, end = min(hd), max(hd)
+        vd = sorted({r["date"] for r in market_data.get_historical_prices("SPY", start, end)})
+        syms = replay_symbol_universe(snapshot)
+        ph = market_data.get_historical_prices_for_symbols(syms, start, end)
+        fund_ccy, fx = build_replay_currency_context(snapshot, syms, vd)
+
+        engine, _states = _build(snapshot, ph, vd, fx_history=fx, symbol_fund_currencies=fund_ccy)
+        anchor = engine.cash_anchor
+
+        assert anchor is not None
+        # starting_nav is as of the statement-period start; the positions are
+        # valued at the replay window start - five trading days apart.
+        assert anchor.basis == "statement_nav_date_mismatch"
+        assert anchor.nav_as_of == "2026-01-01"
+        assert anchor.window_start == "2026-01-08"
+        assert anchor.residual == pytest.approx(-1_196.61, abs=2.0)
+        assert anchor.trust == "degraded"
+
+    def test_cash_anchor_verified_when_dates_align(self) -> None:
+        # Statement period starts the same day the replay window does, and the
+        # cash reconciles - the anchor may claim `verified`.
+        dates = ["2025-01-02", "2025-01-03"]
+        snapshot = ImportedPortfolioSnapshot.model_validate(
+            imported_snapshot(
+                positions=[position("AAA", market_value=1000.0, quantity=10.0, close_price=100.0)],
+                statement_overrides={
+                    "statement_period": "2025-01-02 - 2025-01-03",
+                    "base_currency": "USD",
+                },
+            )
+        )
+        snapshot.statement_totals = ImportedStatementTotals(starting_nav=1500.0, cash_total=500.0)
+        price_histories = {"AAA": _rows("AAA", dates, price=100.0)}
+
+        engine, _states = _build(snapshot, price_histories, dates)
+
+        assert engine.cash_anchor is not None
+        assert engine.cash_anchor.nav_as_of == "2025-01-02"
+        assert engine.cash_anchor.window_start == "2025-01-02"
+        assert engine.cash_anchor.residual == pytest.approx(0.0, abs=1.0)
+        assert engine.cash_anchor.trust == "verified"
+
+    def test_implied_opening_cash_uses_converted_flows(self, ib2026_snapshot) -> None:
+        """AC3 trap guard: the implied opening cash must use FX-CONVERTED ledger
+        flows. The raw per-currency sum is currency-mixed and gives a wrong
+        figure - it must never be the basis."""
+        snapshot = ib2026_snapshot
+        totals = snapshot.statement_totals
+        raw_mixed = sum(e.cash_effect or 0.0 for e in snapshot_to_ledger(snapshot))
+        assert raw_mixed == pytest.approx(-271.23, abs=1.0), "raw currency-mixed sum pin"
+
+        rates = totals.fx_rates or {}
+
+        def to_base(value, currency, day):
+            if currency == "USD":
+                return value
+            return value * rates.get(currency + "USD", 1.0)
+
+        engine = PortfolioStateEngine(
+            snapshot=snapshot, base_currency="USD", fx_history={}, symbol_fund_currencies={}
+        )
+        implied = engine._statement_implied_opening_cash(to_base)
+
+        # Converted flow is -2,459.29 -> implied opening cash 4,452.94.
+        assert implied == pytest.approx(4_452.94, abs=2.0)
+        # The wrong (raw) basis would have given 2,264.88 - explicitly rejected.
+        wrong = totals.cash_total - raw_mixed
+        assert abs(implied - wrong) > 100.0
+
+
+class TestTerminalReconciliationAdjustment:
+    def test_terminal_state_records_reconciliation_adjustment(self, ib2026_snapshot) -> None:
+        from app.analytics.performance import build_replay_currency_context
+
+        snapshot = ib2026_snapshot
+        market_data = FrozenMarketData.from_file()
+        hd = [e.trade_date.isoformat() for e in snapshot.ledger_entries if e.trade_date]
+        hd += [p.as_of_date.isoformat() for p in snapshot.positions if p.as_of_date]
+        start, end = min(hd), max(hd)
+        vd = sorted({r["date"] for r in market_data.get_historical_prices("SPY", start, end)})
+        syms = replay_symbol_universe(snapshot)
+        ph = market_data.get_historical_prices_for_symbols(syms, start, end)
+        fund_ccy, fx = build_replay_currency_context(snapshot, syms, vd)
+
+        _engine, states = _build(
+            snapshot, ph, vd, reconcile=True, fx_history=fx, symbol_fund_currencies=fund_ccy
+        )
+
+        assert states[-1].reconciliation_adjustment == pytest.approx(1_197.88, abs=2.0)
+        assert all(s.reconciliation_adjustment is None for s in states[:-1])
+        # ...and that day's return is therefore not publishable.
+        assert states[-1].return_is_publishable is False
+        assert all(s.return_is_publishable for s in states[:-1])
+
+    def test_no_reconciliation_adjustment_when_states_reconcile(self) -> None:
+        # Terminal value already equals the statement's ending NAV -> the
+        # adjustment is sub-tolerance and the day's return stays publishable.
+        dates = ["2025-01-02", "2025-01-03"]
+        snapshot = ImportedPortfolioSnapshot.model_validate(
+            imported_snapshot(
+                positions=[position("AAA", market_value=1000.0, quantity=10.0, close_price=100.0)],
+                statement_overrides={
+                    "statement_period": "2025-01-02 - 2025-01-03",
+                    "base_currency": "USD",
+                },
+            )
+        )
+        snapshot.statement_totals = ImportedStatementTotals(
+            starting_nav=1500.0, cash_total=500.0, ending_nav=1500.0
+        )
+        price_histories = {"AAA": _rows("AAA", dates, price=100.0)}
+
+        _engine, states = _build(snapshot, price_histories, dates, reconcile=True)
+
+        assert abs(states[-1].reconciliation_adjustment or 0.0) <= 1.0
+        assert states[-1].return_is_publishable is True
+
+    def test_request_path_snapshot_has_no_reconciliation(self) -> None:
+        # No statement_totals (the request path) -> nothing to reconcile, no
+        # adjustment anywhere, and the anchor comes from real cash balances.
+        dates = ["2025-01-02", "2025-01-03"]
+        snapshot = _snapshot(
+            positions=[position("AAA", market_value=1000.0, quantity=10.0, close_price=100.0)],
+            cash_balances=[{"currency": "USD", "ending_cash": 250.0}],
+        )
+        price_histories = {"AAA": _rows("AAA", dates, price=100.0)}
+
+        engine, states = _build(snapshot, price_histories, dates, reconcile=True)
+
+        assert all(s.reconciliation_adjustment is None for s in states)
+        assert all(s.return_is_publishable for s in states)
+        assert engine.cash_anchor is not None
+        assert engine.cash_anchor.basis == "snapshot_cash_balances"
+        assert states[0].cash["USD"] == pytest.approx(250.0)

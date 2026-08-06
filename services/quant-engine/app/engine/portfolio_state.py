@@ -4,10 +4,27 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date
 
-from app.core.constants import SYNTHETIC_COVERAGE_DE_MINIMIS_WEIGHT
+from app.core.constants import REPLAY_RECONCILIATION_TOLERANCE, SYNTHETIC_COVERAGE_DE_MINIMIS_WEIGHT
 from app.domain.ledger import snapshot_to_ledger
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.reconciliation import DailyPortfolioState, DailyStatePosition
+
+
+@dataclass(frozen=True)
+class CashAnchorDisclosure:
+    """US-31.3 (Epic 31 F-2): how opening cash was derived, and whether to trust it.
+
+    `base_cash = starting_nav − opening_positions_value` is only sound when both
+    terms are dated the same day. When the statement NAV's as-of date differs
+    from the replay window start, market movement between them is absorbed into
+    cash as a plug — the anchor is `degraded`, never `verified`.
+    """
+
+    basis: str
+    trust: str
+    nav_as_of: str | None = None
+    window_start: str | None = None
+    residual: float | None = None
 
 
 def _trade_quantity_totals(
@@ -91,6 +108,11 @@ class PortfolioStateEngine:
     # snapshot, so it is absent from `fallback_prices` too. Recorded so callers
     # disclose the gap instead of publishing a silently understated NAV.
     unpriced_replay_symbols: set[str] = field(default_factory=set)
+    # US-31.3 (Epic 31 F-2): provenance + trust of the opening cash anchor from
+    # the last build_daily_states run — basis, the NAV's as-of date, the replay
+    # window start, the residual vs the statement-implied opening cash, and the
+    # resulting trust level. `None` until a run has computed it.
+    cash_anchor: CashAnchorDisclosure | None = None
 
     def build_daily_states(
         self,
@@ -214,6 +236,11 @@ class PortfolioStateEngine:
 
         if self.snapshot.statement_totals is not None and self.snapshot.statement_totals.starting_nav is not None:
             base_cash = initial_portfolio_value - opening_positions_value
+            self.cash_anchor = self._classify_cash_anchor(
+                base_cash=base_cash,
+                window_start=first_date,
+                to_base_currency=to_base_currency,
+            )
         else:
             # US-30.1 (audit F-1): without a statement starting NAV the old
             # `0 − opening_positions_value` anchor fabricated a large negative
@@ -225,6 +252,12 @@ class PortfolioStateEngine:
                 to_base_currency(balance.ending_cash, balance.currency, first_date)
                 for balance in self.snapshot.cash_balances
                 if balance.ending_cash is not None
+            )
+            self.cash_anchor = CashAnchorDisclosure(
+                basis="snapshot_cash_balances",
+                trust="verified",
+                window_start=first_date,
+                residual=0.0,
             )
 
         states: list[DailyPortfolioState] = []
@@ -351,6 +384,77 @@ class PortfolioStateEngine:
         effective_start = max(reference.values())
         return [valuation_date for valuation_date in valuation_dates if valuation_date >= effective_start]
 
+    def _statement_period_start(self) -> str | None:
+        """ISO start date of the statement period, if parseable.
+
+        `statement_period` is normalized to "YYYY-MM-DD - YYYY-MM-DD" by the CSV
+        importer (US-28.1); legacy PDF formats may not parse, in which case the
+        anchor's as-of date is unknown and it cannot claim `verified`.
+        """
+        period = self.snapshot.statement.statement_period
+        if not period:
+            return None
+        head = period.split("-")[0:3]
+        candidate = "-".join(part.strip() for part in head)[:10]
+        try:
+            date.fromisoformat(candidate)
+        except ValueError:
+            return None
+        return candidate
+
+    def _statement_implied_opening_cash(self, to_base_currency) -> float | None:
+        """Statement-implied opening cash = ending cash − net window flow.
+
+        The net flow MUST be FX-converted per entry: the raw sum of
+        `cash_effect` is currency-mixed (on IB2026: EUR −10,317.85 + GBP
+        −2,210.55 + USD 12,257.17 = −271.23 "dollars", which is meaningless).
+        Converted it is −2,459.29, giving an implied opening cash of 4,452.94
+        rather than the wrong 2,264.88. US-31.3 AC3 — do not reintroduce the
+        raw sum here.
+        """
+        totals = self.snapshot.statement_totals
+        if totals is None or totals.cash_total is None:
+            return None
+        net_flow = 0.0
+        for entry in snapshot_to_ledger(self.snapshot):
+            if entry.cash_effect is None:
+                continue
+            net_flow += to_base_currency(entry.cash_effect, entry.cash_currency, entry.date.isoformat())
+        return totals.cash_total - net_flow
+
+    def _classify_cash_anchor(self, *, base_cash: float, window_start: str, to_base_currency) -> CashAnchorDisclosure:
+        """US-31.3 (Epic 31 F-2): trust of `starting_nav − opening_positions_value`.
+
+        The anchor is only sound when the NAV's as-of date equals the date the
+        opening positions are valued at. When they differ, market movement
+        between the two dates is absorbed into cash as a plug, so the anchor is
+        `degraded` — it is still the best number available (and is carried), but
+        it is never presented as `verified`.
+        """
+        nav_as_of = self._statement_period_start()
+        implied = self._statement_implied_opening_cash(to_base_currency)
+        residual = round(base_cash - implied, 2) if implied is not None else None
+
+        dates_align = nav_as_of is not None and nav_as_of == window_start
+        within_tolerance = residual is not None and abs(residual) <= REPLAY_RECONCILIATION_TOLERANCE
+
+        if dates_align and within_tolerance:
+            basis, trust = "statement_nav_at_window_start", "verified"
+        elif not dates_align:
+            basis, trust = "statement_nav_date_mismatch", "degraded"
+        else:
+            # Dates align but the cash still does not reconcile — the anchor is
+            # absorbing something else; degrade rather than claim verified.
+            basis, trust = "statement_nav_at_window_start", "degraded"
+
+        return CashAnchorDisclosure(
+            basis=basis,
+            trust=trust,
+            nav_as_of=nav_as_of,
+            window_start=window_start,
+            residual=residual,
+        )
+
     def _reconcile_terminal_state_to_statement_totals(self, states: list[DailyPortfolioState]) -> None:
         if not states or self.snapshot.statement_totals is None:
             return
@@ -363,6 +467,12 @@ class PortfolioStateEngine:
             terminal_state.cash[self.base_currency] = round(expected_cash_total, 2)
 
         if expected_ending_nav is not None:
+            # US-31.3 (Epic 31 F-3): record the signed amount this correction
+            # moves the terminal value by. It is an ACCOUNTING adjustment, not a
+            # market move — downstream return builders withhold the day's return
+            # rather than publishing it as performance (guardrail #3).
+            adjustment = round(expected_ending_nav - terminal_state.total_portfolio_value, 2)
+            terminal_state.reconciliation_adjustment = adjustment
             terminal_state.total_portfolio_value = round(expected_ending_nav, 2)
             if expected_cash_total is None:
                 reconciled_cash = round(expected_ending_nav - terminal_state.total_market_value, 2)

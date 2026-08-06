@@ -567,3 +567,25 @@ class DailyPortfolioState(BaseModel):
     total_market_value: float
     total_portfolio_value: float
     external_cash_flow: float = 0.0
+    # US-31.3 (Epic 31 F-3): signed amount by which the terminal reconciliation
+    # moved this state's `total_portfolio_value` to match the statement's ending
+    # NAV. It is an ACCOUNTING CORRECTION, not a market move — a day carrying a
+    # material adjustment has its return WITHHELD rather than published
+    # (guardrail #3). None on every state that was not reconciled.
+    reconciliation_adjustment: float | None = None
+
+    @property
+    def return_is_publishable(self) -> bool:
+        """US-31.3 (Epic 31 F-3): may a return be published for this day?
+
+        False when the state carries a material reconciliation adjustment — the
+        move is an accounting correction, not performance, so every return
+        builder must withhold (null) rather than compute. Defined here, on the
+        state itself, so the three consumers (`performance.py`, `risk.py`,
+        `attribution.py`) cannot drift apart — the US-31.2 "one shared chain"
+        lesson.
+        """
+        from app.core.constants import REPLAY_RECONCILIATION_TOLERANCE
+
+        adjustment = self.reconciliation_adjustment
+        return adjustment is None or abs(adjustment) <= REPLAY_RECONCILIATION_TOLERANCE

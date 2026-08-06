@@ -446,6 +446,13 @@ export type DashboardHistoryRunMetadata = {
    *  contributed 0 to the replayed market value. Disclosed, never silently
    *  zeroed. */
   unpriced_replay_symbols?: string[]
+  /** US-31.3 (Epic 31 F-2): how the replay's opening cash was derived, and
+   *  whether that derivation is trustworthy. */
+  replay_cash_anchor?: ReplayCashAnchor | null
+  /** US-31.3 (Epic 31 F-3): dates whose replayed return was withheld because the
+   *  state carried a material reconciliation adjustment. */
+  withheld_return_dates?: string[]
+  withheld_return_reason?: string | null
   source_status: {
     performance_history: string
     monthly_returns: string
@@ -509,8 +516,28 @@ export type DailyPortfolioState = {
   total_market_value: number
   total_portfolio_value: number
   external_cash_flow: number
+  /** US-31.3 (Epic 31 F-3): signed amount the terminal reconciliation moved this
+   *  state's total_portfolio_value by — an accounting correction, not a market
+   *  move. A day carrying a material adjustment has its return withheld. */
+  reconciliation_adjustment?: number | null
   cash: Record<string, number>
   positions: Array<{ symbol: string; quantity: number; market_price: number | null; market_value: number | null }>
+}
+
+/** US-31.3 (Epic 31 F-2): provenance + trust of the replay's opening cash.
+ *  `starting_nav − opening_positions_value` is only sound when both terms share
+ *  an as-of date; when they differ, market movement between them is absorbed
+ *  into cash as a plug and the anchor is `degraded`, never `verified`. */
+export type ReplayCashAnchor = {
+  basis:
+    | 'statement_nav_at_window_start'
+    | 'statement_nav_date_mismatch'
+    | 'snapshot_cash_balances'
+    | 'unavailable'
+  nav_as_of?: string | null
+  window_start?: string | null
+  residual?: number | null
+  trust: 'verified' | 'degraded' | 'unavailable'
 }
 
 export type ScenarioPreview = {

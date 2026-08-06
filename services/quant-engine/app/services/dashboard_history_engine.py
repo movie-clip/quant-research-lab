@@ -1,7 +1,7 @@
 from typing import TypedDict, cast
 
 from app.core.constants import DEFAULT_BENCHMARK_SYMBOL
-from app.analytics.performance import build_daily_portfolio_states_with_replay_disclosure, build_replay_currency_context, build_true_performance_series
+from app.analytics.performance import build_replay_currency_context, build_replay_states_with_cash_anchor, build_true_performance_series, replay_disclosures
 from app.engine.portfolio_state import replay_symbol_universe
 from app.analytics.risk import (
     _build_drawdown_from_return_index,
@@ -15,6 +15,7 @@ from app.schemas.dashboard_history import (
     DashboardHistoryInvestorEconomicsScalarPolicy,
     DashboardHistoryResult,
     DashboardHistoryRunMetadata,
+    ReplayCashAnchor,
     DashboardHistoryRunReproducibility,
     DashboardHistoryRunSourceStatus,
     DashboardMonthlyReturn,
@@ -474,13 +475,16 @@ def run_imported_dashboard_history(
     replay_fund_currencies, replay_fx_history = build_replay_currency_context(
         snapshot, replay_symbols, valuation_dates
     )
-    daily_states, fx_fallback_currencies, unpriced_replay_symbols = build_daily_portfolio_states_with_replay_disclosure(
+    daily_states, fx_fallback_currencies, unpriced_replay_symbols, replay_cash_anchor = build_replay_states_with_cash_anchor(
         snapshot=snapshot,
         price_histories=replay_price_histories,
         valuation_dates=valuation_dates,
         fx_history=replay_fx_history,
         symbol_fund_currencies=replay_fund_currencies,
     )
+    # US-31.3 (Epic 31 F-3): dates whose return is withheld because the state
+    # carries a material reconciliation adjustment.
+    withheld_return_dates, withheld_return_reason = replay_disclosures(daily_states)
     verified_benchmark_scope = _validate_verified_benchmark_slice(
         benchmark_symbol=resolved_benchmark_symbol,
         benchmark_rows=benchmark_rows,
@@ -556,6 +560,19 @@ def run_imported_dashboard_history(
             investor_economics_partial_unlock=_build_dashboard_investor_economics_partial_unlock(),
             fx_fallback_currencies=fx_fallback_currencies,
             unpriced_replay_symbols=unpriced_replay_symbols,
+            replay_cash_anchor=(
+                ReplayCashAnchor(
+                    basis=replay_cash_anchor.basis,
+                    nav_as_of=replay_cash_anchor.nav_as_of,
+                    window_start=replay_cash_anchor.window_start,
+                    residual=replay_cash_anchor.residual,
+                    trust=replay_cash_anchor.trust,
+                )
+                if replay_cash_anchor is not None
+                else None
+            ),
+            withheld_return_dates=withheld_return_dates,
+            withheld_return_reason=withheld_return_reason,
             reproducibility=DashboardHistoryRunReproducibility(
                 input_imported_at=snapshot.statement.imported_at.isoformat() if snapshot.statement.imported_at is not None else None,
                 snapshot_as_of_date=_derive_snapshot_as_of_date(snapshot),

@@ -147,6 +147,50 @@ def build_daily_portfolio_states_with_replay_disclosure(
     return states, sorted(engine.fx_fallback_currencies), sorted(engine.unpriced_replay_symbols)
 
 
+def build_replay_states_with_cash_anchor(
+    snapshot: ImportedPortfolioSnapshot,
+    price_histories: dict[str, list[dict]],
+    valuation_dates: list[str],
+    fx_history: dict[str, float],
+    symbol_fund_currencies: dict[str, str] | None = None,
+):
+    """Replay states + all four disclosures, including the US-31.3 cash anchor.
+
+    Returned as an explicit tuple (no shared mutable state) so it is safe under
+    the parallel test suite and concurrent requests.
+    """
+    engine = PortfolioStateEngine(
+        snapshot=snapshot,
+        base_currency=snapshot.statement.base_currency or "USD",
+        fx_history=fx_history,
+        symbol_fund_currencies=symbol_fund_currencies or {},
+    )
+    states = engine.build_daily_states(price_histories=price_histories, valuation_dates=valuation_dates)
+    return (
+        states,
+        sorted(engine.fx_fallback_currencies),
+        sorted(engine.unpriced_replay_symbols),
+        engine.cash_anchor,
+    )
+
+
+def replay_disclosures(states: list[DailyPortfolioState]) -> tuple[list[str], str | None]:
+    """US-31.3 (Epic 31 F-3): dates whose return was withheld, and why.
+
+    A day carrying a material `reconciliation_adjustment` has no publishable
+    return — the caller surfaces these so the gap is visible with a stated
+    reason rather than an unexplained missing point.
+    """
+    withheld = [state.date for state in states if not state.return_is_publishable]
+    reason = (
+        "Return withheld: the state was adjusted to match the statement's ending NAV. "
+        "That correction is an accounting entry, not a market move."
+        if withheld
+        else None
+    )
+    return withheld, reason
+
+
 def build_true_performance_series(
     daily_states: list[DailyPortfolioState],
     benchmark_rows: list[dict],
@@ -207,6 +251,11 @@ def build_true_performance_series(
 
 def _time_weighted_daily_return(previous_state: DailyPortfolioState, current_state: DailyPortfolioState) -> float | None:
     if previous_state.total_portfolio_value == 0:
+        return None
+    # US-31.3 (Epic 31 F-3): a day whose value was moved by the terminal
+    # reconciliation carries an accounting correction, not a market move —
+    # withhold rather than publish it as performance (guardrail #3).
+    if not current_state.return_is_publishable:
         return None
     return ((current_state.total_portfolio_value - current_state.external_cash_flow) / previous_state.total_portfolio_value) - 1
 

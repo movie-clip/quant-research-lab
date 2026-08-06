@@ -7973,3 +7973,76 @@ def test_snapshot_diagnostics_still_fetches_current_holdings_only(mocker) -> Non
         f"synthetic path leaked a since-sold symbol into its fetch: {requested}"
     )
     assert snapshot.ledger_entries, "fixture sanity: the snapshot does carry a SELL"
+
+
+# -- US-31.3 (Epic 31 F-2/F-3): cash-anchor disclosure + withheld adjusted return --
+
+
+def _us313_ib2026_history():
+    from app.scripts.frozen_market_data import FrozenMarketData
+    from app.scripts.export_dashboard_goldens import _docs_statement_path, _repo_root
+
+    snapshot = import_statements(
+        [str(_docs_statement_path(_repo_root(), "IB2026.csv", "IB2026.pdf", "2026.pdf"))]
+    )
+    return snapshot, run_imported_dashboard_history(
+        snapshot, "SPY", market_data=FrozenMarketData.from_file()
+    )
+
+
+def test_replay_cash_anchor_disclosed_on_run_metadata() -> None:
+    """US-31.3 AC1: the run metadata carries the anchor's provenance + trust."""
+    _snapshot, history = _us313_ib2026_history()
+    anchor = history.run_metadata.replay_cash_anchor
+
+    assert anchor is not None
+    assert {
+        "basis": "statement_nav_date_mismatch",
+        "nav_as_of": "2026-01-01",
+        "window_start": "2026-01-08",
+        "trust": "degraded",
+    }.items() <= anchor.model_dump().items()
+    assert anchor.residual == pytest.approx(-1_196.61, abs=2.0)
+
+
+def test_terminal_adjusted_day_return_is_withheld_with_reason() -> None:
+    """US-31.3 AC5/AC6: the adjusted terminal day is withheld, with a reason —
+    a visible gap, never a silently missing point."""
+    _snapshot, history = _us313_ib2026_history()
+    metadata = history.run_metadata
+
+    assert metadata.withheld_return_dates == ["2026-06-30"]
+    assert metadata.withheld_return_reason
+    assert "accounting" in metadata.withheld_return_reason.lower()
+    # The state itself records the adjustment that caused the withholding.
+    assert history.daily_states[-1].date == "2026-06-30"
+    assert history.daily_states[-1].reconciliation_adjustment == pytest.approx(1_197.88, abs=2.0)
+
+
+def test_adjusted_day_never_enters_the_replay_return_series() -> None:
+    """US-31.3 AC5: no accounting adjustment is published as a return."""
+    from app.analytics.risk import _portfolio_time_weighted_return_series
+
+    _snapshot, history = _us313_ib2026_history()
+    series = _portfolio_time_weighted_return_series(history.daily_states)
+
+    dates = [d for d, _ in series]
+    assert "2026-06-30" not in dates
+    # 119 states -> 118 possible daily returns, minus the withheld day.
+    assert len(series) == len(history.daily_states) - 2
+
+
+def test_volatility_excludes_the_reconciliation_adjustment() -> None:
+    """US-31.3 AC7: downstream statistics use published returns only, so the
+    fabricated adjustment cannot inflate volatility."""
+    import statistics
+
+    from app.analytics.risk import _portfolio_time_weighted_return_series
+
+    _snapshot, history = _us313_ib2026_history()
+    returns = [r for _, r in _portfolio_time_weighted_return_series(history.daily_states)]
+    annualised_vol_pct = statistics.stdev(returns) * (252 ** 0.5) * 100
+
+    # 23.63% when the adjustment leaked in; 23.32% with it withheld.
+    assert annualised_vol_pct == pytest.approx(23.32, abs=0.1)
+    assert annualised_vol_pct < 23.5

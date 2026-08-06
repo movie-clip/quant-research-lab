@@ -88,6 +88,11 @@ def _portfolio_return_series(
             daily_return = (
                 (state.total_portfolio_value - state.external_cash_flow) / prev.total_portfolio_value
             ) - 1.0
+        # US-31.3 (Epic 31 F-3): a reconciliation-adjusted day is an accounting
+        # correction, not performance — never attribute it to factors.
+        if not state.return_is_publishable:
+            prev = state
+            continue
         returns[state.date] = daily_return
         prev = state
     return returns
