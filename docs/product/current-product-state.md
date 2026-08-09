@@ -133,6 +133,21 @@ The second is the weaker case and the newer one: before US-31.2 those symbols
 were never fetched at all, so a since-sold position silently contributed $0 to
 the replayed NAV for the whole window.
 
+**Portfolio return basis** (which series a metric is computed from). Three
+bases ship, selected by provenance — see `financial-methodology.md`
+§Rolling Pearson Correlation:
+
+| Basis | Formula | Used by |
+|---|---|---|
+| `portfolio_value` | `(PV_t − external_cash_flow_t)/PV_{t−1} − 1` | **Investor performance** — Dashboard performance series, TWR, money-weighted return, monthly returns, dashboard max drawdown. Cash-inclusive: it is part of what the investor earned |
+| `market_value` | `MV_t / MV_{t−1} − 1` | **Synthetic-history risk statistics** (US-30.5c) — current holdings × historical prices, no trades to neutralise |
+| `market_value_trade_neutral` | `(MV_t − trade_flow_t)/MV_{t−1} − 1` | **Imported ledger-replay risk statistics** (US-24.9) — beta, correlation, volatility, relative risk, volatility regime, factor model. Cash-excluded *and* trade-safe |
+
+`trade_flow` counts only trades in symbols the replay actually values; trading
+an unpriced symbol moves no market value, so neutralising it would fabricate a
+return. A day carrying a material reconciliation adjustment publishes no return
+on any basis.
+
 ---
 
 ## What is intentionally not in the product

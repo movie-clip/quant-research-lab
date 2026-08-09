@@ -389,14 +389,21 @@ def build_historical_diagnostics_result(
         factor_return_basis=factor_return_basis,
         historical_sections_available=True,
     )
-    # Return-series basis is selected by provenance (US-30.5c / PRD F-10):
-    # the synthetic path (current holdings × prices, no trades) uses the plain
-    # market-value chain so a flat cash carry does not dilute the return; the
-    # imported ledger-replay path (real trades) keeps the trade-safe TWR, since
-    # a market-value chain there would fabricate a return from a cash↔stock
-    # swap (the F-1 bug). See methodology §Rolling Pearson Correlation.
+    # Return-series basis is selected by provenance (US-30.5c / PRD F-10,
+    # extended by US-24.9). Both branches EXCLUDE cash — these are risk
+    # statistics, where a cash sleeve just biases beta toward zero:
+    #   - synthetic path (current holdings × prices, NO trades) → the plain
+    #     market-value chain; with no trades there is nothing to neutralise.
+    #   - imported ledger-replay path (real trades) → the same chain with the
+    #     day's trade leg removed. A plain market-value chain here would read a
+    #     BUY as a gain (the F-1 bug, +37.23% on IB2026's 2026-06-19); the
+    #     cash-inclusive TWR avoided that but diluted every return by the ~3%
+    #     cash weight. Neutralising `trade_flow` is trade-safe AND cash-free.
+    # The investor-performance family (TWR, monthly returns, dashboard max
+    # drawdown) deliberately stays on "portfolio_value" — see
+    # `dashboard_history_engine`. Methodology §Rolling Pearson Correlation.
     return_basis: ReturnBasis = (
-        "market_value" if provenance.historical_basis == "market_data_history" else "portfolio_value"
+        "market_value" if provenance.historical_basis == "market_data_history" else "market_value_trade_neutral"
     )
     allow_relative_return_outputs = _allow_diagnostics_relative_return_outputs()
     risk_summary = build_portfolio_risk_summary(daily_states, benchmark_rows, benchmark_symbol, return_basis=return_basis)

@@ -516,6 +516,13 @@ export type DailyPortfolioState = {
   total_market_value: number
   total_portfolio_value: number
   external_cash_flow: number
+  /** US-24.9: net base-currency market value moved INTO the holdings by this
+   *  day's BUY/SELL entries (positive = net buy), FX-converted per entry.
+   *  Distinct from external_cash_flow (DEPOSIT/WITHDRAWAL only) — a trade is an
+   *  internal transfer, not investor money entering or leaving. Subtracting it
+   *  neutralises the trade leg in the imported path's cash-excluded return
+   *  chain. 0.0 on a day with no trades. */
+  trade_flow?: number
   /** US-31.3 (Epic 31 F-3): signed amount the terminal reconciliation moved this
    *  state's total_portfolio_value by — an accounting correction, not a market
    *  move. A day carrying a material adjustment has its return withheld. */

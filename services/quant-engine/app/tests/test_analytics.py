@@ -7743,6 +7743,133 @@ def test_attribution_portfolio_return_series_honours_basis() -> None:
     assert market == risk_series
 
 
+# ── US-24.9: the trade-neutral market-value basis (ledger-path de-dilution) ──
+
+
+def _neutral_state(
+    date_str: str,
+    market_value: float,
+    cash: float,
+    trade_flow: float = 0.0,
+    reconciliation_adjustment: float | None = None,
+) -> DailyPortfolioState:
+    """A `_basis_state` that also carries the US-24.9 per-day trade flow."""
+    return DailyPortfolioState(
+        date=date_str,
+        cash={"USD": cash},
+        positions=[],
+        total_market_value=round(market_value, 2),
+        total_portfolio_value=round(market_value + cash, 2),
+        external_cash_flow=0.0,
+        trade_flow=trade_flow,
+        reconciliation_adjustment=reconciliation_adjustment,
+    )
+
+
+def test_trade_neutral_basis_matches_market_value_when_no_trades() -> None:
+    """AC5 — on a synthetic series (no trades, so `trade_flow ≡ 0.0`) the
+    trade-neutral chain is numerically identical to the plain market-value
+    chain. Asserted, not assumed: this is what makes the new basis safe to
+    default toward on any trade-free series."""
+    states = [
+        _neutral_state("2026-01-02", market_value=1000.0, cash=100.0),
+        _neutral_state("2026-01-03", market_value=1100.0, cash=100.0),
+        _neutral_state("2026-01-04", market_value=1045.0, cash=100.0),
+    ]
+
+    assert _portfolio_time_weighted_return_series(states, basis="market_value_trade_neutral") == (
+        _portfolio_time_weighted_return_series(states, basis="market_value")
+    )
+
+
+def test_trade_neutral_basis_removes_the_trade_leg_on_a_buy_day() -> None:
+    """AC4 — the whole reason this basis exists. On a day carrying a $300 BUY
+    plus a genuine $50 market move, the plain market-value chain reads the
+    injection as performance (+35%); the trade-neutral chain reports the
+    price-only move (+5%)."""
+    states = [
+        _neutral_state("2026-06-18", market_value=1000.0, cash=500.0),
+        # BUY $300 of stock (cash 500 → 200) AND the book gains $50 on the day:
+        # MV 1000 → 1350, of which only 50 is performance.
+        _neutral_state("2026-06-19", market_value=1350.0, cash=200.0, trade_flow=300.0),
+    ]
+
+    neutral = _portfolio_time_weighted_return_series(states, basis="market_value_trade_neutral")
+    naive = _portfolio_time_weighted_return_series(states, basis="market_value")
+
+    assert neutral == [("2026-06-19", pytest.approx(0.05))]
+    assert naive == [("2026-06-19", pytest.approx(0.35))]
+
+
+def test_trade_neutral_basis_is_undiluted_by_a_cash_sleeve() -> None:
+    """AC3 — the de-dilution proof. The same holdings and the same trade, once
+    with a large idle cash sleeve and once without: the trade-neutral chain
+    returns identical numbers (cash is out of both numerator and denominator),
+    while the cash-inclusive TWR reports a smaller move in the cash case."""
+    with_cash = [
+        _neutral_state("2026-06-18", market_value=1000.0, cash=1000.0),
+        _neutral_state("2026-06-19", market_value=1400.0, cash=700.0, trade_flow=300.0),
+    ]
+    without_cash = [
+        _neutral_state("2026-06-18", market_value=1000.0, cash=0.0),
+        _neutral_state("2026-06-19", market_value=1400.0, cash=0.0, trade_flow=300.0),
+    ]
+
+    neutral_with = _portfolio_time_weighted_return_series(with_cash, basis="market_value_trade_neutral")
+    neutral_without = _portfolio_time_weighted_return_series(without_cash, basis="market_value_trade_neutral")
+    twr_with = _portfolio_time_weighted_return_series(with_cash, basis="portfolio_value")
+
+    assert neutral_with == neutral_without == [("2026-06-19", pytest.approx(0.10))]
+    # The TWR dilutes the same 10% equity move by the cash weight (2100/2000).
+    assert twr_with == [("2026-06-19", pytest.approx(0.05))]
+    assert abs(twr_with[0][1]) < abs(neutral_with[0][1])
+
+
+def test_trade_neutral_basis_still_withholds_a_reconciled_day() -> None:
+    """AC7 — the US-31.3 withholding predicate wins on this basis too: the new
+    chain must not become a way to smuggle an accounting correction back into a
+    return series (guardrail #3)."""
+    states = [
+        _neutral_state("2026-06-29", market_value=1000.0, cash=100.0),
+        # Adjustment far above REPLAY_RECONCILIATION_TOLERANCE (1.00).
+        _neutral_state("2026-06-30", market_value=1200.0, cash=100.0, reconciliation_adjustment=200.0),
+    ]
+
+    assert states[-1].return_is_publishable is False
+    assert _portfolio_time_weighted_return_series(states, basis="market_value_trade_neutral") == []
+
+
+def test_trade_neutral_basis_skips_a_zero_prior_market_value() -> None:
+    """AC8 — fail-closed: a zero denominator yields no return for that day (the
+    chain resumes on the next computable day), never a divide-by-zero or a
+    substituted value."""
+    states = [
+        _neutral_state("2026-01-02", market_value=0.0, cash=100.0),
+        _neutral_state("2026-01-03", market_value=1000.0, cash=100.0, trade_flow=1000.0),
+        _neutral_state("2026-01-06", market_value=1100.0, cash=100.0),
+    ]
+
+    series = _portfolio_time_weighted_return_series(states, basis="market_value_trade_neutral")
+
+    assert [d for d, _ in series] == ["2026-01-06"]
+    assert series[0][1] == pytest.approx(0.10)
+
+
+def test_attribution_series_mirrors_the_trade_neutral_basis() -> None:
+    """The two chains must not drift (the US-31.2 'one shared chain' lesson):
+    attribution's dict-shaped series returns exactly the risk.py values."""
+    states = [
+        _neutral_state("2026-06-18", market_value=1000.0, cash=500.0),
+        _neutral_state("2026-06-19", market_value=1350.0, cash=200.0, trade_flow=300.0),
+    ]
+
+    attribution = _portfolio_return_series(states, basis="market_value_trade_neutral")
+    risk_series = dict(_portfolio_time_weighted_return_series(states, basis="market_value_trade_neutral"))
+
+    assert attribution == risk_series
+    assert attribution["2026-06-19"] == pytest.approx(0.05)
+
+
 def test_diagnostics_synthetic_path_threads_market_value_basis(mocker) -> None:
     """AC2 — on the synthetic (market_data_history) path, every return-series
     builder receives basis='market_value'."""
@@ -7781,10 +7908,12 @@ def test_diagnostics_synthetic_path_threads_market_value_basis(mocker) -> None:
     assert all(call.kwargs.get("basis") == "market_value" for call in spy.call_args_list)
 
 
-def test_diagnostics_imported_path_threads_portfolio_value_basis(mocker) -> None:
-    """AC2/AC6 — on the imported ledger-replay path, every return-series builder
-    receives basis='portfolio_value' (the trade-safe TWR), so the ledger path
-    never adopts the market-value chain (the F-1 guard, end-to-end)."""
+def test_diagnostics_imported_path_threads_trade_neutral_basis(mocker) -> None:
+    """US-24.9 AC3 (was US-30.5c AC2/AC6) — on the imported ledger-replay path,
+    every risk-statistic return-series builder receives
+    basis='market_value_trade_neutral': cash excluded (US-24.9) while the trade
+    leg is still neutralised, so the ledger path never adopts the plain
+    market-value chain (the F-1 guard, end-to-end)."""
     spy = mocker.spy(risk_module, "_portfolio_time_weighted_return_series")
 
     market_data = mocker.patch("app.services.diagnostics_engine.MarketDataService")
@@ -7819,7 +7948,10 @@ def test_diagnostics_imported_path_threads_portfolio_value_basis(mocker) -> None
 
     assert result.provenance.historical_basis == "imported_portfolio_history"
     assert spy.call_count > 0
-    assert all(call.kwargs.get("basis") == "portfolio_value" for call in spy.call_args_list)
+    assert all(call.kwargs.get("basis") == "market_value_trade_neutral" for call in spy.call_args_list)
+    # Negative pin: the plain market-value chain must never reach this path —
+    # it reads a BUY as a gain (the F-1 fabrication US-30.5c guarded against).
+    assert not any(call.kwargs.get("basis") == "market_value" for call in spy.call_args_list)
 
 
 # ── US-31.2 (Epic 31 F-1): replay symbol coverage + unpriced disclosure ──

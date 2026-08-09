@@ -252,3 +252,122 @@ def test_f4_resolved_by_fund_currency_conversion(replay_context) -> None:
     assert fund_currencies["DEFS"] == "USD"  # NOT the EUR listing → not converted
     assert fund_currencies["SXRV"] == "EUR"  # converted
     assert fund_currencies["SEMI"] == "GBP"  # converted
+
+
+# ── US-24.9 (Epic 24): the trade-neutral market-value basis ─────────────────
+#
+# Not an Epic 31 finding, but pinned in this module because it measures the
+# same IB2026 replay against the same frozen fixture, and the numbers only make
+# sense next to the F-1..F-5 history above.
+
+
+def _us249_states(replay_context):
+    from app.analytics.performance import build_replay_currency_context
+
+    snapshot, price_histories, valuation_dates = replay_context
+    fund_currencies, fx_history = build_replay_currency_context(
+        snapshot, replay_symbol_universe(snapshot), valuation_dates
+    )
+    engine = PortfolioStateEngine(
+        snapshot=snapshot,
+        base_currency=(snapshot.statement.base_currency or "USD"),
+        fx_history=fx_history,
+        symbol_fund_currencies=fund_currencies,
+    )
+    return engine.build_daily_states(
+        price_histories=price_histories,
+        valuation_dates=valuation_dates,
+        apply_terminal_reconciliation=True,
+    )
+
+
+def test_us249_trade_neutral_basis_publishes_no_trade_day_fabrication(replay_context) -> None:
+    """US-24.9 AC4 — the guard the third basis exists for.
+
+    2026-04-14 is the window's largest trade day ($6,916.09 of net buying into
+    the priced book). The plain market-value chain reads that injection as
+    performance — **+17.19%**, the F-1 fabrication class. The trade-neutral
+    chain removes the leg and reports the day's actual move, **+2.64%**.
+
+    (US-30.5c cited 2026-06-19 for this class. That date is no longer a
+    valuation date on the current statement window — it is a US market holiday,
+    so the frozen SPY series has no row for it and the replay never values it.
+    2026-04-14 is the live equivalent.)
+    """
+    from app.analytics.risk import _portfolio_time_weighted_return_series
+
+    states = _us249_states(replay_context)
+    naive = dict(_portfolio_time_weighted_return_series(states, basis="market_value"))
+    neutral = dict(_portfolio_time_weighted_return_series(states, basis="market_value_trade_neutral"))
+
+    assert naive["2026-04-14"] == pytest.approx(0.171949, abs=1e-4)
+    assert neutral["2026-04-14"] == pytest.approx(0.026399, abs=1e-4)
+    # No day in the whole window may show a trade-sized move under the shipped
+    # basis: the naive chain peaks at 17.19%, the trade-neutral chain at 2.95%.
+    assert max(abs(r) for r in neutral.values()) == pytest.approx(0.029539, abs=1e-4)
+
+
+def test_us249_trade_flow_excludes_unpriced_symbols(replay_context) -> None:
+    """US-24.9 — the fabrication found while measuring AC9, pinned on real data.
+
+    IUFS and IUHC are `unpriced_replay_symbols`: they contribute $0 to market
+    value all window. On 2026-04-27 the replay SELLS both for $5,341.92. A
+    `trade_flow` that counted them would neutralise a market-value leg that was
+    never there, fabricating **+9.43%** on a day the priced book moved
+    **+0.02%**. Gating `trade_flow` on "is this symbol valued today" fixes it.
+
+    The mirror day 2026-04-08 (buying $5,092.82 of the same unpriced symbols) is
+    pinned too, because it is the sign-flipped case.
+    """
+    from app.analytics.risk import _portfolio_time_weighted_return_series
+
+    states = _us249_states(replay_context)
+    by_date = {state.date: state for state in states}
+    neutral = dict(_portfolio_time_weighted_return_series(states, basis="market_value_trade_neutral"))
+
+    assert by_date["2026-04-27"].trade_flow == pytest.approx(0.0)
+    assert neutral["2026-04-27"] == pytest.approx(0.000219, abs=1e-4)
+    # 2026-04-08 traded priced symbols too, so its flow is non-zero — but it
+    # excludes the $5,092.82 of unpriced buying.
+    assert by_date["2026-04-08"].trade_flow == pytest.approx(-3_399.28, abs=1.0)
+
+
+def test_us249_de_dilution_is_explained_by_the_cash_weight(replay_context) -> None:
+    """US-24.9 AC9 — the tripwire: the risk statistics must move by what the
+    cash sleeve explains, and no more.
+
+    Measured on IB2026 with the two unpriced-symbol cash-event days
+    (2026-04-08 / 2026-04-27) excluded — those two are a *separate*,
+    pre-existing distortion of the cash-inclusive TWR, recorded in the story
+    Notes and the tech-debt register, not an effect of this change:
+
+        annualised volatility   TWR 14.54%  →  trade-neutral 15.47%   (×1.064)
+        median cash weight      5.60%       →  predicted de-dilution  ×1.059
+
+    A ratio far from the cash-weight prediction means the trade neutralisation
+    is wrong, not that the portfolio is riskier.
+    """
+    import statistics
+
+    from app.analytics.risk import _portfolio_time_weighted_return_series
+
+    states = _us249_states(replay_context)
+    base = "USD"
+    unpriced_cash_event_days = {"2026-04-08", "2026-04-27"}
+
+    weights = [s.cash[base] / s.total_portfolio_value for s in states if s.total_portfolio_value]
+    median_weight = statistics.median(weights)
+    assert median_weight == pytest.approx(0.056, abs=0.005)
+
+    def _vol(basis: str) -> float:
+        series = _portfolio_time_weighted_return_series(states, basis=basis)
+        samples = [r for d, r in series if d not in unpriced_cash_event_days]
+        return statistics.stdev(samples) * (252 ** 0.5)
+
+    twr_vol = _vol("portfolio_value")
+    neutral_vol = _vol("market_value_trade_neutral")
+
+    assert twr_vol == pytest.approx(0.1454, abs=1e-3)
+    assert neutral_vol == pytest.approx(0.1547, abs=1e-3)
+    # The whole move is the cash weight: ratio ≈ 1/(1 − median weight).
+    assert neutral_vol / twr_vol == pytest.approx(1 / (1 - median_weight), rel=0.02)
