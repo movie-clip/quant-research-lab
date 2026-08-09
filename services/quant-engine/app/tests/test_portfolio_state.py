@@ -571,3 +571,153 @@ class TestTerminalReconciliationAdjustment:
         assert engine.cash_anchor is not None
         assert engine.cash_anchor.basis == "snapshot_cash_balances"
         assert states[0].cash["USD"] == pytest.approx(250.0)
+
+
+class TestPerDayTradeFlow:
+    """US-24.9: `DailyPortfolioState.trade_flow` — the net base-currency market
+    value moved INTO the holdings by that day's BUY/SELL entries.
+
+    Sign convention matters more than magnitude here: a sign error doubles the
+    error the trade-neutral return chain is meant to cancel, so these tests
+    assert the sign directly.
+    """
+
+    def test_buy_day_records_positive_trade_flow(self) -> None:
+        dates = ["2025-01-02", "2025-01-03"]
+        snapshot = _snapshot(
+            positions=[position("AAA", market_value=1000.0, quantity=10.0, close_price=100.0)],
+            ledger_entries=[_trade("BUY", "AAA", "2025-01-03", quantity=4.0, price=100.0)],
+            cash_balances=[{"currency": "USD", "ending_cash": 500.0}],
+        )
+        price_histories = {"AAA": _rows("AAA", dates, price=100.0)}
+
+        _engine, states = _build(snapshot, price_histories, dates)
+
+        # A BUY's cash_effect is negative (cash leaves) while market value
+        # arrives — the injection is its negation, so trade_flow is POSITIVE.
+        assert states[0].trade_flow == pytest.approx(0.0)
+        assert states[1].trade_flow == pytest.approx(400.0)
+        # ...and it is not the (negative) cash movement itself.
+        assert states[1].cash["USD"] < states[0].cash["USD"]
+
+    def test_sell_day_records_negative_trade_flow(self) -> None:
+        dates = ["2025-01-02", "2025-01-03"]
+        snapshot = _snapshot(
+            positions=[position("AAA", market_value=1000.0, quantity=10.0, close_price=100.0)],
+            ledger_entries=[_trade("SELL", "AAA", "2025-01-03", quantity=3.0, price=100.0)],
+            cash_balances=[{"currency": "USD", "ending_cash": 500.0}],
+        )
+        price_histories = {"AAA": _rows("AAA", dates, price=100.0)}
+
+        _engine, states = _build(snapshot, price_histories, dates)
+
+        assert states[1].trade_flow == pytest.approx(-300.0)
+
+    def test_no_trade_day_records_exactly_zero(self) -> None:
+        dates = ["2025-01-02", "2025-01-03"]
+        snapshot = _snapshot(
+            positions=[position("AAA", market_value=1000.0, quantity=10.0, close_price=100.0)],
+            cash_balances=[{"currency": "USD", "ending_cash": 500.0}],
+        )
+        price_histories = {"AAA": _rows("AAA", dates, price=100.0)}
+
+        _engine, states = _build(snapshot, price_histories, dates)
+
+        assert [s.trade_flow for s in states] == [0.0, 0.0]
+
+    def test_deposit_and_withdrawal_move_external_cash_flow_not_trade_flow(self) -> None:
+        """The two flow concepts stay separate: investor money entering the
+        account is NOT a transfer into the holdings sleeve."""
+        dates = ["2025-01-02", "2025-01-03"]
+        snapshot = _snapshot(
+            positions=[position("AAA", market_value=1000.0, quantity=10.0, close_price=100.0)],
+            ledger_entries=[
+                {
+                    "entry_type": "DEPOSIT",
+                    "trade_date": "2025-01-03",
+                    "net_amount": 2500.0,
+                    "currency": "USD",
+                    "source_section": "Deposits & Withdrawals",
+                },
+                {
+                    "entry_type": "WITHDRAWAL",
+                    "trade_date": "2025-01-03",
+                    "net_amount": -500.0,
+                    "currency": "USD",
+                    "source_section": "Deposits & Withdrawals",
+                },
+            ],
+            cash_balances=[{"currency": "USD", "ending_cash": 500.0}],
+        )
+        price_histories = {"AAA": _rows("AAA", dates, price=100.0)}
+
+        _engine, states = _build(snapshot, price_histories, dates)
+
+        assert states[1].external_cash_flow == pytest.approx(2000.0)
+        assert states[1].trade_flow == pytest.approx(0.0)
+
+    def test_multi_currency_trade_day_converts_each_entry_before_summing(self) -> None:
+        """US-24.9 AC2 — the raw currency-mixed `cash_effect` sum is rejected.
+
+        This is the US-31.3 measurement trap: adding a EUR amount to a USD
+        amount produces a number in no currency at all.
+        """
+        dates = ["2025-01-02", "2025-01-03"]
+        eur_buy = _trade("BUY", "EUE", "2025-01-03", quantity=10.0, price=100.0)
+        eur_buy["currency"] = "EUR"
+        snapshot = _snapshot(
+            positions=[
+                position("AAA", market_value=1000.0, quantity=10.0, close_price=100.0),
+                position("EUE", market_value=1100.0, quantity=10.0, close_price=100.0, currency="EUR"),
+            ],
+            ledger_entries=[
+                _trade("BUY", "AAA", "2025-01-03", quantity=5.0, price=100.0),
+                eur_buy,
+            ],
+            cash_balances=[{"currency": "USD", "ending_cash": 5000.0}],
+        )
+        price_histories = {"AAA": _rows("AAA", dates, price=100.0), "EUE": _rows("EUE", dates, price=100.0)}
+
+        _engine, states = _build(
+            snapshot,
+            price_histories,
+            dates,
+            fx_history=_static_fx(dates, {"EURUSD": 1.10}),
+            symbol_fund_currencies={"EUE": "EUR"},
+        )
+
+        # Converted: 500 USD + (1000 EUR x 1.10) = 1,600.00
+        assert states[1].trade_flow == pytest.approx(1600.0)
+        # The raw, currency-mixed sum would have been 1,500 — explicitly rejected.
+        assert states[1].trade_flow != pytest.approx(1500.0)
+
+    def test_trade_in_an_unpriced_symbol_is_excluded_from_trade_flow(self) -> None:
+        """US-24.9 — the fabrication guard found while measuring IB2026.
+
+        A symbol with no price history and no statement anchor contributes 0 to
+        `total_market_value`. Trading it therefore moves NO market value, so
+        counting it in `trade_flow` would make the trade-neutral chain
+        "neutralise" a leg that was never there — fabricating a return. On
+        IB2026 2026-04-27 that was +9.43% on an otherwise flat day (selling the
+        unpriced IUFS + IUHC for $5,341.92).
+        """
+        dates = ["2025-01-02", "2025-01-03"]
+        snapshot = _snapshot(
+            positions=[position("AAA", market_value=1000.0, quantity=10.0, close_price=100.0)],
+            ledger_entries=[
+                _trade("BUY", "AAA", "2025-01-03", quantity=2.0, price=100.0),
+                # GHOST is held and traded but never priced (no history, and no
+                # current position to supply a statement close).
+                _trade("SELL", "GHOST", "2025-01-03", quantity=50.0, price=20.0),
+            ],
+            cash_balances=[{"currency": "USD", "ending_cash": 500.0}],
+        )
+        price_histories = {"AAA": _rows("AAA", dates, price=100.0)}
+
+        engine, states = _build(snapshot, price_histories, dates)
+
+        # Only the priced AAA leg is neutralisable: +200, NOT +200 − 1,000.
+        assert states[1].trade_flow == pytest.approx(200.0)
+        # The GHOST sale still moves cash (it is real broker truth) and the
+        # symbol is disclosed as unpriced rather than silently dropped.
+        assert "GHOST" in engine.unpriced_replay_symbols

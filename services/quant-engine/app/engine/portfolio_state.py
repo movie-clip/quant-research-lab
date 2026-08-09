@@ -218,6 +218,22 @@ class PortfolioStateEngine:
                 self.statement_anchored_symbols.add(symbol)
             return anchored
 
+        def is_valued(symbol: str, day_str: str) -> bool:
+            """Does this symbol contribute to `total_market_value` on this day?
+
+            US-24.9: the side-effect-free predicate behind `price_for`. Used to
+            gate `trade_flow`, which may only neutralise a trade leg that is
+            actually PRESENT in market value. Trading an unpriced symbol moves
+            no market value, so counting it would make the trade-neutral chain
+            fabricate a return — reproduced on IB2026 2026-04-27, where selling
+            the unpriced IUFS + IUHC ($5,341.92) on an otherwise flat day
+            produced +9.43%.
+            """
+            symbol_history = history_by_symbol.get(symbol)
+            if symbol_history:
+                return symbol_history.get(day_str) is not None
+            return fallback_prices.get(symbol) is not None
+
         first_date = valuation_dates[0]
         opening_positions_value = 0.0
         for symbol, opening_quantity in opening_positions.items():
@@ -268,6 +284,13 @@ class PortfolioStateEngine:
         for day_str in valuation_dates:
             day = date.fromisoformat(day_str)
             external_cash_flow = 0.0
+            # US-24.9: net base-currency market value moved into the holdings by
+            # this day's trades. A BUY's `cash_effect` is negative (cash leaves)
+            # while market value arrives, so the injection is its NEGATION;
+            # a SELL is the mirror. Every term is FX-converted first (`amount`),
+            # never the raw currency-mixed `cash_effect` (US-31.3 trap), and a
+            # trade in an UNPRICED symbol is excluded — see `is_valued`.
+            trade_flow = 0.0
             while entry_index < len(trade_entries) and trade_entries[entry_index].date <= day:
                 entry = trade_entries[entry_index]
                 amount = to_base_currency(entry.cash_effect, entry.cash_currency, day_str)
@@ -275,9 +298,13 @@ class PortfolioStateEngine:
                 if entry.entry_type == "BUY" and entry.symbol and entry.quantity:
                     running_positions[entry.symbol] += entry.quantity
                     current_cash[self.base_currency] += amount
+                    if is_valued(entry.symbol, day_str):
+                        trade_flow -= amount
                 elif entry.entry_type == "SELL" and entry.symbol and entry.quantity:
                     running_positions[entry.symbol] -= entry.quantity
                     current_cash[self.base_currency] += amount
+                    if is_valued(entry.symbol, day_str):
+                        trade_flow -= amount
                 else:
                     current_cash[self.base_currency] += amount
                     if entry.entry_type in {"DEPOSIT", "WITHDRAWAL"}:
@@ -320,6 +347,7 @@ class PortfolioStateEngine:
                     total_market_value=round(total_market_value, 2),
                     total_portfolio_value=total_portfolio_value,
                     external_cash_flow=round(external_cash_flow, 2),
+                    trade_flow=round(trade_flow, 2),
                 )
             )
 

@@ -49,13 +49,17 @@ from app.schemas.reconciliation import (
 )
 from app.services.market_data import detect_histories_return_basis, detect_history_return_basis
 
-# Return-series basis selected by provenance (US-30.5c / PRD F-10).
-# "portfolio_value": cash-flow-neutral TWR on total_portfolio_value — trade-safe,
-#   used on the imported ledger-replay path (real trades present).
+# Return-series basis selected by provenance (US-30.5c / PRD F-10; third basis
+# added by US-24.9).
+# "portfolio_value": cash-flow-neutral TWR on total_portfolio_value — trade-safe
+#   but cash-INCLUSIVE, so it stays the investor-performance basis.
 # "market_value": plain market-value chain on total_market_value — excludes the
 #   flat synthetic cash balance, used ONLY on synthetic series (no trades).
+# "market_value_trade_neutral": market-value chain with the day's trade leg
+#   removed — cash-excluded AND trade-safe, so the imported ledger-replay path's
+#   RISK statistics can drop their cash sleeve without reading a BUY as a gain.
 # See methodology §Rolling Pearson Correlation / §Indexed Return Series.
-ReturnBasis = Literal["portfolio_value", "market_value"]
+ReturnBasis = Literal["portfolio_value", "market_value", "market_value_trade_neutral"]
 
 
 @dataclass(frozen=True)
@@ -1581,6 +1585,17 @@ def _portfolio_time_weighted_return_series(
       would otherwise dilute every return toward zero. Used ONLY on synthetic
       series (current holdings × historical prices), which carry no trades, so
       the chain cannot fabricate a return from a cash↔stock swap.
+    - ``"market_value_trade_neutral"`` (US-24.9) — the same cash-excluded chain
+      with the day's trade leg removed:
+      ``(MV_t − trade_flow_t) / MV_{t−1} − 1``. ``trade_flow`` is the net
+      base-currency market value moved into the holdings by that day's BUY/SELL
+      entries, so subtracting it cancels exactly the term a plain market-value
+      chain would misread as performance (the F-1 class: +37.23% on the IB2026
+      2026-06-19 trade day). This is the RISK-statistic basis on the imported
+      ledger-replay path — it drops the ~3% cash sleeve that biases beta toward
+      zero while staying trade-safe. The investor-performance family
+      (TWR / monthly returns / dashboard max drawdown) deliberately keeps
+      ``"portfolio_value"``: cash is part of what the investor actually earned.
     """
     ordered_states = sorted(daily_states, key=lambda item: item.date)
     returns: list[tuple[str, float]] = []
@@ -1589,12 +1604,13 @@ def _portfolio_time_weighted_return_series(
         if previous_state is None:
             previous_state = state
             continue
-        if basis == "market_value":
+        if basis in {"market_value", "market_value_trade_neutral"}:
             previous_value = previous_state.total_market_value
             if previous_value == 0:
                 previous_state = state
                 continue
-            daily_return = (state.total_market_value / previous_value) - 1
+            trade_flow = state.trade_flow if basis == "market_value_trade_neutral" else 0.0
+            daily_return = ((state.total_market_value - trade_flow) / previous_value) - 1
         else:
             previous_value = previous_state.total_portfolio_value
             if previous_value == 0:

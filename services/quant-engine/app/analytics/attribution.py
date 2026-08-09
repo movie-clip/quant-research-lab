@@ -76,11 +76,12 @@ def _portfolio_return_series(
         if prev is None:
             prev = state
             continue
-        if basis == "market_value":
+        if basis in {"market_value", "market_value_trade_neutral"}:
             if prev.total_market_value == 0.0:
                 prev = state
                 continue
-            daily_return = (state.total_market_value / prev.total_market_value) - 1.0
+            trade_flow = state.trade_flow if basis == "market_value_trade_neutral" else 0.0
+            daily_return = ((state.total_market_value - trade_flow) / prev.total_market_value) - 1.0
         else:
             if prev.total_portfolio_value == 0.0:
                 prev = state

@@ -567,6 +567,18 @@ class DailyPortfolioState(BaseModel):
     total_market_value: float
     total_portfolio_value: float
     external_cash_flow: float = 0.0
+    # US-24.9: net base-currency market value moved INTO the holdings by
+    # BUY/SELL entries settled on this day — positive for a net buy, negative
+    # for a net sell (it is the negation of those entries' `cash_effect`, each
+    # FX-converted before summing; the raw currency-mixed sum is meaningless —
+    # the US-31.3 measurement trap). Distinct from `external_cash_flow`, which
+    # is DEPOSIT/WITHDRAWAL only: a trade is an internal transfer between the
+    # cash and holdings sleeves, not investor money entering or leaving.
+    # Subtracting it neutralises the trade leg in a market-value return chain
+    # (`ReturnBasis="market_value_trade_neutral"`), which is what lets the
+    # imported ledger-replay path exclude cash without reading a BUY as a gain.
+    # 0.0 on a day with no trades; never null.
+    trade_flow: float = 0.0
     # US-31.3 (Epic 31 F-3): signed amount by which the terminal reconciliation
     # moved this state's `total_portfolio_value` to match the statement's ending
     # NAV. It is an ACCOUNTING CORRECTION, not a market move — a day carrying a

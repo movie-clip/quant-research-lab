@@ -1437,14 +1437,40 @@ by **what the daily portfolio states were built from**, the same rule
 §Indexed Return Series applies to the drift chart:
 
 - **Imported ledger-replay** (`historical_basis="imported_portfolio_history"` —
-  a broker-ledger replay carrying real trades) → the cash-flow-neutral TWR
-  daily return, `r_p_t = (PV_t − external_cash_flow_t) / PV_{t−1} − 1`
-  (§Portfolio Return Methodology). This basis is **trade-safe**: a buy moves
-  cash → stock with the two legs cancelling in `PV`, so it fabricates no
-  return. A plain market-value chain here would read a BUY as a gain — the
-  audit F-1 failure class (reproduced against IB2026: a 37.23% single-day
-  fabrication on the 2026-06-19 trade day). The imported path therefore keeps
-  the TWR basis.
+  a broker-ledger replay carrying real trades) → the **trade-neutral
+  market-value chain** (US-24.9),
+
+  ```text
+  r_p_t = (MV_t − trade_flow_t) / MV_{t−1} − 1
+  ```
+
+  where `trade_flow_t` (`DailyPortfolioState.trade_flow`) is the net
+  base-currency market value moved **into the holdings** by that day's BUY/SELL
+  entries — positive for a net buy, the negation of those entries' FX-converted
+  `cash_effect`. Subtracting it cancels exactly the leg a plain market-value
+  chain would misread as performance (the audit F-1 failure class: on IB2026
+  the naive chain reports **+17.19%** on the 2026-04-14 trade day against the
+  trade-neutral **+2.64%**), while the `MV` denominator keeps the account's cash
+  sleeve out of the risk statistics. Two rules make it safe:
+
+  - **Only valued symbols are neutralised.** A symbol the replay cannot price
+    contributes nothing to `MV`, so trading it moves no market value; counting
+    it would neutralise a leg that was never there. Reproduced on IB2026
+    2026-04-27, where selling the unpriced IUFS + IUHC ($5,341.92) on an
+    otherwise flat day fabricated **+9.43%**. `trade_flow` therefore excludes
+    trades in symbols absent from that day's valuation (they remain disclosed
+    via `unpriced_replay_symbols`).
+  - **Withholding still wins.** A day carrying a material
+    `reconciliation_adjustment` publishes no return on this basis either
+    (§Terminal Reconciliation / US-31.3, guardrail #3).
+
+  The **investor-performance** family — the Dashboard performance series, TWR,
+  money-weighted return, net contributions, monthly returns and the dashboard
+  max drawdown — deliberately keeps the cash-inclusive TWR
+  `r_p_t = (PV_t − external_cash_flow_t)/PV_{t−1} − 1`
+  (§Portfolio Return Methodology): cash is part of what the investor actually
+  earned on the money in the account, whereas a risk statistic compared against
+  a fully-invested benchmark should not be scaled down by an idle sleeve.
 - **Synthetic history** (`historical_basis="market_data_history"`, and the
   standalone attribution / multi-benchmark-correlation / stress surfaces — all
   current holdings × historical prices, **no trades**) → the market-value chain
@@ -1460,12 +1486,14 @@ and drawdown (§Wealth Index and Drawdown) engines already use for their
 synthetic return series; US-30.5c
 brought the correlation / beta / factor-attribution / factor-model / stress
 surfaces onto it too, resolving a prior split where those read the
-cash-inclusive TWR while VaR/drawdown read the cash-excluded chain. Deliberately
-**not** changed: de-diluting cash on the *imported ledger-replay* path (so the
-imported portfolio's own rolling correlation excludes its ~3% cash) needs
-per-day trade-flow neutralization in market-value space — a `DailyPortfolioState`
-field that does not exist today; deferred to the tech-debt register. On that
-path TWR already handles cash correctly.
+cash-inclusive TWR while VaR/drawdown read the cash-excluded chain. **US-24.9
+completed the convergence**: with `trade_flow` recorded per day, the imported
+ledger-replay path moved onto the trade-neutral variant, so *every* risk
+statistic in the product — synthetic and imported alike — now measures the
+holdings rather than the account. Measured on IB2026 (median cash weight
+**5.60%**): annualised volatility **14.54% → 15.47%** (×1.064, matching the
+cash-weight prediction 1/(1 − 0.056) = 1.059), comparing like-for-like with the
+two unpriced-symbol cash-event days excluded.
 
 Academic precedent:
 - Pearson, K. (1895). "Note on regression and inheritance in the case of two
@@ -1474,6 +1502,20 @@ Academic precedent:
   *Modern Portfolio Theory and Investment Analysis*, 9th ed., Ch. 4 (Wiley).
 - Hull, J.C. (2021). *Options, Futures, and Other Derivatives*, 11th ed., §22.1
   (Pearson).
+
+For the trade-neutral basis specifically (a standard flow-adjusted period
+return applied to a market-value rather than total-value denominator, not a new
+construction):
+
+- Bacon, C.R. (2008). *Practical Portfolio Performance Measurement and
+  Attribution*, 2nd ed., Ch. 2 (Wiley) — time-weighted return with
+  end-of-period flow adjustment.
+- CFA Institute (2020). *Global Investment Performance Standards (GIPS) for
+  Firms*, §2.A.2 — returns must be adjusted for external cash flows; a security
+  purchase inside the portfolio is an internal transfer, not performance.
+- Elton, Gruber, Brown & Goetzmann (2014), Ch. 4 (above) — beta and correlation
+  are estimated on the return series of the risky assets; a cash sleeve scales
+  the series and biases beta toward zero, the distortion this basis removes.
 
 Implementation target:
 - `services/quant-engine/app/analytics/correlation.py` (Epic 9)
