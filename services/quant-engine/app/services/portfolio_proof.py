@@ -4,6 +4,7 @@ from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta
 from typing import Any, Literal, cast
 
+from app.core.constants import PORTFOLIO_PROOF_TERMINAL_MATCH_TOLERANCE
 from app.domain.ledger import snapshot_to_ledger
 from app.engine.portfolio_state import PortfolioStateEngine
 from app.schemas.imports import ImportedPortfolioSnapshot
@@ -1261,7 +1262,11 @@ def _build_calendar_boundary_witnesses(
     )
 
 
-def _terminal_totals_match(actual: float | None, expected: float | None, tolerance: float = 0.01) -> bool:
+def _terminal_totals_match(
+    actual: float | None,
+    expected: float | None,
+    tolerance: float = PORTFOLIO_PROOF_TERMINAL_MATCH_TOLERANCE,
+) -> bool:
     if actual is None or expected is None:
         return True
     return abs(actual - expected) <= tolerance

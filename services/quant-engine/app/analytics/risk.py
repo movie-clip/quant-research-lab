@@ -25,7 +25,6 @@ from app.schemas.reconciliation import (
     LookThroughSource,
     MarketOverlapSummary,
     PositionRiskContributionItem,
-    PortfolioRiskContribution,
     PortfolioRiskSummary,
     RelativeRiskSummary,
     MappingMatchComponents,
@@ -591,46 +590,6 @@ def build_rolling_risk_series(daily_states: list, benchmark_rows: list[dict], *,
         )
 
     return points
-
-
-def build_position_risk_contributions(snapshot: ImportedPortfolioSnapshot, price_histories: dict[str, list[dict]], benchmark_rows: list[dict]) -> list[PortfolioRiskContribution]:
-    # US-30.5a (audit F-7): weights on the base-currency denominator.
-    base_values, _ = position_base_market_values(snapshot)
-    total_market_value = sum(base_values)
-    benchmark_returns = _selected_history_return_series(benchmark_rows)
-
-    contributions: list[PortfolioRiskContribution] = []
-    for position, base_value in zip(snapshot.positions, base_values):
-        price_rows = price_histories.get(position.symbol, [])
-        symbol_returns = _selected_history_return_series(price_rows)
-        paired = [(symbol_returns[date], benchmark_returns[date]) for date in sorted(set(symbol_returns) & set(benchmark_returns))]
-        symbol_samples = [item[0] for item in paired]
-        benchmark_samples = [item[1] for item in paired]
-        # US-30.5b (audit F-9): a per-position beta/correlation needs at least
-        # MIN_DAILY_OBSERVATIONS overlapping days to be a defensible estimate
-        # (methodology §Beta: "len(series) < 20 → null"). Below the floor the
-        # statistic is withheld (null), never a confident number from a
-        # handful of days — the position's weight/market_value still render.
-        has_enough_history = len(symbol_samples) >= MIN_DAILY_OBSERVATIONS
-        beta = _calculate_beta(symbol_samples, benchmark_samples) if has_enough_history else None
-        correlation = _calculate_correlation(symbol_samples, benchmark_samples) if has_enough_history else None
-        weight = (base_value / total_market_value) if total_market_value else 0.0
-        contributions.append(
-            PortfolioRiskContribution(
-                symbol=position.symbol,
-                market_value=round(base_value, 2),
-                portfolio_weight=round(weight, 4),
-                beta=round(beta, 4) if beta is not None else None,
-                correlation=round(correlation, 4) if correlation is not None else None,
-                contribution_to_portfolio_beta=round(weight * beta, 4) if beta is not None else None,
-            )
-        )
-
-    return sorted(
-        contributions,
-        key=lambda item: abs(item.contribution_to_portfolio_beta) if item.contribution_to_portfolio_beta is not None else -1.0,
-        reverse=True,
-    )
 
 
 def build_lookthrough_exposure(snapshot: ImportedPortfolioSnapshot, market_data: HoldingsMarketData, symbol_overrides: dict[str, list[str]] | None = None) -> tuple[list[LookThroughConstituent], dict[str, str], list[str], float]:

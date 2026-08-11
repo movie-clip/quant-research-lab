@@ -966,9 +966,14 @@ beta_i / correlation_i / volatility_i:
   computed value  otherwise
 ```
 
-Scope: this floor governs statistics published *per position*
-(`build_position_risk_contributions` beta/correlation;
-`_build_position_risk_contributions` volatility). The covariance-matrix cells
+Scope: this floor governs statistics published *per position* — the
+`_build_position_risk_contributions` volatility that feeds the Risk Summary
+card. *(US-24.7 correction: this paragraph also named a public
+`build_position_risk_contributions` as the source of per-position
+beta/correlation. That function had **no production caller** — the live path is
+the private one above — and it has been deleted along with the response model
+only it used. The doc previously pointed a reader at a code path that never
+executed, which is exactly what guardrail #1 forbids.)* The covariance-matrix cells
 feeding the variance decomposition keep their pairwise `≥ 2` floor (US-27.3) —
 they are intermediate inputs, not published per-position betas, and the
 decomposition surfaces its own `observation_count`.

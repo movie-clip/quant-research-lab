@@ -5391,99 +5391,14 @@ def test_is_history_series_verified_adjusted_reports_false_for_price_fallback() 
     ]) is False
 
 
-def test_build_position_risk_contributions_uses_adjusted_series_when_available() -> None:
-    snapshot = ImportedPortfolioSnapshot(
-        statement=ImportedStatement(
-            importer="interactive_brokers",
-            imported_at=datetime(2026, 1, 1),
-            source_path="sample.pdf",
-            detected_format="pdf",
-            account_id="U123",
-            base_currency="USD",
-            statement_period="2025",
-            page_count=1,
-        ),
-        statements=[],
-        statement_totals=None,
-        instruments=[],
-        cash_balances=[],
-        positions=[ImportedPosition(as_of_date=date(2025, 1, 3), symbol="AAPL", quantity=1.0, cost_basis=100.0, close_price=105.0, market_value=105.0, unrealized_pnl=5.0, currency="USD")],
-        ledger_entries=[],
-    )
-
-    # US-30.5b (audit F-9): feed >= MIN_DAILY_OBSERVATIONS days so the happy
-    # path still exercises a non-null beta under the new minimum-observation
-    # floor. adjClose differs from price so the "prefers adjusted" assertion
-    # below remains meaningful.
-    dates = [f"2025-{1 + (d // 28):02d}-{1 + (d % 28):02d}" for d in range(25)]
-    aapl_rows = [{"date": dt, "price": 100.0 + i, "adjClose": 100.0 + 0.5 * i} for i, dt in enumerate(dates)]
-    bench_rows = [{"date": dt, "price": 200.0 + i, "adjClose": 200.0 + 0.4 * i} for i, dt in enumerate(dates)]
-
-    contributions = risk_module.build_position_risk_contributions(
-        snapshot,
-        price_histories={"AAPL": aapl_rows},
-        benchmark_rows=bench_rows,
-    )
-
-    assert contributions[0].beta is not None
-    assert contributions[0].correlation is not None
-
-
-def test_build_position_risk_contributions_withholds_beta_below_observation_floor() -> None:
-    """US-30.5b (audit F-9): a position with fewer than MIN_DAILY_OBSERVATIONS
-    overlapping days gets null beta/correlation/contribution — never a
-    confident number from a handful of days — while weight/market_value still
-    render."""
-    snapshot = ImportedPortfolioSnapshot(
-        statement=ImportedStatement(
-            importer="interactive_brokers", imported_at=datetime(2026, 1, 1),
-            source_path="sample.pdf", detected_format="pdf", account_id="U123",
-            base_currency="USD", statement_period="2025", page_count=1,
-        ),
-        statements=[], statement_totals=None, instruments=[], cash_balances=[],
-        positions=[ImportedPosition(as_of_date=date(2025, 1, 3), symbol="NEW", quantity=1.0, cost_basis=100.0, close_price=105.0, market_value=105.0, unrealized_pnl=5.0, currency="USD")],
-        ledger_entries=[],
-    )
-    # 19 overlapping days — one below the floor.
-    dates = [f"2025-01-{d:02d}" for d in range(1, 20)]
-    rows = [{"date": dt, "price": 100.0 + i, "adjClose": 100.0 + i} for i, dt in enumerate(dates)]
-    bench = [{"date": dt, "price": 200.0 + i, "adjClose": 200.0 + i} for i, dt in enumerate(dates)]
-
-    contributions = risk_module.build_position_risk_contributions(snapshot, price_histories={"NEW": rows}, benchmark_rows=bench)
-
-    assert contributions[0].beta is None
-    assert contributions[0].correlation is None
-    assert contributions[0].contribution_to_portfolio_beta is None
-    # The non-estimated fields still render.
-    assert contributions[0].market_value == 105.0
-    assert contributions[0].portfolio_weight == 1.0
-
-
-def test_build_position_risk_contributions_publishes_beta_at_the_observation_floor() -> None:
-    """US-30.5b — exactly MIN_DAILY_OBSERVATIONS days clears the gate."""
-    snapshot = ImportedPortfolioSnapshot(
-        statement=ImportedStatement(
-            importer="interactive_brokers", imported_at=datetime(2026, 1, 1),
-            source_path="sample.pdf", detected_format="pdf", account_id="U123",
-            base_currency="USD", statement_period="2025", page_count=1,
-        ),
-        statements=[], statement_totals=None, instruments=[], cash_balances=[],
-        positions=[ImportedPosition(as_of_date=date(2025, 1, 3), symbol="AAPL", quantity=1.0, cost_basis=100.0, close_price=105.0, market_value=105.0, unrealized_pnl=5.0, currency="USD")],
-        ledger_entries=[],
-    )
-    # 21 price rows → 20 return observations == the floor.
-    dates = [f"2025-{1 + (d // 28):02d}-{1 + (d % 28):02d}" for d in range(21)]
-    rows = [{"date": dt, "price": 100.0 + i, "adjClose": 100.0 + i} for i, dt in enumerate(dates)]
-    bench = [{"date": dt, "price": 200.0 + 0.9 * i, "adjClose": 200.0 + 0.9 * i} for i, dt in enumerate(dates)]
-
-    contributions = risk_module.build_position_risk_contributions(snapshot, price_histories={"AAPL": rows}, benchmark_rows=bench)
-
-    assert contributions[0].beta is not None
-    assert contributions[0].correlation is not None
-
-
 def test_position_risk_breakdown_volatility_respects_observation_floor() -> None:
-    """US-30.5b (audit F-9): the LIVE risk-share view (_build_position_risk_contributions)
+    """US-30.5b (audit F-9), now the ONLY per-position observation-floor pin.
+
+    US-24.7 deleted the orphaned public `build_position_risk_contributions`
+    (no production caller, on no response schema) along with the three tests
+    that exercised it. This one covers the path that actually runs.
+
+    The LIVE risk-share view (_build_position_risk_contributions)
     withholds a per-position volatility below MIN_DAILY_OBSERVATIONS and
     publishes it at/above the floor — the weight always renders."""
     def _snapshot(symbol: str) -> ImportedPortfolioSnapshot:
