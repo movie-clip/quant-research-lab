@@ -75,6 +75,29 @@ class ExposureCurrentStateConcentration(BaseModel):
     effective_holdings: float | None = None
 
 
+class CurrencyExposureWeight(BaseModel):
+    currency: str
+    market_value: float
+    weight: float
+
+
+class CurrencyExposureSummary(BaseModel):
+    """US-26.1: per-currency composition of the portfolio.
+
+    Weights are computed on BASE-CURRENCY CONVERTED market values in both
+    numerator and denominator, then grouped by the currency each position is
+    denominated in — the same denominator every other Exposure weight uses
+    (US-30.5a), so this card can never disagree with the rest of the tab.
+    `non_base_weight` is null when the statement carries no base currency:
+    there is no baseline, and 0.0 would read as "no currency risk".
+    """
+
+    base_currency: str | None = None
+    total_base_market_value: float = 0.0
+    weights: list[CurrencyExposureWeight] = Field(default_factory=list)
+    non_base_weight: float | None = None
+
+
 class ExposureResult(BaseModel):
     snapshot: ImportedPortfolioSnapshot
     provenance: ExposureProvenance
@@ -90,3 +113,5 @@ class ExposureResult(BaseModel):
     # appears in neither. Static-rate conversion never upgrades trust.
     fx_static_rate_currencies: list[str] = Field(default_factory=list)
     fx_fallback_currencies: list[str] = Field(default_factory=list)
+    # US-26.1: per-currency weight breakdown + the non-base total.
+    currency_exposure: CurrencyExposureSummary | None = None

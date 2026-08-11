@@ -49,6 +49,7 @@ throughout, but had no rendering component. See
 ### Exposure
 Shows current portfolio composition:
 - **vs Market drift panel** (top): rolling portfolio return vs benchmark for 1m, 3m, 6m, 12m, and since-import windows (since-import anchors at the statement-period start). Benchmark selectable; default SPY. Self-fetching card — renders on Exposure-tab open with no interaction (US-30.3). Synthetic-history Trust badge.
+- **Currency Exposure card** (Epic 26 / US-26.1): per-currency weight breakdown + a "not in base currency" total. Weights are computed on **base-currency-converted** market values (the same denominator as every other Exposure weight, pinned by test), grouped by the currency each position is denominated in. `non_base_weight` renders "—" (never 0) when the statement carries no base currency. Currencies carried unconverted for want of an FX rate are still counted and are flagged as the card's least reliable rows. Snapshot analytics — no market-data call, no Synthetic badge
 - **Rolling correlation & beta chart**: dual-axis (ρ left, β right), 20d/60d/252d window selector. Synthetic-history Trust badge.
 - Current state concentration (top positions, asset class split)
 - **Factor return attribution card**: cumulative chart + period attribution table; 20d/60d/252d window. Synthetic-history Trust badge.

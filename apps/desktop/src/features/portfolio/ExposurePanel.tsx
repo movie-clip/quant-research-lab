@@ -11,6 +11,7 @@ import { FactorAttributionCard } from './FactorAttributionCard'
 import { FactorDriftSummaryCard } from './FactorDriftSummaryCard'
 import { IntraCorrelationHeatmap } from './IntraCorrelationHeatmap'
 import { RollingCorrelationChart } from './RollingCorrelationChart'
+import { CurrencyExposureCard } from './CurrencyExposureCard'
 import { CardShell } from '../../app/primitives/CardShell'
 import { TrustBadge } from '../../app/primitives/TrustBadge'
 
@@ -239,6 +240,14 @@ export function ExposurePanel({
         <FactorAttributionCard snapshot={result.snapshot ?? null} />
 
         <FactorDriftSummaryCard result={result} />
+
+        {/* US-26.1: currency composition, alongside the other current-state
+            composition surfaces it shares a denominator with. */}
+        <CurrencyExposureCard
+          exposure={result.currency_exposure}
+          fxStaticRateCurrencies={result.fx_static_rate_currencies}
+          fxFallbackCurrencies={result.fx_fallback_currencies}
+        />
 
         <CardShell
           title="Concentration Pack"

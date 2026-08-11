@@ -102,6 +102,16 @@ Recommended build order: 25.1 → 25.2 → 25.3 → 25.4.
 
 ---
 
+### Epic 26 — Currency Exposure & Risk (active)
+
+PRD: [`prd/epic-26-currency-exposure-and-risk.md`](../prd/epic-26-currency-exposure-and-risk.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-26.1](US-26.1-currency-exposure-by-weight.md) | Currency exposure by weight (snapshot) | New `analytics/currency_exposure.py` + Exposure-tab card: per-currency weight, non-base total, explicit `unclassified` bucket. Corrects two defects in the research brief's formula — the denominator must be **base-currency converted** (the brief's raw sum is the F-7 Critical defect US-30.5a fixed) and the null-currency rule was self-contradictory. Snapshot analytics, zero new market-data calls. A third correction emerged in build: the brief's "unclassified" bucket is unreachable (schema-required currency) and the real fabrication is upstream in the request-path builder — logged as US-26.3 | Done |
+
+---
+
 ### Epic 24 — Codebase Improvement (active)
 
 PRD: [`prd/epic-24-codebase-improvement.md`](../prd/epic-24-codebase-improvement.md)

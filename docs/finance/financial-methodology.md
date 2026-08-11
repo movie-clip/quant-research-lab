@@ -1142,48 +1142,78 @@ Contract rule:
 
 ## Currency Exposure
 
-*Research brief, not yet implemented — see the story list in
-`docs/product/prd/epic-26-currency-exposure-and-risk.md`. Documented here per
-the project's methodology-traceability guardrail: a formula must exist here
-**before** any implementer builds against it, not after.*
+*Implemented by US-26.1 (Epic 26). `app/analytics/currency_exposure.py`,
+surfaced as the Exposure tab's Currency Exposure card.*
 
-The project holds no explicit view of how much of a portfolio is denominated
-in a currency other than its base currency. `ImportedPosition.currency` and
-`ImportedStatement.base_currency` are already captured on every import (no
-new import-format change needed), but nothing aggregates or displays them.
-A portfolio with meaningful non-base-currency holdings (e.g. UCITS ETFs
-traded in EUR/GBP, per the project's documented UCITS support) carries
-currency risk the researcher cannot currently see anywhere on any tab.
+How much of the portfolio is denominated in each currency, and how much is not
+in the base currency. `ImportedPosition.currency` and
+`ImportedStatement.base_currency` are captured on every import; before US-26.1
+nothing aggregated them, so a researcher holding UCITS ETFs traded in EUR/GBP
+carried currency risk visible on no tab.
 
 ### Currency exposure by weight (snapshot)
 
 ```text
-currency_weight_c = Σ_i (market_value_i)  for all holdings i with currency_i = c
-                     ────────────────────────────────────────────────────────
-                     Σ_j market_value_j    (all holdings j, all currencies)
+currency_weight_c = Σ_i base_value_i   (holdings i with currency_i = c)
+                    ──────────────────────────────────────────────────
+                    Σ_j base_value_j   (all holdings j)
 
 where:
+  base_value_i    = position i's market value CONVERTED to the base currency
+                    (analytics/currency.py — the same conversion every other
+                     Exposure weight uses)
   currency_i      = ImportedPosition.currency (already imported; not derived)
   base_currency   = ImportedStatement.base_currency
   non_base_weight = 1 − currency_weight_{base_currency}
 
 Edge cases:
-  a position with currency = null: excluded from both numerator and
-    denominator (never assumed base-currency; that would understate real
-    non-base exposure) — surfaced as an "unclassified" residual weight so
-    the total still reconciles to 100%
-  base_currency = null: currency_weight is still computable per currency,
-    but non_base_weight cannot be computed (no baseline to compare against)
-    → non_base_weight = null
+  base_currency = null: per-currency weights are still computable, but
+    non_base_weight = null — there is no baseline to compare against, and 0.0
+    would read to the researcher as "no currency risk"
+  no positions / zero total value: empty weights, non_base_weight = null,
+    no division
+  a currency with no FX rate: CARRIED UNCONVERTED (US-27.8) — still counted in
+    the denominator, never dropped and never converted 1:1, and disclosed via
+    `fx_fallback_currencies`. Such a currency's own weight is the least
+    reliable number on the card, and the card says so.
 ```
 
-This is a **snapshot analytics** truth class (current holdings only, no
-historical prices, no market data fetch) — the same class as sector
-exposure. It requires no new data source: `currency` and `base_currency` are
-already present on every `ImportedPortfolioSnapshot`.
+**Group by original currency; measure in one unit.** Each position is converted
+to the base currency *first*, then grouped by the currency it is denominated
+in. Summing raw `market_value` across currencies — as this section originally
+specified — is the **F-7 defect** US-30.5a fixed as Critical: on IB2026 the raw
+sum is $58,588.76 against the converted $61,238.53, which reproduces the
+statement's own `stock_total` to the cent. Reintroducing it on the card whose
+subject *is* currency would be the worst possible place for it. The denominator
+is therefore identical to every other Exposure weight's, pinned by a test, so
+this card can never contradict the concentration or sector cards beside it.
 
-Implementation target:
-- `services/quant-engine/app/analytics/<name>.py` (new file — this is a
+**On the "unclassified" bucket this section used to specify:** it is
+unreachable. `ImportedPosition.currency` is
+`str = Field(min_length=3, max_length=3)`, so a snapshot carrying a
+currency-less position cannot be constructed. (The original text was also
+self-contradictory — a position cannot be both excluded from the denominator
+and shown as a residual share of it.) The fabrication it anticipated is real
+but happens **upstream**: the request-path snapshot builder coerces
+`currency=item.currency or request.base_currency or 'USD'`, labelling a
+currency-less position before any analytic sees it. That is recorded as its own
+tech-debt row rather than hidden behind a bucket that can never fill; a schema
+test pins the constraint so relaxing it forces the question to be answered.
+
+This is a **snapshot analytics** truth class (current holdings only, no
+historical prices, no market-data fetch) — the same class as sector exposure,
+and it carries no `Synthetic` badge.
+
+Academic precedent:
+- Solnik, B. (1974). "An equilibrium model of the international capital
+  market." *Journal of Economic Theory*, 8(4), 500–524 — currency as a distinct
+  exposure in an international portfolio.
+- Perold, A.F. & Schulman, E.C. (1988). "The Free Lunch in Currency Hedging."
+  *Financial Analysts Journal*, 44(3), 45–50 — why currency exposure is
+  measured and reported separately from asset exposure.
+- CFA Institute (2020). *GIPS for Firms*, §2.A.1 — portfolio values are stated
+  in a single base currency, which is why the denominator converts.
+
   distinct concern from sector/look-through exposure, which lives in
   `risk.py`; per the `quant-research` skill's own guidance, a genuinely new
   concern gets its own file rather than growing `risk.py` further)

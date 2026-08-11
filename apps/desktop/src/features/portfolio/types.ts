@@ -1199,6 +1199,9 @@ export type ImportedExposureSource = {
   /** US-30.5a (audit F-8): the currency basis behind every weight on the tab. */
   fx_static_rate_currencies?: string[]
   fx_fallback_currencies?: string[]
+  /** US-26.1: per-currency composition on the same base-currency denominator
+   *  every other Exposure weight uses. */
+  currency_exposure?: CurrencyExposureSummary | null
   exposure_availability?: ExposureAvailability | null
   risk_summary: PortfolioRiskSummary
   rolling_risk: RollingRiskPoint[]
@@ -1254,6 +1257,24 @@ export type ExposureEngineResponse = {
   /** US-30.5a (audit F-8): non-base currencies with no rate — values carried
    *  unconverted (never dropped, never a 1:1 claim). */
   fx_fallback_currencies?: string[]
+  /** US-26.1: per-currency composition on the same base-currency denominator
+   *  every other Exposure weight uses. */
+  currency_exposure?: CurrencyExposureSummary | null
+}
+
+export type CurrencyExposureWeight = {
+  currency: string
+  market_value: number
+  weight: number
+}
+
+export type CurrencyExposureSummary = {
+  base_currency?: string | null
+  total_base_market_value: number
+  weights: CurrencyExposureWeight[]
+  /** Null when the statement carries no base currency — there is no baseline,
+   *  and 0 would read as "no currency risk". Render "—", never 0. */
+  non_base_weight?: number | null
 }
 
 export type DashboardHistoryEngineResponse = {
