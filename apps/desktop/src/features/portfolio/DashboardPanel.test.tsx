@@ -458,4 +458,61 @@ describe('DashboardPanel', () => {
     render(<DashboardPanel result={null} diagnosticsAnalysis={partialDiagnostics} />)
     expect(screen.getByText('Risk metrics unavailable')).toBeTruthy()
   })
+
+  // ── US-24.11: replay disclosures reach the researcher ──────────────────────
+
+  it('surfaces the replay disclosures on the Dashboard when the run was degraded', () => {
+    const base = createImportedDashboardFixture()
+    const result = {
+      ...base,
+      run_metadata: {
+        ...createDashboardHistoryRunMetadataFixture(),
+        unpriced_replay_symbols: ['NOPRICE'],
+        withheld_return_dates: ['2026-06-30'],
+        withheld_return_reason: 'Return withheld: the state was adjusted to match the statement.',
+        replay_cash_anchor: {
+          basis: 'statement_nav_date_mismatch' as const,
+          nav_as_of: '2026-01-01',
+          window_start: '2026-01-08',
+          residual: -1196.61,
+          trust: 'degraded' as const,
+        },
+      },
+    } as DashboardAnalysis
+
+    render(<DashboardPanel result={result} />)
+
+    const card = screen.getByRole('region', { name: /replay disclosures/i })
+    const text = card.textContent ?? ''
+    expect(text).toContain('NOPRICE')
+    expect(text).toContain('2026-06-30')
+    expect(text).toContain('$1,196.61')
+  })
+
+  it('shows no replay-disclosure card when the run is clean', () => {
+    const base = createImportedDashboardFixture()
+    const result = {
+      ...base,
+      run_metadata: {
+        ...createDashboardHistoryRunMetadataFixture(),
+        fx_fallback_currencies: [],
+        unpriced_replay_symbols: [],
+        trade_price_anchored_symbols: [],
+        withheld_return_dates: [],
+        withheld_return_reason: null,
+        replay_cash_anchor: {
+          basis: 'statement_nav_at_window_start' as const,
+          nav_as_of: '2026-01-08',
+          window_start: '2026-01-08',
+          residual: 0,
+          trust: 'verified' as const,
+        },
+      },
+    } as DashboardAnalysis
+
+    render(<DashboardPanel result={result} />)
+
+    expect(screen.queryByRole('region', { name: /replay disclosures/i })).toBeNull()
+  })
+
 })
