@@ -1153,6 +1153,21 @@ function createImportedExposureFixture(snapshot: ReturnType<typeof createImporte
       benchmark_overlap_confidence: 'high',
       note: null,
     },
+    // US-26.1: present on the fixture so ExposurePanel tests exercise the REAL
+    // adapter path (composeExposureView), which is where a new response field
+    // gets silently dropped if nobody forwards it.
+    fx_static_rate_currencies: ['EUR'],
+    fx_fallback_currencies: [],
+    currency_exposure: {
+      base_currency: 'USD',
+      total_base_market_value: 24515.48,
+      weights: [
+        { currency: 'USD', market_value: 11560.0, weight: 0.471539 },
+        { currency: 'EUR', market_value: 9325.6, weight: 0.380396 },
+        { currency: 'GBP', market_value: 3629.88, weight: 0.148065 },
+      ],
+      non_base_weight: 0.528461,
+    },
   }
 }
 

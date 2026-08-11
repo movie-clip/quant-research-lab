@@ -73,8 +73,11 @@ describe('CurrencyExposureCard', () => {
 
     const text = cardText()
     expect(text).toContain('period-end')
-    expect(text).toContain('No FX rate available for GBP')
-    expect(text).toContain('least reliable')
+    expect(text).toContain('GBP counted at unconverted values')
+    expect(text).toContain('least reliable figures on this card')
+    // Must not duplicate the tab-level FX warning verbatim — the Exposure
+    // panel already renders that sentence above this card.
+    expect(text).not.toContain('No FX rate available for')
   })
 
   it('renders no Synthetic badge — snapshot analytics, not synthetic history', () => {

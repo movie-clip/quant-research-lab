@@ -245,4 +245,31 @@ describe('ExposurePanel currency-basis disclosure (US-30.5a / F-8)', () => {
     expect(screen.queryByText(/are converted to/)).toBeNull()
     expect(screen.queryByText(/No FX rate available/)).toBeNull()
   })
+
+  // ── US-26.1: the card must survive the ADAPTER, not just render in isolation ──
+
+  it('renders the Currency Exposure card from an engine response', () => {
+    // `mockExposureView` is built by composeExposureView(), so this exercises
+    // the real backend-response -> view-model path. The card's own unit tests
+    // feed it a fixture directly and therefore cannot catch a field dropped in
+    // the adapter — which is exactly what happened: composeExposureView builds
+    // its object field by field, and `currency_exposure` was not forwarded, so
+    // the card never rendered in the running app despite a green suite.
+    render(<ExposurePanel result={mockExposureView} />)
+
+    const card = screen.getByRole('region', { name: /currency exposure/i })
+    const text = card.textContent ?? ''
+    expect(text).toContain('USD')
+    expect(text).toContain('EUR')
+    expect(text).toContain('GBP')
+    // The headline: how much is NOT in the base currency.
+    expect(text).toContain('52.85%')
+  })
+
+  it('omits the Currency Exposure card when the engine returned none', () => {
+    render(<ExposurePanel result={{ ...mockExposureView, currency_exposure: null }} />)
+
+    expect(screen.queryByRole('region', { name: /currency exposure/i })).toBeNull()
+  })
+
 })

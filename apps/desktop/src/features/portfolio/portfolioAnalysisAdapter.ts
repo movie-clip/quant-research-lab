@@ -224,6 +224,10 @@ export function composeExposureView(exposure: ExposureEngineResponse, diagnostic
     // US-30.5a (audit F-8): forward the currency-basis disclosure to the tab.
     fx_static_rate_currencies: exposure.fx_static_rate_currencies,
     fx_fallback_currencies: exposure.fx_fallback_currencies,
+    // US-26.1: forward the per-currency breakdown. This object is built field
+    // by field, so a new response field that is not listed here is silently
+    // dropped before it ever reaches the tab — the Epic 25 failure mode.
+    currency_exposure: exposure.currency_exposure,
     market_overlap: exposure.market_overlap,
     current_state_concentration: exposure.current_state_concentration,
     risk_summary: diagnostics.risk_summary,

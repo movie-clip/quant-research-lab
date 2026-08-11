@@ -80,10 +80,10 @@ export function CurrencyExposureCard({
 
       {fxFallbackCurrencies.length > 0 ? (
         <p className="helper" style={{ margin: 'var(--space-sm) 0 0 0' }}>
-          {/* The least trustworthy number on a card about currency. */}
-          No FX rate available for {fxFallbackCurrencies.join(', ')} — those values are counted in
-          their own currency rather than converted, so those rows and the total above are the
-          least reliable figures here.
+          {/* Deliberately NOT a repeat of the tab-level FX note above: this one
+              states what it means for THIS card's numbers specifically. */}
+          {fxFallbackCurrencies.join(', ')} counted at unconverted values — those rows and the
+          total above are the least reliable figures on this card.
         </p>
       ) : null}
     </CardShell>
