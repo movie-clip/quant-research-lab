@@ -8,6 +8,8 @@ from app.analytics.risk import (
     build_market_overlap_summary,
 )
 from app.schemas.exposure import (
+    CurrencyExposureSummary,
+    CurrencyExposureWeight,
     ExposureAvailability,
     ExposureAvailabilityConfidence,
     ExposureConcentrationItem,
@@ -20,6 +22,7 @@ from app.schemas.exposure import (
     ExposureRunSourceStatus,
 )
 from app.analytics.currency import position_base_market_values, snapshot_fx_disclosure, total_base_market_value
+from app.analytics.currency_exposure import build_currency_exposure
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.portfolio_engine import PortfolioEngineRequest
 from app.schemas.reconciliation import LookThroughOverview, PortfolioOverview
@@ -60,6 +63,11 @@ def build_exposure_result(snapshot: ImportedPortfolioSnapshot, benchmark_symbol:
         benchmark_holdings=benchmark_holdings,
     )
 
+    # US-26.1: per-currency weights on the same base-currency denominator the
+    # rest of this response uses (US-30.5a) — one conversion chain, so the
+    # currency card can never disagree with the other Exposure weights.
+    currency_exposure = build_currency_exposure(snapshot)
+
     return ExposureResult(
         snapshot=snapshot,
         provenance=ExposureProvenance(
@@ -94,6 +102,19 @@ def build_exposure_result(snapshot: ImportedPortfolioSnapshot, benchmark_symbol:
         market_overlap=market_overlap,
         current_state_concentration=current_state_concentration,
         availability=availability,
+        currency_exposure=CurrencyExposureSummary(
+            base_currency=currency_exposure.base_currency,
+            total_base_market_value=currency_exposure.total_base_market_value,
+            weights=[
+                CurrencyExposureWeight(
+                    currency=item.currency,
+                    market_value=item.market_value,
+                    weight=item.weight,
+                )
+                for item in currency_exposure.weights
+            ],
+            non_base_weight=currency_exposure.non_base_weight,
+        ),
         # US-30.5a (audit F-8): state the currency basis behind every weight
         # above — converted at the statement's static period-end rate, or
         # carried unconverted. Never a silent mixed-currency sum.

@@ -53,6 +53,10 @@ const ALL_CARD_FILES = [
   // deliberately no Synthetic badge (broker-truth replay, not synthetic
   // history), so it is NOT in CARDS_WITH_BADGE or CHART_FILES.
   'ReplayDisclosuresCard.tsx',
+  // US-26.1: currency composition. Snapshot analytics over broker-truth
+  // composition, so no Synthetic badge and no chart — deliberately not in
+  // CARDS_WITH_BADGE or CHART_FILES.
+  'CurrencyExposureCard.tsx',
 ]
 
 const HEX_REGEX = /#[0-9a-fA-F]{3,8}\b/g

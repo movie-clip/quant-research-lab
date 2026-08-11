@@ -1,6 +1,6 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-07-18 (Epic 31 — Ledger Replay Correctness **active** (US-31.1 audit done; F-1..F-3 open, blocks tech-debt US-24.9); Epic 30 — Exposure Improvements **complete** (all 8 stories done, closed 2026-07-16; created from the verified drift-panel findings F-1..F-6, extended by the US-30.4 audit's F-7..F-10; calculations-first); Epic 29 — Chart First-Render Reliability **complete** (salvaged from a parallel session, renumbered from its "Epic 27"); Epic 28 — IBKR CSV Importer & Statement-Refresh Resilience **complete** (all 3 stories done 2026-07-07); Epic 27 — Financial Calculation Correctness **complete** (all 9 stories done, findings F1–F13 resolved); Epic 25 — Dashboard Performance & Risk Summary complete; Epic 24 — Codebase Improvement **complete** (all 11 stories done, closed 2026-08-09); Epic 26 — Currency Exposure & Risk backlog (research brief only); Epic 23 — dead-code cleanup & codebase review complete; Epics 13/18/19/20/21/22 complete).*
+*Living execution snapshot. Updated: 2026-07-18 (Epic 31 — Ledger Replay Correctness **active** (US-31.1 audit done; F-1..F-3 open, blocks tech-debt US-24.9); Epic 30 — Exposure Improvements **complete** (all 8 stories done, closed 2026-07-16; created from the verified drift-panel findings F-1..F-6, extended by the US-30.4 audit's F-7..F-10; calculations-first); Epic 29 — Chart First-Render Reliability **complete** (salvaged from a parallel session, renumbered from its "Epic 27"); Epic 28 — IBKR CSV Importer & Statement-Refresh Resilience **complete** (all 3 stories done 2026-07-07); Epic 27 — Financial Calculation Correctness **complete** (all 9 stories done, findings F1–F13 resolved); Epic 25 — Dashboard Performance & Risk Summary complete; Epic 24 — Codebase Improvement **complete** (all 11 stories done, closed 2026-08-09); Epic 26 — Currency Exposure & Risk **active** (US-26.1 picked up 2026-08-11); Epic 23 — dead-code cleanup & codebase review complete; Epics 13/18/19/20/21/22 complete).*
 
 ---
 
@@ -220,11 +220,11 @@ wrong-number-today fixes) before the behaviour-aware valuation changes
 
 ---
 
-## Backlog Epic: Epic 26 — Currency Exposure & Risk
+## Active Epic: Epic 26 — Currency Exposure & Risk
 
 **PRD:** [`docs/product/prd/epic-26-currency-exposure-and-risk.md`](product/prd/epic-26-currency-exposure-and-risk.md)
 
-Research brief only — not yet ticketed. A project-wide review found the
+**US-26.1 shipped 2026-08-11.** Originally a research brief only. A project-wide review found the
 project has no view of portfolio currency exposure despite already importing
 `ImportedPosition.currency`/`ImportedStatement.base_currency` on every
 statement. `financial-methodology.md` gained a §Currency Exposure section
@@ -238,6 +238,12 @@ variance-decomposition questions are open, and
 *Validity re-check 2026-07-08: premise verified current and strengthened —
 US-28.1's statement-implied FX rates give US-26.1 a broker-truth conversion
 basis with zero market-data calls; see the PRD header note.*
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-08-11 | US-26.1 | **The first new researcher-facing capability since Epic 25 — and the research brief's formula was wrong in three ways.** New `analytics/currency_exposure.py` + a Currency Exposure card on the Exposure tab: per-currency weight, a "not in base currency" total, and the FX degradation tiers. `ImportedPosition.currency` had been imported on every statement since the beginning and aggregated by nothing. **Correction 1 (Critical class):** the brief specified raw `market_value` in numerator and denominator — exactly the **F-7 defect** US-30.5a fixed (IB2026: $58,588.76 raw vs $61,238.53 converted, the latter reproducing the statement's own `stock_total` to the cent). Shipping it on the card whose subject *is* currency would have been the worst possible place to reintroduce it. Each position converts to base **first**, then groups by the currency it is denominated in — and the denominator is the *same* `total_base_market_value` every other Exposure weight uses, pinned by a cross-surface test so this card can never contradict the concentration or sector cards beside it. **Correction 2:** the brief's null-currency rule was self-contradictory (a position cannot be both excluded from the denominator and shown as a residual share of it). **Correction 3, found during implementation:** the "unclassified" bucket is **unreachable** — `ImportedPosition.currency` is `str = Field(min_length=3, max_length=3)`, so a currency-less position cannot be constructed; building the bucket would be dead code with a UI state that can never render. The fabrication the brief anticipated is real but sits **upstream**: `portfolio_snapshot_builder.py:43` coerces `currency or base_currency or 'USD'`, labelling a currency-less request-path position before any analytic sees it — logged as **US-26.3 (Med)** rather than papered over, with a schema test pinning the constraint so relaxing it forces the question to be answered. **Honesty properties:** `non_base_weight` is **null** → "—" when the statement has no base currency (0 would read as "no currency risk"); a currency carried unconverted for want of a rate is still counted, never dropped, never 1:1, and the card names those rows as its least reliable. No `Synthetic` badge — snapshot analytics over broker-truth composition (the US-30.6 precedent). **Zero new market-data dependency** (the epic's success signal), pinned structurally rather than by mocking. IB2026 pins: 3 currencies (USD/EUR/GBP) on the $61,238.53 converted denominator, non-base > 0. `dashboardGoldens.ts` **byte-identical** (Exposure-only surface). +18 tests (9 analytics, 4 engine, 6 card... see story). 652 backend + 300 frontend green; tsc + dead-code gate clean. |
 
 ---
 

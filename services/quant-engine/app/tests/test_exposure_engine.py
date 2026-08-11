@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pathlib
+
 from datetime import date, datetime
 
 import pytest
@@ -689,3 +691,78 @@ def test_request_snapshot_builder_materialises_statement_totals_only_with_rates(
     )
     assert with_rates.statement_totals is not None
     assert with_rates.statement_totals.fx_rates == {"EURUSD": 1.1422}
+
+
+# ── US-26.1: currency exposure on the exposure response ─────────────────────
+
+
+def test_currency_exposure_is_attached_to_the_exposure_result(mocker) -> None:
+    snapshot = import_statements([str(STATEMENT_2026_PATH)])
+    stub = StubMarketDataService()
+    mocker.patch("app.services.exposure_engine.MarketDataService", return_value=stub)
+
+    result = build_exposure_result(snapshot, "SPY")
+
+    assert result.currency_exposure is not None
+    assert result.currency_exposure.base_currency == "USD"
+    assert result.currency_exposure.weights, "expected at least one currency row"
+
+
+def test_currency_exposure_shares_the_denominator_with_every_other_weight(mocker) -> None:
+    """US-26.1 AC2 — the cross-surface agreement pin.
+
+    The card's denominator must be the SAME base-currency total the rest of the
+    Exposure tab weights against (US-30.5a). If these ever diverge, the currency
+    card contradicts the concentration and sector cards on the same screen.
+    """
+    from app.analytics.currency import total_base_market_value
+
+    snapshot = import_statements([str(STATEMENT_2026_PATH)])
+    stub = StubMarketDataService()
+    mocker.patch("app.services.exposure_engine.MarketDataService", return_value=stub)
+
+    result = build_exposure_result(snapshot, "SPY")
+
+    assert result.currency_exposure.total_base_market_value == pytest.approx(
+        total_base_market_value(snapshot), abs=0.01
+    )
+
+
+def test_currency_exposure_ib2026_split_is_pinned(mocker) -> None:
+    """US-26.1 AC9 — the committed statement's real split: 16 USD holdings,
+    3 EUR, 1 GBP, on the $61,238.53 converted denominator that reproduces the
+    statement's own stock total."""
+    snapshot = import_statements([str(STATEMENT_2026_PATH)])
+    stub = StubMarketDataService()
+    mocker.patch("app.services.exposure_engine.MarketDataService", return_value=stub)
+
+    exposure = build_exposure_result(snapshot, "SPY").currency_exposure
+    by_currency = {item.currency: item for item in exposure.weights}
+
+    assert set(by_currency) == {"USD", "EUR", "GBP"}
+    assert exposure.total_base_market_value == pytest.approx(61_238.53, abs=1.0)
+    # Weights reconcile, and the non-base total is everything that is not USD.
+    assert sum(item.weight for item in exposure.weights) == pytest.approx(1.0, abs=1e-5)
+    assert exposure.non_base_weight == pytest.approx(
+        1.0 - by_currency["USD"].weight, abs=1e-6
+    )
+    # The researcher-facing headline: this portfolio is NOT all-USD.
+    assert exposure.non_base_weight > 0.0
+
+
+def test_currency_exposure_makes_no_market_data_call() -> None:
+    """US-26.1 AC7 / the Epic 26 success signal — no new market-data
+    dependency. Asserted structurally (the analytic takes only the snapshot)
+    rather than by mocking, so it stays true if the engine is refactored."""
+    import inspect
+
+    from app.analytics.currency_exposure import build_currency_exposure
+
+    params = list(inspect.signature(build_currency_exposure).parameters)
+    assert params == ["snapshot"]
+
+    source = pathlib.Path(
+        "app/analytics/currency_exposure.py"
+    ).read_text(encoding="utf-8")
+    assert "MarketDataService" not in source
+    assert "get_historical_prices" not in source
