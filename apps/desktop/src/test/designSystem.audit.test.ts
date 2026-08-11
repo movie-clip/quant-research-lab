@@ -49,6 +49,10 @@ const ALL_CARD_FILES = [
   // analytics, not synthetic history) and no chart, so it is deliberately NOT
   // in CARDS_WITH_BADGE or CHART_FILES.
   'ExposurePanel.tsx',
+  // US-24.11: the Dashboard's replay-disclosure card. Renders no chart and
+  // deliberately no Synthetic badge (broker-truth replay, not synthetic
+  // history), so it is NOT in CARDS_WITH_BADGE or CHART_FILES.
+  'ReplayDisclosuresCard.tsx',
 ]
 
 const HEX_REGEX = /#[0-9a-fA-F]{3,8}\b/g

@@ -3,6 +3,7 @@ import type { DashboardAnalysis, DiagnosticsEngineResponse, ExposureAnalysis, Ex
 import { BenchmarkPositioningCard } from './BenchmarkPositioningCard'
 import { MonthlyReturnsGrid } from './MonthlyReturnsGrid'
 import { PerformanceBenchmarkCard } from './PerformanceBenchmarkCard'
+import { ReplayDisclosuresCard } from './ReplayDisclosuresCard'
 import { RiskSummaryCard } from './RiskSummaryCard'
 import { RollingFactorLoadingsCard } from './RollingFactorLoadingsCard'
 import { SectorPieCard } from './SectorPieCard'
@@ -135,6 +136,9 @@ export function DashboardPanel({
         {rangeKeys.length > 1 && (
           <WindowSelector options={rangeKeys} value={activeRange ?? rangeKeys[0]} onChange={setSelectedRange} />
         )}
+        {/* US-24.11: the replay's own degradations, directly above the surfaces
+            they affect. Renders nothing when the run is clean. */}
+        <ReplayDisclosuresCard runMetadata={result?.run_metadata} />
         <PerformanceBenchmarkCard result={result} activeRange={activeRange} />
         <MonthlyReturnsGrid result={result} activeRange={activeRange} />
         <RiskSummaryCard diagnosticsAnalysis={diagnosticsAnalysis} />

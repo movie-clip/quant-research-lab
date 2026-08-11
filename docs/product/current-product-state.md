@@ -27,6 +27,7 @@ Shows portfolio performance history:
   (US-25.5) — sourced from the Diagnostics engine (not the withheld
   dashboard-history `max_drawdown_pct` path, which stays withheld under the
   investor-economics policy below)
+- **Replay Disclosures card** (US-24.11): surfaces the imported replay's own degradations — a non-`verified` opening-cash anchor (basis, both dates, measured residual), withheld return dates with the engine's stated reason, holdings valued at $0, holdings valued at a carried broker trade price, and currencies carried unconverted. Renders **nothing** when the run is clean (absence of a warning is not a claim) and carries **no** Synthetic badge — the imported replay is broker truth that has been degraded, a different truth class
 - **Rolling Factor Analysis card**: rolling factor loadings snapshot
 - **Sector composition donut** and **Benchmark Positioning card**: current holdings
   composition and benchmark-relative positioning
