@@ -53,3 +53,19 @@ SYNTHETIC_COVERAGE_DE_MINIMIS_WEIGHT = 0.01
 # ~$1,192). Heuristic policy value, no academic basis — tune only as a
 # reviewed change (US-24.2 discipline).
 REPLAY_RECONCILIATION_TOLERANCE = 1.00
+
+
+# US-24.7: statement-reconciliation materiality. A reconciliation check passes
+# when |actual - expected| is within this many base-currency units. Set at a
+# quarter of a unit to absorb per-record rounding across a statement's worth of
+# summed entries without masking a real discrepancy. Heuristic policy value, no
+# academic basis — tune only as a reviewed change.
+STATEMENT_RECONCILIATION_TOLERANCE = 0.25
+
+# US-24.7: portfolio-proof terminal totals match. Deliberately far TIGHTER than
+# REPLAY_RECONCILIATION_TOLERANCE (1.00) because the two answer different
+# questions: this one compares the proof path's own recomputed totals against
+# the statement's stated totals, where any disagreement beyond a cent means the
+# recomputation is wrong; the replay tolerance absorbs genuine valuation
+# residuals (FX rounding, a statement-anchored holding) across a whole window.
+PORTFOLIO_PROOF_TERMINAL_MATCH_TOLERANCE = 0.01

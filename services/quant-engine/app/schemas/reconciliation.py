@@ -95,15 +95,6 @@ class PortfolioRiskSummary(BaseModel):
     benchmark_volatility_pct: float | None
 
 
-class PortfolioRiskContribution(BaseModel):
-    symbol: str
-    market_value: float
-    portfolio_weight: float
-    beta: float | None
-    correlation: float | None
-    contribution_to_portfolio_beta: float | None
-
-
 class LookThroughSource(BaseModel):
     source_symbol: str
     source_market_value: float

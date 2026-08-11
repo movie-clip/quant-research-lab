@@ -170,3 +170,36 @@ def test_every_importer_section_label_is_registered() -> None:
         f"carrying them classifies as 'unknown': {unregistered}. Add them to _SECTION_ROLES in "
         "app/domain/ledger.py (see US-24.5)."
     )
+
+
+# ── US-24.7: named financial tolerances ─────────────────────────────────────
+
+
+def test_statement_reconciliation_tolerance_is_named_and_pinned() -> None:
+    """US-24.7 AC4 — the pass/fail threshold for a reconciliation check was an
+    inline `0.25` with no name and no rationale. Value pinned: changing it
+    changes which statements reconcile."""
+    from app.analytics.reconciliation import build_reconciliation_summary  # noqa: F401
+    from app.core.constants import STATEMENT_RECONCILIATION_TOLERANCE
+
+    assert STATEMENT_RECONCILIATION_TOLERANCE == 0.25
+
+
+def test_proof_terminal_match_tolerance_is_distinct_from_the_replay_tolerance() -> None:
+    """US-24.7 AC5 — two related checks use tolerances 100x apart, which is
+    deliberate: the proof path compares its own recomputation against the
+    statement (a cent of disagreement means the recomputation is wrong), while
+    the replay tolerance absorbs genuine valuation residuals across a window.
+    Pinned so the two cannot silently converge."""
+    from app.core.constants import (
+        PORTFOLIO_PROOF_TERMINAL_MATCH_TOLERANCE,
+        REPLAY_RECONCILIATION_TOLERANCE,
+    )
+    from app.services.portfolio_proof import _terminal_totals_match
+
+    assert PORTFOLIO_PROOF_TERMINAL_MATCH_TOLERANCE == 0.01
+    assert PORTFOLIO_PROOF_TERMINAL_MATCH_TOLERANCE < REPLAY_RECONCILIATION_TOLERANCE
+
+    # The proof helper uses the constant as its default.
+    assert _terminal_totals_match(100.00, 100.005) is True
+    assert _terminal_totals_match(100.00, 100.02) is False

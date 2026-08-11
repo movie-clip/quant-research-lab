@@ -1,6 +1,7 @@
 from app.domain.ledger import snapshot_to_ledger
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.reconciliation import ReconciliationCheck, ReconciliationSummary
+from app.core.constants import STATEMENT_RECONCILIATION_TOLERANCE
 
 
 def _statement_stock_total_in_base(snapshot: ImportedPortfolioSnapshot) -> float | None:
@@ -75,7 +76,7 @@ def build_reconciliation_summary(snapshot: ImportedPortfolioSnapshot) -> Reconci
             passed = False
         else:
             difference = round(float(actual) - float(expected), 2)
-            passed = abs(difference) <= 0.25
+            passed = abs(difference) <= STATEMENT_RECONCILIATION_TOLERANCE
 
         checks.append(
             ReconciliationCheck(
