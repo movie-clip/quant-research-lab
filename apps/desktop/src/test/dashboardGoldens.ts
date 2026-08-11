@@ -26,7 +26,7 @@ export const ib2026DashboardGolden = {
     },
     {
       "month": "2026-04",
-      "returnPct": "4.12%"
+      "returnPct": "6.21%"
     },
     {
       "month": "2026-05",
@@ -12387,7 +12387,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "total_market_value": 47176.92,
       "total_portfolio_value": 50768.54,
       "external_cash_flow": 0.0,
-      "trade_flow": -447.32,
+      "trade_flow": -449.15,
       "reconciliation_adjustment": null
     },
     {
@@ -17898,7 +17898,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "total_market_value": 45970.26,
       "total_portfolio_value": 48742.25,
       "external_cash_flow": 0.0,
-      "trade_flow": -2052.99,
+      "trade_flow": -2061.39,
       "reconciliation_adjustment": null
     },
     {
@@ -17934,8 +17934,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "BTEC",
           "quantity": 100.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 8.7023,
+          "market_value": 870.23
         },
         {
           "symbol": "CRM",
@@ -18006,14 +18006,14 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUFS",
           "quantity": 200.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 15.115,
+          "market_value": 3023.0
         },
         {
           "symbol": "IUHC",
           "quantity": 100.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 11.9447,
+          "market_value": 1194.47
         },
         {
           "symbol": "LYFT",
@@ -18070,10 +18070,10 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 3910.2
         }
       ],
-      "total_market_value": 43814.75,
-      "total_portfolio_value": 44893.2,
+      "total_market_value": 48902.45,
+      "total_portfolio_value": 49980.9,
       "external_cash_flow": 0.0,
-      "trade_flow": -3399.28,
+      "trade_flow": 1693.54,
       "reconciliation_adjustment": null
     },
     {
@@ -18109,8 +18109,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "BTEC",
           "quantity": 100.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 8.7023,
+          "market_value": 870.23
         },
         {
           "symbol": "CRM",
@@ -18181,14 +18181,14 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUFS",
           "quantity": 200.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 15.115,
+          "market_value": 3023.0
         },
         {
           "symbol": "IUHC",
           "quantity": 100.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 11.9447,
+          "market_value": 1194.47
         },
         {
           "symbol": "LYFT",
@@ -18245,8 +18245,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 5240.0
         }
       ],
-      "total_market_value": 45491.57,
-      "total_portfolio_value": 45265.49,
+      "total_market_value": 50579.27,
+      "total_portfolio_value": 50353.19,
       "external_cash_flow": 0.0,
       "trade_flow": 1307.5,
       "reconciliation_adjustment": null
@@ -18350,14 +18350,14 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUFS",
           "quantity": 200.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 15.115,
+          "market_value": 3023.0
         },
         {
           "symbol": "IUHC",
           "quantity": 200.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 12.0268,
+          "market_value": 2405.36
         },
         {
           "symbol": "LYFT",
@@ -18402,10 +18402,10 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 10531.2
         }
       ],
-      "total_market_value": 45173.34,
-      "total_portfolio_value": 54774.58,
+      "total_market_value": 50601.7,
+      "total_portfolio_value": 60202.94,
       "external_cash_flow": 9963.0,
-      "trade_flow": -203.39,
+      "trade_flow": 135.69,
       "reconciliation_adjustment": null
     },
     {
@@ -18495,14 +18495,14 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUFS",
           "quantity": 200.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 15.115,
+          "market_value": 3023.0
         },
         {
           "symbol": "IUHC",
           "quantity": 200.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 12.0268,
+          "market_value": 2405.36
         },
         {
           "symbol": "LYFT",
@@ -18547,8 +18547,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 10507.2
         }
       ],
-      "total_market_value": 47516.9,
-      "total_portfolio_value": 55138.41,
+      "total_market_value": 52945.26,
+      "total_portfolio_value": 60566.77,
       "external_cash_flow": 0.0,
       "trade_flow": 1979.73,
       "reconciliation_adjustment": null
@@ -18652,14 +18652,14 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUFS",
           "quantity": 200.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 15.115,
+          "market_value": 3023.0
         },
         {
           "symbol": "IUHC",
           "quantity": 200.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 12.0268,
+          "market_value": 2405.36
         },
         {
           "symbol": "LQQ",
@@ -18710,8 +18710,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 10708.8
         }
       ],
-      "total_market_value": 55687.38,
-      "total_portfolio_value": 56392.8,
+      "total_market_value": 61115.74,
+      "total_portfolio_value": 61821.16,
       "external_cash_flow": 0.0,
       "trade_flow": 6916.09,
       "reconciliation_adjustment": null
@@ -18815,14 +18815,14 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUFS",
           "quantity": 200.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 15.115,
+          "market_value": 3023.0
         },
         {
           "symbol": "IUHC",
           "quantity": 200.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 12.0268,
+          "market_value": 2405.36
         },
         {
           "symbol": "LQQ",
@@ -18873,8 +18873,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 10779.2
         }
       ],
-      "total_market_value": 56084.15,
-      "total_portfolio_value": 56789.57,
+      "total_market_value": 61512.51,
+      "total_portfolio_value": 62217.93,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null
@@ -18966,14 +18966,14 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUFS",
           "quantity": 200.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 15.115,
+          "market_value": 3023.0
         },
         {
           "symbol": "IUHC",
           "quantity": 200.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 12.0268,
+          "market_value": 2405.36
         },
         {
           "symbol": "LQQ",
@@ -19018,8 +19018,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 10849.6
         }
       ],
-      "total_market_value": 54143.35,
-      "total_portfolio_value": 57083.06,
+      "total_market_value": 59571.71,
+      "total_portfolio_value": 62511.42,
       "external_cash_flow": 0.0,
       "trade_flow": -2230.56,
       "reconciliation_adjustment": null
@@ -19105,14 +19105,14 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUFS",
           "quantity": 200.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 15.115,
+          "market_value": 3023.0
         },
         {
           "symbol": "IUHC",
           "quantity": 200.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 12.0268,
+          "market_value": 2405.36
         },
         {
           "symbol": "LYFT",
@@ -19151,10 +19151,10 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 11000.0
         }
       ],
-      "total_market_value": 53407.11,
-      "total_portfolio_value": 56573.22,
+      "total_market_value": 58835.47,
+      "total_portfolio_value": 62001.58,
       "external_cash_flow": 0.0,
-      "trade_flow": -226.4,
+      "trade_flow": -230.2,
       "reconciliation_adjustment": null
     },
     {
@@ -19238,14 +19238,14 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUFS",
           "quantity": 200.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 15.115,
+          "market_value": 3023.0
         },
         {
           "symbol": "IUHC",
           "quantity": 200.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 12.0268,
+          "market_value": 2405.36
         },
         {
           "symbol": "LYFT",
@@ -19284,8 +19284,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 10945.6
         }
       ],
-      "total_market_value": 53210.45,
-      "total_portfolio_value": 56376.56,
+      "total_market_value": 58638.81,
+      "total_portfolio_value": 61804.92,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null
@@ -19371,14 +19371,14 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUFS",
           "quantity": 200.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 15.115,
+          "market_value": 3023.0
         },
         {
           "symbol": "IUHC",
           "quantity": 200.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 12.0268,
+          "market_value": 2405.36
         },
         {
           "symbol": "LYFT",
@@ -19417,8 +19417,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 10929.6
         }
       ],
-      "total_market_value": 52787.34,
-      "total_portfolio_value": 55953.45,
+      "total_market_value": 58215.7,
+      "total_portfolio_value": 61381.81,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null
@@ -19498,14 +19498,14 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUFS",
           "quantity": 200.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 15.115,
+          "market_value": 3023.0
         },
         {
           "symbol": "IUHC",
           "quantity": 200.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 12.0268,
+          "market_value": 2405.36
         },
         {
           "symbol": "LYFT",
@@ -19544,8 +19544,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 10982.4
         }
       ],
-      "total_market_value": 51891.2,
-      "total_portfolio_value": 55960.04,
+      "total_market_value": 57319.56,
+      "total_portfolio_value": 61388.4,
       "external_cash_flow": 0.0,
       "trade_flow": -902.73,
       "reconciliation_adjustment": null
@@ -19625,14 +19625,14 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUFS",
           "quantity": 200.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 15.115,
+          "market_value": 3023.0
         },
         {
           "symbol": "IUHC",
           "quantity": 200.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 12.0268,
+          "market_value": 2405.36
         },
         {
           "symbol": "IUIT",
@@ -19677,8 +19677,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 11017.6
         }
       ],
-      "total_market_value": 52812.82,
-      "total_portfolio_value": 55824.69,
+      "total_market_value": 58241.18,
+      "total_portfolio_value": 61253.05,
       "external_cash_flow": 0.0,
       "trade_flow": 1059.6,
       "reconciliation_adjustment": null
@@ -19758,14 +19758,14 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IUFS",
           "quantity": 200.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 15.115,
+          "market_value": 3023.0
         },
         {
           "symbol": "IUHC",
           "quantity": 200.0,
-          "market_price": null,
-          "market_value": null
+          "market_price": 12.0268,
+          "market_value": 2405.36
         },
         {
           "symbol": "IUIT",
@@ -19816,8 +19816,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 11009.6
         }
       ],
-      "total_market_value": 56793.36,
-      "total_portfolio_value": 55728.11,
+      "total_market_value": 62221.72,
+      "total_portfolio_value": 61156.47,
       "external_cash_flow": 0.0,
       "trade_flow": 4077.12,
       "reconciliation_adjustment": null
@@ -19946,7 +19946,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "total_market_value": 56805.79,
       "total_portfolio_value": 61082.46,
       "external_cash_flow": 0.0,
-      "trade_flow": 0.0,
+      "trade_flow": -5341.92,
       "reconciliation_adjustment": null
     },
     {
@@ -24153,7 +24153,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "total_market_value": 61653.82,
       "total_portfolio_value": 61274.14,
       "external_cash_flow": 0.0,
-      "trade_flow": 1624.45,
+      "trade_flow": 1649.28,
       "reconciliation_adjustment": null
     },
     {
@@ -26328,91 +26328,91 @@ export const ib2026ImportedDashboardGoldenFixture = {
     },
     {
       "date": "2026-04-08",
-      "portfolio_value": 44893.2,
+      "portfolio_value": 49980.9,
       "benchmark_price": 676.01,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-09",
-      "portfolio_value": 45265.49,
+      "portfolio_value": 50353.19,
       "benchmark_price": 679.91,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-10",
-      "portfolio_value": 54774.58,
+      "portfolio_value": 60202.94,
       "benchmark_price": 679.46,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-13",
-      "portfolio_value": 55138.41,
+      "portfolio_value": 60566.77,
       "benchmark_price": 686.1,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-14",
-      "portfolio_value": 56392.8,
+      "portfolio_value": 61821.16,
       "benchmark_price": 694.46,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-15",
-      "portfolio_value": 56789.57,
+      "portfolio_value": 62217.93,
       "benchmark_price": 699.94,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-16",
-      "portfolio_value": 57083.06,
+      "portfolio_value": 62511.42,
       "benchmark_price": 701.66,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-17",
-      "portfolio_value": 56573.22,
+      "portfolio_value": 62001.58,
       "benchmark_price": 710.14,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-20",
-      "portfolio_value": 56376.56,
+      "portfolio_value": 61804.92,
       "benchmark_price": 708.72,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-21",
-      "portfolio_value": 55953.45,
+      "portfolio_value": 61381.81,
       "benchmark_price": 704.08,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-22",
-      "portfolio_value": 55960.04,
+      "portfolio_value": 61388.4,
       "benchmark_price": 711.21,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-23",
-      "portfolio_value": 55824.69,
+      "portfolio_value": 61253.05,
       "benchmark_price": 708.45,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-24",
-      "portfolio_value": 55728.11,
+      "portfolio_value": 61156.47,
       "benchmark_price": 713.94,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
@@ -26777,7 +26777,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "month": "2026-04",
-          "return_pct": 4.117946177966902
+          "return_pct": 6.205205490093935
         },
         {
           "month": "2026-05",
@@ -26817,7 +26817,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "month": "2026-04",
-          "return_pct": 4.117946177966902
+          "return_pct": 6.205205490093935
         },
         {
           "month": "2026-05",
@@ -26857,7 +26857,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "month": "2026-04",
-          "return_pct": 4.117946177966902
+          "return_pct": 6.205205490093935
         },
         {
           "month": "2026-05",
@@ -26897,7 +26897,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         },
         {
           "month": "2026-04",
-          "return_pct": 4.117946177966902
+          "return_pct": 6.205205490093935
         },
         {
           "month": "2026-05",
@@ -27611,7 +27611,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
       "total_market_value": 3011.94,
       "total_portfolio_value": 3045.64,
       "external_cash_flow": 0.0,
-      "trade_flow": 867.84,
+      "trade_flow": 1936.68,
       "reconciliation_adjustment": null
     },
     {

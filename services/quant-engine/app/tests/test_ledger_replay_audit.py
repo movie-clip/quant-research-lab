@@ -286,8 +286,13 @@ def test_us249_trade_neutral_basis_publishes_no_trade_day_fabrication(replay_con
 
     2026-04-14 is the window's largest trade day ($6,916.09 of net buying into
     the priced book). The plain market-value chain reads that injection as
-    performance — **+17.19%**, the F-1 fabrication class. The trade-neutral
-    chain removes the leg and reports the day's actual move, **+2.64%**.
+    performance — **+15.43%**, the F-1 fabrication class. The trade-neutral
+    chain removes the leg and reports the day's actual move, **+2.37%**.
+
+    (Figures restated by US-24.10, which gave BTEC/IUFS/IUHC a trade-price
+    valuation; before that they were worth $0, which shifted every total they
+    touched. The naive-vs-neutral gap — what this pin guards — is unchanged
+    in character.)
 
     (US-30.5c cited 2026-06-19 for this class. That date is no longer a
     valuation date on the current statement window — it is a US market holiday,
@@ -300,24 +305,28 @@ def test_us249_trade_neutral_basis_publishes_no_trade_day_fabrication(replay_con
     naive = dict(_portfolio_time_weighted_return_series(states, basis="market_value"))
     neutral = dict(_portfolio_time_weighted_return_series(states, basis="market_value_trade_neutral"))
 
-    assert naive["2026-04-14"] == pytest.approx(0.171949, abs=1e-4)
-    assert neutral["2026-04-14"] == pytest.approx(0.026399, abs=1e-4)
+    assert naive["2026-04-14"] == pytest.approx(0.154319, abs=1e-4)
+    assert neutral["2026-04-14"] == pytest.approx(0.023692, abs=1e-4)
     # No day in the whole window may show a trade-sized move under the shipped
-    # basis: the naive chain peaks at 17.19%, the trade-neutral chain at 2.95%.
+    # basis: the naive chain peaks at 15.43%, the trade-neutral chain at 2.95%.
     assert max(abs(r) for r in neutral.values()) == pytest.approx(0.029539, abs=1e-4)
 
 
-def test_us249_trade_flow_excludes_unpriced_symbols(replay_context) -> None:
-    """US-24.9 — the fabrication found while measuring AC9, pinned on real data.
+def test_us249_trade_leg_gate_excludes_legs_absent_from_market_value(replay_context) -> None:
+    """US-24.9's fabrication guard, restated on IB2026 after US-24.10.
 
-    IUFS and IUHC are `unpriced_replay_symbols`: they contribute $0 to market
-    value all window. On 2026-04-27 the replay SELLS both for $5,341.92. A
-    `trade_flow` that counted them would neutralise a market-value leg that was
-    never there, fabricating **+9.43%** on a day the priced book moved
-    **+0.02%**. Gating `trade_flow` on "is this symbol valued today" fixes it.
+    `trade_flow` may only cancel a leg that actually crossed the market-value
+    boundary. When US-24.9 shipped, IB2026 exercised this through **unpriced**
+    symbols: selling IUFS + IUHC ($5,341.92) on 2026-04-27 moved no market value
+    at all, and counting it fabricated **+9.43%** on a day the priced book moved
+    +0.02%. US-24.10 then gave those symbols a trade-price valuation, so that
+    case no longer arises here — but a second one does, and it is the live
+    regression guard now:
 
-    The mirror day 2026-04-08 (buying $5,092.82 of the same unpriced symbols) is
-    pinned too, because it is the sign-flipped case.
+    **2026-06-11 IITU is bought AND fully sold on the same day.** It is in no
+    day's market value — not today's (quantity nets to zero before any close)
+    and not yesterday's (it did not exist). Counting its $1,443.00 buy leg
+    produced **−3.45%** against an expected **−0.36%**.
     """
     from app.analytics.risk import _portfolio_time_weighted_return_series
 
@@ -325,24 +334,28 @@ def test_us249_trade_flow_excludes_unpriced_symbols(replay_context) -> None:
     by_date = {state.date: state for state in states}
     neutral = dict(_portfolio_time_weighted_return_series(states, basis="market_value_trade_neutral"))
 
-    assert by_date["2026-04-27"].trade_flow == pytest.approx(0.0)
-    assert neutral["2026-04-27"] == pytest.approx(0.000219, abs=1e-4)
-    # 2026-04-08 traded priced symbols too, so its flow is non-zero — but it
-    # excludes the $5,092.82 of unpriced buying.
-    assert by_date["2026-04-08"].trade_flow == pytest.approx(-3_399.28, abs=1.0)
+    # The same-day round trip contributes nothing to the neutralisation...
+    assert by_date["2026-06-11"].trade_flow == pytest.approx(-3_524.27, abs=1.0)
+    # ...so the day reports the priced book's real move, not a trade-sized one.
+    assert neutral["2026-06-11"] == pytest.approx(-0.003427, abs=1e-4)
+
+    # And the 2026-04-27 sale, now backed by a trade-price valuation, IS
+    # neutralised — its leg genuinely left yesterday's market value.
+    assert by_date["2026-04-27"].trade_flow == pytest.approx(-5_341.92, abs=1.0)
+    assert neutral["2026-04-27"] == pytest.approx(-0.001189, abs=1e-4)
 
 
 def test_us249_de_dilution_is_explained_by_the_cash_weight(replay_context) -> None:
     """US-24.9 AC9 — the tripwire: the risk statistics must move by what the
     cash sleeve explains, and no more.
 
-    Measured on IB2026 with the two unpriced-symbol cash-event days
-    (2026-04-08 / 2026-04-27) excluded — those two are a *separate*,
-    pre-existing distortion of the cash-inclusive TWR, recorded in the story
-    Notes and the tech-debt register, not an effect of this change:
+    Measured on IB2026 over **every** day of the window. When US-24.9 shipped
+    this comparison had to exclude 2026-04-08 and 2026-04-27, whose
+    cash-inclusive TWR was corrupted by unpriced-symbol cash events; US-24.10
+    fixed that at source, so no exclusions remain:
 
-        annualised volatility   TWR 14.54%  →  trade-neutral 15.47%   (×1.064)
-        median cash weight      5.60%       →  predicted de-dilution  ×1.059
+        annualised volatility   TWR 14.72%  ->  trade-neutral 15.71%   (x1.067)
+        median cash weight      5.21%       ->  predicted de-dilution  x1.055
 
     A ratio far from the cash-weight prediction means the trade neutralisation
     is wrong, not that the portfolio is riskier.
@@ -353,21 +366,90 @@ def test_us249_de_dilution_is_explained_by_the_cash_weight(replay_context) -> No
 
     states = _us249_states(replay_context)
     base = "USD"
-    unpriced_cash_event_days = {"2026-04-08", "2026-04-27"}
 
     weights = [s.cash[base] / s.total_portfolio_value for s in states if s.total_portfolio_value]
     median_weight = statistics.median(weights)
-    assert median_weight == pytest.approx(0.056, abs=0.005)
+    assert median_weight == pytest.approx(0.052, abs=0.005)
 
     def _vol(basis: str) -> float:
         series = _portfolio_time_weighted_return_series(states, basis=basis)
-        samples = [r for d, r in series if d not in unpriced_cash_event_days]
-        return statistics.stdev(samples) * (252 ** 0.5)
+        return statistics.stdev([r for _, r in series]) * (252 ** 0.5)
 
     twr_vol = _vol("portfolio_value")
     neutral_vol = _vol("market_value_trade_neutral")
 
-    assert twr_vol == pytest.approx(0.1454, abs=1e-3)
-    assert neutral_vol == pytest.approx(0.1547, abs=1e-3)
-    # The whole move is the cash weight: ratio ≈ 1/(1 − median weight).
+    assert twr_vol == pytest.approx(0.1472, abs=1e-3)
+    assert neutral_vol == pytest.approx(0.1571, abs=1e-3)
+    # The whole move is the cash weight: ratio close to 1/(1 - median weight).
     assert neutral_vol / twr_vol == pytest.approx(1 / (1 - median_weight), rel=0.02)
+
+
+# ── US-24.10: the trade-price valuation tier ───────────────────────────
+
+
+def test_us2410_trade_price_anchor_removes_the_fabricated_twr_days(replay_context) -> None:
+    """US-24.10 AC4 — the defect this story exists for.
+
+    BTEC / IUFS / IUHC have no market history and no statement close (they are
+    round trips, absent from the current snapshot), so they were valued at $0.
+    Their trades still moved real cash, so `total_portfolio_value` stepped with
+    no offsetting position and the INVESTOR-PERFORMANCE TWR published it:
+
+        2026-04-08  −$5,092.82 of buying   ->  TWR  −7.90%
+        2026-04-27  +$5,341.92 of selling  ->  TWR  +9.61%
+
+    Valued at the broker's own execution price, both become ordinary days.
+    """
+    from app.analytics.risk import _portfolio_time_weighted_return_series
+
+    states = _us249_states(replay_context)
+    twr = dict(_portfolio_time_weighted_return_series(states, basis="portfolio_value"))
+
+    assert twr["2026-04-08"] == pytest.approx(0.025412, abs=1e-4)
+    assert twr["2026-04-27"] == pytest.approx(-0.001210, abs=1e-4)
+    # Nowhere near the fabricated values.
+    assert abs(twr["2026-04-08"] - (-0.0790)) > 0.05
+    assert abs(twr["2026-04-27"] - 0.0961) > 0.05
+    # The window's largest TWR day falls from 9.61% to 2.76%.
+    assert max(abs(r) for r in twr.values()) == pytest.approx(0.027618, abs=1e-4)
+
+
+def test_us2410_symbols_move_from_unpriced_into_the_trade_anchored_tier(replay_context) -> None:
+    """US-24.10 AC5/AC6 — reclassification is real, and exclusive."""
+    from app.analytics.performance import build_replay_currency_context
+
+    snapshot, price_histories, valuation_dates = replay_context
+    fund_currencies, fx_history = build_replay_currency_context(
+        snapshot, replay_symbol_universe(snapshot), valuation_dates
+    )
+    engine = PortfolioStateEngine(
+        snapshot=snapshot,
+        base_currency=(snapshot.statement.base_currency or "USD"),
+        fx_history=fx_history,
+        symbol_fund_currencies=fund_currencies,
+    )
+    engine.build_daily_states(
+        price_histories=price_histories,
+        valuation_dates=valuation_dates,
+        apply_terminal_reconciliation=True,
+    )
+
+    assert engine.trade_price_anchored_symbols == {"BTEC", "IUFS", "IUHC"}
+    # Every held symbol is now valued on some basis...
+    assert engine.unpriced_replay_symbols == set()
+    # ...and LQQ keeps its statement-close anchor (US-27.7 unchanged).
+    assert engine.statement_anchored_symbols == {"LQQ"}
+    assert not (engine.trade_price_anchored_symbols & engine.statement_anchored_symbols)
+
+
+def test_us2410_terminal_reconciliation_does_not_worsen(replay_context) -> None:
+    """US-24.10 AC9 — a valuation change must not degrade the statement match.
+
+    US-31.5 brought terminal market value to within $1.35 of the statement's own
+    `stock_total` ($61,238.53). All three newly-valued symbols are closed by
+    period end, so the terminal state must be untouched.
+    """
+    states = _us249_states(replay_context)
+
+    assert states[-1].total_market_value == pytest.approx(61_239.88, abs=1.0)
+    assert abs(states[-1].total_market_value - 61_238.53) < 2.0

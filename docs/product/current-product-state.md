@@ -125,13 +125,18 @@ rather than absorbed:
 | Disclosure | Meaning |
 |---|---|
 | `statement_anchored_symbols` (US-30.2) | Held symbol with no fetchable price history — valued flat at its statement close price (broker-truth-adjacent) |
-| `run_metadata.unpriced_replay_symbols` (US-31.2) | Symbol held on a day with **no** price history **and** no statement anchor — contributed 0 to that day's market value |
+| `run_metadata.trade_price_anchored_symbols` (US-24.10) | Symbol with no price history and no statement close, valued at the **broker's own execution price** carried forward from the trade (flat between trades). The third valuation tier; forward-carry only, never back-filled |
+| `run_metadata.unpriced_replay_symbols` (US-31.2) | Symbol held on a day with **no** price history, **no** statement anchor **and** no prior trade price — contributed 0 to that day's market value |
 | `run_metadata.replay_cash_anchor` (US-31.3) | How opening cash was derived + its trust. `degraded` when the statement NAV's as-of date differs from the replay window start (market movement between them is plugged into cash) |
 | `run_metadata.withheld_return_dates` (US-31.3) | Days whose return was **withheld** because the state carried a reconciliation adjustment — an accounting correction is never published as performance |
 
-The second is the weaker case and the newer one: before US-31.2 those symbols
-were never fetched at all, so a since-sold position silently contributed $0 to
-the replayed NAV for the whole window.
+Valuation precedence is **market history → statement close → last broker trade
+price**, and a symbol falls in exactly one tier (`financial-methodology.md`
+§Synthetic History Coverage Rule). The last row is the weakest outcome: before
+US-31.2 those symbols were never fetched at all, and before US-24.10 a
+round-trip position stayed worth $0 for the whole window — which let its trades
+move cash with no offsetting market value and the TWR publish the step as
+performance.
 
 **Portfolio return basis** (which series a metric is computed from). Three
 bases ship, selected by provenance — see `financial-methodology.md`

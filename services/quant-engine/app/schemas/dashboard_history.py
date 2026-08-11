@@ -148,6 +148,14 @@ class DashboardHistoryRunMetadata(BaseModel):
     # snapshot, hence from `fallback_prices`). Disclosed rather than silently
     # zeroed — guardrail #3.
     unpriced_replay_symbols: list[str] = []
+    # US-24.10: symbols valued at the broker's own execution price, carried
+    # forward from the trade (the third valuation tier, below market history and
+    # the statement close). Broker truth, but the carried segment is FLAT — it
+    # contains no market movement, so it must be disclosed rather than passed
+    # off as a priced series. Replaces a $0 valuation, which let a BUY/SELL move
+    # cash with no offsetting market value and the TWR publish the step as
+    # performance. A symbol appears in exactly one of the three valuation tiers.
+    trade_price_anchored_symbols: list[str] = []
     # US-31.3 (Epic 31 F-2): how the replay's OPENING CASH was derived and
     # whether that derivation is trustworthy. The anchor is
     # `starting_nav − opening_positions_value`; when the NAV's as-of date and

@@ -721,3 +721,163 @@ class TestPerDayTradeFlow:
         # The GHOST sale still moves cash (it is real broker truth) and the
         # symbol is disclosed as unpriced rather than silently dropped.
         assert "GHOST" in engine.unpriced_replay_symbols
+
+
+class TestTradePriceAnchor:
+    """US-24.10: the third valuation tier — a symbol with no market history and
+    no statement close price is valued at the broker's own execution price,
+    carried FORWARD from that trade.
+
+    Without it a round-trip position is worth $0 while held, so its BUY/SELL
+    moves cash with no offsetting market value and the cash-inclusive TWR
+    publishes the step as performance (IB2026: -7.90% / +9.61%).
+    """
+
+    def test_symbol_is_valued_at_its_buy_price_from_the_trade_day_onward(self) -> None:
+        dates = ["2025-01-02", "2025-01-03", "2025-01-06", "2025-01-07"]
+        snapshot = _snapshot(
+            positions=[position("AAA", market_value=1000.0, quantity=10.0, close_price=100.0)],
+            # A genuine round trip: opening qty is 0, so the replay holds GHOST
+            # only between the BUY and the SELL (the IB2026 BTEC/IUFS/IUHC shape).
+            ledger_entries=[
+                _trade("BUY", "GHOST", "2025-01-03", quantity=50.0, price=20.0),
+                _trade("SELL", "GHOST", "2025-01-07", quantity=50.0, price=21.0),
+            ],
+            cash_balances=[{"currency": "USD", "ending_cash": 5000.0}],
+        )
+        price_histories = {"AAA": _rows("AAA", dates, price=100.0)}
+
+        engine, states = _build(snapshot, price_histories, dates)
+
+        def ghost(state):
+            return next((p for p in state.positions if p.symbol == "GHOST"), None)
+
+        assert ghost(states[0]) is None  # not held yet
+        assert ghost(states[1]).market_value == pytest.approx(1000.0)  # 50 x 20.00
+        assert ghost(states[2]).market_value == pytest.approx(1000.0)  # carried flat
+        assert "GHOST" in engine.trade_price_anchored_symbols
+
+    def test_a_later_trade_updates_the_carried_price(self) -> None:
+        dates = ["2025-01-02", "2025-01-03", "2025-01-06", "2025-01-07"]
+        snapshot = _snapshot(
+            positions=[position("AAA", market_value=1000.0, quantity=10.0, close_price=100.0)],
+            ledger_entries=[
+                _trade("BUY", "GHOST", "2025-01-02", quantity=100.0, price=20.0),
+                _trade("BUY", "GHOST", "2025-01-06", quantity=100.0, price=25.0),
+                _trade("SELL", "GHOST", "2025-01-07", quantity=200.0, price=26.0),
+            ],
+            cash_balances=[{"currency": "USD", "ending_cash": 9000.0}],
+        )
+        price_histories = {"AAA": _rows("AAA", dates, price=100.0)}
+
+        _engine, states = _build(snapshot, price_histories, dates)
+
+        def ghost_value(state):
+            return next(p for p in state.positions if p.symbol == "GHOST").market_value
+
+        assert ghost_value(states[0]) == pytest.approx(2_000.0)   # 100 x 20
+        assert ghost_value(states[1]) == pytest.approx(2_000.0)   # carried
+        assert ghost_value(states[2]) == pytest.approx(5_000.0)   # 200 x 25 (last trade wins)
+
+    def test_anchor_never_back_fills_before_the_first_trade(self) -> None:
+        """US-27.7 rule: reaching backwards would fabricate a price for a date
+        the broker never produced one. A position held BEFORE its first observed
+        trade stays unvalued and disclosed."""
+        dates = ["2025-01-02", "2025-01-03"]
+        # GHOST is held at the window open (ending 0 + sold 100 => opening 100)
+        # and its only observed trade is the SELL on the second day.
+        snapshot = _snapshot(
+            positions=[position("AAA", market_value=1000.0, quantity=10.0, close_price=100.0)],
+            ledger_entries=[_trade("SELL", "GHOST", "2025-01-03", quantity=100.0, price=20.0)],
+            cash_balances=[{"currency": "USD", "ending_cash": 500.0}],
+        )
+        price_histories = {"AAA": _rows("AAA", dates, price=100.0)}
+
+        engine, states = _build(snapshot, price_histories, dates)
+
+        opening_ghost = next(p for p in states[0].positions if p.symbol == "GHOST")
+        assert opening_ghost.market_price is None
+        assert opening_ghost.market_value is None
+        assert "GHOST" in engine.unpriced_replay_symbols
+
+    def test_precedence_history_then_statement_close_then_trade_price(self) -> None:
+        """AC3, pinned in both directions: the two existing tiers are unchanged
+        and always outrank the new one."""
+        dates = ["2025-01-02", "2025-01-03"]
+        snapshot = _snapshot(
+            # AAA has real history; HELD has none but IS a current position, so
+            # it keeps the statement close anchor even though it was traded.
+            positions=[
+                position("AAA", market_value=1000.0, quantity=10.0, close_price=100.0),
+                position("HELD", market_value=500.0, quantity=10.0, close_price=50.0),
+            ],
+            ledger_entries=[_trade("BUY", "HELD", "2025-01-03", quantity=2.0, price=999.0)],
+            cash_balances=[{"currency": "USD", "ending_cash": 5000.0}],
+        )
+        price_histories = {"AAA": _rows("AAA", dates, price=100.0)}
+
+        engine, states = _build(snapshot, price_histories, dates)
+
+        aaa = next(p for p in states[1].positions if p.symbol == "AAA")
+        held = next(p for p in states[1].positions if p.symbol == "HELD")
+        assert aaa.market_price == pytest.approx(100.0)          # history wins
+        assert held.market_price == pytest.approx(50.0)          # statement close, NOT 999.0
+        assert "HELD" in engine.statement_anchored_symbols
+        assert "HELD" not in engine.trade_price_anchored_symbols
+
+    def test_anchor_converts_from_the_trade_settle_currency(self) -> None:
+        """AC7 — a trade price is quoted in the currency it executed in, not the
+        fund currency the US-31.5 rule picks for market-priced holdings."""
+        dates = ["2025-01-02", "2025-01-03"]
+        dates = ["2025-01-02", "2025-01-03", "2025-01-06"]
+        eur_buy = _trade("BUY", "GHOST", "2025-01-03", quantity=100.0, price=10.0)
+        eur_buy["currency"] = "EUR"
+        eur_sell = _trade("SELL", "GHOST", "2025-01-06", quantity=100.0, price=10.0)
+        eur_sell["currency"] = "EUR"
+        snapshot = _snapshot(
+            positions=[position("AAA", market_value=1000.0, quantity=10.0, close_price=100.0)],
+            ledger_entries=[eur_buy, eur_sell],
+            cash_balances=[{"currency": "USD", "ending_cash": 5000.0}],
+        )
+        price_histories = {"AAA": _rows("AAA", dates, price=100.0)}
+
+        _engine, converted = _build(
+            snapshot, price_histories, dates, fx_history=_static_fx(dates, {"EURUSD": 1.10})
+        )
+        ghost = next(p for p in converted[1].positions if p.symbol == "GHOST")
+        assert ghost.market_value == pytest.approx(1_100.0)  # 100 x 10 EUR x 1.10
+
+        # No rate: carried unconverted and the degradation is recorded — never
+        # a silent 1:1 conversion claim (US-27.8).
+        engine_no_fx, unconverted = _build(snapshot, price_histories, dates)
+        ghost_raw = next(p for p in unconverted[1].positions if p.symbol == "GHOST")
+        assert ghost_raw.market_value == pytest.approx(1_000.0)
+        assert "EUR" in engine_no_fx.fx_fallback_currencies
+
+    def test_disclosure_tiers_are_mutually_exclusive(self) -> None:
+        """AC5/AC6 — a symbol lands in exactly one tier, and a symbol the anchor
+        cannot value is NOT reclassified out of the unpriced disclosure."""
+        dates = ["2025-01-02", "2025-01-03", "2025-01-06"]
+        snapshot = _snapshot(
+            positions=[
+                position("AAA", market_value=1000.0, quantity=10.0, close_price=100.0),
+                position("HELD", market_value=500.0, quantity=10.0, close_price=50.0),
+            ],
+            ledger_entries=[
+                _trade("BUY", "GHOST", "2025-01-03", quantity=10.0, price=20.0),
+                _trade("SELL", "GHOST", "2025-01-06", quantity=10.0, price=21.0),
+                # NOPRICE is sold out of an opening position, so every day it is
+                # held falls BEFORE its only observed trade price.
+                _trade("SELL", "NOPRICE", "2025-01-03", quantity=10.0, price=20.0),
+            ],
+            cash_balances=[{"currency": "USD", "ending_cash": 5000.0}],
+        )
+        price_histories = {"AAA": _rows("AAA", dates, price=100.0)}
+
+        engine, _states = _build(snapshot, price_histories, dates)
+
+        assert engine.trade_price_anchored_symbols == {"GHOST"}
+        assert engine.statement_anchored_symbols == {"HELD"}
+        assert engine.unpriced_replay_symbols == {"NOPRICE"}
+        assert not (engine.trade_price_anchored_symbols & engine.statement_anchored_symbols)
+        assert not (engine.trade_price_anchored_symbols & engine.unpriced_replay_symbols)

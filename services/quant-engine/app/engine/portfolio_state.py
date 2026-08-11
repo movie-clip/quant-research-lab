@@ -108,6 +108,15 @@ class PortfolioStateEngine:
     # snapshot, so it is absent from `fallback_prices` too. Recorded so callers
     # disclose the gap instead of publishing a silently understated NAV.
     unpriced_replay_symbols: set[str] = field(default_factory=set)
+    # US-24.10: symbols with NO fetchable price history and NO statement close
+    # price that were nonetheless valued, on days at or after their first
+    # broker trade, at that trade's execution price carried forward. The third
+    # valuation tier (below market history and the statement close): broker
+    # truth, but FLAT between trades — zero market movement across the carried
+    # segment. Callers must disclose it; it is a weaker basis than a statement
+    # close (which is at least a period-end mark) and a stronger one than the
+    # $0 valuation it replaces. Mutually exclusive with the other two tiers.
+    trade_price_anchored_symbols: set[str] = field(default_factory=set)
     # US-31.3 (Epic 31 F-2): provenance + trust of the opening cash anchor from
     # the last build_daily_states run — basis, the NAV's as-of date, the replay
     # window start, the residual vs the statement-implied opening cash, and the
@@ -124,6 +133,7 @@ class PortfolioStateEngine:
         self.fx_fallback_currencies = set()
         self.statement_anchored_symbols = set()
         self.unpriced_replay_symbols = set()
+        self.trade_price_anchored_symbols = set()
         if not valuation_dates:
             return []
 
@@ -176,7 +186,36 @@ class PortfolioStateEngine:
 
         position_currency = {position.symbol: position.currency for position in self.snapshot.positions}
 
-        def valuation_currency(symbol: str) -> str:
+        # US-24.10: per-symbol observed broker execution prices, ascending by
+        # date. The third and last valuation tier: a symbol with no market
+        # history AND no statement close price is still worth what the broker
+        # last traded it at. Derived from the SAME canonical ledger scan that
+        # drives quantities, so the prices can never describe a different set of
+        # trades than the replay applies.
+        trade_prices: defaultdict[str, list[tuple[str, float, str]]] = defaultdict(list)
+        for entry in trade_entries:
+            if entry.entry_type in {"BUY", "SELL"} and entry.symbol and entry.price is not None:
+                trade_prices[entry.symbol].append((entry.date.isoformat(), float(entry.price), entry.cash_currency))
+
+        def trade_anchor(symbol: str, day_str: str) -> tuple[float, str] | None:
+            """Most recent broker execution price at or before `day_str`.
+
+            **Forward-carry only.** Before a symbol's first observed trade this
+            returns None — reaching backwards would fabricate a price for a date
+            the broker never produced one, the US-27.7 rule that also forbids
+            back-filling market history.
+            """
+            observed = trade_prices.get(symbol)
+            if not observed:
+                return None
+            anchor: tuple[float, str] | None = None
+            for trade_date, price, currency in observed:
+                if trade_date > day_str:
+                    break
+                anchor = (price, currency)
+            return anchor
+
+        def valuation_currency(symbol: str, day_str: str) -> str:
             # US-31.5 (Epic 31 F-4): a MARKET-priced value is quoted in the
             # symbol's FUND currency (the resolved line's quote currency, from
             # the registry) — NOT the broker's listing `position.currency`
@@ -185,8 +224,16 @@ class PortfolioStateEngine:
             # which IS in the listing currency. Falls back to position currency
             # when the fund currency is unknown, then to base — never a silent
             # 1:1 assumption for a known non-base currency.
+            # US-24.10: a TRADE-anchored value is quoted in the currency the
+            # trade settled in — mirrors `price_for`'s precedence exactly so the
+            # value and its currency can never come from different tiers.
             if history_by_symbol.get(symbol):
                 return self.symbol_fund_currencies.get(symbol) or position_currency.get(symbol, self.base_currency)
+            if fallback_prices.get(symbol) is not None:
+                return position_currency.get(symbol, self.base_currency)
+            anchored_trade = trade_anchor(symbol, day_str)
+            if anchored_trade is not None:
+                return anchored_trade[1]
             return position_currency.get(symbol, self.base_currency)
 
         def to_base_currency(value: float, currency: str, day_str: str) -> float:
@@ -216,23 +263,34 @@ class PortfolioStateEngine:
             anchored = fallback_prices.get(symbol)
             if anchored is not None:
                 self.statement_anchored_symbols.add(symbol)
-            return anchored
+                return anchored
+            # US-24.10: neither market history nor a statement close — but the
+            # broker traded it, and an execution price for the identical
+            # instrument is an observed price. Carried FORWARD from that trade
+            # (flat between trades, disclosed as such) so a round-trip position
+            # stops being worth $0 while held, which made its BUY/SELL move cash
+            # with no offsetting market value and let the TWR publish the step
+            # as performance (IB2026: −7.90% / +9.61%).
+            anchored_trade = trade_anchor(symbol, day_str)
+            if anchored_trade is not None:
+                self.trade_price_anchored_symbols.add(symbol)
+                return anchored_trade[0]
+            return None
 
         def is_valued(symbol: str, day_str: str) -> bool:
             """Does this symbol contribute to `total_market_value` on this day?
 
-            US-24.9: the side-effect-free predicate behind `price_for`. Used to
-            gate `trade_flow`, which may only neutralise a trade leg that is
-            actually PRESENT in market value. Trading an unpriced symbol moves
-            no market value, so counting it would make the trade-neutral chain
-            fabricate a return — reproduced on IB2026 2026-04-27, where selling
-            the unpriced IUFS + IUHC ($5,341.92) on an otherwise flat day
-            produced +9.43%.
+            The side-effect-free predicate behind `price_for` — same precedence,
+            no disclosure mutation.
             """
             symbol_history = history_by_symbol.get(symbol)
             if symbol_history:
                 return symbol_history.get(day_str) is not None
-            return fallback_prices.get(symbol) is not None
+            if fallback_prices.get(symbol) is not None:
+                return True
+            # US-24.10: a trade-anchored symbol IS in market value from its
+            # first trade onward.
+            return trade_anchor(symbol, day_str) is not None
 
         first_date = valuation_dates[0]
         opening_positions_value = 0.0
@@ -240,7 +298,7 @@ class PortfolioStateEngine:
             if abs(opening_quantity) < 1e-9:
                 continue
             opening_price = price_for(symbol, first_date)
-            currency = valuation_currency(symbol)
+            currency = valuation_currency(symbol, first_date)
             if opening_price is not None:
                 opening_positions_value += to_base_currency(opening_quantity * opening_price, currency, first_date)
             else:
@@ -280,17 +338,18 @@ class PortfolioStateEngine:
         entry_index = 0
         current_cash = {self.base_currency: round(base_cash, 2)}
         running_positions = defaultdict(float, opening_positions)
+        # US-24.9/US-24.10: symbols that contributed to the PREVIOUS day's
+        # market value — one half of the trade-leg test below.
+        previous_priced_symbols: set[str] = set()
 
         for day_str in valuation_dates:
             day = date.fromisoformat(day_str)
             external_cash_flow = 0.0
-            # US-24.9: net base-currency market value moved into the holdings by
-            # this day's trades. A BUY's `cash_effect` is negative (cash leaves)
-            # while market value arrives, so the injection is its NEGATION;
-            # a SELL is the mirror. Every term is FX-converted first (`amount`),
-            # never the raw currency-mixed `cash_effect` (US-31.3 trap), and a
-            # trade in an UNPRICED symbol is excluded — see `is_valued`.
-            trade_flow = 0.0
+            # US-24.9: per-symbol net cash moved by this day's trades, each term
+            # FX-converted first (never the raw currency-mixed `cash_effect` —
+            # the US-31.3 trap). Which of these become `trade_flow` is decided
+            # AFTER valuation, once the day's actual market value is known.
+            day_trade_amounts: defaultdict[str, float] = defaultdict(float)
             while entry_index < len(trade_entries) and trade_entries[entry_index].date <= day:
                 entry = trade_entries[entry_index]
                 amount = to_base_currency(entry.cash_effect, entry.cash_currency, day_str)
@@ -298,13 +357,11 @@ class PortfolioStateEngine:
                 if entry.entry_type == "BUY" and entry.symbol and entry.quantity:
                     running_positions[entry.symbol] += entry.quantity
                     current_cash[self.base_currency] += amount
-                    if is_valued(entry.symbol, day_str):
-                        trade_flow -= amount
+                    day_trade_amounts[entry.symbol] += amount
                 elif entry.entry_type == "SELL" and entry.symbol and entry.quantity:
                     running_positions[entry.symbol] -= entry.quantity
                     current_cash[self.base_currency] += amount
-                    if is_valued(entry.symbol, day_str):
-                        trade_flow -= amount
+                    day_trade_amounts[entry.symbol] += amount
                 else:
                     current_cash[self.base_currency] += amount
                     if entry.entry_type in {"DEPOSIT", "WITHDRAWAL"}:
@@ -318,7 +375,7 @@ class PortfolioStateEngine:
                 quantity = running_positions.get(symbol, 0.0)
                 if abs(quantity) < 1e-9:
                     continue
-                currency = valuation_currency(symbol)
+                currency = valuation_currency(symbol, day_str)
                 price = price_for(symbol, day_str)
                 if price is None:
                     # Held on this day but unvaluable (no quote yet, or no
@@ -338,7 +395,34 @@ class PortfolioStateEngine:
                     )
                 )
 
+            # US-24.9 (rule corrected by US-24.10): `trade_flow` may only cancel
+            # a trade leg that ACTUALLY crossed the market-value boundary. A
+            # symbol's trade counts when it is priced in today's market value
+            # (a BUY landed) or was priced in the previous day's (a SELL left).
+            # When it is in NEITHER the trade is invisible to the MV series and
+            # counting it would fabricate a return. Three real cases this
+            # excludes, all reproduced on IB2026:
+            #   - trading a symbol with no obtainable price at all
+            #     (2026-04-27, the unpriced IUFS/IUHC sale: +9.43%);
+            #   - selling a symbol first observed by that very sale (it was
+            #     never in yesterday's market value);
+            #   - a same-day round trip in a new symbol — bought and fully sold
+            #     before any close, so it is in no day's market value at all
+            #     (2026-06-11 IITU: −3.45% vs an expected −0.36%).
+            # Deciding it here, from the built state rather than from a
+            # predicate guessing at it, is what makes all three fall out of one
+            # rule instead of three special cases.
+            current_priced_symbols = {
+                item.symbol for item in state_positions if item.market_value is not None
+            }
+            trade_flow = -sum(
+                amount
+                for symbol, amount in day_trade_amounts.items()
+                if symbol in current_priced_symbols or symbol in previous_priced_symbols
+            )
+
             total_portfolio_value = round(total_market_value + current_cash[self.base_currency], 2)
+            previous_priced_symbols = current_priced_symbols
             states.append(
                 DailyPortfolioState(
                     date=day_str,
