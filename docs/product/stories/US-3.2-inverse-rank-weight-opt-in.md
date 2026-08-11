@@ -2,7 +2,7 @@
 
 **Epic:** 3 — Construction & Optimizer Methodology
 **PRD:** [`epic-3-construction-optimizer-methodology.md`](../prd/epic-3-construction-optimizer-methodology.md)
-**Status:** Backlog
+**Status:** Cancelled — Epic 3's construction/optimizer features were removed in Epic 8 (reset to the portfolio-analysis core). Kept for provenance; the story index has said Cancelled since then, while this file still read "Backlog".
 **Last updated:** 2026-05-22
 
 ## Story
