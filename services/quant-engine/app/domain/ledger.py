@@ -19,6 +19,86 @@ CashMovementClassification = Literal[
 ]
 OpeningStateSource = Literal["broker_proven", "trade_window_covered", "unknown_inferred"]
 
+# ── Broker section-role registry (US-24.5) ──────────────────────────────────
+#
+# `source_section` is PROVENANCE: it records what the statement actually called
+# the section, so an importer must never relabel its broker's vocabulary to
+# satisfy a downstream matcher. What the domain needs is the section's semantic
+# ROLE, and this registry is the single place that knows the mapping.
+#
+# Before this existed, `broker_evidence` matched broker display strings inline,
+# so any label the IBKR-derived list did not happen to contain fell through to
+# `cash_movement_classification == "unknown"` — silently. That was not
+# hypothetical: every Freedom24 trade ("Transactions") and every ESPP
+# contribution and purchase ("Employee Stock Purchase Summary") was
+# unclassified, which left the proof system reporting an ESPP payroll deposit
+# as `not_observed` while the statement stated it plainly.
+#
+# A label may serve several roles — the same ESPP section produces both the
+# payroll DEPOSIT and the BUY — so a role is resolved from (label, entry_type),
+# exactly as the pre-existing IBKR aliases already required.
+#
+# `test_ledger_domain.py` asserts that every `source_section` any importer
+# emits resolves here, so the next broker fails the suite instead of degrading
+# output in production.
+LedgerSectionRole = Literal["trade", "external_transfer", "dividend", "interest", "fee", "tax"]
+
+_SECTION_ROLES: dict[str, frozenset[LedgerSectionRole]] = {
+    # Interactive Brokers (PDF + CSV) — the original inline vocabulary.
+    "Trades": frozenset({"trade"}),
+    "Deposits & Withdrawals": frozenset({"external_transfer"}),
+    "Dividends": frozenset({"dividend"}),
+    "Interest": frozenset({"interest"}),
+    "Fees": frozenset({"fee"}),
+    "Other Fees": frozenset({"fee"}),
+    "Commissions": frozenset({"fee"}),
+    "Withholding Tax": frozenset({"tax"}),
+    "Account Summary": frozenset({"tax"}),
+    "Income Summary": frozenset({"dividend"}),
+    "Cash deposits/ withdrawals": frozenset({"dividend", "tax"}),
+    # Freedom24 (US-24.5 F-1): its trade section is called "Transactions".
+    "Transactions": frozenset({"trade"}),
+    # ESPP (US-24.5 F-2): one section carries the payroll contribution AND the
+    # resulting purchase, so it holds both roles.
+    "Employee Stock Purchase Summary": frozenset({"trade", "external_transfer"}),
+}
+
+# Which role each entry type needs its section to carry for broker evidence.
+_ENTRY_TYPE_REQUIRED_ROLE: dict[str, LedgerSectionRole] = {
+    "BUY": "trade",
+    "SELL": "trade",
+    "DEPOSIT": "external_transfer",
+    "WITHDRAWAL": "external_transfer",
+    "DIVIDEND": "dividend",
+    "INTEREST": "interest",
+    "FEE": "fee",
+    "WITHHOLDING_TAX": "tax",
+}
+
+_ROLE_EVIDENCE: dict[LedgerSectionRole, str] = {
+    "trade": "broker_trade_ledger_line",
+    "external_transfer": "broker_transfer_section_line",
+    "dividend": "broker_dividend_section_line",
+    "interest": "broker_interest_section_line",
+    "fee": "broker_fee_section_line",
+    "tax": "broker_tax_section_line",
+}
+
+
+def section_roles(source_section: str) -> frozenset[LedgerSectionRole]:
+    """Semantic roles a broker section label carries, empty if unregistered.
+
+    An empty result is the honest "we do not recognise this section" answer and
+    leaves the entry `unknown` (US-24.5 AC6) — it must stay reachable, because
+    defaulting an unrecognised label to a role would fabricate provenance.
+    """
+    return _SECTION_ROLES.get(source_section, frozenset())
+
+
+def registered_section_labels() -> frozenset[str]:
+    """Every section label the domain recognises (US-24.5 AC7 coverage guard)."""
+    return frozenset(_SECTION_ROLES)
+
 
 class LedgerRecord(BaseModel):
     date: date
@@ -64,18 +144,13 @@ def snapshot_to_ledger(snapshot: ImportedPortfolioSnapshot) -> list[LedgerRecord
         evidence = [f"source_section:{source_section.lower().replace(' ', '_').replace('&', 'and')}"]
         if source_line:
             evidence.append("source_line_present")
-        if entry_type in {"BUY", "SELL"} and source_section == "Trades":
-            evidence.append("broker_trade_ledger_line")
-        elif entry_type in {"DEPOSIT", "WITHDRAWAL"} and source_section == "Deposits & Withdrawals":
-            evidence.append("broker_transfer_section_line")
-        elif entry_type == "DIVIDEND" and source_section in {"Dividends", "Income Summary", "Cash deposits/ withdrawals"}:
-            evidence.append("broker_dividend_section_line")
-        elif entry_type == "INTEREST" and source_section == "Interest":
-            evidence.append("broker_interest_section_line")
-        elif entry_type == "FEE" and source_section in {"Fees", "Other Fees", "Commissions"}:
-            evidence.append("broker_fee_section_line")
-        elif entry_type == "WITHHOLDING_TAX" and source_section in {"Withholding Tax", "Account Summary", "Cash deposits/ withdrawals"}:
-            evidence.append("broker_tax_section_line")
+        # US-24.5: resolved through the section-role registry rather than by
+        # matching broker display strings here, so a broker whose vocabulary
+        # differs (Freedom24's "Transactions", ESPP's "Employee Stock Purchase
+        # Summary") is recognised instead of silently falling through.
+        required_role = _ENTRY_TYPE_REQUIRED_ROLE.get(entry_type)
+        if required_role is not None and required_role in section_roles(source_section):
+            evidence.append(_ROLE_EVIDENCE[required_role])
         return evidence
 
     def cash_movement_classification(entry_type: LedgerEntryType, source_section: str, evidence: list[str]) -> CashMovementClassification:
