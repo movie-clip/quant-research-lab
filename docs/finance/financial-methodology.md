@@ -91,6 +91,32 @@ Importer resilience rule:
   live on the ledger entries. Non-base amounts keep their own currency —
   the importer does not convert (US-27.8 owns FX trust semantics).
 
+Broker section-role registry (US-24.5):
+- `ImportedLedgerEntry.source_section` is **provenance** — it records what the
+  statement itself called the section, and an importer must never relabel its
+  broker's vocabulary to satisfy a downstream matcher. The domain therefore
+  resolves a section's **semantic role** (trade / external transfer / dividend
+  / interest / fee / tax) through a single registry in `domain/ledger.py`,
+  keyed on the label and resolved together with `entry_type` (one label may
+  carry several roles — the ESPP section produces both the payroll
+  contribution and the purchase). `broker_evidence` and
+  `cash_movement_classification` consult the role; no broker display string is
+  matched inline.
+- **Why:** the previous inline matching used a vocabulary drawn entirely from
+  IBKR statements, so any other broker's labels fell through to
+  `cash_movement_classification == "unknown"` **silently**. Live on two of
+  three brokers: every Freedom24 trade (`"Transactions"`) and every ESPP
+  contribution and purchase (`"Employee Stock Purchase Summary"`) was
+  unclassified, which left `portfolio_proof`'s external-capital-flow witness
+  reporting an ESPP payroll deposit as `not_observed` while the statement
+  stated it plainly.
+- `"unknown"` remains reachable and meaningful: it is the honest answer for a
+  section the domain genuinely does not recognise. Defaulting an unregistered
+  label to a role would fabricate provenance the statement never gave.
+- A test asserts that **every** `source_section` literal any importer emits
+  resolves to a registered role, so a new broker fails the suite rather than
+  degrading classification in production.
+
 Statement reconciliation & activity scoping rule:
 - the statement reconciliation summary (`build_reconciliation_summary`) and the monthly activity series (`build_activity_series`) are scoped to the **imported statement(s)' ledger** as produced by `snapshot_to_ledger` — there is no hardcoded calendar year; the activity series buckets every ledger entry by its own `YYYY-MM`, and each reconciliation actual (dividends, withholding tax, fees, interest, deposits) sums the whole ledger for the imported period (US-24.1). A statement from any year (2025, 2026, …) is reconciled against its own totals.
 - credit-interest withholding **counts toward the withholding actual**

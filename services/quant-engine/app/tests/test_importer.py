@@ -444,3 +444,51 @@ def test_import_bootstrap_three_broker_no_crash() -> None:
     assert len(result.overview.sector_allocation) > 0
     assert result.history_context is not None
     assert result.history_context.history_start_date == "2025-01-01"
+
+
+# ── US-24.5: broker section-role registry, fixture-level regressions ─────────
+
+
+def test_freedom24_trades_are_classified_not_unknown() -> None:
+    """US-24.5 F-1 — Freedom24 labels its trade section "Transactions", which
+    the domain's IBKR-derived vocabulary did not contain, so every BUY/SELL on
+    FF2026 classified as `unknown`."""
+    from collections import Counter
+
+    from app.domain.ledger import snapshot_to_ledger
+    from app.services.statement_importer import import_statements
+
+    snapshot = import_statements([str(FREEDOM24_2026_PATH)])
+    ledger = snapshot_to_ledger(snapshot)
+    counts = Counter(entry.cash_movement_classification for entry in ledger)
+
+    assert counts["unknown"] == 0, (
+        "FF2026 has unclassified ledger entries: "
+        f"{sorted({e.source_section for e in ledger if e.cash_movement_classification == 'unknown'})}"
+    )
+    # The three trades specifically (2 SELL + 1 BUY) are the F-1 population.
+    assert counts["internal_trading_flow"] == 3
+
+
+def test_espp_payroll_deposit_is_recognised_as_an_external_capital_flow() -> None:
+    """US-24.5 F-2 — the more serious half: `external_capital_flow` is how the
+    proof system recognises investor contributions, so while the ESPP payroll
+    deposit was `unknown` the contribution was invisible to it despite the
+    statement stating it plainly."""
+    from collections import Counter
+
+    from app.domain.ledger import snapshot_to_ledger
+    from app.services.statement_importer import import_statements
+
+    snapshot = import_statements([str(ESPP_PATH)])
+    ledger = snapshot_to_ledger(snapshot)
+    counts = Counter(entry.cash_movement_classification for entry in ledger)
+
+    assert counts["unknown"] == 0
+    assert counts["external_capital_flow"] == 1
+    assert counts["internal_trading_flow"] == 1
+    deposit = next(entry for entry in ledger if entry.entry_type == "DEPOSIT")
+    assert deposit.cash_movement_classification == "external_capital_flow"
+    assert "broker_transfer_section_line" in deposit.broker_evidence
+    # Provenance is preserved: the section still says what the statement said.
+    assert deposit.source_section == "Employee Stock Purchase Summary"
