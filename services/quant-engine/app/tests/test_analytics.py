@@ -8175,6 +8175,12 @@ def test_volatility_excludes_the_reconciliation_adjustment() -> None:
     returns = [r for _, r in _portfolio_time_weighted_return_series(history.daily_states)]
     annualised_vol_pct = statistics.stdev(returns) * (252 ** 0.5) * 100
 
-    # 23.63% when the adjustment leaked in; 23.32% with it withheld.
-    assert annualised_vol_pct == pytest.approx(23.32, abs=0.1)
-    assert annualised_vol_pct < 23.5
+    # Value restated twice as upstream valuation defects were fixed, but the
+    # property under test is unchanged: the withheld day never enters the
+    # series. US-31.3 measured 23.63% leaking / 23.32% withheld; US-24.10 then
+    # gave BTEC/IUFS/IUHC a trade-price valuation, removing two fabricated
+    # ±8-10% TWR days that had dominated this figure -> 14.72%.
+    assert annualised_vol_pct == pytest.approx(14.72, abs=0.1)
+    withheld = [state.date for state in history.daily_states if not state.return_is_publishable]
+    published = [d for d, _ in _portfolio_time_weighted_return_series(history.daily_states)]
+    assert withheld and not set(withheld) & set(published)

@@ -154,7 +154,8 @@ def build_replay_states_with_cash_anchor(
     fx_history: dict[str, float],
     symbol_fund_currencies: dict[str, str] | None = None,
 ):
-    """Replay states + all four disclosures, including the US-31.3 cash anchor.
+    """Replay states + all five disclosures, including the US-31.3 cash anchor
+    and the US-24.10 trade-price-anchored tier.
 
     Returned as an explicit tuple (no shared mutable state) so it is safe under
     the parallel test suite and concurrent requests.
@@ -171,6 +172,7 @@ def build_replay_states_with_cash_anchor(
         sorted(engine.fx_fallback_currencies),
         sorted(engine.unpriced_replay_symbols),
         engine.cash_anchor,
+        sorted(engine.trade_price_anchored_symbols),
     )
 
 

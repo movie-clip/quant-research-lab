@@ -446,6 +446,11 @@ export type DashboardHistoryRunMetadata = {
    *  contributed 0 to the replayed market value. Disclosed, never silently
    *  zeroed. */
   unpriced_replay_symbols?: string[]
+  /** US-24.10: symbols valued at the broker's own execution price, carried
+   *  forward from the trade — the third valuation tier, below market history and
+   *  the statement close. Broker truth, but the carried segment is flat: it
+   *  contains no market movement. Exactly one tier applies per symbol. */
+  trade_price_anchored_symbols?: string[]
   /** US-31.3 (Epic 31 F-2): how the replay's opening cash was derived, and
    *  whether that derivation is trustworthy. */
   replay_cash_anchor?: ReplayCashAnchor | null

@@ -475,7 +475,13 @@ def run_imported_dashboard_history(
     replay_fund_currencies, replay_fx_history = build_replay_currency_context(
         snapshot, replay_symbols, valuation_dates
     )
-    daily_states, fx_fallback_currencies, unpriced_replay_symbols, replay_cash_anchor = build_replay_states_with_cash_anchor(
+    (
+        daily_states,
+        fx_fallback_currencies,
+        unpriced_replay_symbols,
+        replay_cash_anchor,
+        trade_price_anchored_symbols,
+    ) = build_replay_states_with_cash_anchor(
         snapshot=snapshot,
         price_histories=replay_price_histories,
         valuation_dates=valuation_dates,
@@ -560,6 +566,7 @@ def run_imported_dashboard_history(
             investor_economics_partial_unlock=_build_dashboard_investor_economics_partial_unlock(),
             fx_fallback_currencies=fx_fallback_currencies,
             unpriced_replay_symbols=unpriced_replay_symbols,
+            trade_price_anchored_symbols=trade_price_anchored_symbols,
             replay_cash_anchor=(
                 ReplayCashAnchor(
                     basis=replay_cash_anchor.basis,

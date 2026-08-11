@@ -221,14 +221,73 @@ Broker-path specifics:
     replay for every other holding. Their coverage gap is disclosed instead
     (see below), never allowed to silently reshape the window.
 
+Broker-path valuation precedence (US-24.10) — three tiers, never inverted:
+
+```text
+  1. market price history            -> priced, full market movement
+  2. statement close price           -> flat anchor (US-27.7 / US-30.2),
+                                        disclosed via statement_anchored_symbols
+  3. last broker TRADE price at or
+     before the day, carried FORWARD -> flat anchor, disclosed via
+                                        trade_price_anchored_symbols
+  otherwise                          -> unvalued (contributes 0), disclosed via
+                                        unpriced_replay_symbols
+```
+
+  A symbol falls in **exactly one** tier on a given run. Tier 3 exists because a
+  round-trip position — opened and fully closed inside the window — is absent
+  from the current snapshot, so it has neither history nor a statement close,
+  yet the statement records an execution price for every one of its trades.
+  That is an observed price for the identical instrument (IFRS 13's Level 2),
+  and it is the last honest value available.
+
+  Why the ordering does not follow recency: the statement close outranks a
+  trade price even when the trade is nearer in time, because inverting it would
+  re-value every currently-held statement-anchored symbol and regress
+  US-27.7 / US-30.2. Tier 3 is strictly additive.
+
+  **Forward-carry only.** Before a symbol's first observed trade the anchor does
+  not apply — reaching backwards would fabricate a price for a date the broker
+  never produced one, the same rule that forbids back-filling market history.
+  Such days stay unvalued and disclosed.
+
+  Currency: a tier-3 value is converted from the **trade's settle currency**
+  (the currency its price is quoted in), not the fund currency the US-31.5 rule
+  selects for market-priced holdings. With no rate available it is carried
+  unconverted and disclosed via `fx_fallback_currencies` — never converted 1:1.
+
+  The carried segment is FLAT: it contains no market movement, and is disclosed
+  as such rather than passed off as a priced series. Interpolating between two
+  trade prices is deliberately NOT done — a carried price was observed; an
+  interpolated one never was.
+
+  Why this matters beyond valuation accuracy: a `$0`-valued holding still moves
+  real cash when traded, so `total_portfolio_value` steps with no offsetting
+  position and the cash-inclusive TWR publishes the step as **performance**.
+  On IB2026 that fabricated the window's two largest days — **−7.90%**
+  (2026-04-08, buying $5,092.82 of BTEC/IUFS/IUHC) and **+9.61%** (2026-04-27,
+  selling IUFS/IUHC for $5,341.92) — on which nothing was earned or lost.
+  Guardrail #3, the same class as the terminal-reconciliation fabrication.
+
 Unpriced-symbol disclosure (US-31.2):
   a symbol the replay holds on a given day but cannot value at all — no
-  fetchable history AND no statement close anchor (the usual case being a
-  since-sold symbol, which is absent from the current snapshot and therefore
-  from the statement-price map) — contributes 0 to that day's market value
-  and is recorded in `unpriced_replay_symbols`, surfaced on the
-  dashboard-history run metadata. Weaker degradation than the statement-close
-  anchor above, and disclosed rather than published as an understated NAV.
+  fetchable history, no statement close anchor, and no prior trade price
+  (tier 4 above) — contributes 0 to that day's market value and is recorded in
+  `unpriced_replay_symbols`, surfaced on the dashboard-history run metadata.
+  The weakest outcome, and disclosed rather than published as an understated
+  NAV. A symbol reclassified into tier 3 leaves this set; one the trade-price
+  anchor still cannot reach stays in it.
+
+Trade-leg neutralisation interaction (US-24.9, rule corrected by US-24.10):
+  `DailyPortfolioState.trade_flow` may only cancel a trade leg that actually
+  crossed the market-value boundary — i.e. the symbol is priced in today's
+  market value (a BUY landed) or was priced in the previous day's (a SELL
+  left). A trade in a symbol that is in NEITHER is invisible to the MV series,
+  so counting it fabricates a return. Three cases this excludes, all observed
+  on IB2026: trading a symbol with no obtainable price; selling a symbol first
+  observed by that very sale; and a same-day round trip in a new symbol
+  (2026-06-11 IITU — bought and fully sold before any close, in no day's market
+  value, which produced −3.45% against an expected −0.36%).
 
 Fail-closed interaction:
   the MIN_DAILY_OBSERVATIONS floors apply to the EFFECTIVE (post-truncation)
