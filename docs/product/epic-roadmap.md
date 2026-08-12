@@ -4,6 +4,36 @@
 
 ---
 
+## Active Epic: Epic 32 — Project Hygiene & Agent-Facing Doc Accuracy
+
+**PRD:** [`docs/product/prd/epic-32-project-hygiene-and-agent-docs.md`](product/prd/epic-32-project-hygiene-and-agent-docs.md)
+
+Created 2026-08-12 from an end-of-cycle review after Epic 26 closed. The code is
+in good shape — every epic Completed, one open tech-debt row, suite green — but
+the **navigation layer around it** has drifted, and two findings deferred on
+2026-06-19 are still live.
+
+Eight findings, all verified against the repository (not assumed). Two are
+**wrong instructions** rather than stale status, and those are the expensive
+kind: CLAUDE.md tells implementers to register routes in `app/main.py` (no such
+file), and the `write-story` module table names three analytics modules that do
+not exist while omitting eight that do. That table has now been wrong **three
+times** — the `quant-research` skill carries a warning saying so — which is why
+US-32.1's real deliverable is a test rather than another correction.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-32.1 | Fix the agent-facing instructions that point at files that do not exist | Next phase |
+| US-32.2 | Bring the Risk-tab cards under the design-system audit | Next phase |
+| US-32.3 | Refresh the status surfaces so "where are we?" is answerable | Next phase |
+
+Recommended order: US-32.1 first (it misleads every implementer, every day it
+is left), then US-32.2 (mechanical gate), then US-32.3 (status text only).
+
+---
+
 ## Completed Epic: Epic 31 — Ledger Replay Correctness
 
 **PRD:** [`docs/product/prd/epic-31-ledger-replay-correctness.md`](product/prd/epic-31-ledger-replay-correctness.md)

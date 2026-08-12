@@ -18,6 +18,18 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
+### Epic 32 — Project Hygiene & Agent-Facing Doc Accuracy (active)
+
+PRD: [`prd/epic-32-project-hygiene-and-agent-docs.md`](../prd/epic-32-project-hygiene-and-agent-docs.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-32.1](US-32.1-fix-agent-facing-paths.md) | Fix the agent-facing instructions that point at files that do not exist | F-3/F-4: CLAUDE.md says register routes in `app/main.py` (no such file; it is `app/api/main.py`) and the `write-story`/`quant-research` module tables list 3 analytics modules that do not exist while omitting 8 that do. Adds a test so a doc naming a non-existent `app/...` path fails the suite — the table has now been wrong three times | Next phase |
+| [US-32.2](US-32.2-risk-tab-design-system-audit.md) | Bring the Risk-tab cards under the design-system audit | F-5, deferred since 2026-06-19: all three Risk cards use the Epic-12 primitives by convention but sit outside `ALL_CARD_FILES`, so a hex/px literal or hand-rolled badge there ships green. Extend the audit, fix what it surfaces, and demonstrate the gate actually fails | Next phase |
+| [US-32.3](US-32.3-refresh-status-surfaces.md) | Refresh the status surfaces so "where are we?" is answerable | F-1/F-2/F-6/F-7/F-8: the roadmap's own summary line calls two closed epics active and omits Epic 26; CLAUDE.md points at Epic 13 as most-recent; product-state header stale; US-8.4's status format breaks sweeps; build-story's unconditional commit wording | Next phase |
+
+---
+
 ### Epic 31 — Ledger Replay Correctness (complete)
 
 PRD: [`prd/epic-31-ledger-replay-correctness.md`](../prd/epic-31-ledger-replay-correctness.md)
