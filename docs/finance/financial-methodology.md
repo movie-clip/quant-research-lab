@@ -1238,10 +1238,17 @@ Contract rule:
 
 ### Currency Risk Contribution (historical)
 
-*Ready to implement — US-26.2. Research brief:
+*Implemented by US-26.2. `services/quant-engine/app/analytics/currency_risk.py`
+(pure decomposition) + `app/services/currency_risk_engine.py` (market-data
+wiring) + `POST /engines/currency-risk/run`, surfaced as the Exposure tab's
+Currency Risk Contribution card. Research brief:
 [`docs/finance/research/currency-risk-contribution-brief.md`](research/currency-risk-contribution-brief.md),
-which resolved the two questions that previously blocked this section.
-Implementation target: `services/quant-engine/app/analytics/currency_risk.py`.*
+which resolved the two questions that previously blocked this section.*
+
+**Measured on the committed portfolio** (60d window, live FMP data): the
+securities leg carries **96.70%** of return variance, currency **3.31%**, and
+the interaction leg **−0.013%** — summing to exactly 1.0. Per-currency
+contributions (EUR 0.0243 + GBP 0.0089) reconcile to the currency share.
 
 How much of a portfolio's historical return volatility came from currency moves
 rather than from the underlying securities.

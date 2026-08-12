@@ -272,4 +272,17 @@ describe('ExposurePanel currency-basis disclosure (US-30.5a / F-8)', () => {
     expect(screen.queryByRole('region', { name: /currency exposure/i })).toBeNull()
   })
 
+
+  // ── US-26.2: the card must be REACHED, not merely renderable ──────────────
+
+  it('renders the Currency Risk Contribution card on the tab', () => {
+    // The US-26.1 follow-up found composeExposureView silently dropping a
+    // field while every component test passed. This card takes `snapshot`
+    // rather than a computed field, so the wiring risk is different — but the
+    // lesson is the same: assert it is reached through the real panel.
+    render(<ExposurePanel result={mockExposureView} />)
+
+    expect(screen.getByRole('region', { name: /currency risk contribution/i })).toBeTruthy()
+  })
+
 })

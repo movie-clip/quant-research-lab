@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import attribution, cache, correlation, dashboard_history, diagnostics, distribution, drawdown, drift, exposure, health, imports, market_data, provenance, stress
+from app.api.routes import attribution, cache, correlation, currency_risk, dashboard_history, diagnostics, distribution, drawdown, drift, exposure, health, imports, market_data, provenance, stress
 from app.core.logging import configure_logging
 
 
@@ -18,6 +18,7 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(imports.router)
 app.include_router(exposure.router)
+app.include_router(currency_risk.router)
 app.include_router(diagnostics.router)
 app.include_router(dashboard_history.router)
 app.include_router(market_data.router)

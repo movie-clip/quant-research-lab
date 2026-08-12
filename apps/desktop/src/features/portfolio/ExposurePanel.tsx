@@ -12,6 +12,7 @@ import { FactorDriftSummaryCard } from './FactorDriftSummaryCard'
 import { IntraCorrelationHeatmap } from './IntraCorrelationHeatmap'
 import { RollingCorrelationChart } from './RollingCorrelationChart'
 import { CurrencyExposureCard } from './CurrencyExposureCard'
+import { CurrencyRiskCard } from './CurrencyRiskCard'
 import { CardShell } from '../../app/primitives/CardShell'
 import { TrustBadge } from '../../app/primitives/TrustBadge'
 
@@ -248,6 +249,10 @@ export function ExposurePanel({
           fxStaticRateCurrencies={result.fx_static_rate_currencies}
           fxFallbackCurrencies={result.fx_fallback_currencies}
         />
+
+        {/* US-26.2: composition above, consequence here. Self-fetching, so it
+            does not slow the Exposure request when unused. */}
+        <CurrencyRiskCard snapshot={result.snapshot ?? null} />
 
         <CardShell
           title="Concentration Pack"
