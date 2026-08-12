@@ -50,6 +50,8 @@ ENGINE_ROUTES: list[tuple[str, str, dict]] = [
      {"snapshot": _SNAPSHOT, "lookback_days": 60}),
     ("/engines/provenance/run", "app.services.provenance_engine",
      {"snapshot": _SNAPSHOT, "lookback_days": 30}),
+    ("/engines/currency-risk/run", "app.services.currency_risk_engine",
+     {"snapshot": _SNAPSHOT, "window": 60}),
 ]
 
 # Routes deliberately NOT in the parametrization — each needs a reason.

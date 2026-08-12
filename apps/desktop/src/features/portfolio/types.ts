@@ -1268,6 +1268,36 @@ export type CurrencyExposureWeight = {
   weight: number
 }
 
+export type CurrencyLegContribution = {
+  currency: string
+  base_weight: number
+  /** Contribution to the currency variance share; null when the currency has
+   *  no covered holding. */
+  contribution?: number | null
+}
+
+/** US-26.2: the local / currency / interaction variance split.
+ *  Shares sum to exactly 1.0 when present, and MAY BE NEGATIVE — a currency leg
+ *  moving against the local leg genuinely reduces portfolio variance. Never
+ *  clamp; render the sign. */
+export type CurrencyRiskResult = {
+  trust: 'synthetic' | 'unavailable'
+  window_days: number
+  observations: number
+  local_variance_share?: number | null
+  currency_variance_share?: number | null
+  interaction_variance_share?: number | null
+  local_standalone_vol_pct?: number | null
+  currency_standalone_vol_pct?: number | null
+  local_fx_correlation?: number | null
+  per_currency: CurrencyLegContribution[]
+  /** Holdings with no fund-currency price history — excluded and named, never
+   *  assigned to the local leg at zero FX. */
+  excluded_symbols: string[]
+  excluded_weight: number
+  note?: string | null
+}
+
 export type CurrencyExposureSummary = {
   base_currency?: string | null
   total_base_market_value: number

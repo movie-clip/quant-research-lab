@@ -1,4 +1,4 @@
-import type { BenchmarkStats, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, DistributionEngineResponse, DistributionWindow, DrawdownEngineResponse, DrawdownWindow, DriftResult, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, FactorAttributionResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, ImportedSnapshot, IntraCorrelationResult, MultiBenchmarkCorrelationResult, PortfolioBaselineView, ProvenanceResult, StressEngineResponse, CacheStats, CacheClearResult } from './types'
+import type { BenchmarkStats, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, DistributionEngineResponse, DistributionWindow, DrawdownEngineResponse, DrawdownWindow, DriftResult, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, FactorAttributionResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, ImportedSnapshot, IntraCorrelationResult, MultiBenchmarkCorrelationResult, PortfolioBaselineView, ProvenanceResult, StressEngineResponse, CacheStats, CacheClearResult, CurrencyRiskResult } from './types'
 import type { ImportedHistoryContext, PortfolioSnapshot } from './workspaceTypes'
 import type { ResolveDesktopApiUrlOptions } from '../../app/apiBase'
 import { resolveDesktopApiUrl } from '../../app/apiBase'
@@ -245,6 +245,25 @@ export function composeExposureView(exposure: ExposureEngineResponse, diagnostic
     exposure_availability: exposure.availability,
     availability: diagnostics.availability,
   }
+}
+
+export async function runCurrencyRiskEngine(
+  snapshot: ImportedSnapshot,
+  window: 60 | 252,
+  apiUrlOptions?: ResolveDesktopApiUrlOptions,
+): Promise<CurrencyRiskResult> {
+  const response = await fetch(resolvePortfolioEngineUrl('/api/engines/currency-risk/run', apiUrlOptions), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ snapshot, window }),
+  })
+
+  if (!response.ok) {
+    const errorPayload = (await response.json().catch(() => null)) as { detail?: string } | null
+    throw new Error(errorPayload?.detail ?? 'Currency risk engine run failed')
+  }
+
+  return (await response.json()) as CurrencyRiskResult
 }
 
 export async function runAttributionEngine(

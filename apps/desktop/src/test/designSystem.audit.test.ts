@@ -29,6 +29,7 @@ const CARDS_WITH_BADGE = [
   'BenchmarkCorrelationTable.tsx',
   'FactorDriftSummaryCard.tsx',
   'IntraCorrelationHeatmap.tsx',
+  'CurrencyRiskCard.tsx',
 ]
 
 /** Every card file the design system covers (incl. IndexedReturnChart). */
@@ -57,6 +58,9 @@ const ALL_CARD_FILES = [
   // composition, so no Synthetic badge and no chart — deliberately not in
   // CARDS_WITH_BADGE or CHART_FILES.
   'CurrencyExposureCard.tsx',
+  // US-26.2: synthetic history (current holdings x historical prices), so
+  // unlike the US-26.1 composition card this one DOES carry a Synthetic badge.
+  'CurrencyRiskCard.tsx',
 ]
 
 const HEX_REGEX = /#[0-9a-fA-F]{3,8}\b/g

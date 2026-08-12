@@ -109,6 +109,7 @@ PRD: [`prd/epic-26-currency-exposure-and-risk.md`](../prd/epic-26-currency-expos
 | Story | Title | Scope | Status |
 |---|---|---|---|
 | [US-26.1](US-26.1-currency-exposure-by-weight.md) | Currency exposure by weight (snapshot) | New `analytics/currency_exposure.py` + Exposure-tab card: per-currency weight, non-base total, explicit `unclassified` bucket. Corrects two defects in the research brief's formula — the denominator must be **base-currency converted** (the brief's raw sum is the F-7 Critical defect US-30.5a fixed) and the null-currency rule was self-contradictory. Snapshot analytics, zero new market-data calls. A third correction emerged in build: the brief's "unclassified" bucket is unreachable (schema-required currency) and the real fabrication is upstream in the request-path builder — logged as US-26.3 | Done |
+| [US-26.2](US-26.2-currency-risk-contribution.md) | Currency risk contribution (historical) | Decomposes each non-base holding's base-currency return into **local / FX / interaction** legs (an exact identity, not an approximation) and splits portfolio variance by component covariance into three shares summing to exactly 1.0. Dedicated route + self-fetching card (60d/252d, `Synthetic` badge) — **not** the exposure engine, which fetches no history. Both prior blockers cleared by the research brief. Measured on IB2026: securities 96.70% / currency 3.31% / interaction −0.013%, summing to exactly 1.0 | Done |
 
 ---
 
