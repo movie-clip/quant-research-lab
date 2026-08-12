@@ -43,12 +43,13 @@ about multi-currency exposure as a first-class concept.
 
 ## Non-goals
 
-- **No historical currency-risk decomposition in this epic's MVP story.**
-  The local-return/FX-return/interaction-term decomposition
-  (§Currency Risk Contribution in `financial-methodology.md`) is
-  deliberately out of scope — it requires `MarketDataService.get_fx_history`
-  to be verified as actually working (it has zero callers today) and a
-  portfolio-level variance-decomposition design this brief does not resolve.
+- **No historical currency-risk decomposition in this epic's MVP story
+  (US-26.1).** *Status update 2026-08-11: this non-goal applied to the MVP
+  story only, and both of its stated blockers are now cleared —
+  `get_fx_history` is empirically verified (EURUSD/GBPUSD resolve correctly
+  with no equity fallback; statement-implied rates agree with market close to
+  0.02%) and the variance-decomposition design is resolved by the research
+  brief. US-26.2 is ready.*
 - **No hedging recommendation, no suggested currency overlay, no target
   currency-weight guidance** — this is a no-execution product; currency
   exposure is descriptive only, same as sector exposure today.
@@ -67,7 +68,8 @@ about multi-currency exposure as a first-class concept.
 | Story | Title | Scope |
 |---|---|---|
 | US-26.1 | Currency exposure by weight (snapshot) | Backend — new `app/analytics/<name>.py` pure function computing per-currency weight + non-base-currency weight from `ImportedPosition.currency`/`ImportedStatement.base_currency`; wired into the exposure engine/schema; a new Exposure-tab card (snapshot trust badge, `ui-polish` primitives) showing the weight breakdown + an "unclassified" residual for null-currency positions. |
-| US-26.2 (stretch, not ready) | Currency risk contribution (historical) | Requires a follow-up research brief resolving the interaction-term and portfolio-variance-decomposition questions left open above, and empirical verification that `get_fx_history` actually returns usable FX history via FMP before any schema/engine work begins. |
+| US-26.2 | Currency risk contribution (historical) | **Ready as of 2026-08-11 — both blockers cleared.** New `app/analytics/currency_risk.py` decomposing each non-base holding's base-currency return into local / FX / interaction legs (an exact identity), a portfolio variance split by component covariance whose three shares sum to exactly 1.0, and a Currency Risk Contribution card (60d/252d, `Synthetic` badge) on the Exposure tab. Research brief: [`docs/finance/research/currency-risk-contribution-brief.md`](../../finance/research/currency-risk-contribution-brief.md). |
+| US-26.3 | Request path fabricates a currency for currency-less positions | Tech-debt row logged by US-26.1; does not block US-26.2 (which reads fund currency from the registry, not `position.currency`). |
 
 ## Success signals
 

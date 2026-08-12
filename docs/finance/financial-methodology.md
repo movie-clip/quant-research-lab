@@ -1236,50 +1236,130 @@ Contract rule:
   reported as its own "unclassified" bucket so the weights still sum to 100%
   without silently understating real FX exposure.
 
-### Currency risk contribution (historical, stretch — not scoped for MVP)
+### Currency Risk Contribution (historical)
 
-A second, harder question — *how much of my portfolio's historical return
-volatility came from currency moves versus the underlying security's local
-return* — requires decomposing each non-base-currency holding's
-base-currency return into a local-return leg and an FX-return leg:
+*Ready to implement — US-26.2. Research brief:
+[`docs/finance/research/currency-risk-contribution-brief.md`](research/currency-risk-contribution-brief.md),
+which resolved the two questions that previously blocked this section.
+Implementation target: `services/quant-engine/app/analytics/currency_risk.py`.*
+
+How much of a portfolio's historical return volatility came from currency moves
+rather than from the underlying securities.
+
+**Per-holding decomposition — an exact identity, not an approximation.** An
+earlier draft of this section wrote `r_base ≈ r_local + r_fx + (r_local × r_fx)`
+and floated dropping the cross term. Both were wrong:
 
 ```text
-r_i_base(t)  ≈  r_i_local(t) + r_fx_c(t) + (r_i_local(t) × r_fx_c(t))
+(1 + r_base_i(t))  =  (1 + r_local_i(t)) × (1 + r_fx_c(t))
+
+therefore, EXACTLY:
+
+r_base_i(t)  =  r_local_i(t) + r_fx_c(t) + [ r_local_i(t) × r_fx_c(t) ]
+                └── local leg ┘ └ fx leg ┘ └──── interaction leg ────┘
 
 where:
-  r_i_local(t) = holding i's daily return in its own trading currency
-                 (local-currency price return)
-  r_fx_c(t)    = daily return of the FX pair converting currency c to
-                 base_currency on day t
-  the cross term (r_i_local × r_fx_c) is the second-order interaction;
-  conventionally small for daily returns and often dropped in practitioner
-  approximations, but should be retained here per the project's "no
-  fabricated simplification" posture unless proven negligible for this
-  portfolio's actual holdings
+  r_local_i(t) = holding i's daily return in the currency its resolved market
+                 line QUOTES in — the registry FUND currency (US-31.5), never
+                 the broker's listing currency (DEFS is listed EUR but DEFS.L
+                 quotes USD; a wrong assignment silently moves return between
+                 the legs)
+  r_fx_c(t)    = daily return of the pair converting currency c to base
+  for c = base: r_fx ≡ 0, so the fx and interaction legs are exactly 0
 
-Portfolio-level currency contribution to variance requires the full
-covariance structure between local-return legs and FX-return legs across all
-non-base holdings — this is materially more complex than the weight-based
-snapshot above (a return-attribution problem, not a composition problem) and
-is explicitly deferred; see PRD non-goals.
+Edge cases:
+  a day missing either the price or the FX quote yields NO legs — the day is
+    excluded from every series, never zero-filled and never carried
+  fewer than MIN_DAILY_OBSERVATIONS (20) paired days: all outputs null
 ```
 
-Data requirement: `MarketDataService.get_fx_history(pair, from_date, to_date)`
-already exists (thin wrapper over `get_historical_prices`) but has zero
-callers today — this story would be its first real consumer, so its FMP
-symbol-resolution behavior for FX pairs must be verified empirically before
-committing to this formula (unverified as of this brief).
+**The interaction leg is retained and reported separately.** Measured on the
+live FMP series over 2026-01-01..2026-06-30, the cross term is negligible per
+day but **compounds**:
+
+| Holding | fund ccy | local σ | fx σ | cross max/day | cumulative gap if dropped |
+|---|---|---|---|---|---|
+| SXRV | EUR | 1.0892% | 0.4031% | 2.07 bp | −0.018 pp |
+| SEMI | GBP | 2.5571% | 0.4455% | 5.41 bp | **+0.504 pp** |
+
+Half a percentage point of cumulative return over six months on a single
+holding, and the error grows with window length — so it would be worst exactly
+on the long windows a risk view cares about. Ankrim–Hensel conventionally
+allocates the cross term to currency; this project reports it as its **own third
+leg** instead, because folding it into either side would overstate that leg by
+an amount the researcher cannot see. Three legs that sum exactly to the
+base-currency return is the honest construction.
+
+**Portfolio legs and the variance split.**
+
+```text
+L(t) = Σ_i w_i × r_local_i(t)                       (local leg)
+F(t) = Σ_i w_i × r_fx_c(i)(t)                       (currency leg)
+X(t) = Σ_i w_i × [r_local_i(t) × r_fx_c(i)(t)]      (interaction leg)
+
+  w_i = base-currency weight (analytics/currency.py — the same denominator
+        every Exposure weight uses, US-30.5a F-7)
+
+  Identity, asserted by test: L(t) + F(t) + X(t) == Σ_i w_i × r_base_i(t)
+
+Variance splits exactly by bilinearity of covariance, with no residual:
+
+  Var(r_p) = Cov(L, r_p) + Cov(F, r_p) + Cov(X, r_p)
+
+  currency_variance_share    = Cov(F, r_p) / Var(r_p)
+  local_variance_share       = Cov(L, r_p) / Var(r_p)
+  interaction_variance_share = Cov(X, r_p) / Var(r_p)
+
+  The three shares sum to EXACTLY 1.0 by construction.
+
+Reported alongside (a different question — standalone, not contribution):
+  currency_standalone_vol = std(F) × sqrt(252)
+  local_standalone_vol    = std(L) × sqrt(252)
+  local_fx_correlation    = corr(L, F)
+
+Edge cases:
+  Var(r_p) = 0: every share null — never 0 or 1
+  std(L) = 0 or std(F) = 0: local_fx_correlation null; shares still computable
+  paired observations < MIN_DAILY_OBSERVATIONS (20): every output null
+  a share MAY BE NEGATIVE and must not be clamped — a currency leg moving
+    against the local leg genuinely reduces portfolio variance, and clamping
+    would fabricate a floor
+```
+
+**Why component-covariance rather than `Var(F)/Var(r_p)`.** The naive ratio
+ignores `Cov(L, F)` and does not sum to 1, so the shares would not account for
+the portfolio. The covariance form is the same exposure×volatility×correlation
+identity `risk.py` already uses for factor and position risk-share, so this
+extends an established convention rather than competing with it.
+
+Contract rule:
+- Trust class is **synthetic history** (current holdings × historical prices),
+  ceiling `synthetic`, never `verified` — the card carries a `Synthetic` badge,
+  unlike the US-26.1 composition card.
+- A holding with no fund-currency price history is **excluded and disclosed by
+  symbol**, never assigned to the local leg at zero FX (which would silently
+  understate currency exposure). The excluded weight is reported.
+- FX pair resolution is verified safe: `resolve_symbol_candidates("EURUSD",
+  kind="history")` returns `['EURUSD']` with no equity fallback, so the US-31.4
+  wrong-instrument substitution class does not apply to FX pairs.
+- The statement-implied static rate (US-28.1, used for *levels*) and this
+  historical FX series (used for *returns*) are consistent bases: on
+  2026-06-30 the implied EURUSD 1.14220 vs market 1.14218 (+0.00%) and GBPUSD
+  1.32610 vs 1.32580 (+0.02%).
 
 Academic precedent:
-- Ankrim, E.M. & Hensel, C.R. (1994). "Curency Hedging: A Test for
-  Consistency and Efficiency." *Journal of Portfolio Management*, 20(2),
-  35–41 — the standard local-return/currency-return decomposition
-  (sometimes called the "Ankrim-Hensel" currency attribution model).
-
-This subsection exists to document the harder problem's shape for a future
-story; it is **not** ready to implement (the interaction-term and portfolio-
-variance-decomposition questions above are open) and must not be built
-against without a follow-up brief that resolves them.
+- Ankrim, E.M. & Hensel, C.R. (1994). "Currency Hedging: A Test for Consistency
+  and Efficiency." *Journal of Portfolio Management*, 20(2), 35–41 — the
+  standard local/currency decomposition.
+- Solnik, B. (1974). "An equilibrium model of the international capital market."
+  *Journal of Economic Theory*, 8(4), 500–524 — currency as a distinct priced
+  exposure.
+- Perold, A.F. & Schulman, E.C. (1988). "The Free Lunch in Currency Hedging."
+  *Financial Analysts Journal*, 44(3), 45–50 — reporting the currency leg
+  separately from the asset leg.
+- Menchero, J. & Davis, B. (2011). "Risk Contribution is Exposure times
+  Volatility times Correlation." *Journal of Portfolio Management*, 37(2),
+  97–107 — the component-contribution identity reused for the variance split.
 
 ## Stress Scenarios
 
