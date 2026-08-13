@@ -12,7 +12,11 @@ from app.services.diagnostics_engine import run_imported_diagnostics_engine
 from app.services.statement_importer import import_statements
 # US-28.2: the CSV export is the canonical current IB statement.
 from app.tests._statement_fixtures import ESPP_PATH, FREEDOM24_PATH, STATEMENT_2026_CSV_PATH as STATEMENT_2026_PATH
-from app.tests.statement_truths import IB_ACCOUNT_ID, IB_TOP_OVERWEIGHTS_VS_STUB_BENCHMARK
+from app.tests.statement_truths import (
+    IB_ACCOUNT_ID,
+    IB_TOP_OVERWEIGHTS_VS_STUB_BENCHMARK,
+    IB_TOTALS_2DP,
+)
 
 
 class StubMarketDataService:
@@ -634,7 +638,9 @@ def test_exposure_result_discloses_static_rate_currencies_for_real_statement(moc
     assert result.fx_static_rate_currencies == ["EUR", "GBP"]
     assert result.fx_fallback_currencies == []
     # F-7: the denominator is the statement's own stock total, not the raw sum.
-    assert result.lookthrough.portfolio_market_value == pytest.approx(61238.53, abs=0.01)
+    assert result.lookthrough.portfolio_market_value == pytest.approx(
+        IB_TOTALS_2DP["stock_total"], abs=0.01
+    )
 
 
 def test_exposure_result_has_empty_disclosure_for_single_currency_portfolio(mocker):
@@ -740,7 +746,9 @@ def test_currency_exposure_ib2026_split_is_pinned(mocker) -> None:
     by_currency = {item.currency: item for item in exposure.weights}
 
     assert set(by_currency) == {"USD", "EUR", "GBP"}
-    assert exposure.total_base_market_value == pytest.approx(61_238.53, abs=1.0)
+    assert exposure.total_base_market_value == pytest.approx(
+        IB_TOTALS_2DP["stock_total"], abs=1.0
+    )
     # Weights reconcile, and the non-base total is everything that is not USD.
     assert sum(item.weight for item in exposure.weights) == pytest.approx(1.0, abs=1e-5)
     assert exposure.non_base_weight == pytest.approx(

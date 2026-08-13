@@ -113,6 +113,32 @@ class ReplayCashAnchor(BaseModel):
     trust: Literal["verified", "degraded", "unavailable"]
 
 
+class ReplayQuantityWithholding(BaseModel):
+    """US-33.2 (Epic 33 F-1/F-2): a reconstructed quantity the replay refused to publish.
+
+    The opening-position roll-back (`opening = ending + Σ SELL − Σ BUY`) presumes
+    a single share unit across the window. A split breaks that identity, and the
+    result is a position size the broker never held — on IB2026, 199 phantom LQQ
+    units which the US-24.10 trade-price anchor then valued at the stale
+    pre-split EUR 1,457.78 ($336,543), inflating market value ~8x for three
+    months. Detected from the symbol's OWN execution prices spanning a ratio no
+    market move explains, measured within a single currency.
+
+    The fabricated object is the quantity, so the quantity is withheld: the
+    symbol contributes no position line and no market value on any day, and
+    appears in NONE of the three valuation tiers. Its cash movements are
+    unaffected — those are broker truth.
+    """
+
+    symbol: str
+    reason: Literal["share_unit_discontinuity"]
+    currency: str
+    price_low: float
+    price_high: float
+    price_ratio: float
+    withheld_opening_quantity: float
+
+
 class DashboardHistoryRunMetadata(BaseModel):
     class SectionTrust(BaseModel):
         portfolio_path: str
@@ -154,8 +180,18 @@ class DashboardHistoryRunMetadata(BaseModel):
     # contains no market movement, so it must be disclosed rather than passed
     # off as a priced series. Replaces a $0 valuation, which let a BUY/SELL move
     # cash with no offsetting market value and the TWR publish the step as
-    # performance. A symbol appears in exactly one of the three valuation tiers.
+    # performance. US-33.3 (Epic 33 F-3): exactly one tier values a symbol on any
+    # given DAY; these lists are unions over the window, so a symbol held before
+    # its first trade appears both here and in `unpriced_replay_symbols`.
     trade_price_anchored_symbols: list[str] = []
+    # US-33.2 (Epic 33 F-1/F-2): symbols whose RECONSTRUCTED QUANTITY was
+    # withheld because their own ledger prices imply a share-unit change (a
+    # split). Withheld, not unpriced: `unpriced_replay_symbols` means the
+    # quantity is trusted and no price exists, this means the quantity itself is
+    # not publishable — so a withheld symbol appears in NO valuation tier and
+    # contributes no position line on any day. Empty when the window contains no
+    # detectable discontinuity.
+    quantity_withheld_symbols: list[ReplayQuantityWithholding] = []
     # US-31.3 (Epic 31 F-2): how the replay's OPENING CASH was derived and
     # whether that derivation is trustworthy. The anchor is
     # `starting_nav − opening_positions_value`; when the NAV's as-of date and

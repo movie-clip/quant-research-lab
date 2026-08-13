@@ -123,7 +123,8 @@ def test_f2_opening_cash_anchor_is_disclosed_not_silently_plugged(replay_context
     assert anchor.basis == "statement_nav_date_mismatch"
     assert anchor.nav_as_of == "2026-01-01" and anchor.window_start == "2026-01-08"
     # The residual is the market move between those two dates.
-    assert anchor.residual == pytest.approx(-1_196.61, abs=2.0)
+    # US-33.4: -1,196.61 on the pre-refresh statement.
+    assert anchor.residual == pytest.approx(-1_377.59, abs=2.0)
 
 
 def test_f3_terminal_reconciliation_is_never_published_as_a_return(replay_context) -> None:
@@ -163,7 +164,8 @@ def test_f3_terminal_reconciliation_is_never_published_as_a_return(replay_contex
 
     terminal = states[-1]
     # The adjustment is recorded, not hidden...
-    assert terminal.reconciliation_adjustment == pytest.approx(1_197.88, abs=2.0)
+    # US-33.4: 1,197.88 on the pre-refresh statement.
+    assert terminal.reconciliation_adjustment == pytest.approx(1_366.17, abs=2.0)
     # ...and the day it lands on publishes NO return.
     assert terminal.return_is_publishable is False
     series_dates = [d for d, _ in _portfolio_time_weighted_return_series(states)]
@@ -208,8 +210,12 @@ def test_f5_semi_resolves_to_held_line_not_bare_us_ticker(replay_context) -> Non
     quote = max(rows, key=lambda row: row["date"])["price"]
 
     # The served quote is now the held GBP line, matching the statement close.
-    assert quote == pytest.approx(position.close_price, rel=0.001)
-    assert position.quantity * quote == pytest.approx(2_699.70, abs=1.0)
+    # US-33.4: rel=0.005, because market close vs the statement's own mark
+    # differ by per-symbol noise on the terminal day (SEMI: 14.614 vs 14.646,
+    # 0.22%). The claim under test is that the served quote is the HELD GBP
+    # line — not the bare US ticker, which was 40.58 against 17.998.
+    assert quote == pytest.approx(position.close_price, rel=0.005)
+    assert position.quantity * quote == pytest.approx(2_922.80, abs=1.0)
 
 
 def test_f4_resolved_by_fund_currency_conversion(replay_context) -> None:
@@ -305,11 +311,16 @@ def test_us249_trade_neutral_basis_publishes_no_trade_day_fabrication(replay_con
     naive = dict(_portfolio_time_weighted_return_series(states, basis="market_value"))
     neutral = dict(_portfolio_time_weighted_return_series(states, basis="market_value_trade_neutral"))
 
-    assert naive["2026-04-14"] == pytest.approx(0.154319, abs=1e-4)
-    assert neutral["2026-04-14"] == pytest.approx(0.023692, abs=1e-4)
+    # US-33.4: 2026-04-14 was the exemplar until the refresh — it is now one of
+    # LQQ's trade dates, so US-33.2 withholds its return entirely and it is in
+    # neither chain. 2026-01-29 is the live equivalent: a $4,418.80 sale that
+    # the naive chain reads as -8.69% and the shipped basis as -0.02%.
+    assert "2026-04-14" not in naive and "2026-04-14" not in neutral
+    assert naive["2026-01-29"] == pytest.approx(-0.086947, abs=1e-4)
+    assert neutral["2026-01-29"] == pytest.approx(-0.000244, abs=1e-4)
     # No day in the whole window may show a trade-sized move under the shipped
-    # basis: the naive chain peaks at 15.43%, the trade-neutral chain at 2.95%.
-    assert max(abs(r) for r in neutral.values()) == pytest.approx(0.029539, abs=1e-4)
+    # basis: the naive chain swings 8.69%, the trade-neutral chain peaks at 2.95%.
+    assert max(abs(r) for r in neutral.values()) == pytest.approx(0.029532, abs=1e-4)
 
 
 def test_us249_trade_leg_gate_excludes_legs_absent_from_market_value(replay_context) -> None:
@@ -335,14 +346,14 @@ def test_us249_trade_leg_gate_excludes_legs_absent_from_market_value(replay_cont
     neutral = dict(_portfolio_time_weighted_return_series(states, basis="market_value_trade_neutral"))
 
     # The same-day round trip contributes nothing to the neutralisation...
-    assert by_date["2026-06-11"].trade_flow == pytest.approx(-3_524.27, abs=1.0)
+    assert by_date["2026-06-11"].trade_flow == pytest.approx(-3_523.59, abs=1.0)
     # ...so the day reports the priced book's real move, not a trade-sized one.
-    assert neutral["2026-06-11"] == pytest.approx(-0.003427, abs=1e-4)
+    assert neutral["2026-06-11"] == pytest.approx(-0.003925, abs=1e-4)
 
     # And the 2026-04-27 sale, now backed by a trade-price valuation, IS
     # neutralised — its leg genuinely left yesterday's market value.
     assert by_date["2026-04-27"].trade_flow == pytest.approx(-5_341.92, abs=1.0)
-    assert neutral["2026-04-27"] == pytest.approx(-0.001189, abs=1e-4)
+    assert neutral["2026-04-27"] == pytest.approx(-0.001194, abs=1e-4)
 
 
 def test_us249_de_dilution_is_explained_by_the_cash_weight(replay_context) -> None:
@@ -354,8 +365,16 @@ def test_us249_de_dilution_is_explained_by_the_cash_weight(replay_context) -> No
     cash-inclusive TWR was corrupted by unpriced-symbol cash events; US-24.10
     fixed that at source, so no exclusions remain:
 
-        annualised volatility   TWR 14.72%  ->  trade-neutral 15.71%   (x1.067)
-        median cash weight      5.21%       ->  predicted de-dilution  x1.055
+        annualised volatility   TWR 14.18%  ->  trade-neutral 14.91%   (x1.052)
+        median cash weight      4.01%       ->  predicted de-dilution  x1.042
+
+    US-33.4 re-measured this on the 2026-08-11 statement, and the tripwire did
+    its job on the way: before US-33.2 gave withheld-quantity symbols an
+    unbacked-cash-flow guard, the ratio came out at **x0.965** — the wrong side
+    of 1 — because LQQ's trades moved cash with no position behind it and the
+    cash-inclusive chain published six of those steps as performance (the
+    largest, +3.08% on 2026-04-17, was the window's biggest TWR day). Those days
+    are now withheld, and the ratio is back where the cash weight predicts.
 
     A ratio far from the cash-weight prediction means the trade neutralisation
     is wrong, not that the portfolio is riskier.
@@ -369,7 +388,7 @@ def test_us249_de_dilution_is_explained_by_the_cash_weight(replay_context) -> No
 
     weights = [s.cash[base] / s.total_portfolio_value for s in states if s.total_portfolio_value]
     median_weight = statistics.median(weights)
-    assert median_weight == pytest.approx(0.052, abs=0.005)
+    assert median_weight == pytest.approx(0.0401, abs=0.005)
 
     def _vol(basis: str) -> float:
         series = _portfolio_time_weighted_return_series(states, basis=basis)
@@ -378,8 +397,8 @@ def test_us249_de_dilution_is_explained_by_the_cash_weight(replay_context) -> No
     twr_vol = _vol("portfolio_value")
     neutral_vol = _vol("market_value_trade_neutral")
 
-    assert twr_vol == pytest.approx(0.1472, abs=1e-3)
-    assert neutral_vol == pytest.approx(0.1571, abs=1e-3)
+    assert twr_vol == pytest.approx(0.1418, abs=1e-3)
+    assert neutral_vol == pytest.approx(0.1491, abs=1e-3)
     # The whole move is the cash weight: ratio close to 1/(1 - median weight).
     assert neutral_vol / twr_vol == pytest.approx(1 / (1 - median_weight), rel=0.02)
 
@@ -405,13 +424,16 @@ def test_us2410_trade_price_anchor_removes_the_fabricated_twr_days(replay_contex
     states = _us249_states(replay_context)
     twr = dict(_portfolio_time_weighted_return_series(states, basis="portfolio_value"))
 
-    assert twr["2026-04-08"] == pytest.approx(0.025412, abs=1e-4)
-    assert twr["2026-04-27"] == pytest.approx(-0.001210, abs=1e-4)
+    assert twr["2026-04-08"] == pytest.approx(0.025447, abs=1e-4)
+    assert twr["2026-04-27"] == pytest.approx(-0.001219, abs=1e-4)
     # Nowhere near the fabricated values.
     assert abs(twr["2026-04-08"] - (-0.0790)) > 0.05
     assert abs(twr["2026-04-27"] - 0.0961) > 0.05
-    # The window's largest TWR day falls from 9.61% to 2.76%.
-    assert max(abs(r) for r in twr.values()) == pytest.approx(0.027618, abs=1e-4)
+    # The window's largest TWR day falls from 9.61% to 2.76%. US-33.4 note: on
+    # the refreshed statement this is 2.7617% — unmoved to four decimals, which
+    # is a strong signal that US-33.2's withholding removed a fabrication rather
+    # than reshaping real performance.
+    assert max(abs(r) for r in twr.values()) == pytest.approx(0.027617, abs=1e-4)
 
 
 def test_us2410_symbols_move_from_unpriced_into_the_trade_anchored_tier(replay_context) -> None:
@@ -434,22 +456,165 @@ def test_us2410_symbols_move_from_unpriced_into_the_trade_anchored_tier(replay_c
         apply_terminal_reconciliation=True,
     )
 
-    assert engine.trade_price_anchored_symbols == {"BTEC", "IUFS", "IUHC"}
-    # Every held symbol is now valued on some basis...
+    # US-33.2 restated this pin. On the 2026-08-11 statement two more round-trip
+    # symbols (ICHN, ZPRV) reach the trade-anchored tier, and LQQ leaves every
+    # tier: its reconstructed quantity is now WITHHELD (Epic 33 F-1), so there
+    # is nothing to value on any basis. It previously appeared in TWO tiers at
+    # once — `unpriced` before its first trade and `trade_price_anchored`
+    # after — which is the observation US-33.3 corrects in the contract.
+    assert engine.trade_price_anchored_symbols == {"BTEC", "ICHN", "IUFS", "IUHC", "ZPRV"}
+    # Every held symbol whose quantity is trusted is valued on some basis...
     assert engine.unpriced_replay_symbols == set()
-    # ...and LQQ keeps its statement-close anchor (US-27.7 unchanged).
-    assert engine.statement_anchored_symbols == {"LQQ"}
-    assert not (engine.trade_price_anchored_symbols & engine.statement_anchored_symbols)
+    assert engine.statement_anchored_symbols == set()
+    # ...and the withheld one is in no tier at all.
+    assert set(engine.quantity_withheld) == {"LQQ"}
+    assert not (engine.trade_price_anchored_symbols & set(engine.quantity_withheld))
 
 
 def test_us2410_terminal_reconciliation_does_not_worsen(replay_context) -> None:
     """US-24.10 AC9 — a valuation change must not degrade the statement match.
 
-    US-31.5 brought terminal market value to within $1.35 of the statement's own
-    `stock_total` ($61,238.53). All three newly-valued symbols are closed by
-    period end, so the terminal state must be untouched.
+    US-31.5 brought terminal market value to within $1.35 of the pre-refresh
+    statement's own `stock_total` ($61,238.53). US-33.4 re-measured it on the
+    2026-08-11 statement: $64,934.40 against a `stock_total` of $64,922.99, a
+    **$11.41** residual (0.018%). The wider gap is per-symbol noise between each
+    holding's market close and the statement's mark — 11 symbols differ, largest
+    $24.00 on a $11,988 line, signs in both directions — not a systematic error,
+    so the assertion is relative rather than a two-dollar absolute.
     """
+    snapshot, _price_histories, _valuation_dates = replay_context
     states = _us249_states(replay_context)
 
-    assert states[-1].total_market_value == pytest.approx(61_239.88, abs=1.0)
-    assert abs(states[-1].total_market_value - 61_238.53) < 2.0
+    assert states[-1].total_market_value == pytest.approx(64_934.40, abs=1.0)
+    assert states[-1].total_market_value == pytest.approx(
+        snapshot.statement_totals.stock_total, rel=0.001
+    )
+
+
+# ---------------------------------------------------------------------------
+# Epic 33 — corporate actions & replay quantity integrity (US-33.2)
+#
+# The 2026-08-11 statement contains a ~200:1 LQQ split. The opening roll-back
+# `opening = ending + Σ SELL − Σ BUY` sums the 200-unit POST-split sale against
+# the pre-split buys and produces a 199-unit opening position the broker never
+# held (F-1); US-24.10's trade-price anchor then valued it at the stale
+# pre-split EUR 1,457.78 (F-2), taking peak market value to $518,078.75 against
+# a portfolio whose statement `stock_total` is $64,922.99.
+#
+# These pins assert the fail-closed behaviour. They are stated against the
+# FX-enabled replay (`_us249_states` / `build_replay_currency_context`) — the
+# same path the PRD's $518,078 was measured on. The `fx_history={}` audit
+# harness above yields different magnitudes for the same defect.
+# ---------------------------------------------------------------------------
+
+
+def _us332_engine(replay_context):
+    from app.analytics.performance import build_replay_currency_context
+
+    snapshot, price_histories, valuation_dates = replay_context
+    fund_currencies, fx_history = build_replay_currency_context(
+        snapshot, replay_symbol_universe(snapshot), valuation_dates
+    )
+    engine = PortfolioStateEngine(
+        snapshot=snapshot,
+        base_currency=(snapshot.statement.base_currency or "USD"),
+        fx_history=fx_history,
+        symbol_fund_currencies=fund_currencies,
+    )
+    states = engine.build_daily_states(
+        price_histories=price_histories,
+        valuation_dates=valuation_dates,
+        apply_terminal_reconciliation=True,
+    )
+    return engine, states
+
+
+def test_us332_lqq_is_flagged_with_its_measured_price_ratio(replay_context) -> None:
+    """US-33.2 AC1/AC5 — the detection signal, pinned with its evidence.
+
+    LQQ's own ledger spans EUR 9.069 … 1,977.94 in a single currency. No market
+    move explains a 218x range inside one statement period; a change of share
+    unit does.
+    """
+    engine, _states = _us332_engine(replay_context)
+
+    withholding = engine.quantity_withheld["LQQ"]
+    assert withholding.reason == "share_unit_discontinuity"
+    assert withholding.currency == "EUR"
+    assert withholding.price_low == pytest.approx(9.0691, abs=1e-4)
+    assert withholding.price_high == pytest.approx(1_977.9409, abs=1e-4)
+    assert withholding.price_ratio == pytest.approx(218.0967, abs=1e-3)
+    # ending 0 + sells 204 − buys 5 — the phantom the roll-back produced.
+    assert withholding.withheld_opening_quantity == 199.0
+
+
+def test_us332_lqq_is_the_only_flagged_symbol(replay_context) -> None:
+    """US-33.2 AC1/AC10 — a real signal, not a banner that always fires.
+
+    Across every symbol with priced trades in this statement LQQ is the only one above the
+    threshold. The widest LEGITIMATE range is NFLX at 1.40x, which is the margin
+    that makes the 5.0 threshold defensible; if a future export narrows that gap
+    this test is where it surfaces.
+    """
+    from collections import defaultdict
+
+    from app.core.constants import REPLAY_SHARE_UNIT_DISCONTINUITY_RATIO
+    from app.domain.ledger import snapshot_to_ledger
+
+    snapshot, _price_histories, _valuation_dates = replay_context
+    engine, _states = _us332_engine(replay_context)
+
+    prices: defaultdict[tuple[str, str], list[float]] = defaultdict(list)
+    for entry in snapshot_to_ledger(snapshot):
+        if entry.entry_type in {"BUY", "SELL"} and entry.symbol and entry.price:
+            prices[(entry.symbol, entry.cash_currency)].append(float(entry.price))
+    ratios: dict[str, float] = defaultdict(float)
+    for (symbol, _currency), observed in prices.items():
+        ratios[symbol] = max(ratios[symbol], max(observed) / min(observed))
+
+    # 61 of the statement's 68 replayed symbols carry priced BUY/SELL legs and
+    # are therefore testable at all; the rest are opening-only reconstructions.
+    assert len(ratios) == 61
+    assert set(engine.quantity_withheld) == {"LQQ"}
+    assert ratios["NFLX"] == pytest.approx(1.399, abs=0.01)
+    assert "NFLX" not in engine.quantity_withheld
+    runner_up = max(ratio for symbol, ratio in ratios.items() if symbol != "LQQ")
+    assert runner_up < REPLAY_SHARE_UNIT_DISCONTINUITY_RATIO
+
+
+def test_us332_lqq_never_appears_in_any_daily_state(replay_context) -> None:
+    """US-33.2 AC3 — the phantom is the QUANTITY, so the quantity is withheld.
+
+    Before the fix LQQ carried a position line on 130 of the window's 148 days,
+    peaking at a 200-unit holding worth $395,199.92. Valuing it at $0 would not
+    be enough: that still publishes a position size that was never held.
+    """
+    _engine, states = _us332_engine(replay_context)
+
+    assert len(states) == 148
+    assert not [
+        state.date for state in states for item in state.positions if item.symbol == "LQQ"
+    ]
+
+
+def test_us332_peak_market_value_returns_to_a_plausible_band(replay_context) -> None:
+    """US-33.2 AC8 — the headline number the epic exists to undo.
+
+    Peak replayed market value falls from $518,078.75 (2026-07-06, ~8x the real
+    portfolio) to $65,377.31, and the terminal state lands within $12 of the
+    statement's own `stock_total`. The band assertion — not just the pin — is
+    what makes a future corporate action fail loudly.
+    """
+    snapshot, _price_histories, _valuation_dates = replay_context
+    _engine, states = _us332_engine(replay_context)
+
+    peak = max(states, key=lambda state: state.total_market_value)
+    assert peak.total_market_value == pytest.approx(65_377.31, abs=1.0)
+    assert peak.date == "2026-08-10"
+
+    stock_total = snapshot.statement_totals.stock_total
+    assert stock_total == pytest.approx(64_922.99, abs=0.01)
+    # Every day of the window is now within a plausible band of the statement's
+    # own stock total — the pre-fix replay ran ~8x above it for three months.
+    assert peak.total_market_value < stock_total * 1.05
+    assert states[-1].total_market_value == pytest.approx(64_934.40, abs=1.0)

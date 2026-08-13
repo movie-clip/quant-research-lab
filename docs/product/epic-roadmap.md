@@ -4,6 +4,112 @@
 
 ---
 
+## Active Epic: Epic 33 — Corporate Actions & Replay Quantity Integrity
+
+**PRD:** [`docs/product/prd/epic-33-corporate-actions-replay-integrity.md`](product/prd/epic-33-corporate-actions-replay-integrity.md)
+
+Created 2026-08-12 from the 2026-08-11 statement refresh, which made the replay
+report a portfolio peaking at **$518,078** against a real ~**$65,000**, and an
+annualised volatility of **737.84%**.
+
+Root cause is structural, not drift: the opening-position roll-back
+`opening = ending + Σsells − Σbuys` **sums quantities across a share split**.
+LQQ split ~200:1 inside this statement (its own ledger spans €9.069 … €1,977.94,
+a **218× price range**), producing a phantom **199-unit** opening position —
+and US-24.10's trade-price anchor then valued those phantom units at the stale
+pre-split **€1,457.78**, or **$336,543**.
+
+Before US-24.10 the same defect was bounded (the symbol was unpriced,
+contributing $0). The anchor turned an understatement into an 8× overstatement
+because it has no discontinuity guard. **The owner's hypothesis that the new
+tickers were to blame was tested and eliminated** — ICHN and ZPRV are clean
+round trips; every other reconstructed opening has a ×1 price ratio.
+
+**Closed 2026-08-13.** All four stories are Done: the replay withholds
+split-inconsistent quantities and discloses them, the tier-exclusivity contract
+says what the code guarantees, and the 2026-08-11 statement is adopted with
+every pin re-derived against the fixed engine.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-33.1 | Findings-first audit of corporate-action handling in the replay | Done |
+| US-33.2 | Fail closed on split-inconsistent reconstructed quantities | Done |
+| US-33.3 | Correct the valuation-tier exclusivity claim | Done |
+| US-33.4 | Adopt the 2026-08-11 statement as the golden fixture | Done |
+
+Recommended order: US-33.2 first (it unblocks the rest), then US-33.3, then the
+refresh in US-33.4.
+
+### Slice log
+
+- **US-33.4 (2026-08-13)** — **adopted the 2026-08-11 statement; the suite is
+  green and committable again.** Two failure classes, fixed differently. *(a)
+  Measurement pins* re-derived against the fixed engine, each keeping its old
+  value in the docstring: cash-anchor residual −1,196.61 → **−1,377.59**,
+  terminal reconciliation +1,197.88 → **+1,366.17**, terminal market value
+  61,239.88 → **64,934.40** (against `stock_total` 64,922.99, an $11.41
+  residual that decomposes into per-symbol close-vs-mark noise across 11
+  holdings, so the assertion is now relative). *(b) Five structural tests that
+  were wrongly pinning statement truths* — the failure mode
+  `testing-architecture.md` explicitly says to fix rather than re-pin — re-homed
+  to `statement_truths.py` (new `IB_BASE_WEIGHTS_PCT`, `IB_POSITION_HHI_BASE`,
+  `IB_RAW_MIXED_CURRENCY_SUM`, `IB_REPLAY_UNIVERSE_SIZE`); the importer mutation
+  anchors and the refresh meta-test now **derive** their target rows instead of
+  pasting CSV text (the meta-test guarding the refresh surface had itself been
+  broken by the refresh, which sold AMZN). One genuine over-assertion corrected:
+  `ending_settled_cash == cash_total` was never an invariant — it held only
+  because the old statement carried no unsettled cash, where the new one carries
+  $453.38. **The adoption earned its keep:** US-24.9's de-dilution tripwire came
+  out at ×0.965 against a ×1.042 prediction, exposing that US-33.2's withheld
+  quantities still moved cash — six fabricated cash-inclusive TWR days including
+  a +3.08% that was the window's largest move, worth +1.3pp of annualised
+  volatility. Fixed at source (`unbacked_cash_flow`, US-33.2 AC11), not pinned.
+  Goldens regenerated **after** that fix: 30,107 → 34,924 lines (148 states vs
+  119 — a longer window), every value family moved with the statement, one new
+  field, and nothing in the file above $66k (the pre-fix regeneration peaked at
+  $518,078.75). 693 backend + 313 frontend green; tsc + dead-code gate clean.
+
+- **US-33.3 (2026-08-13)** — corrected a contract claim that was **false as
+  written**: US-24.10's AC5, `dashboard-fields.md`, the methodology, the
+  product-state inventory and two source comments all said a symbol appears in
+  *exactly one* of the three valuation-tier disclosure lists. `price_for` picks
+  a tier per **(symbol, day)** and the lists are unions over the window, so a
+  holding that predates its own first trade is `unpriced` then and
+  `trade_price_anchored` after — in two lists, both correct. The real defect was
+  that no test could falsify the claim (US-24.10's exercised a single-day case),
+  so the fix leads with the counter-example: a symbol asserted in both lists,
+  plus a per-(symbol, day) single-tier assertion that fails if two tiers ever
+  value one symbol-day. US-24.10's AC5 is amended in place with a dated note
+  rather than rewritten. No engine change; 2 new tests, 1 restated.
+
+- **US-33.2 (2026-08-12, extended 2026-08-13)** — the replay now **withholds reconstructed
+  quantities it cannot trust**. A symbol whose own execution prices span a
+  ratio ≥ 5.0 *within one currency* is treated as denominated in more than one
+  share unit; its quantity is withheld entirely (no position line, no market
+  value, no valuation tier) and disclosed with its evidence via
+  `run_metadata.quantity_withheld_symbols`, rendered on the Dashboard's
+  `ReplayDisclosuresCard`. The US-24.10 trade-price anchor carries the same
+  guard directly, so no carried price can cross a detected discontinuity
+  regardless of caller (Epic 33 F-2). On IB2026 peak replayed market value
+  falls **$518,078.75 → $65,377.31** against a `stock_total` of $64,922.99,
+  LQQ vacates both tiers it wrongly occupied, and the terminal state lands
+  within $12 of the statement. 13 new backend tests + 3 vitest; methodology
+  §Share-Unit Discontinuity Withholding documents the rule *and* its stated
+  limitation (a 2:1 or 3:1 split stays below the threshold and is not
+  detected — closing that needs a corporate-action source, an epic non-goal).
+  **Extended during US-33.4 (AC11):** withholding the quantity was not enough —
+  the symbol's trades still moved cash, and the cash-INCLUSIVE return chain
+  published those steps as performance (the trade-leg gate only covers the
+  cash-excluded basis). A day carrying a material `unbacked_cash_flow` now
+  publishes no return on any basis, disclosed with a reason naming that cause.
+  On IB2026 that withholds LQQ's six trade dates, removes a fabricated +3.08%
+  — the window's largest cash-inclusive move — and takes annualised TWR
+  volatility from 15.49% to 14.18%.
+
+---
+
 ## Active Epic: Epic 32 — Project Hygiene & Agent-Facing Doc Accuracy
 
 **PRD:** [`docs/product/prd/epic-32-project-hygiene-and-agent-docs.md`](product/prd/epic-32-project-hygiene-and-agent-docs.md)

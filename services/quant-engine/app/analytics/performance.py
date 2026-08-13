@@ -154,8 +154,9 @@ def build_replay_states_with_cash_anchor(
     fx_history: dict[str, float],
     symbol_fund_currencies: dict[str, str] | None = None,
 ):
-    """Replay states + all five disclosures, including the US-31.3 cash anchor
-    and the US-24.10 trade-price-anchored tier.
+    """Replay states + all six disclosures: the US-27.8 FX fallback, the
+    US-31.2 unpriced symbols, the US-31.3 cash anchor, the US-24.10
+    trade-price-anchored tier, and the US-33.2 quantity withholdings.
 
     Returned as an explicit tuple (no shared mutable state) so it is safe under
     the parallel test suite and concurrent requests.
@@ -173,6 +174,9 @@ def build_replay_states_with_cash_anchor(
         sorted(engine.unpriced_replay_symbols),
         engine.cash_anchor,
         sorted(engine.trade_price_anchored_symbols),
+        # US-33.2 (Epic 33 F-1/F-2): quantity withholdings, sorted by symbol so
+        # the disclosure order is deterministic across runs.
+        [engine.quantity_withheld[symbol] for symbol in sorted(engine.quantity_withheld)],
     )
 
 
@@ -182,15 +186,29 @@ def replay_disclosures(states: list[DailyPortfolioState]) -> tuple[list[str], st
     A day carrying a material `reconciliation_adjustment` has no publishable
     return — the caller surfaces these so the gap is visible with a stated
     reason rather than an unexplained missing point.
+
+    US-33.2 added a second cause: a day on which a WITHHELD-quantity symbol
+    traded moves cash with no offsetting position in market value, so the
+    portfolio value steps with nothing behind it. The reason names whichever
+    causes actually occurred — collapsing two different degradations into one
+    sentence would tell the researcher the wrong thing about their data.
     """
     withheld = [state.date for state in states if not state.return_is_publishable]
-    reason = (
-        "Return withheld: the state was adjusted to match the statement's ending NAV. "
-        "That correction is an accounting entry, not a market move."
-        if withheld
-        else None
-    )
-    return withheld, reason
+    if not withheld:
+        return withheld, None
+
+    causes: list[str] = []
+    if any(not state.return_is_publishable and state.reconciliation_adjustment for state in states):
+        causes.append(
+            "the state was adjusted to match the statement's ending NAV, which is an "
+            "accounting entry rather than a market move"
+        )
+    if any(not state.return_is_publishable and state.unbacked_cash_flow for state in states):
+        causes.append(
+            "a holding whose reconstructed quantity was withheld traded that day, moving cash "
+            "with no position behind it in market value"
+        )
+    return withheld, "Return withheld: " + "; ".join(causes) + "."
 
 
 def build_true_performance_series(

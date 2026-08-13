@@ -216,11 +216,54 @@ def test_cash_balances_per_currency_without_base_summary_double_count(snapshot) 
     totals = snapshot.statement_totals
     usd = by_currency["USD"]
     assert usd.ending_cash == pytest.approx(totals.cash_total)
-    assert usd.ending_settled_cash == pytest.approx(totals.cash_total)
+    # US-33.4: settled cash is a BOUNDED SUBSET of ending cash, not an equal.
+    # It only equalled `cash_total` on the pre-refresh statement because that
+    # one happened to carry no unsettled cash; the 2026-08-11 export carries
+    # $453.38 of it, which is normal, not a double-count. The invariant this
+    # test exists to prove is the `ending_cash` equality above.
+    assert usd.ending_settled_cash is not None
+    assert 0 <= usd.ending_settled_cash <= usd.ending_cash
     assert usd.starting_cash is not None and usd.starting_cash > 0
 
 
 # ── AC5: fail-safe mutations ─────────────────────────────────────────────────
+
+_POSITION_ROW_PREFIX = "Open Positions,Data,Summary,Stocks,"
+_QUANTITY_FIELD = 6
+_CLOSE_PRICE_FIELD = 10
+
+
+def _position_row(symbol: str) -> list[str]:
+    """The statement's Open Positions row for `symbol`, as fields.
+
+    US-33.4: the mutation tests used to paste the row text inline (AMZN, DEFS),
+    so a refresh that sold either symbol failed them for a reason unrelated to
+    the fail-safe behaviour they cover. Locating the row by symbol keeps the
+    mutation precise without pinning the statement's contents.
+    """
+    text = STATEMENT_2026_CSV_PATH.read_text(encoding="utf-8-sig")
+    for line in text.splitlines():
+        fields = line.split(",")
+        if line.startswith(_POSITION_ROW_PREFIX) and len(fields) > _CLOSE_PRICE_FIELD:
+            if fields[5] == symbol:
+                return fields
+    raise AssertionError(f"no Open Positions row for {symbol!r} in the statement")
+
+
+def _held_symbol(snapshot: ImportedPortfolioSnapshot, currency: str) -> str:
+    """Any currently-held symbol in `currency` — derived, so it always exists."""
+    held = sorted(p.symbol for p in snapshot.positions if p.currency == currency)
+    assert held, f"statement holds no {currency} position"
+    return held[0]
+
+
+def _mutated_field(tmp_path: Path, symbol: str, field_index: int, value: str) -> Path:
+    """Rewrite one field of one Open Positions row."""
+    fields = _position_row(symbol)
+    mutated = list(fields)
+    mutated[field_index] = value
+    return _mutated_fixture(tmp_path, ",".join(fields), ",".join(mutated))
+
 
 def _mutated_fixture(tmp_path: Path, old: str, new: str) -> Path:
     text = STATEMENT_2026_CSV_PATH.read_text(encoding="utf-8-sig")
@@ -230,16 +273,14 @@ def _mutated_fixture(tmp_path: Path, old: str, new: str) -> Path:
     return mutated
 
 
-def test_failsafe_non_numeric_position_quantity(tmp_path: Path) -> None:
-    path = _mutated_fixture(
-        tmp_path,
-        "Open Positions,Data,Summary,Stocks,USD,AMZN,10,",
-        "Open Positions,Data,Summary,Stocks,USD,AMZN,not-a-number,",
-    )
-    snapshot = import_statement(path)
-    assert len(snapshot.positions) == EXPECTED_POSITION_COUNT - 1
-    assert "AMZN" not in {position.symbol for position in snapshot.positions}
-    assert all(position.quantity != 0 for position in snapshot.positions)
+def test_failsafe_non_numeric_position_quantity(tmp_path: Path, snapshot) -> None:
+    symbol = _held_symbol(snapshot, "USD")
+    path = _mutated_field(tmp_path, symbol, _QUANTITY_FIELD, "not-a-number")
+
+    mutated = import_statement(path)
+    assert len(mutated.positions) == EXPECTED_POSITION_COUNT - 1
+    assert symbol not in {position.symbol for position in mutated.positions}
+    assert all(position.quantity != 0 for position in mutated.positions)
 
 
 def test_failsafe_malformed_dividend_date(tmp_path: Path) -> None:
@@ -263,15 +304,13 @@ def test_failsafe_short_trade_row(tmp_path: Path) -> None:
     assert counts["BUY"] == EXPECTED_LEDGER_COUNTS["BUY"]
 
 
-def test_failsafe_missing_close_price_cell(tmp_path: Path) -> None:
-    path = _mutated_fixture(
-        tmp_path,
-        "Open Positions,Data,Summary,Stocks,EUR,DEFS,500,1,5.59295003,2796.475015,5.635,2817.5,21.024985,",
-        "Open Positions,Data,Summary,Stocks,EUR,DEFS,500,1,5.59295003,2796.475015,--,2817.5,21.024985,",
-    )
+def test_failsafe_missing_close_price_cell(tmp_path: Path, snapshot) -> None:
+    symbol = _held_symbol(snapshot, "EUR")
+    path = _mutated_field(tmp_path, symbol, _CLOSE_PRICE_FIELD, "--")
+
     snapshot = import_statement(path)
     # The record degrades away — never a zero-filled close price.
-    assert "DEFS" not in {position.symbol for position in snapshot.positions}
+    assert symbol not in {position.symbol for position in snapshot.positions}
     assert len(snapshot.positions) == EXPECTED_POSITION_COUNT - 1
     assert all(position.close_price != 0 for position in snapshot.positions)
 
@@ -322,7 +361,12 @@ def test_combine_legacy_pdf_with_csv_terminal_statement() -> None:
     assert combined.statement.detected_format == "csv"
     assert len(combined.positions) == EXPECTED_POSITION_COUNT
     assert combined.statement.statement_period is not None
-    assert combined.statement.statement_period.endswith("2026-06-30")
+    # US-33.4: the structural claim is that the CSV supplies the TERMINAL end
+    # date (the combine widens the start to the legacy PDF's period). The date
+    # itself is a statement truth, so it comes from the truths module — pasting
+    # "2026-06-30" here is what made a refresh fail this test.
+    assert combined.statement.statement_period.endswith(EXPECTED_PERIOD.split(" - ")[1])
+    assert combined.statement.statement_period.startswith("2025-")
 
 
 def test_read_records_handles_bom_quoting_and_header_restatement(tmp_path: Path) -> None:

@@ -55,6 +55,27 @@ SYNTHETIC_COVERAGE_DE_MINIMIS_WEIGHT = 0.01
 REPLAY_RECONCILIATION_TOLERANCE = 1.00
 
 
+# US-33.2 (Epic 33 F-1/F-2): share-unit discontinuity threshold for the ledger
+# replay. The opening-position roll-back
+# (`opening = ending + Σ SELL − Σ BUY`) is only valid while every quantity is
+# denominated in the SAME share unit; a split breaks the identity and produces
+# a phantom position. The detectable signature is a symbol whose own broker
+# execution prices, WITHIN one currency, span a ratio no market move explains.
+# At or above this ratio the symbol's reconstructed quantity is WITHHELD and
+# disclosed rather than valued (guardrail #3).
+# Calibrated on the committed IB2026 statement (68 symbols): the highest
+# LEGITIMATE within-symbol ratio is 1.40 (NFLX); the true positive is LQQ at
+# 218.10 (EUR 9.069 … 1,977.94). 5.0 sits ~3.6x above the highest legitimate
+# observation and ~44x below the true positive.
+# Known limitation, deliberate: a small split (2:1, 3:1) stays below this
+# threshold and is NOT detected — lowering the bar far enough to catch it would
+# start withholding genuinely volatile holdings over long windows. Closing that
+# gap needs a corporate-action data source, an explicit Epic 33 non-goal.
+# Heuristic policy value, no academic basis — tune only as a reviewed change
+# (US-24.2 discipline).
+REPLAY_SHARE_UNIT_DISCONTINUITY_RATIO = 5.0
+
+
 # US-24.7: statement-reconciliation materiality. A reconciliation check passes
 # when |actual - expected| is within this many base-currency units. Set at a
 # quarter of a unit to absorb per-record rounding across a statement's worth of

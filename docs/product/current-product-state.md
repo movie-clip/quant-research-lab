@@ -27,7 +27,7 @@ Shows portfolio performance history:
   (US-25.5) — sourced from the Diagnostics engine (not the withheld
   dashboard-history `max_drawdown_pct` path, which stays withheld under the
   investor-economics policy below)
-- **Replay Disclosures card** (US-24.11): surfaces the imported replay's own degradations — a non-`verified` opening-cash anchor (basis, both dates, measured residual), withheld return dates with the engine's stated reason, holdings valued at $0, holdings valued at a carried broker trade price, and currencies carried unconverted. Renders **nothing** when the run is clean (absence of a warning is not a claim) and carries **no** Synthetic badge — the imported replay is broker truth that has been degraded, a different truth class
+- **Replay Disclosures card** (US-24.11): surfaces the imported replay's own degradations — a non-`verified` opening-cash anchor (basis, both dates, measured residual), withheld return dates with the engine's stated reason, holdings valued at $0, holdings valued at a carried broker trade price, currencies carried unconverted, and (US-33.2) **positions withheld entirely** because their reconstructed quantity spans a share-unit discontinuity. Renders **nothing** when the run is clean (absence of a warning is not a claim) and carries **no** Synthetic badge — the imported replay is broker truth that has been degraded, a different truth class
 - **Rolling Factor Analysis card**: rolling factor loadings snapshot
 - **Sector composition donut** and **Benchmark Positioning card**: current holdings
   composition and benchmark-relative positioning
@@ -130,11 +130,14 @@ rather than absorbed:
 | `statement_anchored_symbols` (US-30.2) | Held symbol with no fetchable price history — valued flat at its statement close price (broker-truth-adjacent) |
 | `run_metadata.trade_price_anchored_symbols` (US-24.10) | Symbol with no price history and no statement close, valued at the **broker's own execution price** carried forward from the trade (flat between trades). The third valuation tier; forward-carry only, never back-filled |
 | `run_metadata.unpriced_replay_symbols` (US-31.2) | Symbol held on a day with **no** price history, **no** statement anchor **and** no prior trade price — contributed 0 to that day's market value |
+| `run_metadata.quantity_withheld_symbols` (US-33.2) | Symbol whose **reconstructed quantity** was withheld — its own execution prices span a ratio ≥ 5.0 within one currency, so the roll-back summed pre- and post-split units. Emits no position on any day and claims no valuation tier; disclosed with currency, price bounds, ratio and the rejected opening quantity |
 | `run_metadata.replay_cash_anchor` (US-31.3) | How opening cash was derived + its trust. `degraded` when the statement NAV's as-of date differs from the replay window start (market movement between them is plugged into cash) |
-| `run_metadata.withheld_return_dates` (US-31.3) | Days whose return was **withheld** because the state carried a reconciliation adjustment — an accounting correction is never published as performance |
+| `run_metadata.withheld_return_dates` (US-31.3) | Days whose return was **withheld** because the state carried a reconciliation adjustment — an accounting correction is never published as performance, or (US-33.2) because a withheld-quantity holding traded that day and moved cash with no position behind it |
 
 Valuation precedence is **market history → statement close → last broker trade
-price**, and a symbol falls in exactly one tier (`financial-methodology.md`
+price**, and exactly one tier values a symbol on any given **day** — the disclosure
+lists are unions over the window, so a symbol held before its first trade is
+named in two of them (US-33.3) (`financial-methodology.md`
 §Synthetic History Coverage Rule). The last row is the weakest outcome: before
 US-31.2 those symbols were never fetched at all, and before US-24.10 a
 round-trip position stayed worth $0 for the whole window — which let its trades

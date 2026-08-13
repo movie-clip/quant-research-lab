@@ -451,6 +451,13 @@ export type DashboardHistoryRunMetadata = {
    *  the statement close. Broker truth, but the carried segment is flat: it
    *  contains no market movement. Exactly one tier applies per symbol. */
   trade_price_anchored_symbols?: string[]
+  /** US-33.2 (Epic 33 F-1/F-2): symbols whose reconstructed QUANTITY was
+   *  withheld because their own ledger prices imply a share-unit change (a
+   *  split). Distinct from `unpriced_replay_symbols`, where the quantity is
+   *  trusted and only the price is missing: here the quantity itself is not
+   *  publishable, so the symbol contributes no position and appears in no
+   *  valuation tier. */
+  quantity_withheld_symbols?: ReplayQuantityWithholding[]
   /** US-31.3 (Epic 31 F-2): how the replay's opening cash was derived, and
    *  whether that derivation is trustworthy. */
   replay_cash_anchor?: ReplayCashAnchor | null
@@ -532,6 +539,11 @@ export type DailyPortfolioState = {
    *  state's total_portfolio_value by — an accounting correction, not a market
    *  move. A day carrying a material adjustment has its return withheld. */
   reconciliation_adjustment?: number | null
+  /** US-33.2 (Epic 33 F-1/F-2): base-currency cash moved this day by trades in a
+   *  symbol whose reconstructed quantity was withheld. The cash is real, but the
+   *  position behind it is in no market value, so the portfolio value steps with
+   *  nothing behind it and the day's return is withheld. 0.0 normally. */
+  unbacked_cash_flow?: number
   cash: Record<string, number>
   positions: Array<{ symbol: string; quantity: number; market_price: number | null; market_value: number | null }>
 }
@@ -550,6 +562,21 @@ export type ReplayCashAnchor = {
   window_start?: string | null
   residual?: number | null
   trust: 'verified' | 'degraded' | 'unavailable'
+}
+
+/** US-33.2 (Epic 33 F-1/F-2): a reconstructed quantity the replay refused to
+ *  publish. The roll-back `opening = ending + Σ SELL − Σ BUY` presumes one share
+ *  unit across the window; a split breaks it and yields a position size the
+ *  broker never held. Evidence is the symbol's own execution prices spanning a
+ *  ratio no market move explains, measured within a single currency. */
+export type ReplayQuantityWithholding = {
+  symbol: string
+  reason: 'share_unit_discontinuity'
+  currency: string
+  price_low: number
+  price_high: number
+  price_ratio: number
+  withheld_opening_quantity: number
 }
 
 export type ScenarioPreview = {

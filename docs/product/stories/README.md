@@ -18,6 +18,19 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
+### Epic 33 — Corporate Actions & Replay Quantity Integrity (active)
+
+PRD: [`prd/epic-33-corporate-actions-replay-integrity.md`](../prd/epic-33-corporate-actions-replay-integrity.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| US-33.1 | Findings-first audit of corporate-action handling in the replay | Audit-only, recorded in the PRD: F-1 the roll-back sums quantities across a share split (LQQ ~200:1, 218× price range in its own ledger → phantom 199-unit opening); F-2 US-24.10's trade-price anchor values those phantom units at the stale pre-split €1,457.78 = $336,543, inflating MV ~8× for three months and volatility to 737.84%; F-3 the valuation-tier exclusivity claim is false per-symbol. Includes the examined-and-correct list — the new tickers were tested and eliminated | Done |
+| [US-33.2](US-33.2-fail-closed-split-inconsistent-quantities.md) | Fail closed on split-inconsistent reconstructed quantities | Detect the share-unit discontinuity, withhold and disclose rather than value a phantom position; add the trade-price anchor's discontinuity guard, and withhold the return on days its cash moves with no position behind it | Done |
+| [US-33.3](US-33.3-correct-valuation-tier-exclusivity-claim.md) | Correct the valuation-tier exclusivity claim | F-3: the tiers are exclusive per (symbol, **day**), not per symbol — the disclosure lists are unions over the window, so a holding that predates its own first trade is legitimately in two. Corrects US-24.10's AC5 + 5 doc/comment sites and adds the counter-example test the original claim never had | Done |
+| [US-33.4](US-33.4-adopt-2026-08-11-statement.md) | Adopt the 2026-08-11 statement as the golden fixture | Re-measures the replay pins against the fixed engine, re-homes 5 structural tests that were wrongly pinning statement truths, derives the importer/refresh anchors instead of pasting CSV rows, corrects a settled-cash over-assertion, and regenerates the goldens. Found and fixed the unbacked-cash fabrication via US-24.9's tripwire | Done |
+
+---
+
 ### Epic 32 — Project Hygiene & Agent-Facing Doc Accuracy (active)
 
 PRD: [`prd/epic-32-project-hygiene-and-agent-docs.md`](../prd/epic-32-project-hygiene-and-agent-docs.md)

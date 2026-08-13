@@ -19,7 +19,11 @@
  * engine; this component formats and explains, it never computes.
  */
 import { CardShell } from '../../app/primitives/CardShell'
-import type { DashboardHistoryRunMetadata, ReplayCashAnchor } from './types'
+import type {
+  DashboardHistoryRunMetadata,
+  ReplayCashAnchor,
+  ReplayQuantityWithholding,
+} from './types'
 
 const CASH_ANCHOR_BASIS_LABEL: Record<ReplayCashAnchor['basis'], string> = {
   statement_nav_at_window_start: "the statement's starting NAV, dated at the replay window start",
@@ -58,6 +62,34 @@ function CashAnchorNote({ anchor }: { anchor: ReplayCashAnchor }) {
   )
 }
 
+function QuantityWithholdingNote({ withholdings }: { withholdings: ReplayQuantityWithholding[] }) {
+  // US-33.2: the strongest disclosure on this card — the position is absent
+  // from the replay entirely, so say what was dropped and on what evidence.
+  // The evidence is the point: without the price range and ratio the researcher
+  // cannot judge the call, and a withholding they cannot judge reads as a bug.
+  return (
+    <p className="helper" style={{ margin: 'var(--space-md) 0 0 0' }}>
+      Quantities withheld for{' '}
+      {withholdings
+        .map(
+          (item) =>
+            `${item.symbol} (traded between ${item.price_low.toLocaleString('en-US', {
+              maximumFractionDigits: 3,
+            })} and ${item.price_high.toLocaleString('en-US', {
+              maximumFractionDigits: 2,
+            })} ${item.currency} — a ${item.price_ratio.toLocaleString('en-US', {
+              maximumFractionDigits: 1,
+            })}× range)`,
+        )
+        .join('; ')}
+      . A price range that wide means the broker's own quantities are denominated in more than one
+      share unit — a split — so the reconstructed opening position cannot be trusted. It is left out
+      of the replayed market value entirely rather than valued at a size that was never held. Cash
+      movements from those trades are unaffected.
+    </p>
+  )
+}
+
 export type ReplayDisclosuresCardProps = {
   runMetadata?: DashboardHistoryRunMetadata | null
 }
@@ -69,6 +101,7 @@ export function ReplayDisclosuresCard({ runMetadata }: ReplayDisclosuresCardProp
   const unpriced = runMetadata.unpriced_replay_symbols ?? []
   const tradeAnchored = runMetadata.trade_price_anchored_symbols ?? []
   const withheldDates = runMetadata.withheld_return_dates ?? []
+  const quantityWithheld = runMetadata.quantity_withheld_symbols ?? []
   const anchor = runMetadata.replay_cash_anchor ?? null
   const anchorIsDegraded = anchor != null && anchor.trust !== 'verified'
 
@@ -77,6 +110,7 @@ export function ReplayDisclosuresCard({ runMetadata }: ReplayDisclosuresCardProp
     unpriced.length > 0 ||
     tradeAnchored.length > 0 ||
     withheldDates.length > 0 ||
+    quantityWithheld.length > 0 ||
     anchorIsDegraded
 
   // A clean run renders nothing at all: an empty card, or worse an "all good"
@@ -88,6 +122,11 @@ export function ReplayDisclosuresCard({ runMetadata }: ReplayDisclosuresCardProp
       <p className="helper" style={{ margin: 0 }}>
         These affect the imported replay behind the performance surfaces on this tab.
       </p>
+
+      {/* US-33.2 first: a withheld POSITION outranks a degraded valuation. */}
+      {quantityWithheld.length > 0 ? (
+        <QuantityWithholdingNote withholdings={quantityWithheld} />
+      ) : null}
 
       {anchorIsDegraded && anchor ? <CashAnchorNote anchor={anchor} /> : null}
 

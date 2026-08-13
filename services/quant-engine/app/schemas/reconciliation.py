@@ -576,13 +576,24 @@ class DailyPortfolioState(BaseModel):
     # material adjustment has its return WITHHELD rather than published
     # (guardrail #3). None on every state that was not reconciled.
     reconciliation_adjustment: float | None = None
+    # US-33.2 (Epic 33 F-1/F-2): base-currency cash moved on this day by trades
+    # in a symbol whose reconstructed QUANTITY was withheld. That cash is real
+    # broker truth, but the position it bought or sold is not in market value at
+    # all — so `total_portfolio_value` steps with no offsetting position, and a
+    # cash-inclusive return chain would publish the step as performance. Exactly
+    # the US-24.9 fabrication class, re-opened by withholding, so the day's
+    # return is WITHHELD rather than computed. 0.0 on a day with no such trades.
+    unbacked_cash_flow: float = 0.0
 
     @property
     def return_is_publishable(self) -> bool:
-        """US-31.3 (Epic 31 F-3): may a return be published for this day?
+        """US-31.3 (Epic 31 F-3) + US-33.2: may a return be published for this day?
 
-        False when the state carries a material reconciliation adjustment — the
-        move is an accounting correction, not performance, so every return
+        False when the state carries a material reconciliation adjustment (an
+        accounting correction, not performance) or a material unbacked cash flow
+        (cash moved by a withheld-quantity symbol, whose position is in no market
+        value — so the portfolio value steps with nothing behind it). In both
+        cases the state cannot be interpreted as a market move, so every return
         builder must withhold (null) rather than compute. Defined here, on the
         state itself, so the three consumers (`performance.py`, `risk.py`,
         `attribution.py`) cannot drift apart — the US-31.2 "one shared chain"
@@ -591,4 +602,6 @@ class DailyPortfolioState(BaseModel):
         from app.core.constants import REPLAY_RECONCILIATION_TOLERANCE
 
         adjustment = self.reconciliation_adjustment
-        return adjustment is None or abs(adjustment) <= REPLAY_RECONCILIATION_TOLERANCE
+        if adjustment is not None and abs(adjustment) > REPLAY_RECONCILIATION_TOLERANCE:
+            return False
+        return abs(self.unbacked_cash_flow) <= REPLAY_RECONCILIATION_TOLERANCE
