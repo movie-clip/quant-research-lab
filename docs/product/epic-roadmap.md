@@ -4,7 +4,51 @@
 
 ---
 
-## Active Epic: Epic 33 — Corporate Actions & Replay Quantity Integrity
+## Active Epic: Epic 34 — An Answerable Dashboard: Reachable Trust States
+
+**PRD:** [`docs/product/prd/epic-34-answerable-dashboard-and-reachable-trust.md`](product/prd/epic-34-answerable-dashboard-and-reachable-trust.md)
+
+Created 2026-08-13 from reading the shipped product end to end after Epic 33
+closed. The guardrails work; the result is a product that is **correct and
+silent**. On the Dashboard — the tab whose job is portfolio performance —
+time-weighted return, benchmark return, excess return and max drawdown are
+**`null` in all five ranges, on every run**. One number survives (money-weighted
+return, 5.30%), while the statement's own TWR of **4.765666%** sits imported and
+the engine computes 14.18% annualised volatility internally.
+
+Two causes, both structural rather than data-quality:
+`return_basis_contract.portfolio_path` is a **hardcoded literal**
+(`dashboard_history_engine.py:165`), and the proof-admission gate that could
+override it carries five hard disqualifiers that are **properties of replaying a
+broker statement** — inferred opening holdings and quantities, the terminal
+reconciliation, forward-filled prices, mixed-basis valuation — and so can never
+clear. The gate certifies a GIPS-style verified total return; failing it is
+treated as "no answer available" rather than "a weaker answer, labelled".
+
+Two of the four on-screen disclosures are likewise unclearable: the cash anchor
+can never be `verified` (statement-period start vs replay window start), and the
+terminal day's return is always withheld. A warning that cannot turn off trains
+the researcher to ignore the ones that matter.
+
+**Fail-closed is right when a number would be fabricated. It is wrong when it
+withholds a number the product already computed correctly.**
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-34.1 | Findings-first audit of the withheld Dashboard surface | Done |
+| US-34.2 | Publish the replay's TWR under an explicit `replay_derived` trust state | Next phase |
+| US-34.3 | Make the cash anchor reachable | Next phase |
+| US-34.4 | Disclose what a withheld holding was worth, and stop withholding immaterial days | Next phase |
+| US-34.5 | Publish the benchmark return on a stated basis | Next phase |
+
+Recommended order: US-34.2 first (the finding the researcher feels), then
+US-34.3 (which also resolves most of F-5), US-34.4, US-34.5.
+
+---
+
+## Epic 33 — Corporate Actions & Replay Quantity Integrity (complete)
 
 **PRD:** [`docs/product/prd/epic-33-corporate-actions-replay-integrity.md`](product/prd/epic-33-corporate-actions-replay-integrity.md)
 
