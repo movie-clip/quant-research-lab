@@ -2,7 +2,23 @@ from app.engine.portfolio_state import PortfolioStateEngine
 from app.analytics.risk import selected_history_price_map
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.reconciliation import DailyPortfolioState, EnrichedPosition, PerformancePoint, PerformanceSummary
+from typing import Literal
+
 from app.services.market_data import HistoryReturnBasisContract, classify_history_return_basis_contract
+
+# US-34.2 (Epic 34 F-1): the portfolio path accepts one rung the benchmark path
+# does not. `replay_derived` is a real measurement chained from the imported
+# replay's own daily states — reconstructed inputs, so below
+# `verified_total_return` and never a substitute for it. A benchmark is priced
+# from market data and can never be replayed, which is why this widening is
+# deliberately one-sided.
+PortfolioReturnBasisContract = HistoryReturnBasisContract | Literal["replay_derived"]
+
+# The bases on which a cumulative portfolio return chain may be PUBLISHED. Any
+# other basis yields a fully null series rather than a fabricated one.
+_PUBLISHING_PORTFOLIO_BASES: frozenset[str] = frozenset(
+    {"verified_total_return", "replay_derived"}
+)
 
 
 def _coerce_float(value: object) -> float | None:
@@ -211,11 +227,44 @@ def replay_disclosures(states: list[DailyPortfolioState]) -> tuple[list[str], st
     return withheld, "Return withheld: " + "; ".join(causes) + "."
 
 
+def withheld_return_impact_pct(states: list[DailyPortfolioState]) -> float | None:
+    """US-34.2: percentage points the withheld days remove from the published return.
+
+    The difference between the chain that skips unpublishable days (what the
+    Dashboard shows) and the same chain including them. An impact estimate for
+    disclosure — NOT a return, and never published as one: the withheld days'
+    states carry an accounting adjustment or unbacked cash, which is exactly why
+    their returns cannot be performance. Their size, however, is what tells the
+    researcher how incomplete the published figure is.
+
+    `None` when nothing was withheld, so an absent impact is never reported as a
+    measured zero.
+    """
+    if not any(not state.return_is_publishable for state in states):
+        return None
+
+    def _chain(*, honour_withholding: bool) -> float:
+        growth = 1.0
+        for previous, current in zip(states, states[1:]):
+            if previous.total_portfolio_value == 0:
+                continue
+            if honour_withholding and not current.return_is_publishable:
+                continue
+            growth *= 1 + (
+                (current.total_portfolio_value - current.external_cash_flow)
+                / previous.total_portfolio_value
+                - 1
+            )
+        return (growth - 1) * 100
+
+    return round(_chain(honour_withholding=False) - _chain(honour_withholding=True), 2)
+
+
 def build_true_performance_series(
     daily_states: list[DailyPortfolioState],
     benchmark_rows: list[dict],
     *,
-    portfolio_return_basis_contract: HistoryReturnBasisContract = "verified_total_return",
+    portfolio_return_basis_contract: PortfolioReturnBasisContract = "verified_total_return",
     benchmark_return_basis_contract: HistoryReturnBasisContract | None = None,
 ) -> list[PerformancePoint]:
     if not daily_states or not benchmark_rows:
@@ -242,7 +291,11 @@ def build_true_performance_series(
         # resumes on the next computable day). Only the verified series'
         # first point is a genuine 0.0 (the cumulative anchor).
         portfolio_return_pct: float | None = None
-        if portfolio_return_basis_contract == "verified_total_return":
+        # US-34.2: `replay_derived` chains identically — same daily return, same
+        # withholding. The basis records where the inputs came from; it does not
+        # change the arithmetic, and it must not silently widen to a basis that
+        # has no claim to a return at all.
+        if portfolio_return_basis_contract in _PUBLISHING_PORTFOLIO_BASES:
             if previous_state is None:
                 portfolio_return_pct = 0.0
             else:

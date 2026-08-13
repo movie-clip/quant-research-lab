@@ -38,13 +38,44 @@ withholds a number the product already computed correctly.**
 | Story | Title | Status |
 |---|---|---|
 | US-34.1 | Findings-first audit of the withheld Dashboard surface | Done |
-| US-34.2 | Publish the replay's TWR under an explicit `replay_derived` trust state | Next phase |
+| US-34.2 | Publish the replay's TWR under an explicit `replay_derived` trust state | Done |
 | US-34.3 | Make the cash anchor reachable | Next phase |
 | US-34.4 | Disclose what a withheld holding was worth, and stop withholding immaterial days | Next phase |
 | US-34.5 | Publish the benchmark return on a stated basis | Next phase |
+| US-34.6 | Stop the money-weighted return from carrying the reconciliation adjustment | Next phase |
+| US-34.7 | Decide the drawdown's price basis | Next phase |
 
-Recommended order: US-34.2 first (the finding the researcher feels), then
-US-34.3 (which also resolves most of F-5), US-34.4, US-34.5.
+Recommended order: US-34.2 (done), then US-34.6 (the other half of what US-34.2
+exposed), US-34.3 (which also resolves most of F-5), US-34.4, US-34.5, US-34.7.
+
+### Slice log
+
+- **US-34.2 (2026-08-13)** — **the Dashboard answers again.** Every range now
+  publishes a time-weighted return on a new `replay_derived` rung: 1M **4.28%**,
+  3M **3.57%**, YTD/1Y/All **2.43%**, each marked beside the number so it cannot
+  read as a verified total return. `return_basis_contract.portfolio_path` is
+  classified from the run instead of being a hardcoded `"unavailable"` literal —
+  which had also suppressed the entire 148-point cumulative series, since the
+  chain is only computed on a publishing basis. **The strict proof admission is
+  untouched and still refuses**: `investor_economics_status` stays `withheld`,
+  `verified_total_return_emitted` stays `False`, and `max_drawdown_pct`,
+  `benchmark_return_pct` and `excess_return_pct` stay `null` — pinned by a test,
+  so the rung can never be confused with the thing above it.
+  **A return with gaps states what the gaps cost:** the published 2.43%
+  understates the all-days chain of 4.23% by **1.80pp**, and the card says so.
+  **Publishing exposed three defects that `null` had hidden:** every window
+  reported the same figure (the cumulative series was sliced, not re-based);
+  windowed ranges were anchored at the *series start* because
+  `_slice_performance_series` took the first qualifying prior state rather than
+  the last one before the window; and the money-weighted return carries the
+  reconciliation adjustment that the time-weighted return withholds (FF2026:
+  0.12% vs 3.75%, the whole gap being one day — logged as **F-7 / US-34.6**).
+  **Scope narrowed mid-flight:** the drawdown was pulled out of this story
+  (US-34.7) — its gate's two unread parameters say the real question is whether
+  price inputs are *adjusted*, which is a methodology question this story did
+  not research. Goldens regenerated and characterised: every valuation family
+  byte-identical, only the return/publication families moved. 699 backend
+  (+6) + 318 frontend (+5) green; tsc + dead-code gate clean.
 
 ---
 

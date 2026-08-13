@@ -1158,7 +1158,7 @@ def test_imported_dashboard_history_engine_route_accepts_imported_snapshot_paylo
         "monthly_returns_path": "imported_replay",
     }
     assert payload["run_metadata"]["return_basis_contract"] == {
-        "portfolio_path": "unavailable",
+        "portfolio_path": "replay_derived",
         "benchmark_path": "price_return_only",
     }
     assert payload["run_metadata"]["return_basis_evidence"] == {

@@ -1,7 +1,7 @@
 from typing import TypedDict, cast
 
 from app.core.constants import DEFAULT_BENCHMARK_SYMBOL
-from app.analytics.performance import build_replay_currency_context, build_replay_states_with_cash_anchor, build_true_performance_series, replay_disclosures
+from app.analytics.performance import build_replay_currency_context, build_replay_states_with_cash_anchor, build_true_performance_series, replay_disclosures, withheld_return_impact_pct
 from app.engine.portfolio_state import replay_symbol_universe
 from app.analytics.risk import (
     _build_drawdown_from_return_index,
@@ -159,10 +159,39 @@ def _build_dashboard_section_trust(
     )
 
 
-def _build_dashboard_return_basis_contract(benchmark_rows: list[dict]) -> DashboardHistoryRunMetadata.ReturnBasisContract:
+def _classify_portfolio_return_basis(
+    *,
+    daily_states: list,
+    admitted_exact_slice: bool,
+) -> str:
+    """US-34.2 (Epic 34 F-1): the portfolio return basis, as a function of the run.
+
+    This was a hardcoded `"unavailable"` literal, which no input could change —
+    and because `build_true_performance_series` only chains a return on a
+    publishing basis, that literal suppressed the ENTIRE cumulative series and
+    every headline scalar on the Dashboard, on every run.
+
+    The ladder, strongest first:
+      - `verified_total_return` — the proof admission granted an exact slice.
+        Unreachable on the imported path today, and deliberately so: five of its
+        hard disqualifiers are structural properties of replaying a statement.
+      - `replay_derived`        — the replay produced daily states. A real
+        measurement on reconstructed inputs.
+      - `unavailable`           — no states, so no claimable return.
+    """
+    if admitted_exact_slice:
+        return "verified_total_return"
+    return "replay_derived" if daily_states else "unavailable"
+
+
+def _build_dashboard_return_basis_contract(
+    benchmark_rows: list[dict],
+    *,
+    portfolio_path: str = "unavailable",
+) -> DashboardHistoryRunMetadata.ReturnBasisContract:
     benchmark_contract = classify_history_return_basis_contract(benchmark_rows)
     return DashboardHistoryRunMetadata.ReturnBasisContract(
-        portfolio_path="unavailable",
+        portfolio_path=portfolio_path,
         benchmark_path=benchmark_contract,
     )
 
@@ -212,6 +241,15 @@ def _allow_dashboard_drawdown_outputs(
 ) -> bool:
     # Dashboard investor-economics policy stays narrower than the underlying proof
     # system: drawdown and other path-derived outputs remain withheld for now.
+    #
+    # US-34.2 deliberately did NOT open this gate alongside the return. The two
+    # parameters — never read by this stub — say what the intent was: allow the
+    # drawdown when the PRICE INPUTS are on an adjusted basis, not when the
+    # replay is publishable. A drawdown chained from unadjusted closes is a
+    # PRICE drawdown, which overstates the loss on dividend-paying holdings, and
+    # that is a methodology question this story did not research. It is
+    # Epic 34's own follow-up (see the PRD story list), not a line to flip while
+    # publishing the return.
     return False
 
 
@@ -500,12 +538,6 @@ def run_imported_dashboard_history(
         history_start_date=history_start_date,
         history_end_date=history_end_date,
     )
-    return_basis_contract = _build_dashboard_return_basis_contract(benchmark_rows)
-    if verified_benchmark_scope is not None:
-        return_basis_contract = DashboardHistoryRunMetadata.ReturnBasisContract(
-            portfolio_path=return_basis_contract.portfolio_path,
-            benchmark_path="verified_total_return",
-        )
     portfolio_proof = _build_dashboard_portfolio_proof_metadata(
         snapshot=snapshot,
         symbol_price_histories=symbol_price_histories,
@@ -513,12 +545,24 @@ def run_imported_dashboard_history(
         history_available=True,
     )
     admitted_portfolio_twr_scope = _admitted_exact_slice_scope(portfolio_proof)
+    # US-34.2: the proof is built FIRST so the basis can be classified from it.
+    # Previously the contract was constructed with a literal and then patched.
+    return_basis_contract = _build_dashboard_return_basis_contract(
+        benchmark_rows,
+        portfolio_path=_classify_portfolio_return_basis(
+            daily_states=daily_states,
+            admitted_exact_slice=admitted_portfolio_twr_scope is not None,
+        ),
+    )
+    if verified_benchmark_scope is not None:
+        return_basis_contract = DashboardHistoryRunMetadata.ReturnBasisContract(
+            portfolio_path=return_basis_contract.portfolio_path,
+            benchmark_path="verified_total_return",
+        )
     raw_performance_series = build_true_performance_series(
         daily_states,
         benchmark_rows,
-        portfolio_return_basis_contract=(
-            "verified_total_return" if admitted_portfolio_twr_scope is not None else return_basis_contract.portfolio_path
-        ),
+        portfolio_return_basis_contract=return_basis_contract.portfolio_path,
         benchmark_return_basis_contract=return_basis_contract.benchmark_path,
     )
     if not _has_replay_outputs(daily_states, raw_performance_series):
@@ -596,6 +640,7 @@ def run_imported_dashboard_history(
             ),
             withheld_return_dates=withheld_return_dates,
             withheld_return_reason=withheld_return_reason,
+            withheld_return_impact_pct=withheld_return_impact_pct(daily_states),
             reproducibility=DashboardHistoryRunReproducibility(
                 input_imported_at=snapshot.statement.imported_at.isoformat() if snapshot.statement.imported_at is not None else None,
                 snapshot_as_of_date=_derive_snapshot_as_of_date(snapshot),
@@ -617,6 +662,7 @@ def run_imported_dashboard_history(
             allow_drawdown_outputs=allow_drawdown_outputs,
             admitted_portfolio_twr_scope=admitted_portfolio_twr_scope,
             benchmark_return_basis_contract=return_basis_contract.benchmark_path,
+            portfolio_return_basis=return_basis_contract.portfolio_path,
         ),
     )
 
@@ -701,6 +747,7 @@ def _build_range_metrics(
     allow_drawdown_outputs: bool,
     admitted_portfolio_twr_scope: tuple[str, str, int] | None,
     benchmark_return_basis_contract: str = "unavailable",
+    portfolio_return_basis: str = "unavailable",
 ) -> dict[str, DashboardRangeMetrics]:
     if not performance_series:
         return {
@@ -718,6 +765,7 @@ def _build_range_metrics(
                 max_drawdown_pct=None,
                 monthly_returns=[],
                 monthly_returns_reliable=False,
+                portfolio_return_trust="unavailable",
             )
             for range_name in RANGE_WINDOWS
         }
@@ -729,11 +777,17 @@ def _build_range_metrics(
         visible_dates = {point.date for point in perf}
         states = [state for state in daily_states if state.date in visible_dates]
         monthly_returns = _compute_contribution_adjusted_monthly_returns(states)
-        allow_portfolio_twr_outputs = _slice_matches_admitted_scope(
+        # US-34.2: the admitted exact slice is the VERIFIED route; a
+        # `replay_derived` basis publishes the same number one rung lower. The
+        # two are tracked separately so the trust reported below can tell them
+        # apart — publishing a degraded return as verified is the failure this
+        # story exists to avoid.
+        verified_twr_slice = _slice_matches_admitted_scope(
             perf,
             admitted_portfolio_twr_scope,
             source_performance_series=performance_series,
         )
+        allow_portfolio_twr_outputs = verified_twr_slice or portfolio_return_basis == "replay_derived"
         allow_exact_slice_benchmark_return_output = _allow_exact_slice_benchmark_return_output(
             performance_points=perf,
             admitted_portfolio_twr_scope=admitted_portfolio_twr_scope,
@@ -752,6 +806,13 @@ def _build_range_metrics(
                 max_drawdown_pct=_compute_max_drawdown(states) if allow_drawdown_outputs else None,
             monthly_returns=[DashboardMonthlyReturn(month=item["month"], return_pct=item["return_pct"]) for item in monthly_returns],
             monthly_returns_reliable=_monthly_returns_are_reliable(monthly_returns, states),
+            portfolio_return_trust=(
+                "verified"
+                if verified_twr_slice
+                else "degraded"
+                if allow_portfolio_twr_outputs
+                else "unavailable"
+            ),
         )
     return metrics
 
@@ -766,7 +827,20 @@ def _slice_performance_series(performance_series, daily_states, range_name: str,
 
     sliced = performance_series[-window:]
     first_date = sliced[0].date
-    prior_state = next((state for state in daily_states if state.date < first_date and state.total_portfolio_value > 0), None)
+    # US-34.2: the LATEST state before the window, not the earliest. `next()` over
+    # the ascending list returned the first qualifying state in the whole series,
+    # so every windowed range was anchored at the series start (2026-01-08) —
+    # the 1M slice plotted a 21-day tail against a seven-month-old anchor, and
+    # re-basing a range return against it gave since-inception for every window.
+    # Invisible until US-34.2 published the numbers.
+    prior_state = next(
+        (
+            state
+            for state in reversed(daily_states)
+            if state.date < first_date and state.total_portfolio_value > 0
+        ),
+        None,
+    )
     if prior_state is None:
         return sliced
 
@@ -799,6 +873,50 @@ def _compute_money_weighted_return(states) -> float | None:
     return ((end_value - start_value - total_flows) / denominator) * 100
 
 
+def _last_published_return_pct(performance_points) -> float | None:
+    """The most recent non-null cumulative return in a slice (US-34.2)."""
+    for point in reversed(performance_points):
+        if point.portfolio_return_pct is not None:
+            return point.portfolio_return_pct
+    return None
+
+
+def _range_time_weighted_return_pct(anchored_perf, source_performance_series) -> float | None:
+    """A range's TWR, re-based to the range's own starting point (US-34.2).
+
+    `portfolio_return_pct` on each point is CUMULATIVE FROM THE SERIES START —
+    one chain, computed once. Slicing it therefore does not produce a window
+    return: reading the slice's last point gives since-inception for every
+    window, so 1M, 3M, YTD, 1Y and All all reported the same number. (The defect
+    was invisible while every range was null.)
+
+    Re-basing divides the two cumulative growth factors:
+
+        r_range = (1 + c_end) / (1 + c_start) - 1
+
+    where `c_start` is the cumulative return AT the range's first plotted point,
+    so the figure covers exactly the segment the chart draws. Windowed slices
+    carry a synthetic anchor at the prior state's date; using `<=` bases on that
+    same date, which is why the anchor's own copied return is never the base.
+    """
+    end_pct = _last_published_return_pct(anchored_perf)
+    if end_pct is None or not anchored_perf:
+        return end_pct
+    start_pct = 0.0
+    if source_performance_series:
+        range_start = anchored_perf[0].date
+        prior = [
+            point.portfolio_return_pct
+            for point in source_performance_series
+            if point.date <= range_start and point.portfolio_return_pct is not None
+        ]
+        if prior:
+            start_pct = prior[-1]
+    if start_pct == -100.0:
+        return None
+    return round((((1 + end_pct / 100) / (1 + start_pct / 100)) - 1) * 100, 2)
+
+
 def _compute_visible_summary(
     daily_states,
     performance_series,
@@ -828,7 +946,17 @@ def _compute_visible_summary(
     end_value = daily_states[-1].total_portfolio_value
     net_contributions = sum(state.external_cash_flow for state in anchored_states[1:]) if anchored_states else 0.0
     investment_gain = (end_value - start_value - net_contributions) if start_value is not None else None
-    time_weighted_return_pct = anchored_perf[-1].portfolio_return_pct if anchored_perf and allow_portfolio_twr_outputs else None
+    # US-34.2: the LAST point is not necessarily a published one — the terminal
+    # day's return is withheld whenever the state was reconciled (US-31.3), and
+    # US-33.2 withholds any day a withheld-quantity holding traded. Reading
+    # `[-1]` blindly reported None for the whole range even once the chain was
+    # computed. The cumulative return as of the last day we can claim one is the
+    # honest figure; the withheld days are already disclosed by name.
+    time_weighted_return_pct = (
+        _range_time_weighted_return_pct(anchored_perf, source_performance_series)
+        if allow_portfolio_twr_outputs
+        else None
+    )
     benchmark_return_pct = (
         anchored_perf[-1].benchmark_return_pct
         if anchored_perf and allow_exact_slice_benchmark_return_output

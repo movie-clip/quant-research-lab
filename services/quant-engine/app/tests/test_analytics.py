@@ -138,7 +138,17 @@ def _compute_dashboard_visible_summary(
     start_value = anchored_states[0].total_portfolio_value if anchored_states else None
     end_value = daily_states[-1].total_portfolio_value
     net_contributions = round(sum(state.external_cash_flow for state in anchored_states[1:]), 2) if anchored_states else 0.0
-    time_weighted_return_pct = anchored_perf[-1].portfolio_return_pct if anchored_perf and allow_compounded_return_outputs else None
+    # US-34.2: the LAST point is not necessarily a published one — the terminal
+    # day's return is withheld whenever the state was reconciled (US-31.3), and
+    # US-33.2 withholds any day a withheld-quantity holding traded. This helper
+    # is an INDEPENDENT re-implementation of the production summary, so it has
+    # to make the same correction, or it checks a different thing.
+    published = [
+        point.portfolio_return_pct
+        for point in anchored_perf
+        if point.portfolio_return_pct is not None
+    ]
+    time_weighted_return_pct = published[-1] if published and allow_compounded_return_outputs else None
 
     money_weighted_return_pct = None
     if anchored_states and len(anchored_states) >= 2:
@@ -2284,7 +2294,7 @@ def test_run_imported_dashboard_history_uses_imported_snapshot_ledger_and_return
         "monthly_returns_path": "imported_replay",
     }
     assert result.run_metadata.return_basis_contract.model_dump() == {
-        "portfolio_path": "unavailable",
+        "portfolio_path": "replay_derived",
         "benchmark_path": "price_return_only",
     }
     assert result.run_metadata.return_basis_evidence.model_dump() == {
@@ -2747,7 +2757,10 @@ def test_run_imported_dashboard_history_uses_imported_snapshot_ledger_and_return
     assert len(result.daily_states) == 2
     assert len(result.performance_series) == 2
     assert result.range_metrics is not None
-    assert result.range_metrics["All"].summary.time_weighted_return_pct is None
+    # US-34.2: published on the `replay_derived` rung. The benchmark-derived
+    # outputs below stay withheld, which is what this test guards.
+    assert result.range_metrics["All"].summary.time_weighted_return_pct is not None
+    assert result.range_metrics["All"].portfolio_return_trust == "degraded"
     assert result.range_metrics["All"].summary.end_value == result.daily_states[-1].total_portfolio_value
     assert result.range_metrics["All"].summary.benchmark_return_pct is None
     assert result.range_metrics["All"].summary.excess_return_pct is None
@@ -2807,7 +2820,7 @@ def test_run_imported_dashboard_history_enables_verified_benchmark_only_for_dire
     service.get_direct_verified_benchmark_history.assert_called_once_with("SPY", "2026-04-10", "2026-04-11")
     service.get_historical_prices.assert_not_called()
     assert result.run_metadata.return_basis_contract.model_dump() == {
-        "portfolio_path": "unavailable",
+        "portfolio_path": "replay_derived",
         "benchmark_path": "verified_total_return",
     }
     assert result.run_metadata.return_basis_evidence.benchmark_path.model_dump() == {
@@ -2897,7 +2910,7 @@ def test_run_imported_dashboard_history_keeps_adjusted_spy_unverified_when_direc
     result = run_imported_dashboard_history(snapshot, "SPY")
 
     assert result.run_metadata.return_basis_contract.model_dump() == {
-        "portfolio_path": "unavailable",
+        "portfolio_path": "replay_derived",
         "benchmark_path": "unverified_adjusted_proxy",
     }
     assert result.run_metadata.return_basis_evidence.benchmark_path.verification_status == "proxy"
@@ -2958,7 +2971,7 @@ def test_run_imported_dashboard_history_enables_verified_benchmark_for_direct_qq
     service.get_direct_verified_benchmark_history.assert_called_once_with("QQQ", "2026-04-10", "2026-04-11")
     service.get_historical_prices.assert_not_called()
     assert result.run_metadata.return_basis_contract.model_dump() == {
-        "portfolio_path": "unavailable",
+        "portfolio_path": "replay_derived",
         "benchmark_path": "verified_total_return",
     }
     assert result.run_metadata.return_basis_evidence.benchmark_path.model_dump() == {
@@ -3041,7 +3054,7 @@ def test_run_imported_dashboard_history_keeps_qqq_unverified_when_direct_scope_e
     result = run_imported_dashboard_history(snapshot, "QQQ")
 
     assert result.run_metadata.return_basis_contract.model_dump() == {
-        "portfolio_path": "unavailable",
+        "portfolio_path": "replay_derived",
         "benchmark_path": "unverified_adjusted_proxy",
     }
     assert result.run_metadata.return_basis_evidence.benchmark_path.verification_status == "proxy"
@@ -3098,7 +3111,7 @@ def test_run_imported_dashboard_history_keeps_qqq_unverified_when_in_window_adjc
     result = run_imported_dashboard_history(snapshot, "QQQ")
 
     assert result.run_metadata.return_basis_contract.model_dump() == {
-        "portfolio_path": "unavailable",
+        "portfolio_path": "replay_derived",
         "benchmark_path": "price_return_only",
     }
     assert result.run_metadata.return_basis_evidence.benchmark_path.verification_status == "unverified"
@@ -3157,7 +3170,7 @@ def test_run_imported_dashboard_history_keeps_non_allowlisted_benchmark_unverifi
     service.get_direct_verified_benchmark_history.assert_not_called()
     service.get_historical_prices.assert_called_once_with("VOO", "2026-04-10", "2026-04-11")
     assert result.run_metadata.return_basis_contract.model_dump() == {
-        "portfolio_path": "unavailable",
+        "portfolio_path": "replay_derived",
         "benchmark_path": "unverified_adjusted_proxy",
     }
     assert result.run_metadata.return_basis_evidence.benchmark_path.scope == {}
@@ -3336,7 +3349,13 @@ def test_run_imported_dashboard_history_refuses_drawdown_loss_metrics_for_price_
 
     assert result.range_metrics is not None
     assert result.range_metrics["All"].max_drawdown_pct is None
-    assert result.range_metrics["All"].summary.time_weighted_return_pct is None
+    # US-34.2: the portfolio's own TWR is now published on the `replay_derived`
+    # rung — it does not depend on the BENCHMARK's basis, which is what this
+    # test is about. The three assertions that do depend on it are unchanged,
+    # and they are the point: a weak benchmark basis must not yield a drawdown,
+    # a benchmark return, or an excess return.
+    assert result.range_metrics["All"].summary.time_weighted_return_pct is not None
+    assert result.range_metrics["All"].portfolio_return_trust == "degraded"
     assert result.range_metrics["All"].summary.benchmark_return_pct is None
     assert result.range_metrics["All"].summary.excess_return_pct is None
 
@@ -3376,7 +3395,7 @@ def test_run_imported_dashboard_history_refuses_drawdown_loss_metrics_for_unveri
     result = run_imported_dashboard_history(snapshot, "SPY")
 
     assert result.run_metadata.return_basis_contract.model_dump() == {
-        "portfolio_path": "unavailable",
+        "portfolio_path": "replay_derived",
         "benchmark_path": "unverified_adjusted_proxy",
     }
     assert result.run_metadata.return_basis_evidence.benchmark_path.model_dump() == {
@@ -3394,7 +3413,13 @@ def test_run_imported_dashboard_history_refuses_drawdown_loss_metrics_for_unveri
     }
     assert result.range_metrics is not None
     assert result.range_metrics["All"].max_drawdown_pct is None
-    assert result.range_metrics["All"].summary.time_weighted_return_pct is None
+    # US-34.2: the portfolio's own TWR is now published on the `replay_derived`
+    # rung — it does not depend on the BENCHMARK's basis, which is what this
+    # test is about. The three assertions that do depend on it are unchanged,
+    # and they are the point: a weak benchmark basis must not yield a drawdown,
+    # a benchmark return, or an excess return.
+    assert result.range_metrics["All"].summary.time_weighted_return_pct is not None
+    assert result.range_metrics["All"].portfolio_return_trust == "degraded"
     assert result.range_metrics["All"].summary.benchmark_return_pct is None
     assert result.range_metrics["All"].summary.excess_return_pct is None
 
@@ -7176,7 +7201,7 @@ def test_ff2026_dashboard_truth_values_match_imported_history_and_overview(mocke
     overview = build_portfolio_overview(snapshot)
     assert history.range_metrics is not None
     assert history.run_metadata.return_basis_contract.model_dump() == {
-        "portfolio_path": "unavailable",
+        "portfolio_path": "replay_derived",
         "benchmark_path": "price_return_only",
     }
     assert history.run_metadata.investor_economics_status.model_dump() == {
@@ -7202,14 +7227,47 @@ def test_ff2026_dashboard_truth_values_match_imported_history_and_overview(mocke
     assert visible_summary["start_value"] == expected_summary["start_value"]
     assert visible_summary["end_value"] == expected_summary["end_value"]
     assert visible_summary["net_contributions"] == expected_summary["net_contributions"]
-    assert visible_summary["time_weighted_return_pct"] == expected_summary["time_weighted_return_pct"]
+    # US-34.2: the compounded return is published on the `replay_derived` rung,
+    # so the golden's `None` is now a number — and publishing it exposed a
+    # divergence that nulls had hidden. On FF2026 the two published returns are
+    # 0.12% (time-weighted) and 3.75% (money-weighted) with ZERO flows, where
+    # they should agree.
+    #
+    # The whole gap is the reconciled terminal day. TWR withholds it (US-31.3:
+    # an accounting correction is not a market move); MWR is computed from
+    # `end_value`, which IS the reconciled value, so it silently CONTAINS the
+    # same correction. The identity below pins that decomposition exactly:
+    #
+    #     time_weighted + withheld_impact  ==  money_weighted
+    #             0.12  +           3.63   ==          3.75
+    #
+    # This asymmetry is a real finding (Epic 34 F-7), not something to average
+    # away — one of the two published returns includes an accounting entry.
+    assert visible_summary["time_weighted_return_pct"] is not None
+    impact = history.run_metadata.withheld_return_impact_pct
+    assert impact == pytest.approx(3.63, abs=0.05)
+    assert visible_summary["time_weighted_return_pct"] + impact == pytest.approx(
+        expected_summary["money_weighted_return_pct"], abs=0.05
+    )
     assert visible_summary["money_weighted_return_pct"] == expected_summary["money_weighted_return_pct"]
     assert max_drawdown == expected_summary["max_drawdown_pct"]
-    assert round(history.range_metrics["3M"].summary.start_value or 0, 2) == expected_summary["start_value"]
-    assert round(history.range_metrics["3M"].summary.end_value or 0, 2) == expected_summary["end_value"]
-    assert history.range_metrics["3M"].summary.time_weighted_return_pct == expected_summary["time_weighted_return_pct"]
-    assert round(history.range_metrics["3M"].summary.money_weighted_return_pct or 0, 2) == expected_summary["money_weighted_return_pct"]
-    assert history.range_metrics["3M"].max_drawdown_pct == expected_summary["max_drawdown_pct"]
+    # US-34.2: the golden describes the FULL period, so it is asserted against
+    # the All range. It used to be asserted against 3M as well, which only
+    # passed because every windowed range was anchored at the series start —
+    # `_slice_performance_series` took the FIRST qualifying prior state instead
+    # of the last one before the window. With the anchor fixed, 3M is a genuine
+    # three-month window and its start value is the state adjacent to it.
+    assert round(history.range_metrics["All"].summary.start_value or 0, 2) == expected_summary["start_value"]
+    assert round(history.range_metrics["All"].summary.end_value or 0, 2) == expected_summary["end_value"]
+    assert round(history.range_metrics["All"].summary.money_weighted_return_pct or 0, 2) == expected_summary["money_weighted_return_pct"]
+    assert history.range_metrics["All"].max_drawdown_pct == expected_summary["max_drawdown_pct"]
+
+    three_month = history.range_metrics["3M"]
+    assert round(three_month.summary.start_value or 0, 2) == 3026.24
+    assert round(three_month.summary.end_value or 0, 2) == expected_summary["end_value"]
+    assert three_month.summary.start_value != expected_summary["start_value"], (
+        "3M must not re-anchor to the series start — that was the pre-US-34.2 defect"
+    )
 
     assert monthly_returns == FF2026_DASHBOARD_GOLDEN["monthly_returns"]
     assert [(item.month, round(item.return_pct, 2)) for item in history.range_metrics["All"].monthly_returns] == FF2026_DASHBOARD_GOLDEN["monthly_returns"]
@@ -8176,3 +8234,111 @@ def test_no_discontinuity_discloses_no_withholding() -> None:
         "IUHC",
         "ZPRV",
     ]
+
+
+# -- US-34.2 (Epic 34 F-1): the Dashboard publishes a replay-derived return --
+
+
+def test_portfolio_return_basis_is_classified_not_hardcoded() -> None:
+    """US-34.2 AC1: `portfolio_path` is a function of the run.
+
+    It was the literal `"unavailable"` (dashboard_history_engine.py:165), which
+    no input could change — and because the return chain is only computed on a
+    publishing basis, that literal nulled the entire cumulative series and every
+    headline scalar on every run.
+    """
+    _snapshot, history = _us313_ib2026_history()
+
+    assert history.run_metadata.return_basis_contract.portfolio_path == "replay_derived"
+
+
+def test_replay_derived_basis_publishes_the_cumulative_return_series() -> None:
+    """US-34.2 AC2/AC3: the chain is computed, and withholding is unchanged.
+
+    141 of 148 points carry a return. The 7 gaps are exactly the days US-31.3
+    and US-33.2 withhold — publishing the series must not quietly resurrect
+    them.
+    """
+    _snapshot, history = _us313_ib2026_history()
+    series = history.performance_series
+
+    published = [point for point in series if point.portfolio_return_pct is not None]
+    assert len(series) == 148
+    assert len(published) == 141
+
+    gaps = {point.date for point in series if point.portfolio_return_pct is None}
+    assert gaps == set(history.run_metadata.withheld_return_dates)
+    assert "2026-08-11" in gaps  # US-31.3, the reconciled terminal day
+    assert "2026-04-17" in gaps  # US-33.2, an unbacked-cash day
+
+
+def test_every_range_publishes_its_own_time_weighted_return() -> None:
+    """US-34.2 AC4: a return per range, re-based to that range.
+
+    `portfolio_return_pct` is cumulative FROM THE SERIES START, so reading the
+    slice's last point gave since-inception for every window — 1M, 3M, YTD, 1Y
+    and All all reported 2.43%. The re-basing divides the two growth factors.
+    """
+    _snapshot, history = _us313_ib2026_history()
+    ranges = history.range_metrics or {}
+
+    twr = {name: metrics.summary.time_weighted_return_pct for name, metrics in ranges.items()}
+    assert all(value is not None for value in twr.values()), twr
+    assert twr["1M"] == pytest.approx(4.28, abs=0.05)
+    assert twr["3M"] == pytest.approx(3.57, abs=0.05)
+    assert twr["All"] == pytest.approx(2.43, abs=0.05)
+    # The windows genuinely differ — the defect above produced one number.
+    assert len({round(value, 2) for value in twr.values()}) > 1
+
+
+def test_published_return_discloses_what_the_withheld_days_cost() -> None:
+    """US-34.2 AC10: the impact is measured, not left to the researcher.
+
+    The published All-window chain is 2.43%; the same chain including the 7
+    withheld days is 4.23%. Publishing 2.43% as "the return" without stating the
+    1.80pp shortfall would mislead more than publishing nothing — the same
+    lesson as Epic 33 F-3 (disclose the magnitude of what was withheld).
+
+    It is an impact ESTIMATE, never a return: those days' states carry an
+    accounting adjustment or unbacked cash, which is why their moves are not
+    performance.
+    """
+    _snapshot, history = _us313_ib2026_history()
+
+    assert history.run_metadata.withheld_return_impact_pct == pytest.approx(1.80, abs=0.02)
+
+
+def test_max_drawdown_stays_withheld_when_the_return_is_published() -> None:
+    """US-34.2 AC7 — the rung is narrow on purpose.
+
+    Publishing the return does NOT unlock the drawdown. Its gate's two unread
+    parameters (`benchmark_rows`, `symbol_price_histories`) say the intended
+    condition is whether the price inputs are ADJUSTED — a drawdown chained from
+    unadjusted closes overstates the loss on dividend-paying holdings — which is
+    a different question from whether the replay is publishable. This test fails
+    if a later change flips that gate without answering it.
+    """
+    _snapshot, history = _us313_ib2026_history()
+    ranges = history.range_metrics or {}
+
+    assert all(metrics.summary.time_weighted_return_pct is not None for metrics in ranges.values())
+    assert all(metrics.max_drawdown_pct is None for metrics in ranges.values())
+
+
+def test_publishing_the_return_does_not_promote_it_to_verified() -> None:
+    """US-34.2 AC6/AC8 — the guard that makes this story safe.
+
+    The strict proof gate is untouched: it still refuses to certify the imported
+    path, and the benchmark/excess returns stay withheld (US-34.5's story). If
+    this test ever fails, the rung has been confused with the thing above it.
+    """
+    _snapshot, history = _us313_ib2026_history()
+    metadata = history.run_metadata
+    ranges = history.range_metrics or {}
+
+    assert metadata.investor_economics_status.status == "withheld"
+    assert metadata.portfolio_proof.verified_total_return_emitted is False
+    assert metadata.return_basis_contract.portfolio_path != "verified_total_return"
+    assert all(metrics.portfolio_return_trust == "degraded" for metrics in ranges.values())
+    assert all(metrics.summary.benchmark_return_pct is None for metrics in ranges.values())
+    assert all(metrics.summary.excess_return_pct is None for metrics in ranges.values())
