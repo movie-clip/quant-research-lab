@@ -1,7 +1,7 @@
 from typing import TypedDict, cast
 
 from app.core.constants import DEFAULT_BENCHMARK_SYMBOL
-from app.analytics.performance import build_replay_currency_context, build_replay_states_with_cash_anchor, build_true_performance_series, replay_disclosures, withheld_return_impact_pct
+from app.analytics.performance import build_replay_currency_context, market_derived_terminal_value, build_replay_states_with_cash_anchor, build_true_performance_series, replay_disclosures, withheld_return_impact_pct
 from app.engine.portfolio_state import replay_symbol_universe
 from app.analytics.risk import (
     _build_drawdown_from_return_index,
@@ -858,7 +858,10 @@ def _compute_money_weighted_return(states) -> float | None:
     if len(states) < 2:
         return None
     start_value = states[0].total_portfolio_value
-    end_value = states[-1].total_portfolio_value
+    # US-34.6 (Epic 34 F-7): the market-derived terminal value, so the return
+    # does not republish the statement reconciliation — the accounting entry
+    # US-31.3 withholds from the time-weighted return.
+    end_value = market_derived_terminal_value(states)
     flow_states = states[1:]
     total_flows = sum(state.external_cash_flow for state in flow_states)
     total_periods = max(len(states) - 1, 1)
@@ -945,7 +948,12 @@ def _compute_visible_summary(
     start_value = anchored_states[0].total_portfolio_value if anchored_states else None
     end_value = daily_states[-1].total_portfolio_value
     net_contributions = sum(state.external_cash_flow for state in anchored_states[1:]) if anchored_states else 0.0
-    investment_gain = (end_value - start_value - net_contributions) if start_value is not None else None
+    # US-34.6: the gain is a PERFORMANCE figure, so it excludes the
+    # reconciliation; `end_value` above stays the reconciled level.
+    performance_end_value = market_derived_terminal_value(daily_states)
+    investment_gain = (
+        (performance_end_value - start_value - net_contributions) if start_value is not None else None
+    )
     # US-34.2: the LAST point is not necessarily a published one — the terminal
     # day's return is withheld whenever the state was reconciled (US-31.3), and
     # US-33.2 withholds any day a withheld-quantity holding traded. Reading

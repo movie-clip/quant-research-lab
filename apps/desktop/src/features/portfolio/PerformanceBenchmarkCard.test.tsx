@@ -20,6 +20,7 @@ function analysis(overrides: {
   twr?: number | null
   withheldDates?: string[]
   withheldImpact?: number | null
+  reconciliationAdjustment?: number | null
 } = {}): DashboardAnalysis {
   const {
     portfolioBasis = 'replay_derived',
@@ -27,6 +28,7 @@ function analysis(overrides: {
     twr = 2.43,
     withheldDates = [],
     withheldImpact = null,
+    reconciliationAdjustment = null,
   } = overrides
   return {
     performance_series: [
@@ -51,6 +53,9 @@ function analysis(overrides: {
         portfolio_return_trust: trust,
       },
     },
+    daily_states: [
+      { date: '2026-08-11', reconciliation_adjustment: reconciliationAdjustment },
+    ],
     run_metadata: {
       return_basis_contract: { portfolio_path: portfolioBasis, benchmark_path: 'price_return_only' },
       reproducibility: { benchmark_symbol: 'SPY' },
@@ -117,5 +122,28 @@ describe('PerformanceBenchmarkCard', () => {
 
     const text = screen.getByRole('region', { name: /performance & benchmark/i }).textContent ?? ''
     expect(text).not.toMatch(/excluded from this return/i)
+  })
+
+  it('explains why the gain and returns do not reconcile against portfolio value', () => {
+    render(
+      <PerformanceBenchmarkCard
+        result={analysis({ reconciliationAdjustment: 1366.17 })}
+        activeRange="All"
+      />,
+    )
+
+    const text = screen.getByRole('region', { name: /performance & benchmark/i }).textContent ?? ''
+    // US-34.6: the value keeps the entry, the performance figures do not — a
+    // researcher who spots that and is not told why trusts the card less.
+    expect(text).toMatch(/accounting entry rather than a market move/i)
+    expect(text).toMatch(/excluded from the returns and the gain/i)
+    expect(text).toContain('1,366')
+  })
+
+  it('says nothing about a reconciliation when there was none', () => {
+    render(<PerformanceBenchmarkCard result={analysis()} activeRange="All" />)
+
+    const text = screen.getByRole('region', { name: /performance & benchmark/i }).textContent ?? ''
+    expect(text).not.toMatch(/reconciliation/i)
   })
 })

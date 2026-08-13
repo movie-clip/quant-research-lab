@@ -618,3 +618,44 @@ def test_us332_peak_market_value_returns_to_a_plausible_band(replay_context) -> 
     # own stock total — the pre-fix replay ran ~8x above it for three months.
     assert peak.total_market_value < stock_total * 1.05
     assert states[-1].total_market_value == pytest.approx(64_934.40, abs=1.0)
+
+
+def test_us346_no_published_period_figure_contains_the_reconciliation(replay_context) -> None:
+    """US-34.6 (Epic 34 F-7) — US-31.3's rule, now enforced on EVERY period figure.
+
+    US-31.3 stopped the terminal reconciliation being published as a return, but
+    only on the time-weighted path. Modified Dietz and the investment gain read
+    the reconciled terminal value straight, so both republished the same
+    accounting entry: on IB2026 the money-weighted return was 5.30% (2.35pp of
+    it the entry) and the gain $3,080.88 ($1,366.17 of it the entry).
+
+    Inverted pin, in the style of the F-3 test above: it asserts the corrected
+    behaviour and fails if the entry returns to either figure.
+    """
+    from app.analytics.performance import market_derived_terminal_value
+    from app.scripts.frozen_market_data import FrozenMarketData
+    from app.services.dashboard_history_engine import run_imported_dashboard_history
+
+    snapshot, _price_histories, _valuation_dates = replay_context
+    history = run_imported_dashboard_history(
+        snapshot, "SPY", market_data=FrozenMarketData.from_file()
+    )
+    summary = (history.range_metrics or {})["All"].summary
+    terminal = history.daily_states[-1]
+
+    adjustment = terminal.reconciliation_adjustment
+    assert adjustment == pytest.approx(1_366.17, abs=2.0), "fixture lost its reconciliation"
+
+    # The performance figures are computed from the market-derived value...
+    assert market_derived_terminal_value(history.daily_states) == pytest.approx(
+        terminal.total_portfolio_value - adjustment, abs=0.01
+    )
+    assert summary.money_weighted_return_pct == pytest.approx(2.95, abs=0.02)
+    assert summary.investment_gain == pytest.approx(1_714.71, abs=0.02)
+
+    # ...while the LEVEL keeps the broker's own ending NAV. Both halves matter:
+    # dropping the entry from the level would discard broker truth.
+    assert summary.end_value == pytest.approx(snapshot.statement_totals.ending_nav, abs=0.01)
+
+    # And the terminal day still publishes no time-weighted return (US-31.3).
+    assert terminal.return_is_publishable is False

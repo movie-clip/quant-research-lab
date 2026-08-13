@@ -29,10 +29,11 @@ PRD: [`prd/epic-34-answerable-dashboard-and-reachable-trust.md`](../prd/epic-34-
 | US-34.3 | Make the cash anchor reachable | F-2 + most of F-5: separate a structural date offset from an unreconciled anchor, and value opening positions at the statement-period start where coverage allows, so the anchor can clear and the terminal adjustment shrinks | Next phase |
 | US-34.4 | Disclose what a withheld holding was worth, and stop withholding immaterial days | F-3 + F-4: bound the withheld position's value from the broker's own execution prices; replace the flat $1.00 unbacked-cash tolerance with a materiality test against portfolio value | Next phase |
 | US-34.5 | Publish the benchmark return on a stated basis | F-6: source `adjClose` where available, and publish a labelled `price_return_only` return where it is not | Next phase |
-| US-34.6 | Stop the money-weighted return from carrying the reconciliation adjustment | F-7, found by US-34.2: MWR reads the reconciled `end_value`, so it publishes the accounting correction TWR withholds (FF2026: 3.75% vs 0.12%, the whole gap being one day) | Next phase |
+| [US-34.6](US-34.6-mwr-excludes-reconciliation-adjustment.md) | Stop the money-weighted return and investment gain from publishing the reconciliation adjustment | F-7, found by US-34.2: both read the reconciled terminal value, so both republished the accounting entry US-31.3 withholds from the TWR. IB2026 MWR 5.30% → 2.95%, gain $3,080.88 → $1,714.71; levels keep the broker's ending NAV. Surfaced F-8 | Done |
 | US-34.7 | Decide the drawdown's price basis | Split out of US-34.2: the drawdown gate's unread parameters say the real question is whether price inputs are adjusted, not whether the replay is publishable | Next phase |
+| US-34.8 | Publish the terminal day's return now that a trustworthy terminal value exists | F-8, found by US-34.6: US-31.3 withheld the reconciled day because its value was overwritten; `market_derived_terminal_value` now supplies the un-overwritten one. Closes the last TWR/MWR disagreement (0.41pp on FF2026). A guardrail relaxation — needs its own review | Next phase |
 
-Recommended order: US-34.2 (done), then US-34.6 (the other half of what it exposed), US-34.3, US-34.4, US-34.5, US-34.7.
+Recommended order: US-34.2 and US-34.6 (done), then US-34.3, US-34.4, US-34.5, US-34.8, US-34.7.
 
 ---
 

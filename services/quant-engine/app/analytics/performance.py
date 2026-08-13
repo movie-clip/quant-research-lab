@@ -227,6 +227,33 @@ def replay_disclosures(states: list[DailyPortfolioState]) -> tuple[list[str], st
     return withheld, "Return withheld: " + "; ".join(causes) + "."
 
 
+def market_derived_terminal_value(states: list[DailyPortfolioState]) -> float | None:
+    """US-34.6 (Epic 34 F-7): the terminal value with the accounting entry removed.
+
+    `_reconcile_terminal_state_to_statement_totals` snaps the last state's
+    `total_portfolio_value` to the statement's ending NAV. That value is correct
+    as a LEVEL — it is the broker's own number — but the amount it moved by is an
+    accounting correction, not a market move, and US-31.3 established that such a
+    correction must never be published as performance.
+
+    US-31.3 applied that rule to the time-weighted return only. Every other
+    period-level figure — Modified Dietz, and the investment gain — reads the
+    reconciled terminal value straight, so each silently republished the entry
+    the TWR refuses (IB2026: 2.35pp of a 5.30% money-weighted return, and
+    $1,366.17 of a $3,080.88 gain).
+
+    Returns the terminal value less its recorded adjustment, or the terminal
+    value unchanged when nothing was reconciled. `None` for an empty series.
+
+    Deliberately ONE helper: the two Modified Dietz implementations doing the
+    same subtraction independently is precisely how they would drift apart.
+    """
+    if not states:
+        return None
+    terminal = states[-1]
+    return terminal.total_portfolio_value - (terminal.reconciliation_adjustment or 0.0)
+
+
 def withheld_return_impact_pct(states: list[DailyPortfolioState]) -> float | None:
     """US-34.2: percentage points the withheld days remove from the published return.
 
@@ -348,8 +375,12 @@ def build_performance_summary(daily_states: list[DailyPortfolioState], performan
 
     start_value = daily_states[0].total_portfolio_value
     end_value = daily_states[-1].total_portfolio_value
+    # US-34.6: LEVELS keep the reconciled value (it is the broker's ending NAV);
+    # PERFORMANCE figures use the market-derived one, so neither the gain nor the
+    # money-weighted return republishes the accounting entry the TWR withholds.
+    performance_end_value = market_derived_terminal_value(daily_states)
     net_contributions = round(sum(state.external_cash_flow for state in daily_states[1:]), 2)
-    investment_gain = round(end_value - start_value - net_contributions, 2)
+    investment_gain = round(performance_end_value - start_value - net_contributions, 2)
     time_weighted_return_pct = performance_series[-1].portfolio_return_pct if performance_series else None
     benchmark_return_pct = performance_series[-1].benchmark_return_pct if performance_series else None
     excess_return_pct = round(time_weighted_return_pct - benchmark_return_pct, 2) if time_weighted_return_pct is not None and benchmark_return_pct is not None else None
@@ -365,7 +396,7 @@ def build_performance_summary(daily_states: list[DailyPortfolioState], performan
         )
         denominator = start_value + weighted_flows
         if denominator != 0:
-            money_weighted_return_pct = round(((end_value - start_value - total_flows) / denominator) * 100, 2)
+            money_weighted_return_pct = round(((performance_end_value - start_value - total_flows) / denominator) * 100, 2)
 
     return PerformanceSummary(
         start_value=round(start_value, 2),
