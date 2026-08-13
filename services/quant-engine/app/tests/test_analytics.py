@@ -7957,8 +7957,14 @@ def test_imported_replay_converts_eur_gbp_and_empties_fx_fallback() -> None:
 
     # EUR and GBP now carry a statement rate → converted, not disclosed as fallback.
     assert set(result.run_metadata.fx_fallback_currencies).isdisjoint({"EUR", "GBP"})
+    # US-33.4: a RELATIVE tolerance, because the residual is per-symbol noise
+    # between each holding's market close and the statement's own mark, not a
+    # systematic error. Decomposed on the 2026-08-11 statement: 11 symbols
+    # differ, the largest by $24.00 on a $11,988 line (0.2%), signs in both
+    # directions, netting +$11.41 on $64,922.99 (0.018%). The pre-refresh
+    # statement happened to net to $1.35, which is why this was abs=2.0.
     assert result.daily_states[-1].total_market_value == pytest.approx(
-        snapshot.statement_totals.stock_total, abs=2.0
+        snapshot.statement_totals.stock_total, rel=0.001
     )
 
 
@@ -8049,7 +8055,8 @@ def test_replay_cash_anchor_disclosed_on_run_metadata() -> None:
         "window_start": "2026-01-08",
         "trust": "degraded",
     }.items() <= anchor.model_dump().items()
-    assert anchor.residual == pytest.approx(-1_196.61, abs=2.0)
+    # US-33.4: -1,196.61 on the pre-refresh statement.
+    assert anchor.residual == pytest.approx(-1_377.59, abs=2.0)
 
 
 def test_terminal_adjusted_day_return_is_withheld_with_reason() -> None:
@@ -8058,12 +8065,20 @@ def test_terminal_adjusted_day_return_is_withheld_with_reason() -> None:
     _snapshot, history = _us313_ib2026_history()
     metadata = history.run_metadata
 
-    assert metadata.withheld_return_dates == ["2026-06-30"]
+    # US-33.4: the reconciled day is the statement's terminal date, so it
+    # follows the refresh (was 2026-06-30). US-33.2 adds six more withheld days
+    # — LQQ's trade dates, where cash moved with no position behind it — so the
+    # terminal day is the LAST entry, not the only one.
+    assert metadata.withheld_return_dates[-1] == "2026-08-11"
+    assert len(metadata.withheld_return_dates) == 7
     assert metadata.withheld_return_reason
+    # Both causes are named: collapsing them would misdescribe six of the days.
     assert "accounting" in metadata.withheld_return_reason.lower()
+    assert "withheld" in metadata.withheld_return_reason.lower()
+    assert "no position behind it" in metadata.withheld_return_reason.lower()
     # The state itself records the adjustment that caused the withholding.
-    assert history.daily_states[-1].date == "2026-06-30"
-    assert history.daily_states[-1].reconciliation_adjustment == pytest.approx(1_197.88, abs=2.0)
+    assert history.daily_states[-1].date == "2026-08-11"
+    assert history.daily_states[-1].reconciliation_adjustment == pytest.approx(1_366.17, abs=2.0)
 
 
 def test_adjusted_day_never_enters_the_replay_return_series() -> None:
@@ -8074,9 +8089,13 @@ def test_adjusted_day_never_enters_the_replay_return_series() -> None:
     series = _portfolio_time_weighted_return_series(history.daily_states)
 
     dates = [d for d, _ in series]
-    assert "2026-06-30" not in dates
-    # 119 states -> 118 possible daily returns, minus the withheld day.
-    assert len(series) == len(history.daily_states) - 2
+    # US-33.4: the terminal (adjusted) day follows the statement.
+    assert history.daily_states[-1].date not in dates
+    # N states -> N-1 possible daily returns, minus every withheld day: the
+    # reconciled terminal day plus US-33.2's six unbacked-cash days.
+    withheld = [s.date for s in history.daily_states if not s.return_is_publishable]
+    assert len(withheld) == 7
+    assert len(series) == len(history.daily_states) - 1 - len(withheld)
 
 
 def test_volatility_excludes_the_reconciliation_adjustment() -> None:
@@ -8094,8 +8113,66 @@ def test_volatility_excludes_the_reconciliation_adjustment() -> None:
     # property under test is unchanged: the withheld day never enters the
     # series. US-31.3 measured 23.63% leaking / 23.32% withheld; US-24.10 then
     # gave BTEC/IUFS/IUHC a trade-price valuation, removing two fabricated
-    # ±8-10% TWR days that had dominated this figure -> 14.72%.
-    assert annualised_vol_pct == pytest.approx(14.72, abs=0.1)
+    # ±8-10% TWR days that had dominated this figure -> 14.72%. US-33.4
+    # re-measured it on the 2026-08-11 statement: 14.18%. That figure is
+    # AFTER US-33.2's unbacked-cash guard — with LQQ's six trade days leaking
+    # into the cash-inclusive chain it read 15.49%, i.e. the fabrication was
+    # worth +1.3pp of annualised volatility on its own.
+    assert annualised_vol_pct == pytest.approx(14.18, abs=0.1)
     withheld = [state.date for state in history.daily_states if not state.return_is_publishable]
     published = [d for d, _ in _portfolio_time_weighted_return_series(history.daily_states)]
     assert withheld and not set(withheld) & set(published)
+
+
+# -- US-33.2 (Epic 33 F-1/F-2): quantity withholding on the run metadata --
+
+
+def test_quantity_withholding_disclosed_on_run_metadata() -> None:
+    """US-33.2 AC5/AC6: the withholding reaches the response with its evidence,
+    and the withheld symbol claims no valuation tier.
+
+    Without this the researcher sees a holding silently vanish from the replay,
+    which is indistinguishable from a bug — the evidence is what makes the
+    withholding judgeable (guardrail #3).
+    """
+    _snapshot, history = _us313_ib2026_history()
+    metadata = history.run_metadata
+
+    assert [item.symbol for item in metadata.quantity_withheld_symbols] == ["LQQ"]
+    withholding = metadata.quantity_withheld_symbols[0]
+    assert withholding.reason == "share_unit_discontinuity"
+    assert withholding.currency == "EUR"
+    assert withholding.price_ratio == pytest.approx(218.0967, abs=1e-3)
+    assert withholding.withheld_opening_quantity == 199.0
+    # Withheld is its own state — never collapsed into unpriced or a tier.
+    assert "LQQ" not in metadata.unpriced_replay_symbols
+    assert "LQQ" not in metadata.trade_price_anchored_symbols
+
+
+def test_no_discontinuity_discloses_no_withholding() -> None:
+    """US-33.2 AC10: the disclosure is a signal, not a permanent banner — a
+    snapshot whose prices are ordinary withholds nothing and keeps its tiers."""
+    from app.scripts.frozen_market_data import FrozenMarketData
+
+    snapshot, _history = _us313_ib2026_history()
+    # The same statement with the split symbol's trades removed: every remaining
+    # symbol trades within 1.40x, so nothing is detectable.
+    without_split = snapshot.model_copy(
+        update={
+            "ledger_entries": [
+                entry for entry in snapshot.ledger_entries if entry.symbol != "LQQ"
+            ]
+        }
+    )
+    history = run_imported_dashboard_history(
+        without_split, "SPY", market_data=FrozenMarketData.from_file()
+    )
+
+    assert history.run_metadata.quantity_withheld_symbols == []
+    assert history.run_metadata.trade_price_anchored_symbols == [
+        "BTEC",
+        "ICHN",
+        "IUFS",
+        "IUHC",
+        "ZPRV",
+    ]

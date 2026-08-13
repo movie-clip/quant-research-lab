@@ -18,6 +18,35 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
+### Epic 34 — An Answerable Dashboard: Reachable Trust States (active)
+
+PRD: [`prd/epic-34-answerable-dashboard-and-reachable-trust.md`](../prd/epic-34-answerable-dashboard-and-reachable-trust.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| US-34.1 | Findings-first audit of the withheld Dashboard surface | Audit-only, recorded in the PRD: F-1 `portfolio_path="unavailable"` is a hardcoded literal; F-1a five of eight hard proof disqualifiers are structural properties of replaying a statement and can never clear, so TWR / benchmark / excess / max-drawdown are `null` in all five ranges on every run while the statement's own TWR (4.77%) sits imported; F-2 the cash anchor can never be `verified` (period start vs replay window start); F-3 a withheld holding's magnitude (~3.2% of the book) is never disclosed; F-4 two of six withheld days carry $5.13/$25.09 flows; F-5 the terminal day never has a return; F-6 the benchmark return is null although 148 SPY closes are returned. Includes the examined-and-correct list — Exposure and Risk are healthy | Done |
+| US-34.2 | Publish the replay's TWR under an explicit `replay_derived` trust state | F-1/F-1a: a real classification instead of the hardcoded literal, and a trust rung below `verified_total_return` so a reconstructed-replay return is published labelled rather than withheld. The strict admission gate is untouched | Next phase |
+| US-34.3 | Make the cash anchor reachable | F-2 + most of F-5: separate a structural date offset from an unreconciled anchor, and value opening positions at the statement-period start where coverage allows, so the anchor can clear and the terminal adjustment shrinks | Next phase |
+| US-34.4 | Disclose what a withheld holding was worth, and stop withholding immaterial days | F-3 + F-4: bound the withheld position's value from the broker's own execution prices; replace the flat $1.00 unbacked-cash tolerance with a materiality test against portfolio value | Next phase |
+| US-34.5 | Publish the benchmark return on a stated basis | F-6: source `adjClose` where available, and publish a labelled `price_return_only` return where it is not | Next phase |
+
+Recommended order: US-34.2 first (it is the finding the researcher feels), then US-34.3, US-34.4, US-34.5.
+
+---
+
+### Epic 33 — Corporate Actions & Replay Quantity Integrity (complete)
+
+PRD: [`prd/epic-33-corporate-actions-replay-integrity.md`](../prd/epic-33-corporate-actions-replay-integrity.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| US-33.1 | Findings-first audit of corporate-action handling in the replay | Audit-only, recorded in the PRD: F-1 the roll-back sums quantities across a share split (LQQ ~200:1, 218× price range in its own ledger → phantom 199-unit opening); F-2 US-24.10's trade-price anchor values those phantom units at the stale pre-split €1,457.78 = $336,543, inflating MV ~8× for three months and volatility to 737.84%; F-3 the valuation-tier exclusivity claim is false per-symbol. Includes the examined-and-correct list — the new tickers were tested and eliminated | Done |
+| [US-33.2](US-33.2-fail-closed-split-inconsistent-quantities.md) | Fail closed on split-inconsistent reconstructed quantities | Detect the share-unit discontinuity, withhold and disclose rather than value a phantom position; add the trade-price anchor's discontinuity guard, and withhold the return on days its cash moves with no position behind it | Done |
+| [US-33.3](US-33.3-correct-valuation-tier-exclusivity-claim.md) | Correct the valuation-tier exclusivity claim | F-3: the tiers are exclusive per (symbol, **day**), not per symbol — the disclosure lists are unions over the window, so a holding that predates its own first trade is legitimately in two. Corrects US-24.10's AC5 + 5 doc/comment sites and adds the counter-example test the original claim never had | Done |
+| [US-33.4](US-33.4-adopt-2026-08-11-statement.md) | Adopt the 2026-08-11 statement as the golden fixture | Re-measures the replay pins against the fixed engine, re-homes 5 structural tests that were wrongly pinning statement truths, derives the importer/refresh anchors instead of pasting CSV rows, corrects a settled-cash over-assertion, and regenerates the goldens. Found and fixed the unbacked-cash fabrication via US-24.9's tripwire | Done |
+
+---
+
 ### Epic 32 — Project Hygiene & Agent-Facing Doc Accuracy (active)
 
 PRD: [`prd/epic-32-project-hygiene-and-agent-docs.md`](../prd/epic-32-project-hygiene-and-agent-docs.md)

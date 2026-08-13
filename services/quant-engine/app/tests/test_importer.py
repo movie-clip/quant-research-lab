@@ -168,7 +168,11 @@ def test_import_statement_2026_uses_statement_end_date_and_keeps_expected_positi
 
 
 def test_sxrv_metadata_maps_to_technology() -> None:
-    snapshot = import_statement(STATEMENT_2026_PATH)
+    # Instrument classification, not PDF parsing. Reads the CSV — the format
+    # the owner supplies from 2026-08-12 onward, and where SXRV appears.
+    from app.services.statement_importer import import_statements
+
+    snapshot = import_statements([str(DOCS_DIR / "IB2026.csv")])
     metadata_by_symbol = InstrumentRegistry().attach_snapshot_metadata(snapshot)
 
     if "SXRV" not in metadata_by_symbol:
@@ -350,9 +354,13 @@ def test_ibkr_period_end_date_degrades_to_none_on_invalid_calendar_date() -> Non
     assert _parse_period_end_date("January 1, 2026 - Blorpuary 99, 2026") is None
 
 
-def test_ibkr_import_2026_golden_values_unchanged() -> None:
+def test_ibkr_pdf_import_golden_values_unchanged() -> None:
     # US-24.8 AC5: hardening is behaviour-neutral for a valid statement.
-    snapshot = import_interactive_brokers_statement(STATEMENT_2026_PATH)
+    # Asserts nothing period-specific, so it runs against the newest surviving
+    # frozen IBKR PDF. The 2026 PDF fixture was deliberately removed on
+    # 2026-08-12 (CSV-only from here); the PDF PARSER is still supported for
+    # the 2022-2025 statements and keeps its smoke coverage here.
+    snapshot = import_interactive_brokers_statement(STATEMENT_2025_PATH)
     assert snapshot.statement_totals is not None
     assert snapshot.statement.importer == "interactive_brokers"
 

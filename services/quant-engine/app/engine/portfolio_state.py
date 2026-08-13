@@ -4,7 +4,11 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date
 
-from app.core.constants import REPLAY_RECONCILIATION_TOLERANCE, SYNTHETIC_COVERAGE_DE_MINIMIS_WEIGHT
+from app.core.constants import (
+    REPLAY_RECONCILIATION_TOLERANCE,
+    REPLAY_SHARE_UNIT_DISCONTINUITY_RATIO,
+    SYNTHETIC_COVERAGE_DE_MINIMIS_WEIGHT,
+)
 from app.domain.ledger import snapshot_to_ledger
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.reconciliation import DailyPortfolioState, DailyStatePosition
@@ -25,6 +29,76 @@ class CashAnchorDisclosure:
     nav_as_of: str | None = None
     window_start: str | None = None
     residual: float | None = None
+
+
+@dataclass(frozen=True)
+class QuantityWithholding:
+    """US-33.2 (Epic 33 F-1/F-2): a symbol whose reconstructed quantity is not trustworthy.
+
+    The roll-back `opening = ending + Σ SELL − Σ BUY` presumes one share unit
+    for the whole window. A split violates that by construction, and the result
+    is a position size the broker never held (IB2026: 199 phantom LQQ units).
+    The fabricated object is the QUANTITY, so the quantity is what is withheld —
+    the symbol contributes no position line and no market value on any day, and
+    this record says why.
+    """
+
+    symbol: str
+    reason: str
+    currency: str
+    price_low: float
+    price_high: float
+    price_ratio: float
+    withheld_opening_quantity: float
+
+
+def detect_share_unit_discontinuities(
+    trade_entries: list,
+    opening_positions: dict[str, float],
+    *,
+    ratio_threshold: float = REPLAY_SHARE_UNIT_DISCONTINUITY_RATIO,
+) -> dict[str, QuantityWithholding]:
+    """Symbols whose own execution prices imply more than one share unit.
+
+    Ratios are computed **within a currency** and the widest currency wins: a
+    symbol traded in both EUR and USD must never be flagged by an FX difference
+    it never experienced.
+
+    This detects a discontinuity; it does not measure or repair one. Inferring
+    the split ratio from the price jump and rewriting quantities would be
+    fabricating broker truth from market data (Epic 33 non-goal), so the only
+    output is evidence for withholding.
+    """
+    prices_by_symbol_currency: defaultdict[tuple[str, str], list[float]] = defaultdict(list)
+    for entry in trade_entries:
+        if entry.entry_type not in {"BUY", "SELL"}:
+            continue
+        if not entry.symbol or entry.price is None:
+            continue
+        price = float(entry.price)
+        if price <= 0:
+            continue
+        prices_by_symbol_currency[(entry.symbol, entry.cash_currency)].append(price)
+
+    widest: dict[str, QuantityWithholding] = {}
+    for (symbol, currency), prices in prices_by_symbol_currency.items():
+        low, high = min(prices), max(prices)
+        ratio = high / low
+        if ratio < ratio_threshold:
+            continue
+        incumbent = widest.get(symbol)
+        if incumbent is not None and incumbent.price_ratio >= ratio:
+            continue
+        widest[symbol] = QuantityWithholding(
+            symbol=symbol,
+            reason="share_unit_discontinuity",
+            currency=currency,
+            price_low=low,
+            price_high=high,
+            price_ratio=ratio,
+            withheld_opening_quantity=float(opening_positions.get(symbol, 0.0)),
+        )
+    return widest
 
 
 def _trade_quantity_totals(
@@ -115,13 +189,24 @@ class PortfolioStateEngine:
     # truth, but FLAT between trades — zero market movement across the carried
     # segment. Callers must disclose it; it is a weaker basis than a statement
     # close (which is at least a period-end mark) and a stronger one than the
-    # $0 valuation it replaces. Mutually exclusive with the other two tiers.
+    # $0 valuation it replaces. US-33.3 (Epic 33 F-3): exclusivity is per
+    # (symbol, DAY) — `price_for` picks one tier per day — while this set is a
+    # union over the window, so a symbol held before its first trade is
+    # legitimately named here AND in `unpriced_replay_symbols`.
     trade_price_anchored_symbols: set[str] = field(default_factory=set)
     # US-31.3 (Epic 31 F-2): provenance + trust of the opening cash anchor from
     # the last build_daily_states run — basis, the NAV's as-of date, the replay
     # window start, the residual vs the statement-implied opening cash, and the
     # resulting trust level. `None` until a run has computed it.
     cash_anchor: CashAnchorDisclosure | None = None
+    # US-33.2 (Epic 33 F-1/F-2): symbols whose reconstructed quantity was
+    # WITHHELD because their own ledger prices imply a share-unit change (a
+    # split). They contribute no position line and no market value on any day —
+    # never a phantom size valued at a stale pre-split price. Distinct from
+    # `unpriced_replay_symbols` (quantity trusted, no price available): here it
+    # is the QUANTITY that is untrustworthy, so a flagged symbol appears in this
+    # list and in none of the three valuation tiers.
+    quantity_withheld: dict[str, QuantityWithholding] = field(default_factory=dict)
 
     def build_daily_states(
         self,
@@ -134,6 +219,7 @@ class PortfolioStateEngine:
         self.statement_anchored_symbols = set()
         self.unpriced_replay_symbols = set()
         self.trade_price_anchored_symbols = set()
+        self.quantity_withheld = {}
         if not valuation_dates:
             return []
 
@@ -153,6 +239,16 @@ class PortfolioStateEngine:
         else:
             for symbol in set(ending_positions) | set(buy_totals) | set(sell_totals):
                 opening_positions[symbol] = ending_positions.get(symbol, 0.0) + sell_totals[symbol] - buy_totals[symbol]
+
+        # US-33.2 (Epic 33 F-1): the roll-back above is only valid while one
+        # share unit holds for the whole window. Where the symbol's own prices
+        # say otherwise, drop its reconstructed quantity entirely — it is
+        # fabricated — and carry the evidence for the disclosure. Detected
+        # BEFORE any valuation so no tier, no cash anchor and no state can be
+        # built on the phantom.
+        self.quantity_withheld = detect_share_unit_discontinuities(trade_entries, opening_positions)
+        for withheld_symbol in self.quantity_withheld:
+            opening_positions.pop(withheld_symbol, None)
 
         history_by_symbol: dict[str, dict[str, float]] = {}
         fallback_prices = {position.symbol: position.close_price for position in self.snapshot.positions}
@@ -204,7 +300,19 @@ class PortfolioStateEngine:
             returns None — reaching backwards would fabricate a price for a date
             the broker never produced one, the US-27.7 rule that also forbids
             back-filling market history.
+
+            **US-33.2 (Epic 33 F-2) — discontinuity guard.** The anchor assumes
+            the last observed trade price stays a valid basis until the next
+            trade, which a split violates by construction: on IB2026 it carried
+            the pre-split EUR 1,457.78 across a ~200:1 split and valued a
+            phantom 199-unit position at $336,543. For a symbol whose prices
+            imply a share-unit change there is no sound carried price at any
+            date, so the anchor declines to produce one. Enforced HERE, at the
+            anchor itself, not only at the quantity path — any future caller is
+            guarded by construction.
             """
+            if symbol in self.quantity_withheld:
+                return None
             observed = trade_prices.get(symbol)
             if not observed:
                 return None
@@ -249,6 +357,12 @@ class PortfolioStateEngine:
             return value
 
         def price_for(symbol: str, day_str: str) -> float | None:
+            # US-33.2: a withheld symbol is valued by NO tier. Returning None
+            # here without recording it as `unpriced` keeps the two states
+            # distinct — `unpriced` means "quantity trusted, price missing",
+            # this means "the quantity itself is not publishable".
+            if symbol in self.quantity_withheld:
+                return None
             symbol_history = history_by_symbol.get(symbol)
             if symbol_history:
                 # Covered symbol: None before its first quote — never the
@@ -283,6 +397,8 @@ class PortfolioStateEngine:
             The side-effect-free predicate behind `price_for` — same precedence,
             no disclosure mutation.
             """
+            if symbol in self.quantity_withheld:
+                return False
             symbol_history = history_by_symbol.get(symbol)
             if symbol_history:
                 return symbol_history.get(day_str) is not None
@@ -350,16 +466,35 @@ class PortfolioStateEngine:
             # the US-31.3 trap). Which of these become `trade_flow` is decided
             # AFTER valuation, once the day's actual market value is known.
             day_trade_amounts: defaultdict[str, float] = defaultdict(float)
+            # US-33.2: cash moved by trades in a WITHHELD symbol. Its position is
+            # in no market value, so this cash has nothing behind it and the
+            # day's return is withheld rather than published (see
+            # `DailyPortfolioState.return_is_publishable`).
+            unbacked_cash_flow = 0.0
             while entry_index < len(trade_entries) and trade_entries[entry_index].date <= day:
                 entry = trade_entries[entry_index]
                 amount = to_base_currency(entry.cash_effect, entry.cash_currency, day_str)
 
+                # US-33.2: for a withheld symbol the CASH still moves — the
+                # broker really paid and received those amounts, and that is
+                # broker truth the unit ambiguity does not touch. Only the
+                # QUANTITY is suppressed, so the symbol enters no state and no
+                # market value. Its legs stay in `day_trade_amounts` and are
+                # filtered out by the US-24.9 trade-leg gate below (the symbol
+                # is priced on no day), so no return is fabricated from them.
+                withheld_quantity = entry.symbol in self.quantity_withheld
                 if entry.entry_type == "BUY" and entry.symbol and entry.quantity:
-                    running_positions[entry.symbol] += entry.quantity
+                    if not withheld_quantity:
+                        running_positions[entry.symbol] += entry.quantity
+                    else:
+                        unbacked_cash_flow += amount
                     current_cash[self.base_currency] += amount
                     day_trade_amounts[entry.symbol] += amount
                 elif entry.entry_type == "SELL" and entry.symbol and entry.quantity:
-                    running_positions[entry.symbol] -= entry.quantity
+                    if not withheld_quantity:
+                        running_positions[entry.symbol] -= entry.quantity
+                    else:
+                        unbacked_cash_flow += amount
                     current_cash[self.base_currency] += amount
                     day_trade_amounts[entry.symbol] += amount
                 else:
@@ -432,6 +567,7 @@ class PortfolioStateEngine:
                     total_portfolio_value=total_portfolio_value,
                     external_cash_flow=round(external_cash_flow, 2),
                     trade_flow=round(trade_flow, 2),
+                    unbacked_cash_flow=round(unbacked_cash_flow, 2),
                 )
             )
 

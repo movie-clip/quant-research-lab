@@ -27,21 +27,28 @@ from app.schemas.imports import ImportedPortfolioSnapshot
 
 REFRESH_WORKFLOW_DOC = "docs/architecture/testing-architecture.md#statement-refresh-workflow"
 
-# ── Statement identity (period 2026-01-01 - 2026-06-30) ──────────────────────
+# ── Statement identity (period 2026-01-01 - 2026-08-11) ──────────────────────
 IB_ACCOUNT_ID = "U8516450"  # stable across refreshes (same account)
-IB_STATEMENT_PERIOD = "2026-01-01 - 2026-06-30"
+IB_STATEMENT_PERIOD = "2026-01-01 - 2026-08-11"
 IB_BASE_CURRENCY = "USD"
 
 # ── Portfolio composition ─────────────────────────────────────────────────────
-IB_POSITION_COUNT = 20
-IB_POSITIONS_BY_CURRENCY = {"USD": 16, "EUR": 3, "GBP": 1}
-IB_INSTRUMENT_COUNT = 65
+IB_POSITION_COUNT = 18
+IB_POSITIONS_BY_CURRENCY = {"USD": 15, "EUR": 2, "GBP": 1}
+IB_INSTRUMENT_COUNT = 70
+# Symbols the ledger replay may need a price for: current holdings ∪ every
+# BUY/SELL symbol (US-31.2). Re-homed here by US-33.4 — it moves on every
+# refresh, so `test_portfolio_state.py` must not pin it inline.
+IB_REPLAY_UNIVERSE_SIZE = 68
 
 # One pinned position per statement currency (full row precision).
 IB_PINNED_POSITIONS = {
-    "DEFS": {"currency": "EUR", "quantity": 500, "cost_basis": 2796.475015, "close_price": 5.635, "market_value": 2817.5, "unrealized_pnl": 21.024985},
-    "SEMI": {"currency": "GBP", "quantity": 150, "market_value": 2699.7, "unrealized_pnl": 660.0},
-    "AMZN": {"currency": "USD", "quantity": 10, "cost_basis": 1654.07584, "market_value": 2383.4},
+    "DEFS": {"currency": "EUR", "quantity": 500, "cost_basis": 2796.475015, "close_price": 6.496, "market_value": 3248.0, "unrealized_pnl": 451.524985},
+    "SEMI": {"currency": "GBP", "quantity": 200, "market_value": 2929.2, "unrealized_pnl": 166.2},
+    # USD pin was AMZN until the 2026-08-11 refresh, which sold it in full
+    # (it now appears in IB_ABSENT_SYMBOLS). VUAA is the replacement: a large,
+    # long-held USD line, so the pin stays meaningful across refreshes.
+    "VUAA": {"currency": "USD", "quantity": 80, "cost_basis": 10081.463136, "market_value": 11964.8},
 }
 
 # Two pinned instruments proving ISIN/exchange/type flow (AC4 of US-28.1).
@@ -52,10 +59,10 @@ IB_PINNED_INSTRUMENTS = {
 
 # ── Ledger ────────────────────────────────────────────────────────────────────
 IB_LEDGER_COUNTS = {
-    "BUY": 79,
-    "SELL": 67,
-    "DIVIDEND": 24,
-    "WITHHOLDING_TAX": 27,
+    "BUY": 92,
+    "SELL": 77,
+    "DIVIDEND": 25,
+    "WITHHOLDING_TAX": 28,
     "INTEREST": 1,
     "FEE": 5,
     "DEPOSIT": 1,
@@ -65,20 +72,36 @@ IB_LEDGER_COUNTS = {
 #    stored per the schema's absolute-value convention) ───────────────────────
 IB_TOTALS_2DP = {
     "starting_nav": 52381.12,
-    "ending_nav": 63234.80,
-    "cash_total": 1993.65,
-    "stock_total": 61238.53,
-    "dividends_total": 122.64,
-    "withholding_tax_total": 17.47,
+    "ending_nav": 65429.98,
+    "cash_total": 507.00,
+    "stock_total": 64922.99,
+    "dividends_total": 125.72,
+    "withholding_tax_total": 17.93,
     "interest_total": 1.64,
     "other_fees_total": 1.05,
-    "commissions_total": 185.08,
+    "commissions_total": 215.16,
     "deposits_total": 9963.00,
 }
-IB_TWR_PCT = 1.250764  # Time Weighted Rate of Return, 6dp
+IB_TWR_PCT = 4.765666  # Time Weighted Rate of Return, 6dp
 
 # Statement-implied FX rates (base restatement of Open Positions totals).
-IB_IMPLIED_FX_4DP = {"EURUSD": 1.1422, "GBPUSD": 1.3261}
+IB_IMPLIED_FX_4DP = {"EURUSD": 1.1543, "GBPUSD": 1.3508}
+
+# ── Base-currency weighting (US-30.5a / audit F-7) ───────────────────────────
+# Re-homed here by US-33.4: `test_currency_conversion.py` and
+# `test_exposure_engine.py` hardcoded these, so the 2026-08-11 refresh failed
+# five structural tests that had no business pinning statement values. The
+# refresh workflow doc is explicit — anything failing outside this module on a
+# refresh is a test to fix, not a number to update.
+#
+# The raw mixed-currency sum is the PRE-FIX number (F-7 summed currency-mixed
+# numerals). It is pinned because it is the arbiter test's counter-example: it
+# must never equal the converted total.
+IB_RAW_MIXED_CURRENCY_SUM = 62031.85
+# Per-symbol weight (%) on the base-currency denominator, 2dp.
+IB_BASE_WEIGHTS_PCT = {"SEMI": 6.09, "SXRV": 15.70, "VDST": 24.70, "VUAA": 18.43}
+# Position-concentration HHI on those base weights, 6dp.
+IB_POSITION_HHI_BASE = 0.138194
 
 # ── Sector-classification examples (held / sold symbols) ─────────────────────
 # Held symbols expected in build_portfolio_overview sector buckets.
@@ -90,7 +113,7 @@ IB_SECTOR_EXAMPLES = {
 }
 # Not held as open positions (sold during the period or earlier); they must
 # never surface in a sector bucket.
-IB_ABSENT_SYMBOLS = ("FICO", "DFND", "IUIT", "IUFS", "IUHC")
+IB_ABSENT_SYMBOLS = ("FICO", "DFND", "IUIT", "IUFS", "IUHC", "AMZN")
 
 # Exposure-engine overlap vs the deterministic StubMarketDataService benchmark
 # (MSFT/AAPL): neither is currently held, so both surface as the top overlap

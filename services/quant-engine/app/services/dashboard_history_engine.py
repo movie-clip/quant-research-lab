@@ -16,6 +16,7 @@ from app.schemas.dashboard_history import (
     DashboardHistoryResult,
     DashboardHistoryRunMetadata,
     ReplayCashAnchor,
+    ReplayQuantityWithholding,
     DashboardHistoryRunReproducibility,
     DashboardHistoryRunSourceStatus,
     DashboardMonthlyReturn,
@@ -481,6 +482,7 @@ def run_imported_dashboard_history(
         unpriced_replay_symbols,
         replay_cash_anchor,
         trade_price_anchored_symbols,
+        quantity_withheld,
     ) = build_replay_states_with_cash_anchor(
         snapshot=snapshot,
         price_histories=replay_price_histories,
@@ -567,6 +569,20 @@ def run_imported_dashboard_history(
             fx_fallback_currencies=fx_fallback_currencies,
             unpriced_replay_symbols=unpriced_replay_symbols,
             trade_price_anchored_symbols=trade_price_anchored_symbols,
+            # US-33.2 (Epic 33 F-1/F-2): quantities the replay refused to
+            # publish because the symbol's own prices imply a share-unit change.
+            quantity_withheld_symbols=[
+                ReplayQuantityWithholding(
+                    symbol=withholding.symbol,
+                    reason=withholding.reason,
+                    currency=withholding.currency,
+                    price_low=withholding.price_low,
+                    price_high=withholding.price_high,
+                    price_ratio=withholding.price_ratio,
+                    withheld_opening_quantity=withholding.withheld_opening_quantity,
+                )
+                for withholding in quantity_withheld
+            ],
             replay_cash_anchor=(
                 ReplayCashAnchor(
                     basis=replay_cash_anchor.basis,

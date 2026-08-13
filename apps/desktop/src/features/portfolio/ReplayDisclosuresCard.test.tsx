@@ -148,4 +148,55 @@ describe('ReplayDisclosuresCard', () => {
     expect(screen.queryByText('Synthetic')).toBeNull()
     expect(document.querySelector('.attribution-trust-badge')).toBeNull()
   })
+
+  it('names a withheld quantity with the evidence behind it (US-33.2)', () => {
+    render(
+      <ReplayDisclosuresCard
+        runMetadata={metadata({
+          quantity_withheld_symbols: [
+            {
+              symbol: 'LQQ',
+              reason: 'share_unit_discontinuity',
+              currency: 'EUR',
+              price_low: 9.0691,
+              price_high: 1977.9409,
+              price_ratio: 218.0967,
+              withheld_opening_quantity: 199,
+            },
+          ],
+        })}
+      />,
+    )
+
+    const text = screen.getByRole('region', { name: /replay disclosures/i }).textContent ?? ''
+    expect(text).toContain('LQQ')
+    // The evidence, not just the verdict: a withholding the researcher cannot
+    // judge reads as a bug.
+    expect(text).toContain('9.069')
+    expect(text).toContain('1,977.94')
+    expect(text).toContain('218.1')
+    expect(text).toContain('EUR')
+    // ...and the consequence: excluded, not valued at zero.
+    expect(text).toMatch(/left out of the replayed market value/i)
+    expect(text).toMatch(/split/i)
+  })
+
+  it('renders no withholding note when nothing was withheld', () => {
+    render(
+      <ReplayDisclosuresCard
+        runMetadata={metadata({ unpriced_replay_symbols: ['NOPRICE'], quantity_withheld_symbols: [] })}
+      />,
+    )
+
+    const text = screen.getByRole('region', { name: /replay disclosures/i }).textContent ?? ''
+    expect(text).not.toMatch(/withheld/i)
+    expect(text).toContain('NOPRICE')
+  })
+
+  it('stays silent when a withholding is the only thing that could fire and it is empty', () => {
+    const { container } = render(
+      <ReplayDisclosuresCard runMetadata={metadata({ quantity_withheld_symbols: [] })} />,
+    )
+    expect(container.innerHTML).toBe('')
+  })
 })

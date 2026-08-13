@@ -20,6 +20,12 @@ from app.analytics.currency import (
 from app.importers.interactive_brokers_csv import import_statement
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.tests._statement_fixtures import STATEMENT_2026_CSV_PATH
+from app.tests.statement_truths import (
+    IB_BASE_WEIGHTS_PCT,
+    IB_POSITION_HHI_BASE,
+    IB_RAW_MIXED_CURRENCY_SUM,
+    IB_TOTALS_2DP,
+)
 from app.tests.fixtures import imported_snapshot, position
 
 
@@ -74,10 +80,17 @@ def test_total_base_market_value_matches_statement_stock_total(ib2026):
     assert ib2026.statement_totals is not None
     expected = ib2026.statement_totals.stock_total
     assert round(total_base_market_value(ib2026), 2) == pytest.approx(expected, abs=0.01)
-    assert round(total_base_market_value(ib2026), 2) == pytest.approx(61238.53, abs=0.01)
+    # US-33.4: the literal used to live here, which made a statement refresh
+    # fail a structural test. Statement values belong in ONE module.
+    assert round(total_base_market_value(ib2026), 2) == pytest.approx(
+        IB_TOTALS_2DP["stock_total"], abs=0.01
+    )
 
+    # The counter-example that makes F-7 a bug: the raw currency-mixed sum is a
+    # different number, and summing numerals across currencies is meaningless.
     raw_sum = sum(p.market_value for p in ib2026.positions)
-    assert round(raw_sum, 2) == pytest.approx(58588.76, abs=0.01)  # the pre-fix number
+    assert round(raw_sum, 2) == pytest.approx(IB_RAW_MIXED_CURRENCY_SUM, abs=0.01)
+    assert round(raw_sum, 2) != pytest.approx(IB_TOTALS_2DP["stock_total"], abs=0.01)
 
 
 def test_base_weights_pin_the_currency_corrected_values(ib2026):
@@ -86,17 +99,27 @@ def test_base_weights_pin_the_currency_corrected_values(ib2026):
     by_symbol = base_market_value_by_symbol(ib2026)
     weight = lambda sym: by_symbol[sym] / total * 100  # noqa: E731
 
-    assert weight("SEMI") == pytest.approx(5.85, abs=0.01)   # GBP, was 4.61
-    assert weight("SXRV") == pytest.approx(14.13, abs=0.01)  # EUR, was 12.93
-    assert weight("VDST") == pytest.approx(19.31, abs=0.01)  # USD, was 20.19
-    assert weight("VUAA") == pytest.approx(18.87, abs=0.01)  # USD, was 19.73
+    # US-33.4: pins re-homed to `statement_truths` — a refresh moves every one
+    # of these, and they are statement truths, not properties of the weighting.
+    for symbol, expected in IB_BASE_WEIGHTS_PCT.items():
+        assert weight(symbol) == pytest.approx(expected, abs=0.01), symbol
+    # The property that does NOT depend on the statement: converting changes the
+    # answer, so a non-base holding must not weigh the same either way.
+    raw_total = sum(p.market_value for p in ib2026.positions)
+    raw_semi = next(p.market_value for p in ib2026.positions if p.symbol == "SEMI")
+    assert weight("SEMI") != pytest.approx(raw_semi / raw_total * 100, abs=0.01)
 
 
 def test_position_hhi_on_base_weights(ib2026):
-    """Concentration moves too: HHI 0.11536 (raw) → 0.11272 (base)."""
+    """Concentration moves too — it is computed on the base weights.
+
+    On the pre-refresh statement this was 0.11536 (raw) → 0.11272 (base);
+    US-33.4 moved the pin into `statement_truths` so the next refresh does not
+    fail this test for the wrong reason.
+    """
     total = total_base_market_value(ib2026)
     hhi = sum((value / total) ** 2 for value in base_market_value_by_symbol(ib2026).values())
-    assert hhi == pytest.approx(0.11272, abs=1e-5)
+    assert hhi == pytest.approx(IB_POSITION_HHI_BASE, abs=1e-5)
 
 
 # ── disclosure tiers ─────────────────────────────────────────────────────────

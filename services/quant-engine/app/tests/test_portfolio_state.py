@@ -25,6 +25,7 @@ from app.scripts.export_dashboard_goldens import _docs_statement_path, _repo_roo
 from app.scripts.frozen_market_data import FrozenMarketData
 from app.services.statement_importer import import_statements
 from app.tests.fixtures import imported_snapshot, position
+from app.tests.statement_truths import IB_POSITION_COUNT, IB_REPLAY_UNIVERSE_SIZE
 
 
 def _snapshot(
@@ -42,7 +43,14 @@ def _snapshot(
     )
 
 
-def _trade(entry_type: str, symbol: str, trade_date: str, quantity: float, price: float) -> dict:
+def _trade(
+    entry_type: str,
+    symbol: str,
+    trade_date: str,
+    quantity: float,
+    price: float,
+    currency: str = "USD",
+) -> dict:
     return {
         "entry_type": entry_type,
         "trade_date": trade_date,
@@ -50,7 +58,7 @@ def _trade(entry_type: str, symbol: str, trade_date: str, quantity: float, price
         "quantity": quantity,
         "price": price,
         "net_amount": (-1 if entry_type == "BUY" else 1) * quantity * price,
-        "currency": "USD",
+        "currency": currency,
         "source_section": "Trades",
     }
 
@@ -121,11 +129,15 @@ class TestReplaySymbolUniverse:
         universe = replay_symbol_universe(snapshot)
         current = {p.symbol for p in snapshot.positions}
 
-        assert len(current) == 20, "IB2026 statement pin: 20 current holdings"
-        # 63 = 38 non-zero opening positions ∪ 16 symbols bought AND sold
-        # entirely inside the window ∪ 9 opened during the window and still
-        # held. All three populations are valued by the replay on some day.
-        assert len(universe) == 63
+        # US-33.4: both counts are statement truths and moved with the
+        # 2026-08-11 refresh (20 -> 18 holdings, 63 -> 68 universe), so they are
+        # read from the truths module rather than pinned here. The PROPERTY
+        # under test is that the universe strictly exceeds current holdings —
+        # opening positions since sold, and symbols round-tripped entirely
+        # inside the window, are valued on some day and must be fetched.
+        assert len(current) == IB_POSITION_COUNT
+        assert len(universe) == IB_REPLAY_UNIVERSE_SIZE
+        assert len(universe) > len(current)
         assert current <= set(universe)
         assert "NFLX" in universe and "NFLX" not in current
 
@@ -199,12 +211,13 @@ class TestOpeningPositionCoverage:
         engine_opening_cash = states[0].cash[snapshot.statement.base_currency or "USD"]
         drift = engine_opening_cash - implied_opening_cash
 
-        # Pre-fix drift was $35,534.21 (PRD F-2); it is now $1,097.18 — a 96.9%
-        # collapse, confirming F-1 as the dominant term of the plug. The residual
-        # is LQQ's statement-close anchor (see the day-one test) and is US-31.3's
-        # to remove.
+        # Pre-fix drift was $35,534.21 (PRD F-2); it collapsed to $1,097.18 on
+        # the pre-refresh statement — a 96.9% fall, confirming F-1 as the
+        # dominant term of the plug. On the 2026-08-11 statement (US-33.4) the
+        # same measurement is $1,305.78; the property under test is the
+        # collapse, not the exact figure.
         pre_fix_drift = 35_534.21
-        assert abs(drift) == pytest.approx(1_097.18, abs=1.0)
+        assert abs(drift) == pytest.approx(1_305.78, abs=1.0)
         assert abs(drift) < 0.05 * pre_fix_drift, (
             f"F-1 is NOT the dominant term in the F-2 cash plug (drift={drift:,.2f}) — "
             "re-scope the PRD causal chain before starting US-31.3"
@@ -291,6 +304,180 @@ class TestUnpricedSymbolDisclosure:
         engine, _states = _build(snapshot, price_histories, dates)
 
         assert engine.unpriced_replay_symbols == set()
+
+
+class TestShareUnitDiscontinuity:
+    """US-33.2 (Epic 33 F-1/F-2): the opening roll-back
+    `opening = ending + Σ SELL − Σ BUY` is only valid while one share unit holds
+    for the whole window. A split breaks the identity and fabricates a position
+    size — on IB2026 a 199-unit LQQ opening the broker never held, which the
+    US-24.10 trade-price anchor then valued at the stale pre-split price. The
+    fabricated object is the QUANTITY, so the quantity is what is withheld.
+
+    The synthetic ledger below reproduces the IB2026 LQQ shape in miniature:
+    small pre-split buys around 1,500, then a 200-unit post-split sale at ~9.
+    """
+
+    DATES = ["2025-01-02", "2025-01-03", "2025-01-06"]
+
+    def _split_snapshot(self):
+        return _snapshot(
+            positions=[position("AAA", market_value=10_000.0)],
+            ledger_entries=[
+                _trade("BUY", "SPLIT", "2025-01-02", 1.0, 1_457.78, currency="EUR"),
+                _trade("BUY", "SPLIT", "2025-01-03", 1.0, 1_566.40, currency="EUR"),
+                _trade("SELL", "SPLIT", "2025-01-06", 200.0, 9.07, currency="EUR"),
+            ],
+        )
+
+    def test_share_unit_discontinuity_is_detected_with_its_evidence(self) -> None:
+        """AC1/AC5 — the signal is the symbol's own price range, and the evidence
+        is recorded so a researcher can judge the call rather than take it."""
+        engine, _states = _build(
+            self._split_snapshot(), {"AAA": _rows("AAA", self.DATES)}, self.DATES
+        )
+
+        withholding = engine.quantity_withheld["SPLIT"]
+        assert withholding.reason == "share_unit_discontinuity"
+        assert withholding.currency == "EUR"
+        assert withholding.price_low == 9.07
+        assert withholding.price_high == 1_566.40
+        assert withholding.price_ratio == pytest.approx(172.70, abs=0.01)
+        # ending 0 + sells 200 − buys 2: the phantom the roll-back produced.
+        assert withholding.withheld_opening_quantity == 198.0
+
+    def test_ordinary_price_movement_is_not_flagged(self) -> None:
+        """AC10 — the detection must be a real signal. IB2026's widest LEGITIMATE
+        within-symbol range is 1.40x (NFLX); a 1.4x ledger must value exactly as
+        it does today, with nothing withheld."""
+        dates = self.DATES
+        snapshot = _snapshot(
+            positions=[position("AAA", market_value=10_000.0)],
+            ledger_entries=[
+                _trade("BUY", "BBB", "2025-01-02", 4.0, 70.0),
+                _trade("SELL", "BBB", "2025-01-06", 10.0, 98.0),
+            ],
+        )
+        price_histories = {"AAA": _rows("AAA", dates), "BBB": _rows("BBB", dates, price=80.0)}
+
+        engine, states = _build(snapshot, price_histories, dates)
+
+        assert engine.quantity_withheld == {}
+        # Opening 6 units (0 + 10 − 4), plus day one's own BUY of 4 — valued
+        # exactly as it was before US-33.2.
+        opening_bbb = next(p for p in states[0].positions if p.symbol == "BBB")
+        assert opening_bbb.quantity == 10.0
+        assert opening_bbb.market_value == 800.0
+
+    def test_ratio_is_measured_within_a_currency_never_across(self) -> None:
+        """AC2 — a symbol traded in two currencies must not be flagged by an FX
+        difference it never experienced. 100 USD and 9 EUR is an 11x ratio
+        across currencies and ~1x within each."""
+        dates = self.DATES
+        snapshot = _snapshot(
+            positions=[position("AAA", market_value=10_000.0)],
+            ledger_entries=[
+                _trade("BUY", "BBB", "2025-01-02", 4.0, 100.0, currency="USD"),
+                _trade("SELL", "BBB", "2025-01-06", 4.0, 9.0, currency="EUR"),
+            ],
+        )
+
+        engine, _states = _build(snapshot, {"AAA": _rows("AAA", dates)}, dates)
+
+        assert engine.quantity_withheld == {}
+
+    def test_withheld_symbol_emits_no_position_and_no_market_value(self) -> None:
+        """AC3 — withholding is of the QUANTITY: no line, no size, no value on
+        any day. A $0 valuation would still publish a position size that was
+        never held."""
+        engine, states = _build(
+            self._split_snapshot(), {"AAA": _rows("AAA", self.DATES)}, self.DATES
+        )
+
+        assert "SPLIT" in engine.quantity_withheld
+        assert all(p.symbol != "SPLIT" for state in states for p in state.positions)
+        # AAA alone carries market value on every day (10 units at 100) —
+        # nothing phantom added, on no day.
+        assert [state.total_market_value for state in states] == [1_000.0] * 3
+
+    def test_trade_price_anchor_declines_a_withheld_symbol(self) -> None:
+        """AC4 (Epic 33 F-2) — the anchor's own guard. Without it the pre-split
+        1,457.78 is carried forward across the split and values the phantom."""
+        snapshot = self._split_snapshot()
+        engine, states = _build(snapshot, {"AAA": _rows("AAA", self.DATES)}, self.DATES)
+
+        # The anchor would otherwise have had an observed price from day one
+        # (the 2025-01-02 BUY) for every subsequent day.
+        assert "SPLIT" not in engine.trade_price_anchored_symbols
+        assert all(
+            p.market_price is None for state in states for p in state.positions if p.symbol == "SPLIT"
+        )
+
+    def test_withheld_symbol_keeps_its_cash_but_fabricates_no_return(self) -> None:
+        """AC7 — the cash is broker truth and unaffected by the unit ambiguity;
+        the trade legs are excluded from `trade_flow` by the US-24.9 gate because
+        the symbol is priced on no day, so no return is fabricated from them."""
+        engine, states = _build(
+            self._split_snapshot(), {"AAA": _rows("AAA", self.DATES)}, self.DATES
+        )
+        base = engine.base_currency
+
+        # The 200-unit sale settles 1,814.00 into cash on the final day.
+        assert states[-1].cash[base] - states[-2].cash[base] == pytest.approx(1_814.00, abs=0.01)
+        assert [state.trade_flow for state in states] == [0.0, 0.0, 0.0]
+
+    def test_withheld_symbol_trade_days_publish_no_return(self) -> None:
+        """AC11 — the guard the cash preservation of AC7 makes necessary.
+
+        `trade_flow` neutralisation only protects the cash-EXCLUDED chain. On the
+        cash-inclusive basis the withheld symbol's cash still moves with no
+        position behind it, so `total_portfolio_value` steps and the return chain
+        would publish the step as performance — the US-24.9 fabrication class,
+        re-opened by withholding. Found by the US-24.9 de-dilution tripwire while
+        adopting the refreshed statement (US-33.4), where it had inflated the
+        window's largest TWR day to +3.08%.
+        """
+        _engine, states = _build(
+            self._split_snapshot(), {"AAA": _rows("AAA", self.DATES)}, self.DATES
+        )
+        by_date = {state.date: state for state in states}
+
+        # Every SPLIT trade moves cash with nothing behind it — the two buys
+        # and the 200-unit post-split sale.
+        assert by_date["2025-01-02"].unbacked_cash_flow == pytest.approx(-1_457.78, abs=0.01)
+        assert by_date["2025-01-03"].unbacked_cash_flow == pytest.approx(-1_566.40, abs=0.01)
+        assert by_date["2025-01-06"].unbacked_cash_flow == pytest.approx(1_814.00, abs=0.01)
+        assert not any(state.return_is_publishable for state in states)
+
+    def test_ordinary_trades_leave_the_return_publishable(self) -> None:
+        """AC11 — the guard must fire only for withheld symbols.
+
+        A day of ordinary trading has nothing unbacked, so its return is
+        published exactly as before US-33.2.
+        """
+        dates = self.DATES
+        snapshot = _snapshot(
+            positions=[position("AAA", market_value=10_000.0)],
+            ledger_entries=[_trade("BUY", "AAA", "2025-01-03", 4.0, 100.0)],
+        )
+
+        _engine, states = _build(snapshot, {"AAA": _rows("AAA", dates)}, dates)
+
+        assert [state.unbacked_cash_flow for state in states] == [0.0, 0.0, 0.0]
+        assert all(state.return_is_publishable for state in states)
+
+    def test_withheld_symbol_is_in_no_valuation_tier(self) -> None:
+        """AC6 — `withheld` is its own state. Collapsing it into `unpriced`
+        would claim the quantity was trusted and only the price was missing,
+        which is the opposite of the finding (guardrail #3)."""
+        engine, _states = _build(
+            self._split_snapshot(), {"AAA": _rows("AAA", self.DATES)}, self.DATES
+        )
+
+        assert "SPLIT" not in engine.unpriced_replay_symbols
+        assert "SPLIT" not in engine.trade_price_anchored_symbols
+        assert "SPLIT" not in engine.statement_anchored_symbols
+        assert set(engine.quantity_withheld) == {"SPLIT"}
 
 
 class TestFundCurrencyConversion:
@@ -413,16 +600,20 @@ class TestIB2026FundCurrencyReconciliation:
         terminal = states[-1]
         by_symbol = {p.symbol: p for p in terminal.positions}
 
-        assert by_symbol["SXRV"].market_value == pytest.approx(8_654.45, abs=1.0)
-        assert by_symbol["SEMI"].market_value == pytest.approx(3_580.07, abs=1.0)
-        assert by_symbol["LQQ"].market_value == pytest.approx(2_339.80, abs=1.0)
+        # US-33.4 re-measured on the 2026-08-11 statement (was 8,654.45 /
+        # 3,580.07). LQQ was a third pin here until US-33.2 withheld its
+        # reconstructed quantity — a withheld symbol is in no state at all, so
+        # the assertion is now that it is ABSENT rather than valued.
+        assert by_symbol["SXRV"].market_value == pytest.approx(10_215.55, abs=1.0)
+        assert by_symbol["SEMI"].market_value == pytest.approx(3_948.12, abs=1.0)
+        assert "LQQ" not in by_symbol
         # DEFS (DEFS.L quotes USD): unchanged, never double-converted.
         assert by_symbol["DEFS"].market_value == pytest.approx(
             next(p for p in snapshot.positions if p.symbol == "DEFS").quantity
             * max(price_histories["DEFS"], key=lambda r: r["date"])["price"],
             abs=1.0,
         )
-        assert terminal.total_market_value == pytest.approx(61_238.53, abs=2.0)
+        assert terminal.total_market_value == pytest.approx(64_934.40, abs=2.0)
 
 
 class TestCashAnchorDisclosure:
@@ -452,7 +643,8 @@ class TestCashAnchorDisclosure:
         assert anchor.basis == "statement_nav_date_mismatch"
         assert anchor.nav_as_of == "2026-01-01"
         assert anchor.window_start == "2026-01-08"
-        assert anchor.residual == pytest.approx(-1_196.61, abs=2.0)
+        # US-33.4: -1,196.61 on the pre-refresh statement.
+        assert anchor.residual == pytest.approx(-1_377.59, abs=2.0)
         assert anchor.trust == "degraded"
 
     def test_cash_anchor_verified_when_dates_align(self) -> None:
@@ -486,7 +678,10 @@ class TestCashAnchorDisclosure:
         snapshot = ib2026_snapshot
         totals = snapshot.statement_totals
         raw_mixed = sum(e.cash_effect or 0.0 for e in snapshot_to_ledger(snapshot))
-        assert raw_mixed == pytest.approx(-271.23, abs=1.0), "raw currency-mixed sum pin"
+        # US-33.4: -271.23 on the pre-refresh statement. The pin exists to prove
+        # the raw sum is a DIFFERENT number from the converted one, not for its
+        # own sake.
+        assert raw_mixed == pytest.approx(-1_549.28, abs=1.0), "raw currency-mixed sum pin"
 
         rates = totals.fx_rates or {}
 
@@ -500,9 +695,12 @@ class TestCashAnchorDisclosure:
         )
         implied = engine._statement_implied_opening_cash(to_base)
 
-        # Converted flow is -2,459.29 -> implied opening cash 4,452.94.
-        assert implied == pytest.approx(4_452.94, abs=2.0)
-        # The wrong (raw) basis would have given 2,264.88 - explicitly rejected.
+        # US-33.4: on the pre-refresh statement the converted flow was -2,459.29
+        # -> implied opening cash 4,452.94. The 2026-08-11 statement gives
+        # 4,625.35; the invariant is that it differs materially from the raw
+        # basis below, which is what AC3 of US-31.3 guards.
+        assert implied == pytest.approx(4_625.35, abs=2.0)
+        # The wrong (raw) basis is explicitly rejected.
         wrong = totals.cash_total - raw_mixed
         assert abs(implied - wrong) > 100.0
 
@@ -525,11 +723,29 @@ class TestTerminalReconciliationAdjustment:
             snapshot, ph, vd, reconcile=True, fx_history=fx, symbol_fund_currencies=fund_ccy
         )
 
-        assert states[-1].reconciliation_adjustment == pytest.approx(1_197.88, abs=2.0)
+        # US-33.4: 1,197.88 on the pre-refresh statement.
+        assert states[-1].reconciliation_adjustment == pytest.approx(1_366.17, abs=2.0)
         assert all(s.reconciliation_adjustment is None for s in states[:-1])
+        # US-33.4: non-terminal days are publishable unless they carry a
+        # withheld symbol's unbacked cash flow (US-33.2) — on IB2026 that is
+        # LQQ's six trade dates, and nothing else.
+        unpublishable = [s.date for s in states[:-1] if not s.return_is_publishable]
+        assert unpublishable == [
+            "2026-04-14",
+            "2026-04-17",
+            "2026-06-10",
+            "2026-06-12",
+            "2026-06-23",
+            "2026-07-17",
+        ]
+        assert all(s.unbacked_cash_flow for s in states[:-1] if not s.return_is_publishable)
         # ...and that day's return is therefore not publishable.
         assert states[-1].return_is_publishable is False
-        assert all(s.return_is_publishable for s in states[:-1])
+        # No state is withheld for a RECONCILIATION reason except the terminal
+        # one — the six above are the separate US-33.2 unbacked-cash case.
+        assert not [
+            s for s in states[:-1] if s.reconciliation_adjustment is not None
+        ]
 
     def test_no_reconciliation_adjustment_when_states_reconcile(self) -> None:
         # Terminal value already equals the statement's ending NAV -> the
@@ -854,9 +1070,19 @@ class TestTradePriceAnchor:
         assert ghost_raw.market_value == pytest.approx(1_000.0)
         assert "EUR" in engine_no_fx.fx_fallback_currencies
 
-    def test_disclosure_tiers_are_mutually_exclusive(self) -> None:
-        """AC5/AC6 — a symbol lands in exactly one tier, and a symbol the anchor
-        cannot value is NOT reclassified out of the unpriced disclosure."""
+    def test_disclosure_tiers_do_not_overlap_within_a_single_day(self) -> None:
+        """US-24.10 AC5/AC6, restated by US-33.3 (Epic 33 F-3).
+
+        Each of these three symbols is valued on a single basis for its whole
+        life in this window, so the three lists are disjoint here — but that is
+        a property of THIS fixture, not a guarantee about symbols. The general
+        rule is per (symbol, day); see
+        `test_symbol_can_appear_in_two_disclosure_lists_across_days`, which is
+        the counter-example the original claim lacked.
+
+        The assertions below are unchanged: a symbol the anchor cannot value is
+        NOT reclassified out of the unpriced disclosure.
+        """
         dates = ["2025-01-02", "2025-01-03", "2025-01-06"]
         snapshot = _snapshot(
             positions=[
@@ -881,3 +1107,83 @@ class TestTradePriceAnchor:
         assert engine.unpriced_replay_symbols == {"NOPRICE"}
         assert not (engine.trade_price_anchored_symbols & engine.statement_anchored_symbols)
         assert not (engine.trade_price_anchored_symbols & engine.unpriced_replay_symbols)
+
+    # -- US-33.3 (Epic 33 F-3): the claim the contract used to make --------
+    #
+    # US-24.10's AC5, the contract doc and the methodology all said a symbol
+    # appears in EXACTLY ONE of the three disclosure lists. That was an
+    # overstatement: `price_for` picks a tier per (symbol, DAY), while the
+    # disclosure sets are unions over the whole window. A holding that predates
+    # its own first trade is legitimately unpriced then, and trade-anchored
+    # after. On the 2026-08-11 statement LQQ was live proof — until US-33.2
+    # withheld it, which is why this fixture now has to carry the proof.
+
+    LATE_TRADE_DATES = ["2025-01-02", "2025-01-03", "2025-01-06"]
+
+    def _late_first_trade_snapshot(self):
+        """Opening 10 units (0 ending + 20 sold − 10 bought), first trade day 2."""
+        return _snapshot(
+            positions=[position("AAA", market_value=1000.0, quantity=10.0, close_price=100.0)],
+            ledger_entries=[
+                _trade("BUY", "LATE", "2025-01-03", quantity=10.0, price=20.0),
+                _trade("SELL", "LATE", "2025-01-06", quantity=20.0, price=21.0),
+            ],
+            cash_balances=[{"currency": "USD", "ending_cash": 5000.0}],
+        )
+
+    def test_symbol_can_appear_in_two_disclosure_lists_across_days(self) -> None:
+        """US-33.3 AC3 — the counter-example, asserted rather than asserted away.
+
+        LATE is held from the window open but has no observed price until its
+        day-2 BUY: unpriced on day one, trade-anchored from day two. Both lists
+        name it, and both are telling the truth about different days.
+        """
+        dates = self.LATE_TRADE_DATES
+        engine, states = _build(
+            self._late_first_trade_snapshot(), {"AAA": _rows("AAA", dates, price=100.0)}, dates
+        )
+
+        assert "LATE" in engine.unpriced_replay_symbols
+        assert "LATE" in engine.trade_price_anchored_symbols
+
+        by_date = {
+            state.date: next((p for p in state.positions if p.symbol == "LATE"), None)
+            for state in states
+        }
+        # Day one: held (10 units), no price of any kind — never back-filled
+        # from the later trade (the US-27.7 no-back-fill rule).
+        assert by_date["2025-01-02"] is not None
+        assert by_date["2025-01-02"].market_price is None
+        # Day two onward: the broker's own execution price, carried forward.
+        assert by_date["2025-01-03"].market_price == 20.0
+        assert by_date["2025-01-03"].quantity == 20.0
+
+    def test_each_symbol_day_is_valued_by_exactly_one_tier(self) -> None:
+        """US-33.3 AC4 — the guarantee that IS made, pinned per symbol-day.
+
+        Exclusivity is a property of a (symbol, day) valuation: a day's price
+        comes from market history, or the statement close, or a carried trade
+        price, or nowhere. A change that let two tiers value one symbol-day
+        would fail here.
+        """
+        dates = self.LATE_TRADE_DATES
+        snapshot = self._late_first_trade_snapshot()
+        engine, states = _build(snapshot, {"AAA": _rows("AAA", dates, price=100.0)}, dates)
+
+        market_history = {"AAA"}
+        statement_close = {p.symbol for p in snapshot.positions if p.close_price is not None}
+        for state in states:
+            for item in state.positions:
+                tiers = 0
+                if item.symbol in market_history:
+                    tiers += 1
+                elif item.symbol in statement_close:
+                    tiers += 1
+                elif item.market_price is not None:
+                    # Only a carried trade price can be left, and only at or
+                    # after the symbol's first trade.
+                    tiers += 1
+                    assert state.date >= "2025-01-03"
+                assert tiers <= 1, f"{item.symbol} on {state.date} was valued by {tiers} tiers"
+
+        assert engine.statement_anchored_symbols == set()

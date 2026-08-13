@@ -260,7 +260,11 @@ Broker-path valuation precedence (US-24.10) — three tiers, never inverted:
                                         unpriced_replay_symbols
 ```
 
-  A symbol falls in **exactly one** tier on a given run. Tier 3 exists because a
+  A symbol-day falls in **exactly one** tier. The claim is per (symbol, day),
+  not per symbol (US-33.3 / Epic 33 F-3): the ladder is evaluated once per day
+  and the disclosure sets are unions over the window, so a holding that
+  predates its own first trade is disclosed as unpriced for those days and
+  trade-anchored for the rest. Tier 3 exists because a
   round-trip position — opened and fully closed inside the window — is absent
   from the current snapshot, so it has neither history nor a statement close,
   yet the statement records an execution price for every one of its trades.
@@ -327,6 +331,89 @@ Contract rule:
   response (synthetic history); `excluded_symbols` is never collapsed into a
   generic unavailable state — the researcher must be able to see *which*
   holdings the analytics do not cover.
+
+### Share-Unit Discontinuity Withholding (US-33.2)
+
+**This is a trust rule, not a model.** It computes no return, risk or exposure
+number; it decides whether a reconstructed *quantity* may be published at all.
+
+The four valuation tiers above all answer "what is this holding worth?" and
+presuppose a trustworthy quantity. The imported ledger replay does not observe
+quantities directly — it reconstructs them by rolling the ending position back
+through the window's trades:
+
+```text
+opening_qty = ending_qty + Σ SELL qty − Σ BUY qty
+```
+
+That identity holds only while every term is denominated in the **same share
+unit**. A corporate action that restates the unit — a split — breaks it by
+construction: post-split sale quantities are summed against pre-split purchase
+quantities, and the difference is published as an opening position. On the
+2026-08-11 IB2026 statement LQQ split ~200:1 mid-window, and the roll-back
+produced a **199-unit** opening position that was never held. The US-24.10
+trade-price anchor (tier 3) then carried the stale pre-split **EUR 1,457.78**
+across the split and valued it, taking peak replayed market value to
+**$518,078.75** against a statement `stock_total` of **$64,922.99**.
+
+**Detection.** For each symbol, the ratio between its highest and lowest broker
+execution price is measured **within a single currency** (the widest currency
+wins); prices in different currencies are never compared, so an FX difference
+cannot be mistaken for a unit change. At or above
+`REPLAY_SHARE_UNIT_DISCONTINUITY_RATIO` (**5.0**, `app/core/constants.py`) the
+symbol's quantities are treated as denominated in more than one unit.
+
+Threshold calibration on the committed statement (68 symbols): the widest
+**legitimate** within-symbol ratio is **1.40** (NFLX); the true positive is LQQ
+at **218.10**. The threshold sits ~3.6× above the highest legitimate
+observation and ~44× below the true positive. It is a heuristic policy value
+with no academic basis (US-24.2 discipline).
+
+**Consequence — withhold the quantity, not the price.** A flagged symbol emits
+no position line, no quantity and no market value on any day of the window, and
+appears in **none** of the four valuation tiers. Valuing it at `$0` would not be
+enough: that still publishes a position size the broker never held. Its cash
+movements are preserved — those are broker truth the unit ambiguity does not
+touch — and because the symbol is priced on no day, the US-24.9 trade-leg gate
+keeps its legs out of `trade_flow`, so no return is fabricated from them. The
+withholding is disclosed with its evidence (currency, price bounds, ratio, and
+the rejected opening quantity) via `run_metadata.quantity_withheld_symbols`.
+
+The same rule guards the tier-3 anchor directly: for a flagged symbol the
+trade-price anchor returns no price at any date, so a carried price can never
+cross a detected discontinuity regardless of which caller asks.
+
+**Withheld quantities move cash, and that cash has nothing behind it.** The
+symbol's BUY/SELL entries still settle — that is broker truth — but the position
+they bought or sold is in no market value, so `total_portfolio_value` steps with
+nothing offsetting it and a cash-inclusive return chain would publish the step
+as performance. This is the same fabrication the trade-leg neutralisation rule
+above exists to prevent, re-opened by withholding, and the cash-EXCLUDED basis
+does not cover it. The day's cash movement is therefore recorded as
+`DailyPortfolioState.unbacked_cash_flow`, and a state carrying a material amount
+has **no publishable return on any basis** — the US-31.3 treatment of the
+reconciled terminal day, applied to the same class of un-interpretable state.
+
+Measured on IB2026: leaving these days in the chain inflated annualised TWR
+volatility from 14.18% to 15.49% and made the window's largest apparent move
+(+3.08% on 2026-04-17) a pure artefact of a phantom position's cash.
+
+Materiality reuses `REPLAY_RECONCILIATION_TOLERANCE` ($1.00) rather than a
+relative bound. The deliberate consequence is mild **over**-withholding: on
+IB2026 two of the six withheld days carry unbacked flows of only $5.13 and
+$25.09, which distort nothing measurable, and their real returns are discarded
+with the four that matter. Withholding a real day is the safe error; publishing
+a fabricated one is not.
+
+**Stated limitation.** A small split (2:1, 3:1) produces a ratio below the
+threshold and is **not** detected — its mixed units will still be summed.
+Lowering the threshold far enough to catch it would begin withholding genuinely
+volatile holdings over long windows, which is a worse failure (a real position
+withheld) than the one it prevents. Closing that gap properly requires a
+corporate-action data source, which the project does not have; inferring a
+split ratio from a price jump would be fabricating broker truth from market
+data and is forbidden. This rule therefore makes the replay **safe** in the
+presence of corporate actions, not **correct through** them.
 
 ## Portfolio Return Methodology
 
