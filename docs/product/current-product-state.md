@@ -27,6 +27,8 @@ Shows portfolio performance history:
   (US-25.5) — sourced from the Diagnostics engine (not the withheld
   dashboard-history `max_drawdown_pct` path, which stays withheld under the
   investor-economics policy below)
+- **Time-weighted return, published (US-34.2)**: every Dashboard range reports a TWR on the `replay_derived` rung — a real measurement on the replay's reconstructed inputs, marked as such beside the number. Previously `null` in all five ranges on every run: `return_basis_contract.portfolio_path` was a hardcoded literal, which also suppressed the whole cumulative return series. The strict proof admission is unchanged and still refuses to certify the imported path, so `investor_economics_status` stays `withheld` and `max_drawdown_pct`, `benchmark_return_pct` and `excess_return_pct` stay `null`. The card states what the withheld days cost the figure (IB2026: 1.80pp).
+
 - **Replay Disclosures card** (US-24.11): surfaces the imported replay's own degradations — a non-`verified` opening-cash anchor (basis, both dates, measured residual), withheld return dates with the engine's stated reason, holdings valued at $0, holdings valued at a carried broker trade price, currencies carried unconverted, and (US-33.2) **positions withheld entirely** because their reconstructed quantity spans a share-unit discontinuity. Renders **nothing** when the run is clean (absence of a warning is not a claim) and carries **no** Synthetic badge — the imported replay is broker truth that has been degraded, a different truth class
 - **Rolling Factor Analysis card**: rolling factor loadings snapshot
 - **Sector composition donut** and **Benchmark Positioning card**: current holdings

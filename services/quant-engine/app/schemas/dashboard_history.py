@@ -39,6 +39,15 @@ class DashboardRangeMetrics(BaseModel):
     max_drawdown_pct: float | None = None
     monthly_returns: list[DashboardMonthlyReturn]
     monthly_returns_reliable: bool = False
+    # US-34.2 (Epic 34 F-1): the trust of THIS range's `time_weighted_return_pct`
+    # and `max_drawdown_pct`, so the UI can render the number with a marker
+    # rather than the researcher having to cross-reference
+    # `run_metadata.return_basis_contract`. `verified` only when the proof
+    # admission granted an exact slice; `degraded` for a `replay_derived` basis
+    # (a real measurement on reconstructed inputs); `unavailable` when no return
+    # was published at all. Never collapses a published-but-degraded number into
+    # `unavailable` — that is the distinction the whole ladder exists for.
+    portfolio_return_trust: Literal["verified", "degraded", "unavailable"] = "unavailable"
 
 
 class DashboardHistoryRunSourceStatus(BaseModel):
@@ -146,7 +155,23 @@ class DashboardHistoryRunMetadata(BaseModel):
         monthly_returns_path: str
 
     class ReturnBasisContract(BaseModel):
-        portfolio_path: Literal["verified_total_return", "price_return_only", "unverified_adjusted_proxy", "unavailable"]
+        # US-34.2 (Epic 34 F-1): `replay_derived` is a PORTFOLIO-path-only rung,
+        # BELOW `verified_total_return`. It means the return was chained from the
+        # imported ledger replay's own daily states — a real measurement on
+        # RECONSTRUCTED inputs (rolled-back opening positions, a mixed valuation
+        # basis, a terminal reconciliation), which is exactly what the strict
+        # proof admission refuses to certify as a verified total return. Before
+        # this rung existed `portfolio_path` was a hardcoded literal
+        # `"unavailable"`, so the whole cumulative series and every headline
+        # scalar were null on every run. The benchmark path deliberately does
+        # NOT accept it: a benchmark is priced from market data, never replayed.
+        portfolio_path: Literal[
+            "verified_total_return",
+            "replay_derived",
+            "price_return_only",
+            "unverified_adjusted_proxy",
+            "unavailable",
+        ]
         benchmark_path: Literal["verified_total_return", "price_return_only", "unverified_adjusted_proxy", "unavailable"]
 
     class ReturnBasisEvidenceBundle(BaseModel):
@@ -204,6 +229,22 @@ class DashboardHistoryRunMetadata(BaseModel):
     # visible gap with a stated reason, never a silent missing point.
     withheld_return_dates: list[str] = []
     withheld_return_reason: str | None = None
+    # US-34.2 (Epic 34 F-1): how much the withheld days cost the published
+    # return, in percentage points. Measured as the difference between the
+    # published chain and the same chain with the withheld days included.
+    #
+    # This is an IMPACT ESTIMATE, never a return. The withheld days' moves are
+    # unpublishable AS PERFORMANCE — their states were contaminated by an
+    # accounting adjustment (US-31.3) or by cash with no position behind it
+    # (US-33.2) — but their magnitude is still the best available measure of what
+    # the gap costs, and it comes from the same states. Publishing a return that
+    # omits 7 of 148 days without saying what that omission is worth would be
+    # more misleading than publishing nothing: on IB2026 the published 2.43%
+    # understates the all-days chain of 4.23% by 1.80pp.
+    #
+    # `None` when nothing was withheld — never 0.0, which would claim a measured
+    # zero impact.
+    withheld_return_impact_pct: float | None = None
 
 
 class DashboardHistoryResult(BaseModel):

@@ -465,6 +465,12 @@ export type DashboardHistoryRunMetadata = {
    *  state carried a material reconciliation adjustment. */
   withheld_return_dates?: string[]
   withheld_return_reason?: string | null
+  /** US-34.2 (Epic 34 F-1): percentage points the withheld days remove from the
+   *  published return — an impact ESTIMATE for disclosure, never a return.
+   *  Publishing a figure that omits days without saying what the omission is
+   *  worth misleads more than publishing nothing. `null` when nothing was
+   *  withheld (never 0.0, which would claim a measured zero). */
+  withheld_return_impact_pct?: number | null
   source_status: {
     performance_history: string
     monthly_returns: string
@@ -476,7 +482,16 @@ export type DashboardHistoryRunMetadata = {
     monthly_returns_path: 'imported_replay' | 'suppressed_unstable_path' | 'unavailable'
   }
   return_basis_contract: {
-    portfolio_path: 'verified_total_return' | 'price_return_only' | 'unverified_adjusted_proxy' | 'unavailable'
+    /** US-34.2: `replay_derived` is portfolio-path only — the return was chained
+     *  from the imported replay's own daily states (reconstructed opening
+     *  positions, mixed valuation basis, terminal reconciliation), which the
+     *  strict proof admission will not certify as a verified total return. */
+    portfolio_path:
+      | 'verified_total_return'
+      | 'replay_derived'
+      | 'price_return_only'
+      | 'unverified_adjusted_proxy'
+      | 'unavailable'
     benchmark_path: 'verified_total_return' | 'price_return_only' | 'unverified_adjusted_proxy' | 'unavailable'
   }
   return_basis_evidence: {
@@ -513,6 +528,12 @@ export type DashboardRangeMetrics = {
     return_pct: number
   }>
   monthly_returns_reliable: boolean
+  /** US-34.2 (Epic 34 F-1): trust of this range's time_weighted_return_pct and
+   *  max_drawdown_pct. `verified` only when the proof admission granted an exact
+   *  slice; `degraded` for a `replay_derived` basis — a real measurement on the
+   *  replay's reconstructed inputs; `unavailable` when nothing was published.
+   *  Render the marker: a degraded return must never read as a verified one. */
+  portfolio_return_trust?: 'verified' | 'degraded' | 'unavailable'
 }
 
 export type PerformanceSeriesPoint = {

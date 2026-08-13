@@ -431,6 +431,43 @@ Implementation:
 - `services/quant-engine/app/analytics/risk.py`
 - `_portfolio_time_weighted_return_series(...)`
 
+### Publication rungs for the replayed return (US-34.2)
+
+**No formula changes here.** The chained cash-flow-neutral daily return above is
+computed the same way regardless of rung; what a rung decides is whether the
+result may be **published**, and under what label.
+
+| Rung | Meaning |
+|---|---|
+| `verified_total_return` | The portfolio proof admitted an exact slice. A GIPS-style claim. |
+| `replay_derived` | Chained from the imported ledger replay's own daily states. A real measurement on **reconstructed** inputs: opening positions rolled back through the ledger, a mixed valuation basis, and a terminal reconciliation. |
+| `unavailable` | The replay produced no states, so no return is claimable. |
+
+`replay_derived` exists because the strict admission gate answers a *different*
+question. Five of its hard disqualifiers — `inferred_opening_holdings`,
+`inferred_opening_quantities`, `terminal_force_reconciliation_present`,
+`forward_filled_prices`, `mixed_basis_valuation` — are structural properties of
+replaying a broker statement and can never clear. Treating that failure as "no
+answer available" withheld a correctly-computed number on every run.
+
+**Withholding is unchanged by the rung.** A day whose state carries a material
+reconciliation adjustment (US-31.3) or unbacked cash flow (US-33.2) yields no
+daily return on any rung, so the published chain has gaps by design.
+
+**A return with gaps must state what the gaps cost.** The engine reports
+`withheld_return_impact_pct`: the difference between the published chain and the
+same chain including the withheld days. It is an **impact estimate, never a
+return** — those days' moves are not performance, which is why they are
+withheld — but publishing a figure that omits days without saying what the
+omission is worth misleads more than publishing nothing. On IB2026 the published
+2.43% understates the all-days chain of 4.23% by 1.80pp.
+
+**Range returns are re-based, not sliced.** The cumulative series is one chain
+from the series start, so a window's return is the ratio of growth factors,
+`(1 + c_end) / (1 + c_start) − 1`, taken at the window's own first plotted
+point. Reading the slice's last point instead reports since-inception for every
+window.
+
 ## Money-Weighted Return (Modified Dietz)
 
 Money-weighted return measures the return actually experienced by the

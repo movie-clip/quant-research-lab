@@ -28,6 +28,10 @@ function returnBasisLabel(basis: string | undefined): string {
   switch (basis) {
     case 'verified_total_return':
       return 'Verified'
+    // US-34.2 (Epic 34 F-1): a real measurement on the replay's RECONSTRUCTED
+    // inputs — one rung below verified, and it must read that way.
+    case 'replay_derived':
+      return 'Replay-derived'
     case 'price_return_only':
       return 'Price-return only'
     case 'unverified_adjusted_proxy':
@@ -92,6 +96,9 @@ export function PerformanceBenchmarkCard({ result, activeRange }: PerformanceBen
   const benchmarkSymbol = result.run_metadata?.reproducibility?.benchmark_symbol ?? 'Benchmark'
   const portfolioBasis = result.run_metadata?.return_basis_contract?.portfolio_path
   const benchmarkBasis = result.run_metadata?.return_basis_contract?.benchmark_path
+  const returnTrust = metrics.portfolio_return_trust ?? 'unavailable'
+  const withheldDates = result.run_metadata?.withheld_return_dates ?? []
+  const withheldImpact = result.run_metadata?.withheld_return_impact_pct ?? null
 
   return (
     <section className="summary-card performance-benchmark-card" aria-label="Performance & Benchmark">
@@ -140,7 +147,14 @@ export function PerformanceBenchmarkCard({ result, activeRange }: PerformanceBen
           <span className="benchmark-card-value">{formatCurrency(metrics.summary.end_value)}</span>
         </div>
         <div className="benchmark-card-metric">
-          <span className="stat-label">Time-Weighted Return</span>
+          <span className="stat-label">
+            Time-Weighted Return
+            {/* US-34.2: a degraded return must never read as a verified one.
+                The marker is text, not colour alone (a11y baseline). */}
+            {returnTrust === 'degraded' ? (
+              <span className="helper"> · {returnBasisLabel(portfolioBasis)}</span>
+            ) : null}
+          </span>
           <span className="benchmark-card-value">{formatPct(metrics.summary.time_weighted_return_pct)}</span>
         </div>
         <div className="benchmark-card-metric">
@@ -152,6 +166,20 @@ export function PerformanceBenchmarkCard({ result, activeRange }: PerformanceBen
           <span className="benchmark-card-value">{formatCurrency(metrics.summary.net_contributions)}</span>
         </div>
       </div>
+
+      {/* US-34.2: publishing a return that omits days without saying what the
+          omission is worth misleads more than publishing nothing. The engine
+          measures the impact; this states it. */}
+      {withheldImpact != null && withheldDates.length > 0 ? (
+        <p className="helper" style={{ marginTop: 'var(--space-md)' }}>
+          {withheldDates.length} {withheldDates.length === 1 ? 'day is' : 'days are'} excluded from
+          this return because their portfolio value moved for a reason that was not a market move.
+          Including them would change the full-period figure by about{' '}
+          {withheldImpact > 0 ? '+' : ''}
+          {withheldImpact.toFixed(2)} percentage points, so the number above understates by roughly
+          that much. See Replay Disclosures for which days and why.
+        </p>
+      ) : null}
     </section>
   )
 }

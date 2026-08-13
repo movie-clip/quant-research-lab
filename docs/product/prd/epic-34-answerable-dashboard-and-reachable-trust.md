@@ -60,6 +60,31 @@ It is later overwritten to `verified_total_return` only when
 `admitted_portfolio_twr_scope is not None` — which requires the portfolio proof
 to be admitted, which F-1a shows is unreachable.
 
+**It is not the only hardcoded gate.** Three sit in the same module, and all
+three must open for the Dashboard to say anything:
+
+```python
+# :165  the return basis, above
+portfolio_path="unavailable"
+
+# :208  both parameters accepted and ignored
+def _allow_dashboard_drawdown_outputs(*, benchmark_rows, symbol_price_histories) -> bool:
+    return False
+
+# :218
+def _build_dashboard_investor_economics_status() -> InvestorEconomicsStatus:
+    return build_investor_economics_status(available=False)
+```
+
+**The consequence reaches further than the summary scalars.**
+`build_true_performance_series` computes `portfolio_return_pct` *only* when the
+basis is `verified_total_return` (`performance.py:245`), so with the basis
+pinned to `unavailable` the **entire cumulative return series is null** — all
+148 points. The performance chart therefore plots portfolio *value* against
+benchmark *price*, two series in different units, and no return line at all.
+The summary scalar reads `anchored_perf[-1].portfolio_return_pct`, so it has
+nothing to read even before the allowlist gate is consulted.
+
 ### F-1a (Critical) — five of the eight hard disqualifiers are unreachable by construction
 
 `portfolio_proof.admission.readiness_status = exact_slice_prerequisites_incomplete`,
@@ -156,6 +181,30 @@ requires `identical_admitted_exact_slice_with_independently_verified_benchmark_t
 So the comparison chart draws a benchmark line the researcher can see rising,
 next to a benchmark return figure that says nothing.
 
+### F-7 (High) — the money-weighted return contains the accounting adjustment the time-weighted return refuses
+
+Found by US-34.2, and only visible once the returns were published: on FF2026
+the two published returns are **0.12%** (time-weighted) and **3.75%**
+(money-weighted) over the same window, with **zero external flows**. With no
+flows they should agree.
+
+The whole gap is the reconciled terminal day:
+
+```text
+time_weighted (0.12%)  +  withheld impact (3.63pp)  =  money_weighted (3.75%)
+```
+
+TWR withholds that day because the state was overwritten to match the
+statement's ending NAV — an accounting correction, not a market move
+(US-31.3 / Epic 31 F-3). But MWR is computed from `end_value`, and `end_value`
+**is** the reconciled value, so the money-weighted return silently contains
+exactly the correction the time-weighted return refuses to publish.
+
+One of the two published returns includes an accounting entry, and nothing on
+screen says which. That is the same guardrail-#3 violation Epic 31 F-3 fixed for
+TWR, still live on the MWR path — it was simply invisible while TWR was `null`.
+The identity above is now pinned in `test_analytics.py` so it cannot drift.
+
 ### Examined and found correct — do not "fix" these
 
 - **The Exposure and Risk tabs are healthy.** They run on the snapshot-analytics
@@ -205,10 +254,13 @@ because a stronger claim cannot be proven.** Concretely:
 | US-34.3 | Make the cash anchor reachable | F-2 (and most of F-5): distinguish a **structural** date offset from an **unreconciled** anchor, and value the opening positions at the statement-period start where coverage allows so the two dates can agree. Anchor trust becomes clearable; the terminal adjustment shrinks with it. |
 | US-34.4 | Disclose what a withheld holding was worth, and stop withholding immaterial days | F-3 + F-4: bound the withheld position's value from the broker's own execution prices and surface it on the disclosure; replace the flat $1.00 unbacked-cash tolerance with a materiality test against portfolio value. |
 | US-34.5 | Publish the benchmark return on a stated basis | F-6: source `adjClose` where the provider offers it, and publish a `price_return_only` benchmark return labelled as such when it does not — a price return is a real number, and saying so beats saying nothing. |
+| US-34.6 | Stop the money-weighted return from carrying the reconciliation adjustment | F-7: MWR is computed from the reconciled `end_value`, so it publishes the accounting correction TWR withholds (FF2026: 3.75% vs 0.12%). Apply the US-31.3 rule to the money-weighted path too — the same guardrail, the same reason. Found by US-34.2. |
+| US-34.7 | Decide the drawdown's price basis | Split out of US-34.2 during implementation: `_allow_dashboard_drawdown_outputs` is a hardcoded `False` whose two unread parameters say the intended gate is whether the **price inputs are adjusted** — a drawdown chained from unadjusted closes overstates the loss on dividend-paying holdings. That is a methodology question, not a flag to flip. |
 
 Recommended order: **US-34.2 first** — it is the finding the researcher actually
-feels. Then US-34.3 (which also resolves most of F-5), then US-34.4, then
-US-34.5.
+feels. Then US-34.6 (it is the other half of what US-34.2 exposed, and a
+researcher comparing the two published returns will hit it immediately), then
+US-34.3 (which also resolves most of F-5), then US-34.4, US-34.5, US-34.7.
 
 US-34.2 and US-34.5 both add a trust rung; they are separate stories because the
 portfolio and benchmark paths have independent contracts, but they should be

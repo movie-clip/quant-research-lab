@@ -11,10 +11,10 @@ export const ib2026DashboardGolden = {
   "loadedFileLabel": "Loaded file: IB2026.csv",
   "monthlyStatusLabel": "Monthly-return status: Live market history",
   "portfolioValue": "$65429.98",
-  "startValue": "$52386.10",
-  "timeWeightedReturn": "n/a",
+  "startValue": "$62834.10",
+  "timeWeightedReturn": "3.57%",
   "netContributions": "$0.00",
-  "moneyWeightedReturn": "24.90%",
+  "moneyWeightedReturn": "4.13%",
   "drawdown": "n/a",
   "loadedFiles": [
     "IB2026.csv"
@@ -22,7 +22,7 @@ export const ib2026DashboardGolden = {
   "monthlyReturns": [
     {
       "month": "2026-05",
-      "returnPct": "23.70%"
+      "returnPct": "3.13%"
     },
     {
       "month": "2026-06",
@@ -30399,455 +30399,455 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "date": "2026-01-08",
       "portfolio_value": 52386.1,
       "benchmark_price": 689.51,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-09",
       "portfolio_value": 52860.7,
       "benchmark_price": 694.07,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.91,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-12",
       "portfolio_value": 52948.11,
       "benchmark_price": 695.16,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.07,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-13",
       "portfolio_value": 52545.61,
       "benchmark_price": 693.77,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.3,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-14",
       "portfolio_value": 52476.71,
       "benchmark_price": 690.36,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.17,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-15",
       "portfolio_value": 52599.31,
       "benchmark_price": 692.24,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.41,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-16",
       "portfolio_value": 52545.68,
       "benchmark_price": 691.66,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.3,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-20",
       "portfolio_value": 51519.3,
       "benchmark_price": 677.58,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.65,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-21",
       "portfolio_value": 52091.16,
       "benchmark_price": 685.4,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -0.56,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-22",
       "portfolio_value": 52715.83,
       "benchmark_price": 688.98,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.63,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-23",
       "portfolio_value": 52748.16,
       "benchmark_price": 689.23,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.69,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-26",
       "portfolio_value": 53210.26,
       "benchmark_price": 692.73,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.57,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-27",
       "portfolio_value": 53197.38,
       "benchmark_price": 695.49,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.55,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-28",
       "portfolio_value": 53085.19,
       "benchmark_price": 695.42,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.33,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-29",
       "portfolio_value": 53072.76,
       "benchmark_price": 694.04,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.31,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-30",
       "portfolio_value": 52371.02,
       "benchmark_price": 691.97,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -0.03,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-02",
       "portfolio_value": 52594.08,
       "benchmark_price": 695.41,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.4,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-03",
       "portfolio_value": 51325.13,
       "benchmark_price": 689.53,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.03,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-04",
       "portfolio_value": 50929.14,
       "benchmark_price": 686.19,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.78,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-05",
       "portfolio_value": 50315.96,
       "benchmark_price": 677.62,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.95,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-06",
       "portfolio_value": 50535.82,
       "benchmark_price": 690.62,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.53,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-09",
       "portfolio_value": 50741.3,
       "benchmark_price": 693.95,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.14,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-10",
       "portfolio_value": 50295.01,
       "benchmark_price": 692.12,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.99,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-11",
       "portfolio_value": 49782.69,
       "benchmark_price": 691.96,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -4.97,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-12",
       "portfolio_value": 49064.53,
       "benchmark_price": 681.27,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -6.34,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-13",
       "portfolio_value": 49193.15,
       "benchmark_price": 681.75,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -6.1,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-17",
       "portfolio_value": 49026.51,
       "benchmark_price": 682.85,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -6.41,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-18",
       "portfolio_value": 49698.3,
       "benchmark_price": 686.29,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -5.13,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-19",
       "portfolio_value": 49607.54,
       "benchmark_price": 684.48,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -5.3,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-20",
       "portfolio_value": 50152.06,
       "benchmark_price": 689.43,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -4.26,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-23",
       "portfolio_value": 49426.6,
       "benchmark_price": 682.39,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -5.65,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-24",
       "portfolio_value": 49936.58,
       "benchmark_price": 687.35,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -4.68,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-25",
       "portfolio_value": 50623.66,
       "benchmark_price": 693.15,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.36,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-26",
       "portfolio_value": 50769.33,
       "benchmark_price": 689.3,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.09,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-27",
       "portfolio_value": 51005.26,
       "benchmark_price": 685.99,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.64,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-02",
       "portfolio_value": 50828.51,
       "benchmark_price": 686.38,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.97,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-03",
       "portfolio_value": 50405.64,
       "benchmark_price": 680.33,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.78,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-04",
       "portfolio_value": 50879.34,
       "benchmark_price": 685.13,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.88,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-05",
       "portfolio_value": 50742.15,
       "benchmark_price": 681.31,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.14,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-06",
       "portfolio_value": 50307.85,
       "benchmark_price": 672.38,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.97,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-09",
       "portfolio_value": 50496.52,
       "benchmark_price": 678.27,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.61,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-10",
       "portfolio_value": 50282.73,
       "benchmark_price": 677.18,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -4.02,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-11",
       "portfolio_value": 49996.75,
       "benchmark_price": 676.33,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -4.56,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-12",
       "portfolio_value": 49208.64,
       "benchmark_price": 666.06,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -6.07,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-13",
       "portfolio_value": 48966.66,
       "benchmark_price": 662.29,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -6.53,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-16",
       "portfolio_value": 49443.23,
       "benchmark_price": 669.03,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -5.62,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-17",
       "portfolio_value": 49857.21,
       "benchmark_price": 670.79,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -4.83,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-18",
       "portfolio_value": 49089.7,
       "benchmark_price": 661.43,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -6.29,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-19",
       "portfolio_value": 48656.48,
       "benchmark_price": 659.8,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -7.12,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-20",
       "portfolio_value": 48159.53,
       "benchmark_price": 648.57,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -8.07,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-23",
       "portfolio_value": 48450.65,
       "benchmark_price": 655.38,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -7.51,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-24",
       "portfolio_value": 47879.03,
       "benchmark_price": 653.18,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -8.6,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-25",
       "portfolio_value": 48223.05,
       "benchmark_price": 656.82,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -7.95,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-26",
       "portfolio_value": 47425.02,
       "benchmark_price": 645.09,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -9.47,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-27",
       "portfolio_value": 46625.66,
       "benchmark_price": 634.09,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -11.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-30",
       "portfolio_value": 46884.77,
       "benchmark_price": 631.97,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -10.5,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-31",
       "portfolio_value": 48179.6,
       "benchmark_price": 650.34,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -8.03,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-01",
       "portfolio_value": 48589.95,
       "benchmark_price": 655.24,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -7.25,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-02",
       "portfolio_value": 48562.39,
       "benchmark_price": 655.83,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -7.3,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-06",
       "portfolio_value": 48735.39,
       "benchmark_price": 658.93,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -6.97,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-07",
       "portfolio_value": 48743.26,
       "benchmark_price": 659.22,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -6.95,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-08",
       "portfolio_value": 49983.62,
       "benchmark_price": 676.01,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -4.59,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-09",
       "portfolio_value": 50355.98,
       "benchmark_price": 679.91,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.88,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-10",
       "portfolio_value": 60204.27,
       "benchmark_price": 679.46,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -4.09,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-13",
       "portfolio_value": 60569.19,
       "benchmark_price": 686.1,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.51,
       "benchmark_return_pct": null
     },
     {
@@ -30861,14 +30861,14 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "date": "2026-04-15",
       "portfolio_value": 59864.48,
       "benchmark_price": 699.94,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.87,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-16",
       "portfolio_value": 60156.95,
       "benchmark_price": 701.66,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.4,
       "benchmark_return_pct": null
     },
     {
@@ -30882,252 +30882,252 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "date": "2026-04-20",
       "portfolio_value": 61809.6,
       "benchmark_price": 708.72,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.71,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-21",
       "portfolio_value": 61382.48,
       "benchmark_price": 704.08,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.38,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-22",
       "portfolio_value": 61387.51,
       "benchmark_price": 711.21,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.37,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-23",
       "portfolio_value": 61253.4,
       "benchmark_price": 708.45,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.58,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-24",
       "portfolio_value": 61154.47,
       "benchmark_price": 713.94,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.74,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-27",
       "portfolio_value": 61079.94,
       "benchmark_price": 715.17,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.86,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-28",
       "portfolio_value": 60810.52,
       "benchmark_price": 711.69,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -4.28,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-29",
       "portfolio_value": 60992.79,
       "benchmark_price": 711.58,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.99,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-30",
       "portfolio_value": 61314.31,
       "benchmark_price": 718.66,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.49,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-01",
       "portfolio_value": 61643.53,
       "benchmark_price": 720.65,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.97,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-04",
       "portfolio_value": 61796.3,
       "benchmark_price": 718.01,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.73,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-05",
       "portfolio_value": 61908.34,
       "benchmark_price": 723.77,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.55,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-06",
       "portfolio_value": 62526.64,
       "benchmark_price": 733.83,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.58,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-07",
       "portfolio_value": 62621.7,
       "benchmark_price": 731.58,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.43,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-08",
       "portfolio_value": 62530.94,
       "benchmark_price": 737.62,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.57,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-11",
       "portfolio_value": 62834.1,
       "benchmark_price": 739.3,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.1,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-12",
       "portfolio_value": 62541.38,
       "benchmark_price": 738.18,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.56,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-13",
       "portfolio_value": 63075.86,
       "benchmark_price": 742.31,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -0.72,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-14",
       "portfolio_value": 63239.62,
       "benchmark_price": 748.17,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -0.46,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-15",
       "portfolio_value": 62467.56,
       "benchmark_price": 739.17,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.67,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-18",
       "portfolio_value": 62323.66,
       "benchmark_price": 738.65,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.9,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-19",
       "portfolio_value": 61892.22,
       "benchmark_price": 733.73,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.58,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-20",
       "portfolio_value": 62710.65,
       "benchmark_price": 741.25,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.29,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-21",
       "portfolio_value": 62636.13,
       "benchmark_price": 742.72,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.41,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-22",
       "portfolio_value": 63212.3,
       "benchmark_price": 745.64,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -0.5,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-26",
       "portfolio_value": 63839.51,
       "benchmark_price": 750.59,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.49,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-27",
       "portfolio_value": 63778.42,
       "benchmark_price": 750.46,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.39,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-28",
       "portfolio_value": 64482.62,
       "benchmark_price": 754.6,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.5,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-29",
       "portfolio_value": 64802.23,
       "benchmark_price": 756.48,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 2.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-01",
       "portfolio_value": 64612.33,
       "benchmark_price": 758.54,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.7,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-02",
       "portfolio_value": 64669.84,
       "benchmark_price": 759.57,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.79,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-03",
       "portfolio_value": 64118.46,
       "benchmark_price": 754.24,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.93,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-04",
       "portfolio_value": 64177.63,
       "benchmark_price": 757.09,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.02,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-05",
       "portfolio_value": 62784.6,
       "benchmark_price": 737.55,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.17,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-08",
       "portfolio_value": 62653.17,
       "benchmark_price": 739.22,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.38,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-09",
       "portfolio_value": 61687.63,
       "benchmark_price": 737.05,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.9,
       "benchmark_return_pct": null
     },
     {
@@ -31141,7 +31141,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "date": "2026-06-11",
       "portfolio_value": 61033.25,
       "benchmark_price": 737.76,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.3,
       "benchmark_return_pct": null
     },
     {
@@ -31155,35 +31155,35 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "date": "2026-06-15",
       "portfolio_value": 60673.38,
       "benchmark_price": 754.83,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.6,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-16",
       "portfolio_value": 60384.6,
       "benchmark_price": 750.33,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.07,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-17",
       "portfolio_value": 60329.47,
       "benchmark_price": 740.96,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.16,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-18",
       "portfolio_value": 60108.12,
       "benchmark_price": 746.74,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.51,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-22",
       "portfolio_value": 59912.54,
       "benchmark_price": 744.39,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.83,
       "benchmark_return_pct": null
     },
     {
@@ -31197,112 +31197,112 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "date": "2026-06-24",
       "portfolio_value": 58905.9,
       "benchmark_price": 733.24,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.29,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-25",
       "portfolio_value": 58669.32,
       "benchmark_price": 734.3,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.68,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-26",
       "portfolio_value": 58874.75,
       "benchmark_price": 728.99,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.34,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-29",
       "portfolio_value": 59045.37,
       "benchmark_price": 741.0,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.06,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-30",
       "portfolio_value": 59667.47,
       "benchmark_price": 746.77,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.04,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-01",
       "portfolio_value": 60047.55,
       "benchmark_price": 745.76,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.41,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-02",
       "portfolio_value": 60103.1,
       "benchmark_price": 744.78,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.32,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-06",
       "portfolio_value": 60695.45,
       "benchmark_price": 751.28,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -0.35,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-07",
       "portfolio_value": 59919.97,
       "benchmark_price": 747.71,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.62,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-08",
       "portfolio_value": 59298.85,
       "benchmark_price": 745.4,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.64,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-09",
       "portfolio_value": 60203.47,
       "benchmark_price": 751.71,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.16,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-10",
       "portfolio_value": 60089.5,
       "benchmark_price": 754.95,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.35,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-13",
       "portfolio_value": 59829.6,
       "benchmark_price": 749.17,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.77,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-14",
       "portfolio_value": 60122.56,
       "benchmark_price": 751.83,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.29,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-15",
       "portfolio_value": 60033.37,
       "benchmark_price": 754.81,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.44,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-16",
       "portfolio_value": 59498.81,
       "benchmark_price": 750.72,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.32,
       "benchmark_return_pct": null
     },
     {
@@ -31316,112 +31316,112 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "date": "2026-07-20",
       "portfolio_value": 61321.13,
       "benchmark_price": 742.09,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.95,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-21",
       "portfolio_value": 61632.89,
       "benchmark_price": 748.28,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.45,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-22",
       "portfolio_value": 61783.29,
       "benchmark_price": 747.41,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.21,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-23",
       "portfolio_value": 62071.01,
       "benchmark_price": 738.18,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -0.75,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-24",
       "portfolio_value": 61067.89,
       "benchmark_price": 738.93,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.35,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-27",
       "portfolio_value": 60936.08,
       "benchmark_price": 739.09,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.56,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-28",
       "portfolio_value": 61059.34,
       "benchmark_price": 740.86,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.37,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-29",
       "portfolio_value": 60619.23,
       "benchmark_price": 729.46,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.07,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-30",
       "portfolio_value": 60941.02,
       "benchmark_price": 741.69,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.55,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-31",
       "portfolio_value": 61050.06,
       "benchmark_price": 747.03,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.38,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-08-03",
       "portfolio_value": 61747.63,
       "benchmark_price": 757.67,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.26,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-08-04",
       "portfolio_value": 62894.91,
       "benchmark_price": 771.33,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.57,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-08-05",
       "portfolio_value": 63397.07,
       "benchmark_price": 769.79,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.37,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-08-06",
       "portfolio_value": 63203.53,
       "benchmark_price": 768.56,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.06,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-08-07",
       "portfolio_value": 63852.8,
       "benchmark_price": 773.26,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 2.1,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-08-10",
       "portfolio_value": 64061.34,
       "benchmark_price": 773.03,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 2.43,
       "benchmark_return_pct": null
     },
     {
@@ -31439,12 +31439,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
   "range_metrics": {
     "1M": {
       "summary": {
-        "start_value": 52386.1,
+        "start_value": 59829.6,
         "end_value": 65429.98,
         "net_contributions": 0.0,
-        "investment_gain": 13043.880000000005,
-        "time_weighted_return_pct": null,
-        "money_weighted_return_pct": 24.89950578493151,
+        "investment_gain": 5600.380000000005,
+        "time_weighted_return_pct": 4.28,
+        "money_weighted_return_pct": 9.360550630457173,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
@@ -31452,23 +31452,24 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "monthly_returns": [
         {
           "month": "2026-07",
-          "return_pct": 16.538661973309708
+          "return_pct": 2.0398932969633687
         },
         {
           "month": "2026-08",
           "return_pct": 7.174309083398156
         }
       ],
-      "monthly_returns_reliable": true
+      "monthly_returns_reliable": true,
+      "portfolio_return_trust": "degraded"
     },
     "3M": {
       "summary": {
-        "start_value": 52386.1,
+        "start_value": 62834.1,
         "end_value": 65429.98,
         "net_contributions": 0.0,
-        "investment_gain": 13043.880000000005,
-        "time_weighted_return_pct": null,
-        "money_weighted_return_pct": 24.89950578493151,
+        "investment_gain": 2595.8800000000047,
+        "time_weighted_return_pct": 3.57,
+        "money_weighted_return_pct": 4.131323596582118,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
@@ -31476,7 +31477,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "monthly_returns": [
         {
           "month": "2026-05",
-          "return_pct": 23.70119172834011
+          "return_pct": 3.1322641686599706
         },
         {
           "month": "2026-06",
@@ -31491,7 +31492,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "return_pct": 7.174309083398156
         }
       ],
-      "monthly_returns_reliable": true
+      "monthly_returns_reliable": true,
+      "portfolio_return_trust": "degraded"
     },
     "YTD": {
       "summary": {
@@ -31499,7 +31501,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "end_value": 65429.98,
         "net_contributions": 9963.0,
         "investment_gain": 3080.8800000000047,
-        "time_weighted_return_pct": null,
+        "time_weighted_return_pct": 2.43,
         "money_weighted_return_pct": 5.304614606595381,
         "benchmark_return_pct": null,
         "excess_return_pct": null
@@ -31539,7 +31541,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "return_pct": 7.174309083398156
         }
       ],
-      "monthly_returns_reliable": true
+      "monthly_returns_reliable": true,
+      "portfolio_return_trust": "degraded"
     },
     "1Y": {
       "summary": {
@@ -31547,7 +31550,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "end_value": 65429.98,
         "net_contributions": 9963.0,
         "investment_gain": 3080.8800000000047,
-        "time_weighted_return_pct": null,
+        "time_weighted_return_pct": 2.43,
         "money_weighted_return_pct": 5.304614606595381,
         "benchmark_return_pct": null,
         "excess_return_pct": null
@@ -31587,7 +31590,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "return_pct": 7.174309083398156
         }
       ],
-      "monthly_returns_reliable": true
+      "monthly_returns_reliable": true,
+      "portfolio_return_trust": "degraded"
     },
     "All": {
       "summary": {
@@ -31595,7 +31599,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "end_value": 65429.98,
         "net_contributions": 9963.0,
         "investment_gain": 3080.8800000000047,
-        "time_weighted_return_pct": null,
+        "time_weighted_return_pct": 2.43,
         "money_weighted_return_pct": 5.304614606595381,
         "benchmark_return_pct": null,
         "excess_return_pct": null
@@ -31635,7 +31639,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "return_pct": 7.174309083398156
         }
       ],
-      "monthly_returns_reliable": true
+      "monthly_returns_reliable": true,
+      "portfolio_return_trust": "degraded"
     }
   }
 } satisfies ImportedDashboardSource
@@ -31651,10 +31656,10 @@ export const ff2026DashboardGolden = {
   "loadedFileLabel": "Loaded file: FF2026.pdf",
   "monthlyStatusLabel": "Monthly-return status: Live market history",
   "portfolioValue": "$3071.00",
-  "startValue": "$3045.64",
-  "timeWeightedReturn": "n/a",
+  "startValue": "$3094.96",
+  "timeWeightedReturn": "-1.08%",
   "netContributions": "$0.00",
-  "moneyWeightedReturn": "0.83%",
+  "moneyWeightedReturn": "-0.77%",
   "drawdown": "n/a",
   "loadedFiles": [
     "FF2026.pdf"
@@ -31662,7 +31667,7 @@ export const ff2026DashboardGolden = {
   "monthlyReturns": [
     {
       "month": "2026-01",
-      "returnPct": "1.75%"
+      "returnPct": "0.13%"
     },
     {
       "month": "2026-02",
@@ -34128,623 +34133,623 @@ export const ff2026ImportedDashboardGoldenFixture = {
       "date": "2025-12-01",
       "portfolio_value": 3045.64,
       "benchmark_price": 680.27,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-02",
       "portfolio_value": 3049.24,
       "benchmark_price": 681.53,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.12,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-03",
       "portfolio_value": 3062.74,
       "benchmark_price": 683.89,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.56,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-04",
       "portfolio_value": 3067.51,
       "benchmark_price": 684.39,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.72,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-05",
       "portfolio_value": 3071.74,
       "benchmark_price": 685.69,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.86,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-08",
       "portfolio_value": 3062.83,
       "benchmark_price": 683.63,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.56,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-09",
       "portfolio_value": 3059.77,
       "benchmark_price": 683.04,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.46,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-10",
       "portfolio_value": 3082.27,
       "benchmark_price": 687.57,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.2,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-11",
       "portfolio_value": 3092.53,
       "benchmark_price": 689.17,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.54,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-12",
       "portfolio_value": 3057.61,
       "benchmark_price": 681.76,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.39,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-15",
       "portfolio_value": 3051.67,
       "benchmark_price": 680.73,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.2,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-16",
       "portfolio_value": 3042.94,
       "benchmark_price": 678.87,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -0.09,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-17",
       "portfolio_value": 3010.09,
       "benchmark_price": 671.4,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.17,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-18",
       "portfolio_value": 3032.95,
       "benchmark_price": 676.47,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -0.42,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-19",
       "portfolio_value": 3059.68,
       "benchmark_price": 680.59,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.46,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-22",
       "portfolio_value": 3072.1,
       "benchmark_price": 684.83,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.87,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-23",
       "portfolio_value": 3082.18,
       "benchmark_price": 687.96,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.2,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-24",
       "portfolio_value": 3092.62,
       "benchmark_price": 690.38,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.54,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-26",
       "portfolio_value": 3090.73,
       "benchmark_price": 690.31,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.48,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-29",
       "portfolio_value": 3079.21,
       "benchmark_price": 687.85,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.1,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-30",
       "portfolio_value": 3074.35,
       "benchmark_price": 687.01,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.94,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-31",
       "portfolio_value": 3051.13,
       "benchmark_price": 681.92,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.18,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-02",
       "portfolio_value": 3060.49,
       "benchmark_price": 683.17,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.49,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-05",
       "portfolio_value": 3083.26,
       "benchmark_price": 687.72,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.24,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-06",
       "portfolio_value": 3104.59,
       "benchmark_price": 691.81,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.94,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-07",
       "portfolio_value": 3094.15,
       "benchmark_price": 689.58,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.59,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-08",
       "portfolio_value": 3094.96,
       "benchmark_price": 689.51,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.62,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-09",
       "portfolio_value": 3115.3,
       "benchmark_price": 694.07,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 2.29,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-12",
       "portfolio_value": 3120.97,
       "benchmark_price": 695.16,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 2.47,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-13",
       "portfolio_value": 3114.76,
       "benchmark_price": 693.77,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 2.27,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-14",
       "portfolio_value": 3102.7,
       "benchmark_price": 690.36,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.87,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-15",
       "portfolio_value": 3112.15,
       "benchmark_price": 692.24,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 2.18,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-16",
       "portfolio_value": 3110.35,
       "benchmark_price": 691.66,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 2.12,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-20",
       "portfolio_value": 3049.69,
       "benchmark_price": 677.58,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.13,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-21",
       "portfolio_value": 3085.42,
       "benchmark_price": 685.4,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.31,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-22",
       "portfolio_value": 3101.53,
       "benchmark_price": 688.98,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.84,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-23",
       "portfolio_value": 3098.74,
       "benchmark_price": 689.23,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.74,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-26",
       "portfolio_value": 3111.97,
       "benchmark_price": 692.73,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 2.18,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-27",
       "portfolio_value": 3123.13,
       "benchmark_price": 695.49,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 2.54,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-28",
       "portfolio_value": 3121.42,
       "benchmark_price": 695.42,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 2.49,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-29",
       "portfolio_value": 3114.31,
       "benchmark_price": 694.04,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 2.25,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-30",
       "portfolio_value": 3098.83,
       "benchmark_price": 691.97,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.75,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-02",
       "portfolio_value": 3116.02,
       "benchmark_price": 695.41,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 2.31,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-03",
       "portfolio_value": 3092.35,
       "benchmark_price": 689.53,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.53,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-04",
       "portfolio_value": 3077.95,
       "benchmark_price": 686.19,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.06,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-05",
       "portfolio_value": 3038.8,
       "benchmark_price": 677.62,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -0.22,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-06",
       "portfolio_value": 3102.34,
       "benchmark_price": 690.62,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.86,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-09",
       "portfolio_value": 3117.46,
       "benchmark_price": 693.95,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 2.36,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-10",
       "portfolio_value": 3109.9,
       "benchmark_price": 692.12,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 2.11,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-11",
       "portfolio_value": 3106.93,
       "benchmark_price": 691.96,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 2.01,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-12",
       "portfolio_value": 3057.79,
       "benchmark_price": 681.27,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.4,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-13",
       "portfolio_value": 3063.55,
       "benchmark_price": 681.75,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.59,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-17",
       "portfolio_value": 3067.33,
       "benchmark_price": 682.85,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.71,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-18",
       "portfolio_value": 3083.17,
       "benchmark_price": 686.29,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.23,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-19",
       "portfolio_value": 3077.41,
       "benchmark_price": 684.48,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.04,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-20",
       "portfolio_value": 3096.13,
       "benchmark_price": 689.43,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.66,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-23",
       "portfolio_value": 3061.84,
       "benchmark_price": 682.39,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.53,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-24",
       "portfolio_value": 3086.59,
       "benchmark_price": 687.35,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.34,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-25",
       "portfolio_value": 3110.17,
       "benchmark_price": 693.15,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 2.12,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-26",
       "portfolio_value": 3098.11,
       "benchmark_price": 689.3,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.72,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-27",
       "portfolio_value": 3082.63,
       "benchmark_price": 685.99,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.21,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-02",
       "portfolio_value": 3085.78,
       "benchmark_price": 686.38,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.32,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-03",
       "portfolio_value": 3055.27,
       "benchmark_price": 680.33,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.32,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-04",
       "portfolio_value": 3077.41,
       "benchmark_price": 685.13,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 1.04,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-05",
       "portfolio_value": 3057.7,
       "benchmark_price": 681.31,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.4,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-06",
       "portfolio_value": 3016.39,
       "benchmark_price": 672.38,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -0.96,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-09",
       "portfolio_value": 3042.22,
       "benchmark_price": 678.27,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -0.11,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-10",
       "portfolio_value": 3035.29,
       "benchmark_price": 677.18,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -0.34,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-11",
       "portfolio_value": 3032.86,
       "benchmark_price": 676.33,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -0.42,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-12",
       "portfolio_value": 2984.98,
       "benchmark_price": 666.06,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.99,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-13",
       "portfolio_value": 2968.87,
       "benchmark_price": 662.29,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.52,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-16",
       "portfolio_value": 2998.84,
       "benchmark_price": 669.03,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.54,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-17",
       "portfolio_value": 3008.83,
       "benchmark_price": 670.79,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -1.21,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-18",
       "portfolio_value": 2967.88,
       "benchmark_price": 661.43,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.55,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-19",
       "portfolio_value": 2962.66,
       "benchmark_price": 659.8,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.72,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-20",
       "portfolio_value": 2916.76,
       "benchmark_price": 648.57,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -4.23,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-23",
       "portfolio_value": 2951.41,
       "benchmark_price": 655.38,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.09,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-24",
       "portfolio_value": 2942.32,
       "benchmark_price": 653.18,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.39,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-25",
       "portfolio_value": 2960.05,
       "benchmark_price": 656.82,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.81,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-26",
       "portfolio_value": 2909.65,
       "benchmark_price": 645.09,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -4.47,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-27",
       "portfolio_value": 2851.51,
       "benchmark_price": 634.09,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -6.37,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-30",
       "portfolio_value": 2838.82,
       "benchmark_price": 631.97,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -6.79,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-31",
       "portfolio_value": 2927.1,
       "benchmark_price": 650.34,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.89,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-01",
       "portfolio_value": 2951.51,
       "benchmark_price": 655.24,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -3.09,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-02",
       "portfolio_value": 2956.19,
       "benchmark_price": 655.83,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.94,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-06",
       "portfolio_value": 2969.24,
       "benchmark_price": 658.93,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.51,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-07",
       "portfolio_value": 2971.22,
       "benchmark_price": 659.22,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": -2.44,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-08",
       "portfolio_value": 3045.65,
       "benchmark_price": 676.01,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-09",
       "portfolio_value": 3061.4,
       "benchmark_price": 679.91,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.52,
       "benchmark_return_pct": null
     },
     {
@@ -34762,12 +34767,12 @@ export const ff2026ImportedDashboardGoldenFixture = {
   "range_metrics": {
     "1M": {
       "summary": {
-        "start_value": 3045.64,
+        "start_value": 3032.86,
         "end_value": 3071.0,
         "net_contributions": 0.0,
-        "investment_gain": 25.360000000000127,
-        "time_weighted_return_pct": null,
-        "money_weighted_return_pct": 0.832665712296927,
+        "investment_gain": 38.13999999999987,
+        "time_weighted_return_pct": 0.94,
+        "money_weighted_return_pct": 1.2575588718239505,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
@@ -34775,23 +34780,24 @@ export const ff2026ImportedDashboardGoldenFixture = {
       "monthly_returns": [
         {
           "month": "2026-03",
-          "return_pct": -3.892121196201803
+          "return_pct": -3.487137553332509
         },
         {
           "month": "2026-04",
           "return_pct": 4.91612859143864
         }
       ],
-      "monthly_returns_reliable": true
+      "monthly_returns_reliable": true,
+      "portfolio_return_trust": "degraded"
     },
     "3M": {
       "summary": {
-        "start_value": 3045.64,
+        "start_value": 3094.96,
         "end_value": 3071.0,
         "net_contributions": 0.0,
-        "investment_gain": 25.360000000000127,
-        "time_weighted_return_pct": null,
-        "money_weighted_return_pct": 0.832665712296927,
+        "investment_gain": -23.960000000000036,
+        "time_weighted_return_pct": -1.08,
+        "money_weighted_return_pct": -0.7741618631581679,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
@@ -34799,7 +34805,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
       "monthly_returns": [
         {
           "month": "2026-01",
-          "return_pct": 1.7464309636069597
+          "return_pct": 0.12504200377387864
         },
         {
           "month": "2026-02",
@@ -34814,7 +34820,8 @@ export const ff2026ImportedDashboardGoldenFixture = {
           "return_pct": 4.91612859143864
         }
       ],
-      "monthly_returns_reliable": true
+      "monthly_returns_reliable": true,
+      "portfolio_return_trust": "degraded"
     },
     "YTD": {
       "summary": {
@@ -34822,7 +34829,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         "end_value": 3071.0,
         "net_contributions": 0.0,
         "investment_gain": 10.510000000000218,
-        "time_weighted_return_pct": null,
+        "time_weighted_return_pct": 0.03,
         "money_weighted_return_pct": 0.3434090619476038,
         "benchmark_return_pct": null,
         "excess_return_pct": null
@@ -34846,7 +34853,8 @@ export const ff2026ImportedDashboardGoldenFixture = {
           "return_pct": 4.91612859143864
         }
       ],
-      "monthly_returns_reliable": true
+      "monthly_returns_reliable": true,
+      "portfolio_return_trust": "degraded"
     },
     "1Y": {
       "summary": {
@@ -34854,7 +34862,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         "end_value": 3071.0,
         "net_contributions": 0.0,
         "investment_gain": 25.360000000000127,
-        "time_weighted_return_pct": null,
+        "time_weighted_return_pct": 0.52,
         "money_weighted_return_pct": 0.832665712296927,
         "benchmark_return_pct": null,
         "excess_return_pct": null
@@ -34882,7 +34890,8 @@ export const ff2026ImportedDashboardGoldenFixture = {
           "return_pct": 4.91612859143864
         }
       ],
-      "monthly_returns_reliable": true
+      "monthly_returns_reliable": true,
+      "portfolio_return_trust": "degraded"
     },
     "All": {
       "summary": {
@@ -34890,7 +34899,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         "end_value": 3071.0,
         "net_contributions": 0.0,
         "investment_gain": 25.360000000000127,
-        "time_weighted_return_pct": null,
+        "time_weighted_return_pct": 0.52,
         "money_weighted_return_pct": 0.832665712296927,
         "benchmark_return_pct": null,
         "excess_return_pct": null
@@ -34918,7 +34927,8 @@ export const ff2026ImportedDashboardGoldenFixture = {
           "return_pct": 4.91612859143864
         }
       ],
-      "monthly_returns_reliable": true
+      "monthly_returns_reliable": true,
+      "portfolio_return_trust": "degraded"
     }
   }
 } satisfies ImportedDashboardSource
