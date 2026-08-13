@@ -42,13 +42,37 @@ withholds a number the product already computed correctly.**
 | US-34.3 | Make the cash anchor reachable | Next phase |
 | US-34.4 | Disclose what a withheld holding was worth, and stop withholding immaterial days | Next phase |
 | US-34.5 | Publish the benchmark return on a stated basis | Next phase |
-| US-34.6 | Stop the money-weighted return from carrying the reconciliation adjustment | Next phase |
+| US-34.6 | Stop the money-weighted return and investment gain from publishing the reconciliation adjustment | Done |
 | US-34.7 | Decide the drawdown's price basis | Next phase |
+| US-34.8 | Publish the terminal day's return now that a trustworthy terminal value exists | Next phase |
 
-Recommended order: US-34.2 (done), then US-34.6 (the other half of what US-34.2
-exposed), US-34.3 (which also resolves most of F-5), US-34.4, US-34.5, US-34.7.
+Recommended order: US-34.2 and US-34.6 (done), then US-34.3 (which also resolves
+most of F-5), US-34.4, US-34.5, US-34.8, US-34.7.
 
 ### Slice log
+
+- **US-34.6 (2026-08-13)** — **the money-weighted return was publishing an
+  accounting entry as investor performance.** US-31.3 established that the
+  terminal reconciliation is a bookkeeping correction and must never appear as
+  performance, and applied that to the time-weighted return. Every other
+  period-level figure read the reconciled terminal value straight, so each
+  republished the entry the TWR refuses: on IB2026 the money-weighted return
+  **5.30% → 2.95%** (2.35pp of it was the entry) and the investment gain
+  **$3,080.88 → $1,714.71** ($1,366.17 of it was). Both Modified Dietz
+  implementations and the gain now take one shared
+  `market_derived_terminal_value` helper — two call sites doing the same
+  subtraction independently is how they would drift. **Levels are untouched:**
+  `end_value` and every daily state keep the statement's own ending NAV, because
+  that is broker truth and the correct level; the split is US-31.3's own (levels
+  are affected, returns must not be). The visible consequence — value, gain and
+  contributions no longer reconcile by subtraction — is stated on the card, as
+  an acceptance criterion rather than a nicety. On FF2026 the TWR/MWR divergence
+  closes from **0.12% vs 3.75%** to **0.12% vs 0.53%**, and the residual is
+  pinned as the terminal day's genuine market move, which surfaced **F-8**
+  (US-34.8): US-31.3 withheld that day for want of a trustworthy value, and this
+  story produces one. Golden diff surgical — only `money_weighted_return_pct`
+  and `investment_gain` moved, no key added, every other family byte-identical.
+  703 backend (+4) + 320 frontend (+2) green; tsc + dead-code gate clean.
 
 - **US-34.2 (2026-08-13)** — **the Dashboard answers again.** Every range now
   publishes a time-weighted return on a new `replay_derived` rung: 1M **4.28%**,

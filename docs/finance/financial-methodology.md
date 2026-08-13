@@ -524,6 +524,39 @@ Contract rule:
   a period boundary combined with high volatility, it can diverge from a true
   IRR. This is a known, accepted limitation of the method, not a bug.
 
+### Terminal-value input rule (US-34.6)
+
+The formula is unchanged; **which terminal value feeds it** is not.
+
+`_reconcile_terminal_state_to_statement_totals` snaps the last state's
+`total_portfolio_value` to the statement's ending NAV. US-31.3 established that
+the amount it moves by is an **accounting correction, not a market move**, and
+must never be published as performance — and applied that rule to the
+time-weighted return, which withholds the affected day.
+
+Every other period-level figure read the reconciled value straight, so each
+republished the entry the TWR refuses:
+
+| Figure | With the entry | Market-derived | On IB2026 |
+|---|---|---|---|
+| Money-weighted return | 5.30% | **2.95%** | 2.35pp of it was the entry |
+| Investment gain | $3,080.88 | **$1,714.71** | $1,366.17 of it was the entry |
+
+**Performance figures** — Modified Dietz and the investment gain — therefore use
+`market_derived_terminal_value(states)`: the terminal `total_portfolio_value`
+less its recorded `reconciliation_adjustment`.
+
+**Levels do not.** `end_value`, the daily states and the portfolio-value chart
+keep the reconciled figure, because the statement's ending NAV is broker truth
+and is the correct level. This is the same split US-31.3 drew for the cash
+anchor: levels are affected, returns must not be.
+
+One shared helper serves both Modified Dietz implementations — two call sites
+doing the same subtraction independently is exactly how they would drift apart.
+
+*Consequence to disclose:* the displayed value, gain and contributions no longer
+reconcile by subtraction, so the surface must say why (US-34.6 AC6).
+
 ## Monthly Returns (Dashboard)
 
 Monthly returns compound the same cash-flow-neutral daily returns as the

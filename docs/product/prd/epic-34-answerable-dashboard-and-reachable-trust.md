@@ -205,6 +205,31 @@ screen says which. That is the same guardrail-#3 violation Epic 31 F-3 fixed for
 TWR, still live on the MWR path — it was simply invisible while TWR was `null`.
 The identity above is now pinned in `test_analytics.py` so it cannot drift.
 
+### F-8 (Medium) — the terminal day's return is withheld more broadly than it now needs to be
+
+Found by US-34.6. US-31.3 withholds the reconciled terminal day's return
+entirely, on the grounds that its `total_portfolio_value` was overwritten and no
+trustworthy value remained. **US-34.6 produces exactly that value** —
+`market_derived_terminal_value` — so a trustworthy return for the day is now
+computable.
+
+The evidence is the residual it leaves. On FF2026, with zero external flows:
+
+```text
+time-weighted   0.12%   (terminal day withheld entirely)
+money-weighted  0.53%   (terminal day's market move included)
+residual        0.41pp  =  the terminal day's genuine market return
+```
+
+The two statistics now disagree by exactly one day's real performance — not by
+an accounting entry, which is the improvement US-34.6 delivered, but still a
+disagreement with no methodological justification left. Either the day is
+publishable on both paths or on neither.
+
+Deliberately **not** folded into US-34.6: relaxing a US-31.3 withholding is a
+guardrail change and deserves its own review, not a ride-along on a story about
+Modified Dietz inputs.
+
 ### Examined and found correct — do not "fix" these
 
 - **The Exposure and Risk tabs are healthy.** They run on the snapshot-analytics
@@ -255,6 +280,7 @@ because a stronger claim cannot be proven.** Concretely:
 | US-34.4 | Disclose what a withheld holding was worth, and stop withholding immaterial days | F-3 + F-4: bound the withheld position's value from the broker's own execution prices and surface it on the disclosure; replace the flat $1.00 unbacked-cash tolerance with a materiality test against portfolio value. |
 | US-34.5 | Publish the benchmark return on a stated basis | F-6: source `adjClose` where the provider offers it, and publish a `price_return_only` benchmark return labelled as such when it does not — a price return is a real number, and saying so beats saying nothing. |
 | US-34.6 | Stop the money-weighted return from carrying the reconciliation adjustment | F-7: MWR is computed from the reconciled `end_value`, so it publishes the accounting correction TWR withholds (FF2026: 3.75% vs 0.12%). Apply the US-31.3 rule to the money-weighted path too — the same guardrail, the same reason. Found by US-34.2. |
+| US-34.8 | Publish the terminal day's return now that a trustworthy terminal value exists | F-8, found by US-34.6: US-31.3 withholds the reconciled day entirely because its value was overwritten; `market_derived_terminal_value` now supplies the un-overwritten value, so the day's return is computable. Closes the last TWR/MWR disagreement (FF2026: 0.41pp). A guardrail relaxation — needs its own review. |
 | US-34.7 | Decide the drawdown's price basis | Split out of US-34.2 during implementation: `_allow_dashboard_drawdown_outputs` is a hardcoded `False` whose two unread parameters say the intended gate is whether the **price inputs are adjusted** — a drawdown chained from unadjusted closes overstates the loss on dividend-paying holdings. That is a methodology question, not a flag to flip. |
 
 Recommended order: **US-34.2 first** — it is the finding the researcher actually

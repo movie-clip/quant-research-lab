@@ -90,7 +90,14 @@ FF2026_DASHBOARD_GOLDEN = {
         "end_value": 3071.00,
         "net_contributions": 0.0,
         "time_weighted_return_pct": None,
-        "money_weighted_return_pct": 3.75,
+        # US-34.6 re-pinned this from 3.75. Modified Dietz read the RECONCILED
+        # terminal value, so the money-weighted return published the statement
+        # reconciliation as investor performance — the accounting entry US-31.3
+        # withholds from the time-weighted return (Epic 34 F-7). Computed from
+        # the market-derived terminal value it is 0.53%, which now sits within
+        # half a point of the 0.12% time-weighted figure instead of 3.6pp away.
+        # `end_value` below is unchanged: levels keep the broker's ending NAV.
+        "money_weighted_return_pct": 0.53,
         "max_drawdown_pct": None,
     },
     # US-27.2 (audit F3): monthly returns chain across month boundaries — each
@@ -162,7 +169,17 @@ def _compute_dashboard_visible_summary(
         start_value_amount = start_value if start_value is not None else 0.0
         denominator = start_value_amount + weighted_flows
         if denominator != 0:
-            money_weighted_return_pct = round(((end_value - start_value_amount - total_flows) / denominator) * 100, 2)
+            # US-34.6: the MARKET-DERIVED terminal value. The reconciled
+            # `end_value` above is the correct LEVEL (the broker's ending NAV),
+            # but it carries the accounting entry US-31.3 withholds from the
+            # time-weighted return, and a return must not republish it. This
+            # helper re-implements the production summary independently, so it
+            # has to make the same correction.
+            terminal = anchored_states[-1]
+            performance_end_value = terminal.total_portfolio_value - (
+                terminal.reconciliation_adjustment or 0.0
+            )
+            money_weighted_return_pct = round(((performance_end_value - start_value_amount - total_flows) / denominator) * 100, 2)
 
     return {
         "start_value": round(start_value, 2) if start_value is not None else None,
@@ -7227,27 +7244,32 @@ def test_ff2026_dashboard_truth_values_match_imported_history_and_overview(mocke
     assert visible_summary["start_value"] == expected_summary["start_value"]
     assert visible_summary["end_value"] == expected_summary["end_value"]
     assert visible_summary["net_contributions"] == expected_summary["net_contributions"]
-    # US-34.2: the compounded return is published on the `replay_derived` rung,
-    # so the golden's `None` is now a number — and publishing it exposed a
-    # divergence that nulls had hidden. On FF2026 the two published returns are
-    # 0.12% (time-weighted) and 3.75% (money-weighted) with ZERO flows, where
-    # they should agree.
+    # US-34.2 published the compounded return, which exposed a divergence nulls
+    # had hidden: with ZERO external flows the time- and money-weighted returns
+    # read 0.12% and 3.75%, where they should agree. The whole gap was the
+    # reconciled terminal day — TWR withheld it (US-31.3), MWR read `end_value`,
+    # which IS the reconciled value (Epic 34 F-7).
     #
-    # The whole gap is the reconciled terminal day. TWR withholds it (US-31.3:
-    # an accounting correction is not a market move); MWR is computed from
-    # `end_value`, which IS the reconciled value, so it silently CONTAINS the
-    # same correction. The identity below pins that decomposition exactly:
+    # US-34.6 removed the accounting entry from the money-weighted side, so the
+    # golden's 3.75% is now 0.53% and the two are within half a point.
     #
-    #     time_weighted + withheld_impact  ==  money_weighted
-    #             0.12  +           3.63   ==          3.75
-    #
-    # This asymmetry is a real finding (Epic 34 F-7), not something to average
-    # away — one of the two published returns includes an accounting entry.
-    assert visible_summary["time_weighted_return_pct"] is not None
-    impact = history.run_metadata.withheld_return_impact_pct
-    assert impact == pytest.approx(3.63, abs=0.05)
-    assert visible_summary["time_weighted_return_pct"] + impact == pytest.approx(
-        expected_summary["money_weighted_return_pct"], abs=0.05
+    # What remains is NOT an accounting entry: it is the terminal day's genuine
+    # market move. TWR still withholds that whole day, while MWR — now computed
+    # from the market-derived terminal value — includes it. That residual is
+    # Epic 34 F-8 (US-34.8): once a trustworthy terminal value exists, the day's
+    # return is computable and US-31.3's blanket withholding is partly obsolete.
+    twr = visible_summary["time_weighted_return_pct"]
+    mwr = history.range_metrics["All"].summary.money_weighted_return_pct
+    assert twr == pytest.approx(0.12, abs=0.02)
+    assert mwr == pytest.approx(expected_summary["money_weighted_return_pct"], abs=0.02)
+
+    terminal = history.daily_states[-1]
+    previous = history.daily_states[-2]
+    market_terminal = terminal.total_portfolio_value - (terminal.reconciliation_adjustment or 0.0)
+    terminal_day_market_return = (market_terminal / previous.total_portfolio_value - 1) * 100
+    assert mwr - twr == pytest.approx(terminal_day_market_return, abs=0.05), (
+        "the TWR/MWR residual must be the terminal day's market move — anything "
+        "else means an accounting entry is still leaking into one of them"
     )
     assert visible_summary["money_weighted_return_pct"] == expected_summary["money_weighted_return_pct"]
     assert max_drawdown == expected_summary["max_drawdown_pct"]
@@ -8342,3 +8364,104 @@ def test_publishing_the_return_does_not_promote_it_to_verified() -> None:
     assert all(metrics.portfolio_return_trust == "degraded" for metrics in ranges.values())
     assert all(metrics.summary.benchmark_return_pct is None for metrics in ranges.values())
     assert all(metrics.summary.excess_return_pct is None for metrics in ranges.values())
+
+
+# -- US-34.6 (Epic 34 F-7): performance figures exclude the reconciliation --
+
+
+def test_money_weighted_return_excludes_the_reconciliation_adjustment() -> None:
+    """US-34.6 AC1/AC3.
+
+    US-31.3 established that the terminal reconciliation is an accounting entry
+    and must never be published as performance. It applied that to the TWR only;
+    Modified Dietz read the reconciled terminal value straight, so 2.35pp of the
+    published 5.30% was the entry itself.
+    """
+    _snapshot, history = _us313_ib2026_history()
+    summary = (history.range_metrics or {})["All"].summary
+    terminal = history.daily_states[-1]
+
+    assert summary.money_weighted_return_pct == pytest.approx(2.95, abs=0.02)
+    # The removed amount IS the recorded adjustment — not an unexplained shift.
+    contaminated = (
+        (terminal.total_portfolio_value - summary.start_value - summary.net_contributions)
+        / summary.start_value
+        * 100
+    )
+    clean = (
+        (
+            terminal.total_portfolio_value
+            - terminal.reconciliation_adjustment
+            - summary.start_value
+            - summary.net_contributions
+        )
+        / summary.start_value
+        * 100
+    )
+    assert contaminated - clean == pytest.approx(
+        terminal.reconciliation_adjustment / summary.start_value * 100, abs=0.01
+    )
+
+
+def test_investment_gain_excludes_the_reconciliation_adjustment() -> None:
+    """US-34.6 AC1/AC3: the gain is performance, so the entry comes out of it."""
+    _snapshot, history = _us313_ib2026_history()
+    summary = (history.range_metrics or {})["All"].summary
+    terminal = history.daily_states[-1]
+
+    assert summary.investment_gain == pytest.approx(1_714.71, abs=0.02)
+    assert summary.investment_gain == pytest.approx(
+        summary.end_value
+        - summary.start_value
+        - summary.net_contributions
+        - terminal.reconciliation_adjustment,
+        abs=0.02,
+    )
+
+
+def test_levels_keep_the_reconciled_terminal_value() -> None:
+    """US-34.6 AC2 — the distinction the story rests on.
+
+    The statement's ending NAV is broker truth and remains the right number for
+    every LEVEL. Only figures claiming to be performance drop the entry.
+    """
+    snapshot, history = _us313_ib2026_history()
+    summary = (history.range_metrics or {})["All"].summary
+
+    assert summary.end_value == pytest.approx(snapshot.statement_totals.ending_nav, abs=0.01)
+    assert history.daily_states[-1].total_portfolio_value == pytest.approx(
+        snapshot.statement_totals.ending_nav, abs=0.01
+    )
+
+
+def test_no_reconciliation_leaves_every_figure_untouched() -> None:
+    """US-34.6 AC5: a clean run must be byte-identical.
+
+    The request path carries no `statement_totals`, so nothing is reconciled and
+    the market-derived terminal value is simply the terminal value.
+    """
+    from app.analytics.performance import build_performance_summary, market_derived_terminal_value
+
+    states = [
+        DailyPortfolioState(
+            date="2025-01-02",
+            cash={"USD": 0.0},
+            positions=[],
+            total_market_value=1000.0,
+            total_portfolio_value=1000.0,
+            external_cash_flow=0.0,
+        ),
+        DailyPortfolioState(
+            date="2025-01-03",
+            cash={"USD": 0.0},
+            positions=[],
+            total_market_value=1100.0,
+            total_portfolio_value=1100.0,
+            external_cash_flow=0.0,
+        ),
+    ]
+
+    assert market_derived_terminal_value(states) == 1100.0
+    summary = build_performance_summary(states, [])
+    assert summary.investment_gain == 100.0
+    assert summary.money_weighted_return_pct == pytest.approx(10.0, abs=0.01)

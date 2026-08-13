@@ -99,6 +99,11 @@ export function PerformanceBenchmarkCard({ result, activeRange }: PerformanceBen
   const returnTrust = metrics.portfolio_return_trust ?? 'unavailable'
   const withheldDates = result.run_metadata?.withheld_return_dates ?? []
   const withheldImpact = result.run_metadata?.withheld_return_impact_pct ?? null
+  // US-34.6: the terminal state's reconciliation is excluded from the gain and
+  // the returns but included in the displayed portfolio value, so the three
+  // numbers no longer reconcile by subtraction. Say so, or it reads as a bug.
+  const reconciliationAdjustment =
+    result.daily_states?.[result.daily_states.length - 1]?.reconciliation_adjustment ?? null
 
   return (
     <section className="summary-card performance-benchmark-card" aria-label="Performance & Benchmark">
@@ -166,6 +171,16 @@ export function PerformanceBenchmarkCard({ result, activeRange }: PerformanceBen
           <span className="benchmark-card-value">{formatCurrency(metrics.summary.net_contributions)}</span>
         </div>
       </div>
+
+      {reconciliationAdjustment != null && Math.abs(reconciliationAdjustment) > 1 ? (
+        <p className="helper" style={{ marginTop: 'var(--space-md)' }}>
+          Portfolio Value is the statement&apos;s own ending NAV, which includes a{' '}
+          {formatCurrency(reconciliationAdjustment)} reconciliation on the final day. That is an
+          accounting entry rather than a market move, so it is excluded from the returns and the
+          gain above — which is why those figures do not reconcile against the value by
+          subtraction.
+        </p>
+      ) : null}
 
       {/* US-34.2: publishing a return that omits days without saying what the
           omission is worth misleads more than publishing nothing. The engine
