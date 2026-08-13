@@ -199,4 +199,50 @@ describe('ReplayDisclosuresCard', () => {
     )
     expect(container.innerHTML).toBe('')
   })
+
+  it('renders no cash-anchor note when the anchor is verified (US-34.3)', () => {
+    // The anchor now reads the statement's OWN reported starting cash, so it is
+    // observed truth and reports `verified`. Before US-34.3 it derived
+    // `starting_nav - opening_positions_value` from two differently-dated terms
+    // and could never clear, so this note fired on every run of every statement.
+    const { container } = render(
+      <ReplayDisclosuresCard
+        runMetadata={metadata({
+          replay_cash_anchor: {
+            basis: 'statement_starting_cash',
+            nav_as_of: '2026-01-01',
+            window_start: '2026-01-08',
+            residual: 46.69,
+            trust: 'verified',
+          },
+        })}
+      />,
+    )
+
+    // Nothing else is degraded either, so the card says nothing at all.
+    expect(container.innerHTML).toBe('')
+  })
+
+  it('still surfaces a statement-starting-cash anchor that fails to reconcile', () => {
+    // US-34.3 AC5: observed opening cash is not a licence to always claim
+    // verified. When the ledger cannot explain the statement's own two cash
+    // endpoints, the anchor degrades and the note must speak again.
+    render(
+      <ReplayDisclosuresCard
+        runMetadata={metadata({
+          replay_cash_anchor: {
+            basis: 'statement_starting_cash',
+            nav_as_of: '2026-01-01',
+            window_start: '2026-01-08',
+            residual: 500,
+            trust: 'degraded',
+          },
+        })}
+      />,
+    )
+
+    const text = screen.getByRole('region', { name: /replay disclosures/i }).textContent ?? ''
+    expect(text).toMatch(/starting cash/i)
+    expect(text).toContain('500')
+  })
 })

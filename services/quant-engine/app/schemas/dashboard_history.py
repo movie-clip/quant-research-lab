@@ -111,11 +111,27 @@ class ReplayCashAnchor(BaseModel):
     """
 
     basis: Literal[
+        "statement_starting_cash",
         "statement_nav_at_window_start",
         "statement_nav_date_mismatch",
         "snapshot_cash_balances",
         "unavailable",
     ]
+    # US-34.3 (Epic 34 F-2): `statement_starting_cash` is the strongest basis and
+    # the one used whenever the statement reports its own opening cash. It is
+    # DIRECTLY OBSERVED broker truth, exactly dated at the period start, so it
+    # carries none of the date mismatch that makes the derived
+    # `starting_nav − opening_positions_value` identity a plug.
+    #
+    # Trust follows the anchor's SOURCE, not its residual: an observed figure is
+    # `verified`, and the residual reports a different fact — how well the
+    # ledger's flows reconcile the statement's two cash endpoints. Above
+    # `REPLAY_OPENING_CASH_RESIDUAL_SHARE` of opening cash the ledger has failed
+    # to explain its own statement, and the anchor degrades.
+    #
+    # For the DERIVED bases the old rule still holds: any residual above
+    # `REPLAY_RECONCILIATION_TOLERANCE` means the derivation is absorbing
+    # something, so it degrades.
     nav_as_of: str | None = None
     window_start: str | None = None
     residual: float | None = None

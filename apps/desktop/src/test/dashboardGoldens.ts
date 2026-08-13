@@ -11,10 +11,10 @@ export const ib2026DashboardGolden = {
   "loadedFileLabel": "Loaded file: IB2026.csv",
   "monthlyStatusLabel": "Monthly-return status: Live market history",
   "portfolioValue": "$65429.98",
-  "startValue": "$62834.10",
-  "timeWeightedReturn": "3.57%",
+  "startValue": "$64258.38",
+  "timeWeightedReturn": "3.49%",
   "netContributions": "$0.00",
-  "moneyWeightedReturn": "1.96%",
+  "moneyWeightedReturn": "1.91%",
   "drawdown": "n/a",
   "loadedFiles": [
     "IB2026.csv"
@@ -22,19 +22,19 @@ export const ib2026DashboardGolden = {
   "monthlyReturns": [
     {
       "month": "2026-05",
-      "returnPct": "3.13%"
+      "returnPct": "3.06%"
     },
     {
       "month": "2026-06",
-      "returnPct": "-7.92%"
+      "returnPct": "-7.75%"
     },
     {
       "month": "2026-07",
-      "returnPct": "2.32%"
+      "returnPct": "2.26%"
     },
     {
       "month": "2026-08",
-      "returnPct": "7.17%"
+      "returnPct": "4.73%"
     }
   ],
   "sectors": {
@@ -5182,7 +5182,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-08",
       "cash": {
-        "USD": 3252.74
+        "USD": 4677.02
       },
       "positions": [
         {
@@ -5415,7 +5415,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 49133.36,
-      "total_portfolio_value": 52386.1,
+      "total_portfolio_value": 53810.38,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -5424,7 +5424,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-09",
       "cash": {
-        "USD": 3252.74
+        "USD": 4677.02
       },
       "positions": [
         {
@@ -5657,7 +5657,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 49607.96,
-      "total_portfolio_value": 52860.7,
+      "total_portfolio_value": 54284.98,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -5666,7 +5666,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-12",
       "cash": {
-        "USD": 3252.74
+        "USD": 4677.02
       },
       "positions": [
         {
@@ -5899,7 +5899,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 49695.37,
-      "total_portfolio_value": 52948.11,
+      "total_portfolio_value": 54372.39,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -5908,7 +5908,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-13",
       "cash": {
-        "USD": 3252.54
+        "USD": 4676.82
       },
       "positions": [
         {
@@ -6141,7 +6141,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 49293.07,
-      "total_portfolio_value": 52545.61,
+      "total_portfolio_value": 53969.89,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -6150,7 +6150,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-14",
       "cash": {
-        "USD": 3263.81
+        "USD": 4688.09
       },
       "positions": [
         {
@@ -6383,7 +6383,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 49212.9,
-      "total_portfolio_value": 52476.71,
+      "total_portfolio_value": 53900.99,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -6392,7 +6392,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-15",
       "cash": {
-        "USD": 2816.12
+        "USD": 4240.4
       },
       "positions": [
         {
@@ -6625,7 +6625,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 49783.19,
-      "total_portfolio_value": 52599.31,
+      "total_portfolio_value": 54023.59,
       "external_cash_flow": 0.0,
       "trade_flow": 447.69,
       "reconciliation_adjustment": null,
@@ -6634,7 +6634,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-16",
       "cash": {
-        "USD": 2819.83
+        "USD": 4244.11
       },
       "positions": [
         {
@@ -6867,7 +6867,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 49725.85,
-      "total_portfolio_value": 52545.68,
+      "total_portfolio_value": 53969.96,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -6876,7 +6876,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-20",
       "cash": {
-        "USD": 2371.55
+        "USD": 3795.83
       },
       "positions": [
         {
@@ -7115,7 +7115,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 49147.75,
-      "total_portfolio_value": 51519.3,
+      "total_portfolio_value": 52943.58,
       "external_cash_flow": 0.0,
       "trade_flow": 448.28,
       "reconciliation_adjustment": null,
@@ -7124,7 +7124,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-21",
       "cash": {
-        "USD": 2120.16
+        "USD": 3544.44
       },
       "positions": [
         {
@@ -7363,7 +7363,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 49971.0,
-      "total_portfolio_value": 52091.16,
+      "total_portfolio_value": 53515.44,
       "external_cash_flow": 0.0,
       "trade_flow": 251.39,
       "reconciliation_adjustment": null,
@@ -7372,7 +7372,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-22",
       "cash": {
-        "USD": 2120.16
+        "USD": 3544.44
       },
       "positions": [
         {
@@ -7611,7 +7611,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 50595.67,
-      "total_portfolio_value": 52715.83,
+      "total_portfolio_value": 54140.11,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -7620,7 +7620,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-23",
       "cash": {
-        "USD": 2120.16
+        "USD": 3544.44
       },
       "positions": [
         {
@@ -7859,7 +7859,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 50628.0,
-      "total_portfolio_value": 52748.16,
+      "total_portfolio_value": 54172.44,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -7868,7 +7868,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-26",
       "cash": {
-        "USD": 2120.16
+        "USD": 3544.44
       },
       "positions": [
         {
@@ -8107,7 +8107,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 51090.1,
-      "total_portfolio_value": 53210.26,
+      "total_portfolio_value": 54634.54,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -8116,7 +8116,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-27",
       "cash": {
-        "USD": 2120.16
+        "USD": 3544.44
       },
       "positions": [
         {
@@ -8355,7 +8355,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 51077.22,
-      "total_portfolio_value": 53197.38,
+      "total_portfolio_value": 54621.66,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -8364,7 +8364,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-28",
       "cash": {
-        "USD": 2120.23
+        "USD": 3544.51
       },
       "positions": [
         {
@@ -8603,7 +8603,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 50964.96,
-      "total_portfolio_value": 53085.19,
+      "total_portfolio_value": 54509.47,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -8612,7 +8612,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-29",
       "cash": {
-        "USD": 6539.03
+        "USD": 7963.31
       },
       "positions": [
         {
@@ -8815,7 +8815,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 46533.73,
-      "total_portfolio_value": 53072.76,
+      "total_portfolio_value": 54497.04,
       "external_cash_flow": 0.0,
       "trade_flow": -4418.8,
       "reconciliation_adjustment": null,
@@ -8824,7 +8824,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-30",
       "cash": {
-        "USD": 7008.93
+        "USD": 8433.21
       },
       "positions": [
         {
@@ -9021,7 +9021,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 45362.09,
-      "total_portfolio_value": 52371.02,
+      "total_portfolio_value": 53795.3,
       "external_cash_flow": 0.0,
       "trade_flow": -469.9,
       "reconciliation_adjustment": null,
@@ -9030,7 +9030,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-02",
       "cash": {
-        "USD": 7008.93
+        "USD": 8433.21
       },
       "positions": [
         {
@@ -9227,7 +9227,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 45585.15,
-      "total_portfolio_value": 52594.08,
+      "total_portfolio_value": 54018.36,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -9236,7 +9236,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-03",
       "cash": {
-        "USD": 6299.28
+        "USD": 7723.56
       },
       "positions": [
         {
@@ -9439,7 +9439,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 45025.85,
-      "total_portfolio_value": 51325.13,
+      "total_portfolio_value": 52749.41,
       "external_cash_flow": 0.0,
       "trade_flow": 709.64,
       "reconciliation_adjustment": null,
@@ -9448,7 +9448,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-04",
       "cash": {
-        "USD": 6299.28
+        "USD": 7723.56
       },
       "positions": [
         {
@@ -9651,7 +9651,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 44629.86,
-      "total_portfolio_value": 50929.14,
+      "total_portfolio_value": 52353.42,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -9660,7 +9660,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-05",
       "cash": {
-        "USD": 4718.75
+        "USD": 6143.03
       },
       "positions": [
         {
@@ -9869,7 +9869,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 45597.21,
-      "total_portfolio_value": 50315.96,
+      "total_portfolio_value": 51740.24,
       "external_cash_flow": 0.0,
       "trade_flow": 1580.53,
       "reconciliation_adjustment": null,
@@ -9878,7 +9878,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-06",
       "cash": {
-        "USD": 4718.75
+        "USD": 6143.03
       },
       "positions": [
         {
@@ -10087,7 +10087,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 45817.07,
-      "total_portfolio_value": 50535.82,
+      "total_portfolio_value": 51960.1,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -10096,7 +10096,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-09",
       "cash": {
-        "USD": 4723.19
+        "USD": 6147.47
       },
       "positions": [
         {
@@ -10305,7 +10305,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 46018.11,
-      "total_portfolio_value": 50741.3,
+      "total_portfolio_value": 52165.58,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -10314,7 +10314,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-10",
       "cash": {
-        "USD": 4319.01
+        "USD": 5743.29
       },
       "positions": [
         {
@@ -10523,7 +10523,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 45976.0,
-      "total_portfolio_value": 50295.01,
+      "total_portfolio_value": 51719.29,
       "external_cash_flow": 0.0,
       "trade_flow": 404.18,
       "reconciliation_adjustment": null,
@@ -10532,7 +10532,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-11",
       "cash": {
-        "USD": 4319.01
+        "USD": 5743.29
       },
       "positions": [
         {
@@ -10741,7 +10741,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 45463.68,
-      "total_portfolio_value": 49782.69,
+      "total_portfolio_value": 51206.97,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -10750,7 +10750,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-12",
       "cash": {
-        "USD": 3653.06
+        "USD": 5077.34
       },
       "positions": [
         {
@@ -10959,7 +10959,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 45411.47,
-      "total_portfolio_value": 49064.53,
+      "total_portfolio_value": 50488.81,
       "external_cash_flow": 0.0,
       "trade_flow": 666.61,
       "reconciliation_adjustment": null,
@@ -10968,7 +10968,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-13",
       "cash": {
-        "USD": 3656.73
+        "USD": 5081.01
       },
       "positions": [
         {
@@ -11177,7 +11177,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 45536.42,
-      "total_portfolio_value": 49193.15,
+      "total_portfolio_value": 50617.43,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -11186,7 +11186,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-17",
       "cash": {
-        "USD": 3130.87
+        "USD": 4555.15
       },
       "positions": [
         {
@@ -11395,7 +11395,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 45895.64,
-      "total_portfolio_value": 49026.51,
+      "total_portfolio_value": 50450.79,
       "external_cash_flow": 0.0,
       "trade_flow": 525.86,
       "reconciliation_adjustment": null,
@@ -11404,7 +11404,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-18",
       "cash": {
-        "USD": 3135.73
+        "USD": 4560.01
       },
       "positions": [
         {
@@ -11613,7 +11613,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 46562.57,
-      "total_portfolio_value": 49698.3,
+      "total_portfolio_value": 51122.58,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -11622,7 +11622,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-19",
       "cash": {
-        "USD": 3135.73
+        "USD": 4560.01
       },
       "positions": [
         {
@@ -11831,7 +11831,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 46471.81,
-      "total_portfolio_value": 49607.54,
+      "total_portfolio_value": 51031.82,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -11840,7 +11840,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-20",
       "cash": {
-        "USD": 3135.73
+        "USD": 4560.01
       },
       "positions": [
         {
@@ -12049,7 +12049,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 47016.33,
-      "total_portfolio_value": 50152.06,
+      "total_portfolio_value": 51576.34,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -12058,7 +12058,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-23",
       "cash": {
-        "USD": 3135.73
+        "USD": 4560.01
       },
       "positions": [
         {
@@ -12267,7 +12267,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 46290.87,
-      "total_portfolio_value": 49426.6,
+      "total_portfolio_value": 50850.88,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -12276,7 +12276,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-24",
       "cash": {
-        "USD": 3135.73
+        "USD": 4560.01
       },
       "positions": [
         {
@@ -12485,7 +12485,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 46800.85,
-      "total_portfolio_value": 49936.58,
+      "total_portfolio_value": 51360.86,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -12494,7 +12494,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-25",
       "cash": {
-        "USD": 3135.73
+        "USD": 4560.01
       },
       "positions": [
         {
@@ -12703,7 +12703,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 47487.93,
-      "total_portfolio_value": 50623.66,
+      "total_portfolio_value": 52047.94,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -12712,7 +12712,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-26",
       "cash": {
-        "USD": 3583.05
+        "USD": 5007.33
       },
       "positions": [
         {
@@ -12915,7 +12915,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 47186.28,
-      "total_portfolio_value": 50769.33,
+      "total_portfolio_value": 52193.61,
       "external_cash_flow": 0.0,
       "trade_flow": -449.15,
       "reconciliation_adjustment": null,
@@ -12924,7 +12924,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-27",
       "cash": {
-        "USD": 3588.5
+        "USD": 5012.78
       },
       "positions": [
         {
@@ -13127,7 +13127,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 47416.76,
-      "total_portfolio_value": 51005.26,
+      "total_portfolio_value": 52429.54,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -13136,7 +13136,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-02",
       "cash": {
-        "USD": 3588.5
+        "USD": 5012.78
       },
       "positions": [
         {
@@ -13339,7 +13339,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 47240.01,
-      "total_portfolio_value": 50828.51,
+      "total_portfolio_value": 52252.79,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -13348,7 +13348,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-03",
       "cash": {
-        "USD": 2275.18
+        "USD": 3699.46
       },
       "positions": [
         {
@@ -13551,7 +13551,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 48130.46,
-      "total_portfolio_value": 50405.64,
+      "total_portfolio_value": 51829.92,
       "external_cash_flow": 0.0,
       "trade_flow": 1313.32,
       "reconciliation_adjustment": null,
@@ -13560,7 +13560,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-04",
       "cash": {
-        "USD": 2275.18
+        "USD": 3699.46
       },
       "positions": [
         {
@@ -13763,7 +13763,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 48604.16,
-      "total_portfolio_value": 50879.34,
+      "total_portfolio_value": 52303.62,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -13772,7 +13772,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-05",
       "cash": {
-        "USD": 2913.13
+        "USD": 4337.41
       },
       "positions": [
         {
@@ -13969,7 +13969,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 47829.02,
-      "total_portfolio_value": 50742.15,
+      "total_portfolio_value": 52166.43,
       "external_cash_flow": 0.0,
       "trade_flow": -637.95,
       "reconciliation_adjustment": null,
@@ -13978,7 +13978,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-06",
       "cash": {
-        "USD": 2913.13
+        "USD": 4337.41
       },
       "positions": [
         {
@@ -14175,7 +14175,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 47394.72,
-      "total_portfolio_value": 50307.85,
+      "total_portfolio_value": 51732.13,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -14184,7 +14184,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-09",
       "cash": {
-        "USD": 2913.13
+        "USD": 4337.41
       },
       "positions": [
         {
@@ -14381,7 +14381,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 47583.39,
-      "total_portfolio_value": 50496.52,
+      "total_portfolio_value": 51920.8,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -14390,7 +14390,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-10",
       "cash": {
-        "USD": 2920.2
+        "USD": 4344.48
       },
       "positions": [
         {
@@ -14587,7 +14587,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 47362.53,
-      "total_portfolio_value": 50282.73,
+      "total_portfolio_value": 51707.01,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -14596,7 +14596,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-11",
       "cash": {
-        "USD": 2945.61
+        "USD": 4369.89
       },
       "positions": [
         {
@@ -14793,7 +14793,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 47051.14,
-      "total_portfolio_value": 49996.75,
+      "total_portfolio_value": 51421.03,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -14802,7 +14802,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-12",
       "cash": {
-        "USD": 2945.61
+        "USD": 4369.89
       },
       "positions": [
         {
@@ -14999,7 +14999,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 46263.03,
-      "total_portfolio_value": 49208.64,
+      "total_portfolio_value": 50632.92,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -15008,7 +15008,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-13",
       "cash": {
-        "USD": 2947.36
+        "USD": 4371.64
       },
       "positions": [
         {
@@ -15205,7 +15205,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 46019.3,
-      "total_portfolio_value": 48966.66,
+      "total_portfolio_value": 50390.94,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -15214,7 +15214,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-16",
       "cash": {
-        "USD": 2950.22
+        "USD": 4374.5
       },
       "positions": [
         {
@@ -15411,7 +15411,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 46493.01,
-      "total_portfolio_value": 49443.23,
+      "total_portfolio_value": 50867.51,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -15420,7 +15420,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-17",
       "cash": {
-        "USD": 3295.43
+        "USD": 4719.71
       },
       "positions": [
         {
@@ -15617,7 +15617,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 46561.78,
-      "total_portfolio_value": 49857.21,
+      "total_portfolio_value": 51281.49,
       "external_cash_flow": 0.0,
       "trade_flow": -341.88,
       "reconciliation_adjustment": null,
@@ -15626,7 +15626,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-18",
       "cash": {
-        "USD": 3295.43
+        "USD": 4719.71
       },
       "positions": [
         {
@@ -15823,7 +15823,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 45794.27,
-      "total_portfolio_value": 49089.7,
+      "total_portfolio_value": 50513.98,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -15832,7 +15832,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-19",
       "cash": {
-        "USD": 3295.43
+        "USD": 4719.71
       },
       "positions": [
         {
@@ -16029,7 +16029,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 45361.05,
-      "total_portfolio_value": 48656.48,
+      "total_portfolio_value": 50080.76,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -16038,7 +16038,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-20",
       "cash": {
-        "USD": 3295.43
+        "USD": 4719.71
       },
       "positions": [
         {
@@ -16235,7 +16235,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 44864.1,
-      "total_portfolio_value": 48159.53,
+      "total_portfolio_value": 49583.81,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -16244,7 +16244,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-23",
       "cash": {
-        "USD": 3295.43
+        "USD": 4719.71
       },
       "positions": [
         {
@@ -16441,7 +16441,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 45155.22,
-      "total_portfolio_value": 48450.65,
+      "total_portfolio_value": 49874.93,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -16450,7 +16450,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-24",
       "cash": {
-        "USD": 3295.43
+        "USD": 4719.71
       },
       "positions": [
         {
@@ -16647,7 +16647,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 44583.6,
-      "total_portfolio_value": 47879.03,
+      "total_portfolio_value": 49303.31,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -16656,7 +16656,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-25",
       "cash": {
-        "USD": 2287.54
+        "USD": 3711.82
       },
       "positions": [
         {
@@ -16853,7 +16853,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 45935.51,
-      "total_portfolio_value": 48223.05,
+      "total_portfolio_value": 49647.33,
       "external_cash_flow": 0.0,
       "trade_flow": 1009.44,
       "reconciliation_adjustment": null,
@@ -16862,7 +16862,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-26",
       "cash": {
-        "USD": 3163.05
+        "USD": 4587.33
       },
       "positions": [
         {
@@ -17053,7 +17053,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 44261.97,
-      "total_portfolio_value": 47425.02,
+      "total_portfolio_value": 48849.3,
       "external_cash_flow": 0.0,
       "trade_flow": -873.27,
       "reconciliation_adjustment": null,
@@ -17062,7 +17062,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-27",
       "cash": {
-        "USD": 3163.05
+        "USD": 4587.33
       },
       "positions": [
         {
@@ -17253,7 +17253,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 43462.61,
-      "total_portfolio_value": 46625.66,
+      "total_portfolio_value": 48049.94,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -17262,7 +17262,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-30",
       "cash": {
-        "USD": 3169.68
+        "USD": 4593.96
       },
       "positions": [
         {
@@ -17453,7 +17453,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 43715.09,
-      "total_portfolio_value": 46884.77,
+      "total_portfolio_value": 48309.05,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -17462,7 +17462,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-31",
       "cash": {
-        "USD": 1429.73
+        "USD": 2854.01
       },
       "positions": [
         {
@@ -17653,7 +17653,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 46749.87,
-      "total_portfolio_value": 48179.6,
+      "total_portfolio_value": 49603.88,
       "external_cash_flow": 0.0,
       "trade_flow": 1743.77,
       "reconciliation_adjustment": null,
@@ -17662,7 +17662,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-01",
       "cash": {
-        "USD": 710.42
+        "USD": 2134.7
       },
       "positions": [
         {
@@ -17859,7 +17859,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 47879.53,
-      "total_portfolio_value": 48589.95,
+      "total_portfolio_value": 50014.23,
       "external_cash_flow": 0.0,
       "trade_flow": 719.3,
       "reconciliation_adjustment": null,
@@ -17868,7 +17868,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-02",
       "cash": {
-        "USD": 710.42
+        "USD": 2134.7
       },
       "positions": [
         {
@@ -18065,7 +18065,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 47851.97,
-      "total_portfolio_value": 48562.39,
+      "total_portfolio_value": 49986.67,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -18074,7 +18074,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-06",
       "cash": {
-        "USD": 710.42
+        "USD": 2134.7
       },
       "positions": [
         {
@@ -18271,7 +18271,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 48024.97,
-      "total_portfolio_value": 48735.39,
+      "total_portfolio_value": 50159.67,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -18280,7 +18280,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-07",
       "cash": {
-        "USD": 2719.74
+        "USD": 4144.02
       },
       "positions": [
         {
@@ -18453,7 +18453,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 46023.52,
-      "total_portfolio_value": 48743.26,
+      "total_portfolio_value": 50167.54,
       "external_cash_flow": 0.0,
       "trade_flow": -2017.71,
       "reconciliation_adjustment": null,
@@ -18462,7 +18462,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-08",
       "cash": {
-        "USD": 1007.83
+        "USD": 2432.11
       },
       "positions": [
         {
@@ -18629,7 +18629,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 48975.79,
-      "total_portfolio_value": 49983.62,
+      "total_portfolio_value": 51407.9,
       "external_cash_flow": 0.0,
       "trade_flow": 1711.91,
       "reconciliation_adjustment": null,
@@ -18638,7 +18638,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-09",
       "cash": {
-        "USD": -296.7
+        "USD": 1127.58
       },
       "positions": [
         {
@@ -18805,7 +18805,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 50652.68,
-      "total_portfolio_value": 50355.98,
+      "total_portfolio_value": 51780.26,
       "external_cash_flow": 0.0,
       "trade_flow": 1307.5,
       "reconciliation_adjustment": null,
@@ -18814,7 +18814,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-10",
       "cash": {
-        "USD": 9494.13
+        "USD": 10918.41
       },
       "positions": [
         {
@@ -18963,7 +18963,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 50710.14,
-      "total_portfolio_value": 60204.27,
+      "total_portfolio_value": 61628.55,
       "external_cash_flow": 9963.0,
       "trade_flow": 172.17,
       "reconciliation_adjustment": null,
@@ -18972,7 +18972,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-13",
       "cash": {
-        "USD": 7430.75
+        "USD": 8855.03
       },
       "positions": [
         {
@@ -19109,7 +19109,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 53138.44,
-      "total_portfolio_value": 60569.19,
+      "total_portfolio_value": 61993.47,
       "external_cash_flow": 0.0,
       "trade_flow": 2063.38,
       "reconciliation_adjustment": null,
@@ -19118,7 +19118,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-14",
       "cash": {
-        "USD": 533.62
+        "USD": 1957.9
       },
       "positions": [
         {
@@ -19267,7 +19267,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 58935.01,
-      "total_portfolio_value": 59468.63,
+      "total_portfolio_value": 60892.91,
       "external_cash_flow": 0.0,
       "trade_flow": 5212.96,
       "reconciliation_adjustment": null,
@@ -19276,7 +19276,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-15",
       "cash": {
-        "USD": 533.62
+        "USD": 1957.9
       },
       "positions": [
         {
@@ -19425,7 +19425,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 59330.86,
-      "total_portfolio_value": 59864.48,
+      "total_portfolio_value": 61288.76,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -19434,7 +19434,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-16",
       "cash": {
-        "USD": 2767.92
+        "USD": 4192.2
       },
       "positions": [
         {
@@ -19565,7 +19565,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 57389.03,
-      "total_portfolio_value": 60156.95,
+      "total_portfolio_value": 61581.23,
       "external_cash_flow": 0.0,
       "trade_flow": -2230.56,
       "reconciliation_adjustment": null,
@@ -19574,7 +19574,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-17",
       "cash": {
-        "USD": 2981.77
+        "USD": 4406.05
       },
       "positions": [
         {
@@ -19699,7 +19699,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 59026.63,
-      "total_portfolio_value": 62008.4,
+      "total_portfolio_value": 63432.68,
       "external_cash_flow": 0.0,
       "trade_flow": 1580.79,
       "reconciliation_adjustment": null,
@@ -19708,7 +19708,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-20",
       "cash": {
-        "USD": 2981.77
+        "USD": 4406.05
       },
       "positions": [
         {
@@ -19833,7 +19833,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 58827.83,
-      "total_portfolio_value": 61809.6,
+      "total_portfolio_value": 63233.88,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -19842,7 +19842,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-21",
       "cash": {
-        "USD": 2981.77
+        "USD": 4406.05
       },
       "positions": [
         {
@@ -19967,7 +19967,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 58400.71,
-      "total_portfolio_value": 61382.48,
+      "total_portfolio_value": 62806.76,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -19976,7 +19976,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-22",
       "cash": {
-        "USD": 3884.5
+        "USD": 5308.78
       },
       "positions": [
         {
@@ -20095,7 +20095,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 57503.01,
-      "total_portfolio_value": 61387.51,
+      "total_portfolio_value": 62811.79,
       "external_cash_flow": 0.0,
       "trade_flow": -902.73,
       "reconciliation_adjustment": null,
@@ -20104,7 +20104,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-23",
       "cash": {
-        "USD": 2827.53
+        "USD": 4251.81
       },
       "positions": [
         {
@@ -20229,7 +20229,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 58425.87,
-      "total_portfolio_value": 61253.4,
+      "total_portfolio_value": 62677.68,
       "external_cash_flow": 0.0,
       "trade_flow": 1059.6,
       "reconciliation_adjustment": null,
@@ -20238,7 +20238,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-24",
       "cash": {
-        "USD": -1270.69
+        "USD": 153.59
       },
       "positions": [
         {
@@ -20369,7 +20369,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 62425.16,
-      "total_portfolio_value": 61154.47,
+      "total_portfolio_value": 62578.75,
       "external_cash_flow": 0.0,
       "trade_flow": 4098.21,
       "reconciliation_adjustment": null,
@@ -20378,7 +20378,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-27",
       "cash": {
-        "USD": 4071.23
+        "USD": 5495.51
       },
       "positions": [
         {
@@ -20497,7 +20497,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 57008.71,
-      "total_portfolio_value": 61079.94,
+      "total_portfolio_value": 62504.22,
       "external_cash_flow": 0.0,
       "trade_flow": -5341.92,
       "reconciliation_adjustment": null,
@@ -20506,7 +20506,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-28",
       "cash": {
-        "USD": 4071.23
+        "USD": 5495.51
       },
       "positions": [
         {
@@ -20625,7 +20625,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 56739.29,
-      "total_portfolio_value": 60810.52,
+      "total_portfolio_value": 62234.8,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -20634,7 +20634,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-29",
       "cash": {
-        "USD": 4071.23
+        "USD": 5495.51
       },
       "positions": [
         {
@@ -20753,7 +20753,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 56921.56,
-      "total_portfolio_value": 60992.79,
+      "total_portfolio_value": 62417.07,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -20762,7 +20762,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-30",
       "cash": {
-        "USD": 4071.23
+        "USD": 5495.51
       },
       "positions": [
         {
@@ -20881,7 +20881,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 57243.08,
-      "total_portfolio_value": 61314.31,
+      "total_portfolio_value": 62738.59,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -20890,7 +20890,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-05-01",
       "cash": {
-        "USD": 4071.23
+        "USD": 5495.51
       },
       "positions": [
         {
@@ -21009,7 +21009,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 57572.3,
-      "total_portfolio_value": 61643.53,
+      "total_portfolio_value": 63067.81,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -21018,7 +21018,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-05-04",
       "cash": {
-        "USD": 4071.23
+        "USD": 5495.51
       },
       "positions": [
         {
@@ -21137,7 +21137,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 57725.07,
-      "total_portfolio_value": 61796.3,
+      "total_portfolio_value": 63220.58,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -21146,7 +21146,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-05-05",
       "cash": {
-        "USD": 3269.84
+        "USD": 4694.12
       },
       "positions": [
         {
@@ -21265,7 +21265,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 58638.5,
-      "total_portfolio_value": 61908.34,
+      "total_portfolio_value": 63332.62,
       "external_cash_flow": 0.0,
       "trade_flow": 802.7,
       "reconciliation_adjustment": null,
@@ -21274,7 +21274,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-05-06",
       "cash": {
-        "USD": 2716.19
+        "USD": 4140.47
       },
       "positions": [
         {
@@ -21393,7 +21393,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 59810.45,
-      "total_portfolio_value": 62526.64,
+      "total_portfolio_value": 63950.92,
       "external_cash_flow": 0.0,
       "trade_flow": 553.65,
       "reconciliation_adjustment": null,
@@ -21402,7 +21402,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-05-07",
       "cash": {
-        "USD": 3764.26
+        "USD": 5188.54
       },
       "positions": [
         {
@@ -21527,7 +21527,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 58857.44,
-      "total_portfolio_value": 62621.7,
+      "total_portfolio_value": 64045.98,
       "external_cash_flow": 0.0,
       "trade_flow": -1048.07,
       "reconciliation_adjustment": null,
@@ -21536,7 +21536,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-05-08",
       "cash": {
-        "USD": 3764.26
+        "USD": 5188.54
       },
       "positions": [
         {
@@ -21661,7 +21661,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 58766.68,
-      "total_portfolio_value": 62530.94,
+      "total_portfolio_value": 63955.22,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -21670,7 +21670,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-05-11",
       "cash": {
-        "USD": 3124.88
+        "USD": 4549.16
       },
       "positions": [
         {
@@ -21795,7 +21795,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 59709.22,
-      "total_portfolio_value": 62834.1,
+      "total_portfolio_value": 64258.38,
       "external_cash_flow": 0.0,
       "trade_flow": 639.38,
       "reconciliation_adjustment": null,
@@ -21804,7 +21804,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-05-12",
       "cash": {
-        "USD": 1762.02
+        "USD": 3186.3
       },
       "positions": [
         {
@@ -21935,7 +21935,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 60779.36,
-      "total_portfolio_value": 62541.38,
+      "total_portfolio_value": 63965.66,
       "external_cash_flow": 0.0,
       "trade_flow": 1362.86,
       "reconciliation_adjustment": null,
@@ -21944,7 +21944,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-05-13",
       "cash": {
-        "USD": 1762.02
+        "USD": 3186.3
       },
       "positions": [
         {
@@ -22075,7 +22075,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61313.84,
-      "total_portfolio_value": 63075.86,
+      "total_portfolio_value": 64500.14,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -22084,7 +22084,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-05-14",
       "cash": {
-        "USD": 1762.02
+        "USD": 3186.3
       },
       "positions": [
         {
@@ -22215,7 +22215,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61477.6,
-      "total_portfolio_value": 63239.62,
+      "total_portfolio_value": 64663.9,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -22224,7 +22224,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-05-15",
       "cash": {
-        "USD": 1098.62
+        "USD": 2522.9
       },
       "positions": [
         {
@@ -22355,7 +22355,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61368.94,
-      "total_portfolio_value": 62467.56,
+      "total_portfolio_value": 63891.84,
       "external_cash_flow": 0.0,
       "trade_flow": 663.4,
       "reconciliation_adjustment": null,
@@ -22364,7 +22364,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-05-18",
       "cash": {
-        "USD": 1098.62
+        "USD": 2522.9
       },
       "positions": [
         {
@@ -22495,7 +22495,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61225.04,
-      "total_portfolio_value": 62323.66,
+      "total_portfolio_value": 63747.94,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -22504,7 +22504,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-05-19",
       "cash": {
-        "USD": 1098.62
+        "USD": 2522.9
       },
       "positions": [
         {
@@ -22635,7 +22635,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 60793.6,
-      "total_portfolio_value": 61892.22,
+      "total_portfolio_value": 63316.5,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -22644,7 +22644,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-05-20",
       "cash": {
-        "USD": 1098.62
+        "USD": 2522.9
       },
       "positions": [
         {
@@ -22775,7 +22775,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61612.03,
-      "total_portfolio_value": 62710.65,
+      "total_portfolio_value": 64134.93,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -22784,7 +22784,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-05-21",
       "cash": {
-        "USD": 1098.62
+        "USD": 2522.9
       },
       "positions": [
         {
@@ -22915,7 +22915,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61537.51,
-      "total_portfolio_value": 62636.13,
+      "total_portfolio_value": 64060.41,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -22924,7 +22924,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-05-22",
       "cash": {
-        "USD": 1098.62
+        "USD": 2522.9
       },
       "positions": [
         {
@@ -23055,7 +23055,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 62113.68,
-      "total_portfolio_value": 63212.3,
+      "total_portfolio_value": 64636.58,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -23064,7 +23064,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-05-26",
       "cash": {
-        "USD": 1098.62
+        "USD": 2522.9
       },
       "positions": [
         {
@@ -23195,7 +23195,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 62740.89,
-      "total_portfolio_value": 63839.51,
+      "total_portfolio_value": 65263.79,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -23204,7 +23204,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-05-27",
       "cash": {
-        "USD": 1098.62
+        "USD": 2522.9
       },
       "positions": [
         {
@@ -23335,7 +23335,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 62679.8,
-      "total_portfolio_value": 63778.42,
+      "total_portfolio_value": 65202.7,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -23344,7 +23344,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-05-28",
       "cash": {
-        "USD": 1098.62
+        "USD": 2522.9
       },
       "positions": [
         {
@@ -23475,7 +23475,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 63384.0,
-      "total_portfolio_value": 64482.62,
+      "total_portfolio_value": 65906.9,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -23484,7 +23484,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-05-29",
       "cash": {
-        "USD": 1098.62
+        "USD": 2522.9
       },
       "positions": [
         {
@@ -23615,7 +23615,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 63703.61,
-      "total_portfolio_value": 64802.23,
+      "total_portfolio_value": 66226.51,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -23624,7 +23624,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-06-01",
       "cash": {
-        "USD": 1098.62
+        "USD": 2522.9
       },
       "positions": [
         {
@@ -23755,7 +23755,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 63513.71,
-      "total_portfolio_value": 64612.33,
+      "total_portfolio_value": 66036.61,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -23764,7 +23764,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-06-02",
       "cash": {
-        "USD": 1098.62
+        "USD": 2522.9
       },
       "positions": [
         {
@@ -23895,7 +23895,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 63571.22,
-      "total_portfolio_value": 64669.84,
+      "total_portfolio_value": 66094.12,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -23904,7 +23904,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-06-03",
       "cash": {
-        "USD": 1098.62
+        "USD": 2522.9
       },
       "positions": [
         {
@@ -24035,7 +24035,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 63019.84,
-      "total_portfolio_value": 64118.46,
+      "total_portfolio_value": 65542.74,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -24044,7 +24044,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-06-04",
       "cash": {
-        "USD": 1098.62
+        "USD": 2522.9
       },
       "positions": [
         {
@@ -24175,7 +24175,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 63079.01,
-      "total_portfolio_value": 64177.63,
+      "total_portfolio_value": 65601.91,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -24184,7 +24184,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-06-05",
       "cash": {
-        "USD": 1098.62
+        "USD": 2522.9
       },
       "positions": [
         {
@@ -24315,7 +24315,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61685.98,
-      "total_portfolio_value": 62784.6,
+      "total_portfolio_value": 64208.88,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -24324,7 +24324,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-06-08",
       "cash": {
-        "USD": 1098.62
+        "USD": 2522.9
       },
       "positions": [
         {
@@ -24455,7 +24455,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61554.55,
-      "total_portfolio_value": 62653.17,
+      "total_portfolio_value": 64077.45,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -24464,7 +24464,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-06-09",
       "cash": {
-        "USD": 1098.62
+        "USD": 2522.9
       },
       "positions": [
         {
@@ -24595,7 +24595,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 60589.01,
-      "total_portfolio_value": 61687.63,
+      "total_portfolio_value": 63111.91,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -24604,7 +24604,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-06-10",
       "cash": {
-        "USD": -543.04
+        "USD": 881.24
       },
       "positions": [
         {
@@ -24735,7 +24735,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61829.24,
-      "total_portfolio_value": 61286.2,
+      "total_portfolio_value": 62710.48,
       "external_cash_flow": 0.0,
       "trade_flow": 1666.75,
       "reconciliation_adjustment": null,
@@ -24744,7 +24744,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-06-11",
       "cash": {
-        "USD": 2970.29
+        "USD": 4394.57
       },
       "positions": [
         {
@@ -24863,7 +24863,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 58062.96,
-      "total_portfolio_value": 61033.25,
+      "total_portfolio_value": 62457.53,
       "external_cash_flow": 0.0,
       "trade_flow": -3523.59,
       "reconciliation_adjustment": null,
@@ -24872,7 +24872,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-06-12",
       "cash": {
-        "USD": -284.86
+        "USD": 1139.42
       },
       "positions": [
         {
@@ -24997,7 +24997,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 59907.54,
-      "total_portfolio_value": 59622.68,
+      "total_portfolio_value": 61046.96,
       "external_cash_flow": 0.0,
       "trade_flow": 990.28,
       "reconciliation_adjustment": null,
@@ -25006,7 +25006,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-06-15",
       "cash": {
-        "USD": 755.78
+        "USD": 2180.06
       },
       "positions": [
         {
@@ -25125,7 +25125,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 59917.6,
-      "total_portfolio_value": 60673.38,
+      "total_portfolio_value": 62097.66,
       "external_cash_flow": 0.0,
       "trade_flow": -1040.64,
       "reconciliation_adjustment": null,
@@ -25134,7 +25134,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-06-16",
       "cash": {
-        "USD": -85.11
+        "USD": 1339.17
       },
       "positions": [
         {
@@ -25259,7 +25259,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 60469.71,
-      "total_portfolio_value": 60384.6,
+      "total_portfolio_value": 61808.88,
       "external_cash_flow": 0.0,
       "trade_flow": 840.89,
       "reconciliation_adjustment": null,
@@ -25268,7 +25268,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-06-17",
       "cash": {
-        "USD": -85.11
+        "USD": 1339.17
       },
       "positions": [
         {
@@ -25393,7 +25393,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 60414.58,
-      "total_portfolio_value": 60329.47,
+      "total_portfolio_value": 61753.75,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -25402,7 +25402,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-06-18",
       "cash": {
-        "USD": 612.6
+        "USD": 2036.88
       },
       "positions": [
         {
@@ -25521,7 +25521,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 59495.52,
-      "total_portfolio_value": 60108.12,
+      "total_portfolio_value": 61532.4,
       "external_cash_flow": 0.0,
       "trade_flow": -697.71,
       "reconciliation_adjustment": null,
@@ -25530,7 +25530,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-06-22",
       "cash": {
-        "USD": 612.6
+        "USD": 2036.88
       },
       "positions": [
         {
@@ -25649,7 +25649,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 59299.94,
-      "total_portfolio_value": 59912.54,
+      "total_portfolio_value": 61336.82,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -25658,7 +25658,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-06-23",
       "cash": {
-        "USD": 607.48
+        "USD": 2031.76
       },
       "positions": [
         {
@@ -25777,7 +25777,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 58576.73,
-      "total_portfolio_value": 59184.21,
+      "total_portfolio_value": 60608.49,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -25786,7 +25786,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-06-24",
       "cash": {
-        "USD": 607.48
+        "USD": 2031.76
       },
       "positions": [
         {
@@ -25905,7 +25905,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 58298.42,
-      "total_portfolio_value": 58905.9,
+      "total_portfolio_value": 60330.18,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -25914,7 +25914,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-06-25",
       "cash": {
-        "USD": 609.03
+        "USD": 2033.31
       },
       "positions": [
         {
@@ -26033,7 +26033,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 58060.29,
-      "total_portfolio_value": 58669.32,
+      "total_portfolio_value": 60093.6,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -26042,7 +26042,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-06-26",
       "cash": {
-        "USD": 609.03
+        "USD": 2033.31
       },
       "positions": [
         {
@@ -26161,7 +26161,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 58265.72,
-      "total_portfolio_value": 58874.75,
+      "total_portfolio_value": 60299.03,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -26170,7 +26170,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-06-29",
       "cash": {
-        "USD": 609.03
+        "USD": 2033.31
       },
       "positions": [
         {
@@ -26289,7 +26289,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 58436.34,
-      "total_portfolio_value": 59045.37,
+      "total_portfolio_value": 60469.65,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -26298,7 +26298,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-06-30",
       "cash": {
-        "USD": 609.03
+        "USD": 2033.31
       },
       "positions": [
         {
@@ -26417,7 +26417,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 59058.44,
-      "total_portfolio_value": 59667.47,
+      "total_portfolio_value": 61091.75,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -26426,7 +26426,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-07-01",
       "cash": {
-        "USD": -607.35
+        "USD": 816.93
       },
       "positions": [
         {
@@ -26551,7 +26551,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 60654.9,
-      "total_portfolio_value": 60047.55,
+      "total_portfolio_value": 61471.83,
       "external_cash_flow": 0.0,
       "trade_flow": 1216.38,
       "reconciliation_adjustment": null,
@@ -26560,7 +26560,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-07-02",
       "cash": {
-        "USD": -1204.03
+        "USD": 220.25
       },
       "positions": [
         {
@@ -26691,7 +26691,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61307.13,
-      "total_portfolio_value": 60103.1,
+      "total_portfolio_value": 61527.38,
       "external_cash_flow": 0.0,
       "trade_flow": 599.3,
       "reconciliation_adjustment": null,
@@ -26700,7 +26700,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-07-06",
       "cash": {
-        "USD": -1204.03
+        "USD": 220.25
       },
       "positions": [
         {
@@ -26831,7 +26831,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61899.48,
-      "total_portfolio_value": 60695.45,
+      "total_portfolio_value": 62119.73,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -26840,7 +26840,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-07-07",
       "cash": {
-        "USD": -1204.03
+        "USD": 220.25
       },
       "positions": [
         {
@@ -26971,7 +26971,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61124.0,
-      "total_portfolio_value": 59919.97,
+      "total_portfolio_value": 61344.25,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -26980,7 +26980,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-07-08",
       "cash": {
-        "USD": -1204.03
+        "USD": 220.25
       },
       "positions": [
         {
@@ -27111,7 +27111,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 60502.88,
-      "total_portfolio_value": 59298.85,
+      "total_portfolio_value": 60723.13,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -27120,7 +27120,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-07-09",
       "cash": {
-        "USD": -1204.03
+        "USD": 220.25
       },
       "positions": [
         {
@@ -27251,7 +27251,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61407.5,
-      "total_portfolio_value": 60203.47,
+      "total_portfolio_value": 61627.75,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -27260,7 +27260,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-07-10",
       "cash": {
-        "USD": -1204.03
+        "USD": 220.25
       },
       "positions": [
         {
@@ -27391,7 +27391,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61293.53,
-      "total_portfolio_value": 60089.5,
+      "total_portfolio_value": 61513.78,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -27400,7 +27400,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-07-13",
       "cash": {
-        "USD": -1204.03
+        "USD": 220.25
       },
       "positions": [
         {
@@ -27531,7 +27531,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61033.63,
-      "total_portfolio_value": 59829.6,
+      "total_portfolio_value": 61253.88,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -27540,7 +27540,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-07-14",
       "cash": {
-        "USD": -1204.03
+        "USD": 220.25
       },
       "positions": [
         {
@@ -27671,7 +27671,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61326.59,
-      "total_portfolio_value": 60122.56,
+      "total_portfolio_value": 61546.84,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -27680,7 +27680,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-07-15",
       "cash": {
-        "USD": -1204.03
+        "USD": 220.25
       },
       "positions": [
         {
@@ -27811,7 +27811,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61237.4,
-      "total_portfolio_value": 60033.37,
+      "total_portfolio_value": 61457.65,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -27820,7 +27820,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-07-16",
       "cash": {
-        "USD": -1276.37
+        "USD": 147.91
       },
       "positions": [
         {
@@ -27951,7 +27951,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 60775.18,
-      "total_portfolio_value": 59498.81,
+      "total_portfolio_value": 60923.09,
       "external_cash_flow": 0.0,
       "trade_flow": 72.34,
       "reconciliation_adjustment": null,
@@ -27960,7 +27960,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-07-17",
       "cash": {
-        "USD": 815.88
+        "USD": 2240.16
       },
       "positions": [
         {
@@ -28091,7 +28091,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 60274.81,
-      "total_portfolio_value": 61090.69,
+      "total_portfolio_value": 62514.97,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -28100,7 +28100,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-07-20",
       "cash": {
-        "USD": 815.88
+        "USD": 2240.16
       },
       "positions": [
         {
@@ -28231,7 +28231,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 60505.25,
-      "total_portfolio_value": 61321.13,
+      "total_portfolio_value": 62745.41,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -28240,7 +28240,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-07-21",
       "cash": {
-        "USD": 815.88
+        "USD": 2240.16
       },
       "positions": [
         {
@@ -28371,7 +28371,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 60817.01,
-      "total_portfolio_value": 61632.89,
+      "total_portfolio_value": 63057.17,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -28380,7 +28380,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-07-22",
       "cash": {
-        "USD": -166.67
+        "USD": 1257.61
       },
       "positions": [
         {
@@ -28517,7 +28517,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61949.96,
-      "total_portfolio_value": 61783.29,
+      "total_portfolio_value": 63207.57,
       "external_cash_flow": 0.0,
       "trade_flow": 982.54,
       "reconciliation_adjustment": null,
@@ -28526,7 +28526,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-07-23",
       "cash": {
-        "USD": -801.71
+        "USD": 622.57
       },
       "positions": [
         {
@@ -28669,7 +28669,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 62872.72,
-      "total_portfolio_value": 62071.01,
+      "total_portfolio_value": 63495.29,
       "external_cash_flow": 0.0,
       "trade_flow": 635.04,
       "reconciliation_adjustment": null,
@@ -28678,7 +28678,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-07-24",
       "cash": {
-        "USD": -172.21
+        "USD": 1252.07
       },
       "positions": [
         {
@@ -28815,7 +28815,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61240.1,
-      "total_portfolio_value": 61067.89,
+      "total_portfolio_value": 62492.17,
       "external_cash_flow": 0.0,
       "trade_flow": -629.5,
       "reconciliation_adjustment": null,
@@ -28824,7 +28824,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-07-27",
       "cash": {
-        "USD": 457.33
+        "USD": 1881.61
       },
       "positions": [
         {
@@ -28949,7 +28949,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 60478.75,
-      "total_portfolio_value": 60936.08,
+      "total_portfolio_value": 62360.36,
       "external_cash_flow": 0.0,
       "trade_flow": -629.54,
       "reconciliation_adjustment": null,
@@ -28958,7 +28958,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-07-28",
       "cash": {
-        "USD": 457.33
+        "USD": 1881.61
       },
       "positions": [
         {
@@ -29083,7 +29083,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 60602.01,
-      "total_portfolio_value": 61059.34,
+      "total_portfolio_value": 62483.62,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -29092,7 +29092,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-07-29",
       "cash": {
-        "USD": 457.33
+        "USD": 1881.61
       },
       "positions": [
         {
@@ -29217,7 +29217,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 60161.9,
-      "total_portfolio_value": 60619.23,
+      "total_portfolio_value": 62043.51,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -29226,7 +29226,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-07-30",
       "cash": {
-        "USD": 1702.79
+        "USD": 3127.07
       },
       "positions": [
         {
@@ -29345,7 +29345,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 59238.23,
-      "total_portfolio_value": 60941.02,
+      "total_portfolio_value": 62365.3,
       "external_cash_flow": 0.0,
       "trade_flow": -1245.46,
       "reconciliation_adjustment": null,
@@ -29354,7 +29354,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-07-31",
       "cash": {
-        "USD": 725.75
+        "USD": 2150.03
       },
       "positions": [
         {
@@ -29473,7 +29473,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 60324.31,
-      "total_portfolio_value": 61050.06,
+      "total_portfolio_value": 62474.34,
       "external_cash_flow": 0.0,
       "trade_flow": 977.03,
       "reconciliation_adjustment": null,
@@ -29482,7 +29482,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-08-03",
       "cash": {
-        "USD": 725.75
+        "USD": 2150.03
       },
       "positions": [
         {
@@ -29601,7 +29601,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 61021.88,
-      "total_portfolio_value": 61747.63,
+      "total_portfolio_value": 63171.91,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -29610,7 +29610,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-08-04",
       "cash": {
-        "USD": -969.07
+        "USD": 455.21
       },
       "positions": [
         {
@@ -29729,7 +29729,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 63863.98,
-      "total_portfolio_value": 62894.91,
+      "total_portfolio_value": 64319.19,
       "external_cash_flow": 0.0,
       "trade_flow": 1694.82,
       "reconciliation_adjustment": null,
@@ -29738,7 +29738,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-08-05",
       "cash": {
-        "USD": -1315.97
+        "USD": 108.31
       },
       "positions": [
         {
@@ -29863,7 +29863,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 64713.04,
-      "total_portfolio_value": 63397.07,
+      "total_portfolio_value": 64821.35,
       "external_cash_flow": 0.0,
       "trade_flow": 346.9,
       "reconciliation_adjustment": null,
@@ -29872,7 +29872,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-08-06",
       "cash": {
-        "USD": -1315.97
+        "USD": 108.31
       },
       "positions": [
         {
@@ -29997,7 +29997,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 64519.5,
-      "total_portfolio_value": 63203.53,
+      "total_portfolio_value": 64627.81,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -30006,7 +30006,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-08-07",
       "cash": {
-        "USD": -1315.97
+        "USD": 108.31
       },
       "positions": [
         {
@@ -30131,7 +30131,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 65168.77,
-      "total_portfolio_value": 63852.8,
+      "total_portfolio_value": 65277.08,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -30140,7 +30140,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-08-10",
       "cash": {
-        "USD": -1315.97
+        "USD": 108.31
       },
       "positions": [
         {
@@ -30265,7 +30265,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 65377.31,
-      "total_portfolio_value": 64061.34,
+      "total_portfolio_value": 65485.62,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -30390,1038 +30390,1038 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "total_portfolio_value": 65429.98,
       "external_cash_flow": 0.0,
       "trade_flow": -448.95,
-      "reconciliation_adjustment": 1366.17,
+      "reconciliation_adjustment": -58.11,
       "unbacked_cash_flow": 0.0
     }
   ],
   "performance_series": [
     {
       "date": "2026-01-08",
-      "portfolio_value": 52386.1,
+      "portfolio_value": 53810.38,
       "benchmark_price": 689.51,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-09",
-      "portfolio_value": 52860.7,
+      "portfolio_value": 54284.98,
       "benchmark_price": 694.07,
-      "portfolio_return_pct": 0.91,
+      "portfolio_return_pct": 0.88,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-12",
-      "portfolio_value": 52948.11,
+      "portfolio_value": 54372.39,
       "benchmark_price": 695.16,
-      "portfolio_return_pct": 1.07,
+      "portfolio_return_pct": 1.04,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-13",
-      "portfolio_value": 52545.61,
+      "portfolio_value": 53969.89,
       "benchmark_price": 693.77,
       "portfolio_return_pct": 0.3,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-14",
-      "portfolio_value": 52476.71,
+      "portfolio_value": 53900.99,
       "benchmark_price": 690.36,
       "portfolio_return_pct": 0.17,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-15",
-      "portfolio_value": 52599.31,
+      "portfolio_value": 54023.59,
       "benchmark_price": 692.24,
-      "portfolio_return_pct": 0.41,
+      "portfolio_return_pct": 0.4,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-16",
-      "portfolio_value": 52545.68,
+      "portfolio_value": 53969.96,
       "benchmark_price": 691.66,
       "portfolio_return_pct": 0.3,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-20",
-      "portfolio_value": 51519.3,
+      "portfolio_value": 52943.58,
       "benchmark_price": 677.58,
-      "portfolio_return_pct": -1.65,
+      "portfolio_return_pct": -1.61,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-21",
-      "portfolio_value": 52091.16,
+      "portfolio_value": 53515.44,
       "benchmark_price": 685.4,
-      "portfolio_return_pct": -0.56,
+      "portfolio_return_pct": -0.55,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-22",
-      "portfolio_value": 52715.83,
+      "portfolio_value": 54140.11,
       "benchmark_price": 688.98,
-      "portfolio_return_pct": 0.63,
+      "portfolio_return_pct": 0.61,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-23",
-      "portfolio_value": 52748.16,
+      "portfolio_value": 54172.44,
       "benchmark_price": 689.23,
-      "portfolio_return_pct": 0.69,
+      "portfolio_return_pct": 0.67,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-26",
-      "portfolio_value": 53210.26,
+      "portfolio_value": 54634.54,
       "benchmark_price": 692.73,
-      "portfolio_return_pct": 1.57,
+      "portfolio_return_pct": 1.53,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-27",
-      "portfolio_value": 53197.38,
+      "portfolio_value": 54621.66,
       "benchmark_price": 695.49,
-      "portfolio_return_pct": 1.55,
+      "portfolio_return_pct": 1.51,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-28",
-      "portfolio_value": 53085.19,
+      "portfolio_value": 54509.47,
       "benchmark_price": 695.42,
-      "portfolio_return_pct": 1.33,
+      "portfolio_return_pct": 1.3,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-29",
-      "portfolio_value": 53072.76,
+      "portfolio_value": 54497.04,
       "benchmark_price": 694.04,
-      "portfolio_return_pct": 1.31,
+      "portfolio_return_pct": 1.28,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-30",
-      "portfolio_value": 52371.02,
+      "portfolio_value": 53795.3,
       "benchmark_price": 691.97,
       "portfolio_return_pct": -0.03,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-02",
-      "portfolio_value": 52594.08,
+      "portfolio_value": 54018.36,
       "benchmark_price": 695.41,
-      "portfolio_return_pct": 0.4,
+      "portfolio_return_pct": 0.39,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-03",
-      "portfolio_value": 51325.13,
+      "portfolio_value": 52749.41,
       "benchmark_price": 689.53,
-      "portfolio_return_pct": -2.03,
+      "portfolio_return_pct": -1.97,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-04",
-      "portfolio_value": 50929.14,
+      "portfolio_value": 52353.42,
       "benchmark_price": 686.19,
-      "portfolio_return_pct": -2.78,
+      "portfolio_return_pct": -2.71,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-05",
-      "portfolio_value": 50315.96,
+      "portfolio_value": 51740.24,
       "benchmark_price": 677.62,
-      "portfolio_return_pct": -3.95,
+      "portfolio_return_pct": -3.85,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-06",
-      "portfolio_value": 50535.82,
+      "portfolio_value": 51960.1,
       "benchmark_price": 690.62,
-      "portfolio_return_pct": -3.53,
+      "portfolio_return_pct": -3.44,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-09",
-      "portfolio_value": 50741.3,
+      "portfolio_value": 52165.58,
       "benchmark_price": 693.95,
-      "portfolio_return_pct": -3.14,
+      "portfolio_return_pct": -3.06,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-10",
-      "portfolio_value": 50295.01,
+      "portfolio_value": 51719.29,
       "benchmark_price": 692.12,
-      "portfolio_return_pct": -3.99,
+      "portfolio_return_pct": -3.89,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-11",
-      "portfolio_value": 49782.69,
+      "portfolio_value": 51206.97,
       "benchmark_price": 691.96,
-      "portfolio_return_pct": -4.97,
+      "portfolio_return_pct": -4.84,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-12",
-      "portfolio_value": 49064.53,
+      "portfolio_value": 50488.81,
       "benchmark_price": 681.27,
-      "portfolio_return_pct": -6.34,
+      "portfolio_return_pct": -6.17,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-13",
-      "portfolio_value": 49193.15,
+      "portfolio_value": 50617.43,
       "benchmark_price": 681.75,
-      "portfolio_return_pct": -6.1,
+      "portfolio_return_pct": -5.93,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-17",
-      "portfolio_value": 49026.51,
+      "portfolio_value": 50450.79,
       "benchmark_price": 682.85,
-      "portfolio_return_pct": -6.41,
+      "portfolio_return_pct": -6.24,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-18",
-      "portfolio_value": 49698.3,
+      "portfolio_value": 51122.58,
       "benchmark_price": 686.29,
-      "portfolio_return_pct": -5.13,
+      "portfolio_return_pct": -4.99,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-19",
-      "portfolio_value": 49607.54,
+      "portfolio_value": 51031.82,
       "benchmark_price": 684.48,
-      "portfolio_return_pct": -5.3,
+      "portfolio_return_pct": -5.16,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-20",
-      "portfolio_value": 50152.06,
+      "portfolio_value": 51576.34,
       "benchmark_price": 689.43,
-      "portfolio_return_pct": -4.26,
+      "portfolio_return_pct": -4.15,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-23",
-      "portfolio_value": 49426.6,
+      "portfolio_value": 50850.88,
       "benchmark_price": 682.39,
-      "portfolio_return_pct": -5.65,
+      "portfolio_return_pct": -5.5,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-24",
-      "portfolio_value": 49936.58,
+      "portfolio_value": 51360.86,
       "benchmark_price": 687.35,
-      "portfolio_return_pct": -4.68,
+      "portfolio_return_pct": -4.55,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-25",
-      "portfolio_value": 50623.66,
+      "portfolio_value": 52047.94,
       "benchmark_price": 693.15,
-      "portfolio_return_pct": -3.36,
+      "portfolio_return_pct": -3.28,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-26",
-      "portfolio_value": 50769.33,
+      "portfolio_value": 52193.61,
       "benchmark_price": 689.3,
-      "portfolio_return_pct": -3.09,
+      "portfolio_return_pct": -3.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-27",
-      "portfolio_value": 51005.26,
+      "portfolio_value": 52429.54,
       "benchmark_price": 685.99,
-      "portfolio_return_pct": -2.64,
+      "portfolio_return_pct": -2.57,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-02",
-      "portfolio_value": 50828.51,
+      "portfolio_value": 52252.79,
       "benchmark_price": 686.38,
-      "portfolio_return_pct": -2.97,
+      "portfolio_return_pct": -2.89,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-03",
-      "portfolio_value": 50405.64,
+      "portfolio_value": 51829.92,
       "benchmark_price": 680.33,
-      "portfolio_return_pct": -3.78,
+      "portfolio_return_pct": -3.68,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-04",
-      "portfolio_value": 50879.34,
+      "portfolio_value": 52303.62,
       "benchmark_price": 685.13,
-      "portfolio_return_pct": -2.88,
+      "portfolio_return_pct": -2.8,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-05",
-      "portfolio_value": 50742.15,
+      "portfolio_value": 52166.43,
       "benchmark_price": 681.31,
-      "portfolio_return_pct": -3.14,
+      "portfolio_return_pct": -3.06,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-06",
-      "portfolio_value": 50307.85,
+      "portfolio_value": 51732.13,
       "benchmark_price": 672.38,
-      "portfolio_return_pct": -3.97,
+      "portfolio_return_pct": -3.86,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-09",
-      "portfolio_value": 50496.52,
+      "portfolio_value": 51920.8,
       "benchmark_price": 678.27,
-      "portfolio_return_pct": -3.61,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-03-10",
-      "portfolio_value": 50282.73,
-      "benchmark_price": 677.18,
-      "portfolio_return_pct": -4.02,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-03-11",
-      "portfolio_value": 49996.75,
-      "benchmark_price": 676.33,
-      "portfolio_return_pct": -4.56,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-03-12",
-      "portfolio_value": 49208.64,
-      "benchmark_price": 666.06,
-      "portfolio_return_pct": -6.07,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-03-13",
-      "portfolio_value": 48966.66,
-      "benchmark_price": 662.29,
-      "portfolio_return_pct": -6.53,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-03-16",
-      "portfolio_value": 49443.23,
-      "benchmark_price": 669.03,
-      "portfolio_return_pct": -5.62,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-03-17",
-      "portfolio_value": 49857.21,
-      "benchmark_price": 670.79,
-      "portfolio_return_pct": -4.83,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-03-18",
-      "portfolio_value": 49089.7,
-      "benchmark_price": 661.43,
-      "portfolio_return_pct": -6.29,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-03-19",
-      "portfolio_value": 48656.48,
-      "benchmark_price": 659.8,
-      "portfolio_return_pct": -7.12,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-03-20",
-      "portfolio_value": 48159.53,
-      "benchmark_price": 648.57,
-      "portfolio_return_pct": -8.07,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-03-23",
-      "portfolio_value": 48450.65,
-      "benchmark_price": 655.38,
-      "portfolio_return_pct": -7.51,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-03-24",
-      "portfolio_value": 47879.03,
-      "benchmark_price": 653.18,
-      "portfolio_return_pct": -8.6,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-03-25",
-      "portfolio_value": 48223.05,
-      "benchmark_price": 656.82,
-      "portfolio_return_pct": -7.95,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-03-26",
-      "portfolio_value": 47425.02,
-      "benchmark_price": 645.09,
-      "portfolio_return_pct": -9.47,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-03-27",
-      "portfolio_value": 46625.66,
-      "benchmark_price": 634.09,
-      "portfolio_return_pct": -11.0,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-03-30",
-      "portfolio_value": 46884.77,
-      "benchmark_price": 631.97,
-      "portfolio_return_pct": -10.5,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-03-31",
-      "portfolio_value": 48179.6,
-      "benchmark_price": 650.34,
-      "portfolio_return_pct": -8.03,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-04-01",
-      "portfolio_value": 48589.95,
-      "benchmark_price": 655.24,
-      "portfolio_return_pct": -7.25,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-04-02",
-      "portfolio_value": 48562.39,
-      "benchmark_price": 655.83,
-      "portfolio_return_pct": -7.3,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-04-06",
-      "portfolio_value": 48735.39,
-      "benchmark_price": 658.93,
-      "portfolio_return_pct": -6.97,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-04-07",
-      "portfolio_value": 48743.26,
-      "benchmark_price": 659.22,
-      "portfolio_return_pct": -6.95,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-04-08",
-      "portfolio_value": 49983.62,
-      "benchmark_price": 676.01,
-      "portfolio_return_pct": -4.59,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-04-09",
-      "portfolio_value": 50355.98,
-      "benchmark_price": 679.91,
-      "portfolio_return_pct": -3.88,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-04-10",
-      "portfolio_value": 60204.27,
-      "benchmark_price": 679.46,
-      "portfolio_return_pct": -4.09,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-04-13",
-      "portfolio_value": 60569.19,
-      "benchmark_price": 686.1,
       "portfolio_return_pct": -3.51,
       "benchmark_return_pct": null
     },
     {
+      "date": "2026-03-10",
+      "portfolio_value": 51707.01,
+      "benchmark_price": 677.18,
+      "portfolio_return_pct": -3.91,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-11",
+      "portfolio_value": 51421.03,
+      "benchmark_price": 676.33,
+      "portfolio_return_pct": -4.44,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-12",
+      "portfolio_value": 50632.92,
+      "benchmark_price": 666.06,
+      "portfolio_return_pct": -5.9,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-13",
+      "portfolio_value": 50390.94,
+      "benchmark_price": 662.29,
+      "portfolio_return_pct": -6.35,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-16",
+      "portfolio_value": 50867.51,
+      "benchmark_price": 669.03,
+      "portfolio_return_pct": -5.47,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-17",
+      "portfolio_value": 51281.49,
+      "benchmark_price": 670.79,
+      "portfolio_return_pct": -4.7,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-18",
+      "portfolio_value": 50513.98,
+      "benchmark_price": 661.43,
+      "portfolio_return_pct": -6.13,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-19",
+      "portfolio_value": 50080.76,
+      "benchmark_price": 659.8,
+      "portfolio_return_pct": -6.93,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-20",
+      "portfolio_value": 49583.81,
+      "benchmark_price": 648.57,
+      "portfolio_return_pct": -7.85,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-23",
+      "portfolio_value": 49874.93,
+      "benchmark_price": 655.38,
+      "portfolio_return_pct": -7.31,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-24",
+      "portfolio_value": 49303.31,
+      "benchmark_price": 653.18,
+      "portfolio_return_pct": -8.38,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-25",
+      "portfolio_value": 49647.33,
+      "benchmark_price": 656.82,
+      "portfolio_return_pct": -7.74,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-26",
+      "portfolio_value": 48849.3,
+      "benchmark_price": 645.09,
+      "portfolio_return_pct": -9.22,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-27",
+      "portfolio_value": 48049.94,
+      "benchmark_price": 634.09,
+      "portfolio_return_pct": -10.71,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-30",
+      "portfolio_value": 48309.05,
+      "benchmark_price": 631.97,
+      "portfolio_return_pct": -10.22,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-03-31",
+      "portfolio_value": 49603.88,
+      "benchmark_price": 650.34,
+      "portfolio_return_pct": -7.82,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-01",
+      "portfolio_value": 50014.23,
+      "benchmark_price": 655.24,
+      "portfolio_return_pct": -7.05,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-02",
+      "portfolio_value": 49986.67,
+      "benchmark_price": 655.83,
+      "portfolio_return_pct": -7.11,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-06",
+      "portfolio_value": 50159.67,
+      "benchmark_price": 658.93,
+      "portfolio_return_pct": -6.78,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-07",
+      "portfolio_value": 50167.54,
+      "benchmark_price": 659.22,
+      "portfolio_return_pct": -6.77,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-08",
+      "portfolio_value": 51407.9,
+      "benchmark_price": 676.01,
+      "portfolio_return_pct": -4.46,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-09",
+      "portfolio_value": 51780.26,
+      "benchmark_price": 679.91,
+      "portfolio_return_pct": -3.77,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-10",
+      "portfolio_value": 61628.55,
+      "benchmark_price": 679.46,
+      "portfolio_return_pct": -3.99,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-13",
+      "portfolio_value": 61993.47,
+      "benchmark_price": 686.1,
+      "portfolio_return_pct": -3.42,
+      "benchmark_return_pct": null
+    },
+    {
       "date": "2026-04-14",
-      "portfolio_value": 59468.63,
+      "portfolio_value": 60892.91,
       "benchmark_price": 694.46,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-15",
-      "portfolio_value": 59864.48,
+      "portfolio_value": 61288.76,
       "benchmark_price": 699.94,
-      "portfolio_return_pct": -2.87,
+      "portfolio_return_pct": -2.79,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-16",
-      "portfolio_value": 60156.95,
+      "portfolio_value": 61581.23,
       "benchmark_price": 701.66,
-      "portfolio_return_pct": -2.4,
+      "portfolio_return_pct": -2.33,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-17",
-      "portfolio_value": 62008.4,
+      "portfolio_value": 63432.68,
       "benchmark_price": 710.14,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-20",
-      "portfolio_value": 61809.6,
+      "portfolio_value": 63233.88,
       "benchmark_price": 708.72,
-      "portfolio_return_pct": -2.71,
+      "portfolio_return_pct": -2.63,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-21",
-      "portfolio_value": 61382.48,
+      "portfolio_value": 62806.76,
       "benchmark_price": 704.08,
-      "portfolio_return_pct": -3.38,
+      "portfolio_return_pct": -3.29,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-22",
-      "portfolio_value": 61387.51,
+      "portfolio_value": 62811.79,
       "benchmark_price": 711.21,
-      "portfolio_return_pct": -3.37,
+      "portfolio_return_pct": -3.28,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-23",
-      "portfolio_value": 61253.4,
+      "portfolio_value": 62677.68,
       "benchmark_price": 708.45,
-      "portfolio_return_pct": -3.58,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-04-24",
-      "portfolio_value": 61154.47,
-      "benchmark_price": 713.94,
-      "portfolio_return_pct": -3.74,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-04-27",
-      "portfolio_value": 61079.94,
-      "benchmark_price": 715.17,
-      "portfolio_return_pct": -3.86,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-04-28",
-      "portfolio_value": 60810.52,
-      "benchmark_price": 711.69,
-      "portfolio_return_pct": -4.28,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-04-29",
-      "portfolio_value": 60992.79,
-      "benchmark_price": 711.58,
-      "portfolio_return_pct": -3.99,
-      "benchmark_return_pct": null
-    },
-    {
-      "date": "2026-04-30",
-      "portfolio_value": 61314.31,
-      "benchmark_price": 718.66,
       "portfolio_return_pct": -3.49,
       "benchmark_return_pct": null
     },
     {
+      "date": "2026-04-24",
+      "portfolio_value": 62578.75,
+      "benchmark_price": 713.94,
+      "portfolio_return_pct": -3.64,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-27",
+      "portfolio_value": 62504.22,
+      "benchmark_price": 715.17,
+      "portfolio_return_pct": -3.76,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-28",
+      "portfolio_value": 62234.8,
+      "benchmark_price": 711.69,
+      "portfolio_return_pct": -4.17,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-29",
+      "portfolio_value": 62417.07,
+      "benchmark_price": 711.58,
+      "portfolio_return_pct": -3.89,
+      "benchmark_return_pct": null
+    },
+    {
+      "date": "2026-04-30",
+      "portfolio_value": 62738.59,
+      "benchmark_price": 718.66,
+      "portfolio_return_pct": -3.39,
+      "benchmark_return_pct": null
+    },
+    {
       "date": "2026-05-01",
-      "portfolio_value": 61643.53,
+      "portfolio_value": 63067.81,
       "benchmark_price": 720.65,
-      "portfolio_return_pct": -2.97,
+      "portfolio_return_pct": -2.89,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-04",
-      "portfolio_value": 61796.3,
+      "portfolio_value": 63220.58,
       "benchmark_price": 718.01,
-      "portfolio_return_pct": -2.73,
+      "portfolio_return_pct": -2.65,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-05",
-      "portfolio_value": 61908.34,
+      "portfolio_value": 63332.62,
       "benchmark_price": 723.77,
-      "portfolio_return_pct": -2.55,
+      "portfolio_return_pct": -2.48,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-06",
-      "portfolio_value": 62526.64,
+      "portfolio_value": 63950.92,
       "benchmark_price": 733.83,
-      "portfolio_return_pct": -1.58,
+      "portfolio_return_pct": -1.53,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-07",
-      "portfolio_value": 62621.7,
+      "portfolio_value": 64045.98,
       "benchmark_price": 731.58,
-      "portfolio_return_pct": -1.43,
+      "portfolio_return_pct": -1.38,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-08",
-      "portfolio_value": 62530.94,
+      "portfolio_value": 63955.22,
       "benchmark_price": 737.62,
-      "portfolio_return_pct": -1.57,
+      "portfolio_return_pct": -1.52,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-11",
-      "portfolio_value": 62834.1,
+      "portfolio_value": 64258.38,
       "benchmark_price": 739.3,
-      "portfolio_return_pct": -1.1,
+      "portfolio_return_pct": -1.05,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-12",
-      "portfolio_value": 62541.38,
+      "portfolio_value": 63965.66,
       "benchmark_price": 738.18,
-      "portfolio_return_pct": -1.56,
+      "portfolio_return_pct": -1.5,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-13",
-      "portfolio_value": 63075.86,
+      "portfolio_value": 64500.14,
       "benchmark_price": 742.31,
-      "portfolio_return_pct": -0.72,
+      "portfolio_return_pct": -0.68,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-14",
-      "portfolio_value": 63239.62,
+      "portfolio_value": 64663.9,
       "benchmark_price": 748.17,
-      "portfolio_return_pct": -0.46,
+      "portfolio_return_pct": -0.43,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-15",
-      "portfolio_value": 62467.56,
+      "portfolio_value": 63891.84,
       "benchmark_price": 739.17,
-      "portfolio_return_pct": -1.67,
+      "portfolio_return_pct": -1.62,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-18",
-      "portfolio_value": 62323.66,
+      "portfolio_value": 63747.94,
       "benchmark_price": 738.65,
-      "portfolio_return_pct": -1.9,
+      "portfolio_return_pct": -1.84,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-19",
-      "portfolio_value": 61892.22,
+      "portfolio_value": 63316.5,
       "benchmark_price": 733.73,
-      "portfolio_return_pct": -2.58,
+      "portfolio_return_pct": -2.5,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-20",
-      "portfolio_value": 62710.65,
+      "portfolio_value": 64134.93,
       "benchmark_price": 741.25,
-      "portfolio_return_pct": -1.29,
+      "portfolio_return_pct": -1.24,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-21",
-      "portfolio_value": 62636.13,
+      "portfolio_value": 64060.41,
       "benchmark_price": 742.72,
-      "portfolio_return_pct": -1.41,
+      "portfolio_return_pct": -1.36,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-22",
-      "portfolio_value": 63212.3,
+      "portfolio_value": 64636.58,
       "benchmark_price": 745.64,
-      "portfolio_return_pct": -0.5,
+      "portfolio_return_pct": -0.47,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-26",
-      "portfolio_value": 63839.51,
+      "portfolio_value": 65263.79,
       "benchmark_price": 750.59,
       "portfolio_return_pct": 0.49,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-27",
-      "portfolio_value": 63778.42,
+      "portfolio_value": 65202.7,
       "benchmark_price": 750.46,
-      "portfolio_return_pct": 0.39,
+      "portfolio_return_pct": 0.4,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-28",
-      "portfolio_value": 64482.62,
+      "portfolio_value": 65906.9,
       "benchmark_price": 754.6,
-      "portfolio_return_pct": 1.5,
+      "portfolio_return_pct": 1.48,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-29",
-      "portfolio_value": 64802.23,
+      "portfolio_value": 66226.51,
       "benchmark_price": 756.48,
-      "portfolio_return_pct": 2.0,
+      "portfolio_return_pct": 1.98,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-01",
-      "portfolio_value": 64612.33,
+      "portfolio_value": 66036.61,
       "benchmark_price": 758.54,
-      "portfolio_return_pct": 1.7,
+      "portfolio_return_pct": 1.68,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-02",
-      "portfolio_value": 64669.84,
+      "portfolio_value": 66094.12,
       "benchmark_price": 759.57,
-      "portfolio_return_pct": 1.79,
+      "portfolio_return_pct": 1.77,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-03",
-      "portfolio_value": 64118.46,
+      "portfolio_value": 65542.74,
       "benchmark_price": 754.24,
-      "portfolio_return_pct": 0.93,
+      "portfolio_return_pct": 0.92,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-04",
-      "portfolio_value": 64177.63,
+      "portfolio_value": 65601.91,
       "benchmark_price": 757.09,
-      "portfolio_return_pct": 1.02,
+      "portfolio_return_pct": 1.01,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-05",
-      "portfolio_value": 62784.6,
+      "portfolio_value": 64208.88,
       "benchmark_price": 737.55,
-      "portfolio_return_pct": -1.17,
+      "portfolio_return_pct": -1.13,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-08",
-      "portfolio_value": 62653.17,
+      "portfolio_value": 64077.45,
       "benchmark_price": 739.22,
-      "portfolio_return_pct": -1.38,
+      "portfolio_return_pct": -1.33,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-09",
-      "portfolio_value": 61687.63,
+      "portfolio_value": 63111.91,
       "benchmark_price": 737.05,
-      "portfolio_return_pct": -2.9,
+      "portfolio_return_pct": -2.82,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-10",
-      "portfolio_value": 61286.2,
+      "portfolio_value": 62710.48,
       "benchmark_price": 725.43,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-11",
-      "portfolio_value": 61033.25,
+      "portfolio_value": 62457.53,
       "benchmark_price": 737.76,
-      "portfolio_return_pct": -3.3,
+      "portfolio_return_pct": -3.21,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-12",
-      "portfolio_value": 59622.68,
+      "portfolio_value": 61046.96,
       "benchmark_price": 741.75,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-15",
-      "portfolio_value": 60673.38,
+      "portfolio_value": 62097.66,
       "benchmark_price": 754.83,
-      "portfolio_return_pct": -1.6,
+      "portfolio_return_pct": -1.55,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-16",
-      "portfolio_value": 60384.6,
+      "portfolio_value": 61808.88,
       "benchmark_price": 750.33,
-      "portfolio_return_pct": -2.07,
+      "portfolio_return_pct": -2.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-17",
-      "portfolio_value": 60329.47,
+      "portfolio_value": 61753.75,
       "benchmark_price": 740.96,
-      "portfolio_return_pct": -2.16,
+      "portfolio_return_pct": -2.09,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-18",
-      "portfolio_value": 60108.12,
+      "portfolio_value": 61532.4,
       "benchmark_price": 746.74,
-      "portfolio_return_pct": -2.51,
+      "portfolio_return_pct": -2.44,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-22",
-      "portfolio_value": 59912.54,
+      "portfolio_value": 61336.82,
       "benchmark_price": 744.39,
-      "portfolio_return_pct": -2.83,
+      "portfolio_return_pct": -2.75,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-23",
-      "portfolio_value": 59184.21,
+      "portfolio_value": 60608.49,
       "benchmark_price": 733.58,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-24",
-      "portfolio_value": 58905.9,
+      "portfolio_value": 60330.18,
       "benchmark_price": 733.24,
-      "portfolio_return_pct": -3.29,
+      "portfolio_return_pct": -3.2,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-25",
-      "portfolio_value": 58669.32,
+      "portfolio_value": 60093.6,
       "benchmark_price": 734.3,
-      "portfolio_return_pct": -3.68,
+      "portfolio_return_pct": -3.58,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-26",
-      "portfolio_value": 58874.75,
+      "portfolio_value": 60299.03,
       "benchmark_price": 728.99,
-      "portfolio_return_pct": -3.34,
+      "portfolio_return_pct": -3.25,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-29",
-      "portfolio_value": 59045.37,
+      "portfolio_value": 60469.65,
       "benchmark_price": 741.0,
-      "portfolio_return_pct": -3.06,
+      "portfolio_return_pct": -2.97,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-30",
-      "portfolio_value": 59667.47,
+      "portfolio_value": 61091.75,
       "benchmark_price": 746.77,
-      "portfolio_return_pct": -2.04,
+      "portfolio_return_pct": -1.98,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-01",
-      "portfolio_value": 60047.55,
+      "portfolio_value": 61471.83,
       "benchmark_price": 745.76,
-      "portfolio_return_pct": -1.41,
+      "portfolio_return_pct": -1.37,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-02",
-      "portfolio_value": 60103.1,
+      "portfolio_value": 61527.38,
       "benchmark_price": 744.78,
-      "portfolio_return_pct": -1.32,
+      "portfolio_return_pct": -1.28,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-06",
-      "portfolio_value": 60695.45,
+      "portfolio_value": 62119.73,
       "benchmark_price": 751.28,
-      "portfolio_return_pct": -0.35,
+      "portfolio_return_pct": -0.33,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-07",
-      "portfolio_value": 59919.97,
+      "portfolio_value": 61344.25,
       "benchmark_price": 747.71,
-      "portfolio_return_pct": -1.62,
+      "portfolio_return_pct": -1.57,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-08",
-      "portfolio_value": 59298.85,
+      "portfolio_value": 60723.13,
       "benchmark_price": 745.4,
-      "portfolio_return_pct": -2.64,
+      "portfolio_return_pct": -2.57,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-09",
-      "portfolio_value": 60203.47,
+      "portfolio_value": 61627.75,
       "benchmark_price": 751.71,
-      "portfolio_return_pct": -1.16,
+      "portfolio_return_pct": -1.12,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-10",
-      "portfolio_value": 60089.5,
+      "portfolio_value": 61513.78,
       "benchmark_price": 754.95,
-      "portfolio_return_pct": -1.35,
+      "portfolio_return_pct": -1.3,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-13",
-      "portfolio_value": 59829.6,
+      "portfolio_value": 61253.88,
       "benchmark_price": 749.17,
-      "portfolio_return_pct": -1.77,
+      "portfolio_return_pct": -1.72,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-14",
-      "portfolio_value": 60122.56,
+      "portfolio_value": 61546.84,
       "benchmark_price": 751.83,
-      "portfolio_return_pct": -1.29,
+      "portfolio_return_pct": -1.25,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-15",
-      "portfolio_value": 60033.37,
+      "portfolio_value": 61457.65,
       "benchmark_price": 754.81,
-      "portfolio_return_pct": -1.44,
+      "portfolio_return_pct": -1.39,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-16",
-      "portfolio_value": 59498.81,
+      "portfolio_value": 60923.09,
       "benchmark_price": 750.72,
-      "portfolio_return_pct": -2.32,
+      "portfolio_return_pct": -2.25,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-17",
-      "portfolio_value": 61090.69,
+      "portfolio_value": 62514.97,
       "benchmark_price": 743.29,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-20",
-      "portfolio_value": 61321.13,
+      "portfolio_value": 62745.41,
       "benchmark_price": 742.09,
-      "portfolio_return_pct": -1.95,
+      "portfolio_return_pct": -1.89,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-21",
-      "portfolio_value": 61632.89,
+      "portfolio_value": 63057.17,
       "benchmark_price": 748.28,
-      "portfolio_return_pct": -1.45,
+      "portfolio_return_pct": -1.4,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-22",
-      "portfolio_value": 61783.29,
+      "portfolio_value": 63207.57,
       "benchmark_price": 747.41,
-      "portfolio_return_pct": -1.21,
+      "portfolio_return_pct": -1.16,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-23",
-      "portfolio_value": 62071.01,
+      "portfolio_value": 63495.29,
       "benchmark_price": 738.18,
-      "portfolio_return_pct": -0.75,
+      "portfolio_return_pct": -0.71,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-24",
-      "portfolio_value": 61067.89,
+      "portfolio_value": 62492.17,
       "benchmark_price": 738.93,
-      "portfolio_return_pct": -2.35,
+      "portfolio_return_pct": -2.28,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-27",
-      "portfolio_value": 60936.08,
+      "portfolio_value": 62360.36,
       "benchmark_price": 739.09,
-      "portfolio_return_pct": -2.56,
+      "portfolio_return_pct": -2.49,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-28",
-      "portfolio_value": 61059.34,
+      "portfolio_value": 62483.62,
       "benchmark_price": 740.86,
-      "portfolio_return_pct": -2.37,
+      "portfolio_return_pct": -2.3,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-29",
-      "portfolio_value": 60619.23,
+      "portfolio_value": 62043.51,
       "benchmark_price": 729.46,
-      "portfolio_return_pct": -3.07,
+      "portfolio_return_pct": -2.98,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-30",
-      "portfolio_value": 60941.02,
+      "portfolio_value": 62365.3,
       "benchmark_price": 741.69,
-      "portfolio_return_pct": -2.55,
+      "portfolio_return_pct": -2.48,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-31",
-      "portfolio_value": 61050.06,
+      "portfolio_value": 62474.34,
       "benchmark_price": 747.03,
-      "portfolio_return_pct": -2.38,
+      "portfolio_return_pct": -2.31,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-08-03",
-      "portfolio_value": 61747.63,
+      "portfolio_value": 63171.91,
       "benchmark_price": 757.67,
-      "portfolio_return_pct": -1.26,
+      "portfolio_return_pct": -1.22,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-08-04",
-      "portfolio_value": 62894.91,
+      "portfolio_value": 64319.19,
       "benchmark_price": 771.33,
       "portfolio_return_pct": 0.57,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-08-05",
-      "portfolio_value": 63397.07,
+      "portfolio_value": 64821.35,
       "benchmark_price": 769.79,
-      "portfolio_return_pct": 1.37,
+      "portfolio_return_pct": 1.36,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-08-06",
-      "portfolio_value": 63203.53,
+      "portfolio_value": 64627.81,
       "benchmark_price": 768.56,
       "portfolio_return_pct": 1.06,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-08-07",
-      "portfolio_value": 63852.8,
+      "portfolio_value": 65277.08,
       "benchmark_price": 773.26,
-      "portfolio_return_pct": 2.1,
+      "portfolio_return_pct": 2.07,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-08-10",
-      "portfolio_value": 64061.34,
+      "portfolio_value": 65485.62,
       "benchmark_price": 773.03,
-      "portfolio_return_pct": 2.43,
+      "portfolio_return_pct": 2.4,
       "benchmark_return_pct": null
     },
     {
@@ -31439,12 +31439,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
   "range_metrics": {
     "1M": {
       "summary": {
-        "start_value": 59829.6,
+        "start_value": 61253.88,
         "end_value": 65429.98,
         "net_contributions": 0.0,
         "investment_gain": 4234.210000000006,
-        "time_weighted_return_pct": 4.28,
-        "money_weighted_return_pct": 7.077115675184201,
+        "time_weighted_return_pct": 4.19,
+        "money_weighted_return_pct": 6.912558028977115,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
@@ -31452,11 +31452,11 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "monthly_returns": [
         {
           "month": "2026-07",
-          "return_pct": 2.0398932969633687
+          "return_pct": 1.9924615387629574
         },
         {
           "month": "2026-08",
-          "return_pct": 7.174309083398156
+          "return_pct": 4.730966345542842
         }
       ],
       "monthly_returns_reliable": true,
@@ -31464,12 +31464,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
     },
     "3M": {
       "summary": {
-        "start_value": 62834.1,
+        "start_value": 64258.38,
         "end_value": 65429.98,
         "net_contributions": 0.0,
         "investment_gain": 1229.7100000000064,
-        "time_weighted_return_pct": 3.57,
-        "money_weighted_return_pct": 1.9570742638153589,
+        "time_weighted_return_pct": 3.49,
+        "money_weighted_return_pct": 1.9136959257298525,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
@@ -31477,19 +31477,19 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "monthly_returns": [
         {
           "month": "2026-05",
-          "return_pct": 3.1322641686599706
+          "return_pct": 3.0628378742196594
         },
         {
           "month": "2026-06",
-          "return_pct": -7.923739661428342
+          "return_pct": -7.7533301996436155
         },
         {
           "month": "2026-07",
-          "return_pct": 2.3171587466336296
+          "return_pct": 2.263137002950444
         },
         {
           "month": "2026-08",
-          "return_pct": 7.174309083398156
+          "return_pct": 4.730966345542842
         }
       ],
       "monthly_returns_reliable": true,
@@ -31497,12 +31497,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
     },
     "YTD": {
       "summary": {
-        "start_value": 52386.1,
+        "start_value": 53810.38,
         "end_value": 65429.98,
         "net_contributions": 9963.0,
         "investment_gain": 1714.7100000000064,
-        "time_weighted_return_pct": 2.43,
-        "money_weighted_return_pct": 2.9523628677764755,
+        "time_weighted_return_pct": 2.4,
+        "money_weighted_return_pct": 2.881694927738503,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
@@ -31510,35 +31510,35 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "monthly_returns": [
         {
           "month": "2026-01",
-          "return_pct": -0.028786262004609764
+          "return_pct": -0.028024332851750433
         },
         {
           "month": "2026-02",
-          "return_pct": -2.607854496628126
+          "return_pct": -2.538809152472421
         },
         {
           "month": "2026-03",
-          "return_pct": -5.539938429879587
+          "return_pct": -5.389442669151768
         },
         {
           "month": "2026-04",
-          "return_pct": 6.201822459242523
+          "return_pct": 6.032307587952301
         },
         {
           "month": "2026-05",
-          "return_pct": 5.688590477492084
+          "return_pct": 5.559449136488448
         },
         {
           "month": "2026-06",
-          "return_pct": -7.923739661428342
+          "return_pct": -7.7533301996436155
         },
         {
           "month": "2026-07",
-          "return_pct": 2.3171587466336296
+          "return_pct": 2.263137002950444
         },
         {
           "month": "2026-08",
-          "return_pct": 7.174309083398156
+          "return_pct": 4.730966345542842
         }
       ],
       "monthly_returns_reliable": true,
@@ -31546,12 +31546,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
     },
     "1Y": {
       "summary": {
-        "start_value": 52386.1,
+        "start_value": 53810.38,
         "end_value": 65429.98,
         "net_contributions": 9963.0,
         "investment_gain": 1714.7100000000064,
-        "time_weighted_return_pct": 2.43,
-        "money_weighted_return_pct": 2.9523628677764755,
+        "time_weighted_return_pct": 2.4,
+        "money_weighted_return_pct": 2.881694927738503,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
@@ -31559,35 +31559,35 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "monthly_returns": [
         {
           "month": "2026-01",
-          "return_pct": -0.028786262004609764
+          "return_pct": -0.028024332851750433
         },
         {
           "month": "2026-02",
-          "return_pct": -2.607854496628126
+          "return_pct": -2.538809152472421
         },
         {
           "month": "2026-03",
-          "return_pct": -5.539938429879587
+          "return_pct": -5.389442669151768
         },
         {
           "month": "2026-04",
-          "return_pct": 6.201822459242523
+          "return_pct": 6.032307587952301
         },
         {
           "month": "2026-05",
-          "return_pct": 5.688590477492084
+          "return_pct": 5.559449136488448
         },
         {
           "month": "2026-06",
-          "return_pct": -7.923739661428342
+          "return_pct": -7.7533301996436155
         },
         {
           "month": "2026-07",
-          "return_pct": 2.3171587466336296
+          "return_pct": 2.263137002950444
         },
         {
           "month": "2026-08",
-          "return_pct": 7.174309083398156
+          "return_pct": 4.730966345542842
         }
       ],
       "monthly_returns_reliable": true,
@@ -31595,12 +31595,12 @@ export const ib2026ImportedDashboardGoldenFixture = {
     },
     "All": {
       "summary": {
-        "start_value": 52386.1,
+        "start_value": 53810.38,
         "end_value": 65429.98,
         "net_contributions": 9963.0,
         "investment_gain": 1714.7100000000064,
-        "time_weighted_return_pct": 2.43,
-        "money_weighted_return_pct": 2.9523628677764755,
+        "time_weighted_return_pct": 2.4,
+        "money_weighted_return_pct": 2.881694927738503,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
@@ -31608,35 +31608,35 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "monthly_returns": [
         {
           "month": "2026-01",
-          "return_pct": -0.028786262004609764
+          "return_pct": -0.028024332851750433
         },
         {
           "month": "2026-02",
-          "return_pct": -2.607854496628126
+          "return_pct": -2.538809152472421
         },
         {
           "month": "2026-03",
-          "return_pct": -5.539938429879587
+          "return_pct": -5.389442669151768
         },
         {
           "month": "2026-04",
-          "return_pct": 6.201822459242523
+          "return_pct": 6.032307587952301
         },
         {
           "month": "2026-05",
-          "return_pct": 5.688590477492084
+          "return_pct": 5.559449136488448
         },
         {
           "month": "2026-06",
-          "return_pct": -7.923739661428342
+          "return_pct": -7.7533301996436155
         },
         {
           "month": "2026-07",
-          "return_pct": 2.3171587466336296
+          "return_pct": 2.263137002950444
         },
         {
           "month": "2026-08",
-          "return_pct": 7.174309083398156
+          "return_pct": 4.730966345542842
         }
       ],
       "monthly_returns_reliable": true,
@@ -31656,7 +31656,7 @@ export const ff2026DashboardGolden = {
   "loadedFileLabel": "Loaded file: FF2026.pdf",
   "monthlyStatusLabel": "Monthly-return status: Live market history",
   "portfolioValue": "$3071.00",
-  "startValue": "$3094.96",
+  "startValue": "$3097.89",
   "timeWeightedReturn": "-1.08%",
   "netContributions": "$0.00",
   "moneyWeightedReturn": "-1.20%",
@@ -31667,7 +31667,7 @@ export const ff2026DashboardGolden = {
   "monthlyReturns": [
     {
       "month": "2026-01",
-      "returnPct": "0.13%"
+      "returnPct": "0.12%"
     },
     {
       "month": "2026-02",
@@ -31675,11 +31675,11 @@ export const ff2026DashboardGolden = {
     },
     {
       "month": "2026-03",
-      "returnPct": "-5.05%"
+      "returnPct": "-5.04%"
     },
     {
       "month": "2026-04",
-      "returnPct": "4.92%"
+      "returnPct": "4.81%"
     }
   ],
   "sectors": {
@@ -32330,7 +32330,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2025-12-01",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32341,7 +32341,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3011.94,
-      "total_portfolio_value": 3045.64,
+      "total_portfolio_value": 3048.57,
       "external_cash_flow": 0.0,
       "trade_flow": 1936.68,
       "reconciliation_adjustment": null,
@@ -32350,7 +32350,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2025-12-02",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32361,7 +32361,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3015.54,
-      "total_portfolio_value": 3049.24,
+      "total_portfolio_value": 3052.17,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32370,7 +32370,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2025-12-03",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32381,7 +32381,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3029.04,
-      "total_portfolio_value": 3062.74,
+      "total_portfolio_value": 3065.67,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32390,7 +32390,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2025-12-04",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32401,7 +32401,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3033.81,
-      "total_portfolio_value": 3067.51,
+      "total_portfolio_value": 3070.44,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32410,7 +32410,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2025-12-05",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32421,7 +32421,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3038.04,
-      "total_portfolio_value": 3071.74,
+      "total_portfolio_value": 3074.67,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32430,7 +32430,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2025-12-08",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32441,7 +32441,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3029.13,
-      "total_portfolio_value": 3062.83,
+      "total_portfolio_value": 3065.76,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32450,7 +32450,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2025-12-09",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32461,7 +32461,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3026.07,
-      "total_portfolio_value": 3059.77,
+      "total_portfolio_value": 3062.7,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32470,7 +32470,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2025-12-10",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32481,7 +32481,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3048.57,
-      "total_portfolio_value": 3082.27,
+      "total_portfolio_value": 3085.2,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32490,7 +32490,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2025-12-11",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32501,7 +32501,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3058.83,
-      "total_portfolio_value": 3092.53,
+      "total_portfolio_value": 3095.46,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32510,7 +32510,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2025-12-12",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32521,7 +32521,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3023.91,
-      "total_portfolio_value": 3057.61,
+      "total_portfolio_value": 3060.54,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32530,7 +32530,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2025-12-15",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32541,7 +32541,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3017.97,
-      "total_portfolio_value": 3051.67,
+      "total_portfolio_value": 3054.6,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32550,7 +32550,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2025-12-16",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32561,7 +32561,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3009.24,
-      "total_portfolio_value": 3042.94,
+      "total_portfolio_value": 3045.87,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32570,7 +32570,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2025-12-17",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32581,7 +32581,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 2976.39,
-      "total_portfolio_value": 3010.09,
+      "total_portfolio_value": 3013.02,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32590,7 +32590,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2025-12-18",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32601,7 +32601,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 2999.25,
-      "total_portfolio_value": 3032.95,
+      "total_portfolio_value": 3035.88,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32610,7 +32610,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2025-12-19",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32621,7 +32621,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3025.98,
-      "total_portfolio_value": 3059.68,
+      "total_portfolio_value": 3062.61,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32630,7 +32630,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2025-12-22",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32641,7 +32641,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3038.4,
-      "total_portfolio_value": 3072.1,
+      "total_portfolio_value": 3075.03,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32650,7 +32650,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2025-12-23",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32661,7 +32661,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3048.48,
-      "total_portfolio_value": 3082.18,
+      "total_portfolio_value": 3085.11,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32670,7 +32670,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2025-12-24",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32681,7 +32681,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3058.92,
-      "total_portfolio_value": 3092.62,
+      "total_portfolio_value": 3095.55,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32690,7 +32690,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2025-12-26",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32701,7 +32701,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3057.03,
-      "total_portfolio_value": 3090.73,
+      "total_portfolio_value": 3093.66,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32710,7 +32710,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2025-12-29",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32721,7 +32721,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3045.51,
-      "total_portfolio_value": 3079.21,
+      "total_portfolio_value": 3082.14,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32730,7 +32730,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2025-12-30",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32741,7 +32741,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3040.65,
-      "total_portfolio_value": 3074.35,
+      "total_portfolio_value": 3077.28,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32750,7 +32750,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2025-12-31",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32761,7 +32761,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3017.43,
-      "total_portfolio_value": 3051.13,
+      "total_portfolio_value": 3054.06,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32770,7 +32770,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-02",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32781,7 +32781,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3026.79,
-      "total_portfolio_value": 3060.49,
+      "total_portfolio_value": 3063.42,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32790,7 +32790,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-05",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32801,7 +32801,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3049.56,
-      "total_portfolio_value": 3083.26,
+      "total_portfolio_value": 3086.19,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32810,7 +32810,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-06",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32821,7 +32821,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3070.89,
-      "total_portfolio_value": 3104.59,
+      "total_portfolio_value": 3107.52,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32830,7 +32830,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-07",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32841,7 +32841,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3060.45,
-      "total_portfolio_value": 3094.15,
+      "total_portfolio_value": 3097.08,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32850,7 +32850,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-08",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32861,7 +32861,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3061.26,
-      "total_portfolio_value": 3094.96,
+      "total_portfolio_value": 3097.89,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32870,7 +32870,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-09",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32881,7 +32881,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3081.6,
-      "total_portfolio_value": 3115.3,
+      "total_portfolio_value": 3118.23,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32890,7 +32890,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-12",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32901,7 +32901,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3087.27,
-      "total_portfolio_value": 3120.97,
+      "total_portfolio_value": 3123.9,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32910,7 +32910,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-13",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32921,7 +32921,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3081.06,
-      "total_portfolio_value": 3114.76,
+      "total_portfolio_value": 3117.69,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32930,7 +32930,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-14",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32941,7 +32941,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3069.0,
-      "total_portfolio_value": 3102.7,
+      "total_portfolio_value": 3105.63,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32950,7 +32950,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-15",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32961,7 +32961,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3078.45,
-      "total_portfolio_value": 3112.15,
+      "total_portfolio_value": 3115.08,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32970,7 +32970,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-16",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -32981,7 +32981,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3076.65,
-      "total_portfolio_value": 3110.35,
+      "total_portfolio_value": 3113.28,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -32990,7 +32990,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-20",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33001,7 +33001,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3015.99,
-      "total_portfolio_value": 3049.69,
+      "total_portfolio_value": 3052.62,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33010,7 +33010,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-21",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33021,7 +33021,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3051.72,
-      "total_portfolio_value": 3085.42,
+      "total_portfolio_value": 3088.35,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33030,7 +33030,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-22",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33041,7 +33041,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3067.83,
-      "total_portfolio_value": 3101.53,
+      "total_portfolio_value": 3104.46,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33050,7 +33050,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-23",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33061,7 +33061,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3065.04,
-      "total_portfolio_value": 3098.74,
+      "total_portfolio_value": 3101.67,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33070,7 +33070,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-26",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33081,7 +33081,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3078.27,
-      "total_portfolio_value": 3111.97,
+      "total_portfolio_value": 3114.9,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33090,7 +33090,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-27",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33101,7 +33101,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3089.43,
-      "total_portfolio_value": 3123.13,
+      "total_portfolio_value": 3126.06,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33110,7 +33110,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-28",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33121,7 +33121,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3087.72,
-      "total_portfolio_value": 3121.42,
+      "total_portfolio_value": 3124.35,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33130,7 +33130,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-29",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33141,7 +33141,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3080.61,
-      "total_portfolio_value": 3114.31,
+      "total_portfolio_value": 3117.24,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33150,7 +33150,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-01-30",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33161,7 +33161,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3065.13,
-      "total_portfolio_value": 3098.83,
+      "total_portfolio_value": 3101.76,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33170,7 +33170,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-02",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33181,7 +33181,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3082.32,
-      "total_portfolio_value": 3116.02,
+      "total_portfolio_value": 3118.95,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33190,7 +33190,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-03",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33201,7 +33201,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3058.65,
-      "total_portfolio_value": 3092.35,
+      "total_portfolio_value": 3095.28,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33210,7 +33210,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-04",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33221,7 +33221,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3044.25,
-      "total_portfolio_value": 3077.95,
+      "total_portfolio_value": 3080.88,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33230,7 +33230,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-05",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33241,7 +33241,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3005.1,
-      "total_portfolio_value": 3038.8,
+      "total_portfolio_value": 3041.73,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33250,7 +33250,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-06",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33261,7 +33261,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3068.64,
-      "total_portfolio_value": 3102.34,
+      "total_portfolio_value": 3105.27,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33270,7 +33270,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-09",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33281,7 +33281,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3083.76,
-      "total_portfolio_value": 3117.46,
+      "total_portfolio_value": 3120.39,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33290,7 +33290,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-10",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33301,7 +33301,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3076.2,
-      "total_portfolio_value": 3109.9,
+      "total_portfolio_value": 3112.83,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33310,7 +33310,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-11",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33321,7 +33321,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3073.23,
-      "total_portfolio_value": 3106.93,
+      "total_portfolio_value": 3109.86,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33330,7 +33330,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-12",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33341,7 +33341,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3024.09,
-      "total_portfolio_value": 3057.79,
+      "total_portfolio_value": 3060.72,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33350,7 +33350,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-13",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33361,7 +33361,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3029.85,
-      "total_portfolio_value": 3063.55,
+      "total_portfolio_value": 3066.48,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33370,7 +33370,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-17",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33381,7 +33381,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3033.63,
-      "total_portfolio_value": 3067.33,
+      "total_portfolio_value": 3070.26,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33390,7 +33390,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-18",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33401,7 +33401,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3049.47,
-      "total_portfolio_value": 3083.17,
+      "total_portfolio_value": 3086.1,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33410,7 +33410,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-19",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33421,7 +33421,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3043.71,
-      "total_portfolio_value": 3077.41,
+      "total_portfolio_value": 3080.34,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33430,7 +33430,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-20",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33441,7 +33441,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3062.43,
-      "total_portfolio_value": 3096.13,
+      "total_portfolio_value": 3099.06,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33450,7 +33450,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-23",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33461,7 +33461,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3028.14,
-      "total_portfolio_value": 3061.84,
+      "total_portfolio_value": 3064.77,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33470,7 +33470,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-24",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33481,7 +33481,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3052.89,
-      "total_portfolio_value": 3086.59,
+      "total_portfolio_value": 3089.52,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33490,7 +33490,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-25",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33501,7 +33501,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3076.47,
-      "total_portfolio_value": 3110.17,
+      "total_portfolio_value": 3113.1,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33510,7 +33510,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-26",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33521,7 +33521,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3064.41,
-      "total_portfolio_value": 3098.11,
+      "total_portfolio_value": 3101.04,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33530,7 +33530,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-02-27",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33541,7 +33541,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3048.93,
-      "total_portfolio_value": 3082.63,
+      "total_portfolio_value": 3085.56,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33550,7 +33550,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-02",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33561,7 +33561,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3052.08,
-      "total_portfolio_value": 3085.78,
+      "total_portfolio_value": 3088.71,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33570,7 +33570,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-03",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33581,7 +33581,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3021.57,
-      "total_portfolio_value": 3055.27,
+      "total_portfolio_value": 3058.2,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33590,7 +33590,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-04",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33601,7 +33601,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3043.71,
-      "total_portfolio_value": 3077.41,
+      "total_portfolio_value": 3080.34,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33610,7 +33610,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-05",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33621,7 +33621,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3024.0,
-      "total_portfolio_value": 3057.7,
+      "total_portfolio_value": 3060.63,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33630,7 +33630,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-06",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33641,7 +33641,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 2982.69,
-      "total_portfolio_value": 3016.39,
+      "total_portfolio_value": 3019.32,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33650,7 +33650,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-09",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33661,7 +33661,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3008.52,
-      "total_portfolio_value": 3042.22,
+      "total_portfolio_value": 3045.15,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33670,7 +33670,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-10",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33681,7 +33681,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3001.59,
-      "total_portfolio_value": 3035.29,
+      "total_portfolio_value": 3038.22,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33690,7 +33690,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-11",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33701,7 +33701,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 2999.16,
-      "total_portfolio_value": 3032.86,
+      "total_portfolio_value": 3035.79,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33710,7 +33710,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-12",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33721,7 +33721,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 2951.28,
-      "total_portfolio_value": 2984.98,
+      "total_portfolio_value": 2987.91,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33730,7 +33730,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-13",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33741,7 +33741,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 2935.17,
-      "total_portfolio_value": 2968.87,
+      "total_portfolio_value": 2971.8,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33750,7 +33750,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-16",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33761,7 +33761,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 2965.14,
-      "total_portfolio_value": 2998.84,
+      "total_portfolio_value": 3001.77,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33770,7 +33770,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-17",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33781,7 +33781,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 2975.13,
-      "total_portfolio_value": 3008.83,
+      "total_portfolio_value": 3011.76,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33790,7 +33790,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-18",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33801,7 +33801,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 2934.18,
-      "total_portfolio_value": 2967.88,
+      "total_portfolio_value": 2970.81,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33810,7 +33810,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-19",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33821,7 +33821,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 2928.96,
-      "total_portfolio_value": 2962.66,
+      "total_portfolio_value": 2965.59,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33830,7 +33830,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-20",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33841,7 +33841,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 2883.06,
-      "total_portfolio_value": 2916.76,
+      "total_portfolio_value": 2919.69,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33850,7 +33850,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-23",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33861,7 +33861,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 2917.71,
-      "total_portfolio_value": 2951.41,
+      "total_portfolio_value": 2954.34,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33870,7 +33870,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-24",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33881,7 +33881,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 2908.62,
-      "total_portfolio_value": 2942.32,
+      "total_portfolio_value": 2945.25,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33890,7 +33890,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-25",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33901,7 +33901,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 2926.35,
-      "total_portfolio_value": 2960.05,
+      "total_portfolio_value": 2962.98,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33910,7 +33910,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-26",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33921,7 +33921,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 2875.95,
-      "total_portfolio_value": 2909.65,
+      "total_portfolio_value": 2912.58,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33930,7 +33930,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-27",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33941,7 +33941,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 2817.81,
-      "total_portfolio_value": 2851.51,
+      "total_portfolio_value": 2854.44,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33950,7 +33950,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-30",
       "cash": {
-        "USD": 33.7
+        "USD": 36.63
       },
       "positions": [
         {
@@ -33961,7 +33961,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 2805.12,
-      "total_portfolio_value": 2838.82,
+      "total_portfolio_value": 2841.75,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33970,7 +33970,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-03-31",
       "cash": {
-        "USD": 39.81
+        "USD": 42.74
       },
       "positions": [
         {
@@ -33981,7 +33981,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 2887.29,
-      "total_portfolio_value": 2927.1,
+      "total_portfolio_value": 2930.03,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -33990,7 +33990,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-01",
       "cash": {
-        "USD": 42.35
+        "USD": 45.28
       },
       "positions": [
         {
@@ -34001,7 +34001,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 2909.16,
-      "total_portfolio_value": 2951.51,
+      "total_portfolio_value": 2954.44,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -34010,7 +34010,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-02",
       "cash": {
-        "USD": 42.35
+        "USD": 45.28
       },
       "positions": [
         {
@@ -34021,7 +34021,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 2913.84,
-      "total_portfolio_value": 2956.19,
+      "total_portfolio_value": 2959.12,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -34030,7 +34030,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-06",
       "cash": {
-        "USD": 42.35
+        "USD": 45.28
       },
       "positions": [
         {
@@ -34041,7 +34041,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 2926.89,
-      "total_portfolio_value": 2969.24,
+      "total_portfolio_value": 2972.17,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -34050,7 +34050,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-07",
       "cash": {
-        "USD": 42.35
+        "USD": 45.28
       },
       "positions": [
         {
@@ -34061,7 +34061,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 2928.87,
-      "total_portfolio_value": 2971.22,
+      "total_portfolio_value": 2974.15,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -34070,7 +34070,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-08",
       "cash": {
-        "USD": 42.35
+        "USD": 45.28
       },
       "positions": [
         {
@@ -34081,7 +34081,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3003.3,
-      "total_portfolio_value": 3045.65,
+      "total_portfolio_value": 3048.58,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -34090,7 +34090,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2026-04-09",
       "cash": {
-        "USD": 42.35
+        "USD": 45.28
       },
       "positions": [
         {
@@ -34101,7 +34101,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "total_market_value": 3019.05,
-      "total_portfolio_value": 3061.4,
+      "total_portfolio_value": 3064.33,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -34124,630 +34124,630 @@ export const ff2026ImportedDashboardGoldenFixture = {
       "total_portfolio_value": 3071.0,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
-      "reconciliation_adjustment": 13.2,
+      "reconciliation_adjustment": 10.27,
       "unbacked_cash_flow": 0.0
     }
   ],
   "performance_series": [
     {
       "date": "2025-12-01",
-      "portfolio_value": 3045.64,
+      "portfolio_value": 3048.57,
       "benchmark_price": 680.27,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-02",
-      "portfolio_value": 3049.24,
+      "portfolio_value": 3052.17,
       "benchmark_price": 681.53,
       "portfolio_return_pct": 0.12,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-03",
-      "portfolio_value": 3062.74,
+      "portfolio_value": 3065.67,
       "benchmark_price": 683.89,
       "portfolio_return_pct": 0.56,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-04",
-      "portfolio_value": 3067.51,
+      "portfolio_value": 3070.44,
       "benchmark_price": 684.39,
       "portfolio_return_pct": 0.72,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-05",
-      "portfolio_value": 3071.74,
+      "portfolio_value": 3074.67,
       "benchmark_price": 685.69,
       "portfolio_return_pct": 0.86,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-08",
-      "portfolio_value": 3062.83,
+      "portfolio_value": 3065.76,
       "benchmark_price": 683.63,
       "portfolio_return_pct": 0.56,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-09",
-      "portfolio_value": 3059.77,
+      "portfolio_value": 3062.7,
       "benchmark_price": 683.04,
       "portfolio_return_pct": 0.46,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-10",
-      "portfolio_value": 3082.27,
+      "portfolio_value": 3085.2,
       "benchmark_price": 687.57,
       "portfolio_return_pct": 1.2,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-11",
-      "portfolio_value": 3092.53,
+      "portfolio_value": 3095.46,
       "benchmark_price": 689.17,
       "portfolio_return_pct": 1.54,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-12",
-      "portfolio_value": 3057.61,
+      "portfolio_value": 3060.54,
       "benchmark_price": 681.76,
       "portfolio_return_pct": 0.39,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-15",
-      "portfolio_value": 3051.67,
+      "portfolio_value": 3054.6,
       "benchmark_price": 680.73,
       "portfolio_return_pct": 0.2,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-16",
-      "portfolio_value": 3042.94,
+      "portfolio_value": 3045.87,
       "benchmark_price": 678.87,
       "portfolio_return_pct": -0.09,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-17",
-      "portfolio_value": 3010.09,
+      "portfolio_value": 3013.02,
       "benchmark_price": 671.4,
       "portfolio_return_pct": -1.17,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-18",
-      "portfolio_value": 3032.95,
+      "portfolio_value": 3035.88,
       "benchmark_price": 676.47,
       "portfolio_return_pct": -0.42,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-19",
-      "portfolio_value": 3059.68,
+      "portfolio_value": 3062.61,
       "benchmark_price": 680.59,
       "portfolio_return_pct": 0.46,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-22",
-      "portfolio_value": 3072.1,
+      "portfolio_value": 3075.03,
       "benchmark_price": 684.83,
       "portfolio_return_pct": 0.87,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-23",
-      "portfolio_value": 3082.18,
+      "portfolio_value": 3085.11,
       "benchmark_price": 687.96,
       "portfolio_return_pct": 1.2,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-24",
-      "portfolio_value": 3092.62,
+      "portfolio_value": 3095.55,
       "benchmark_price": 690.38,
       "portfolio_return_pct": 1.54,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-26",
-      "portfolio_value": 3090.73,
+      "portfolio_value": 3093.66,
       "benchmark_price": 690.31,
       "portfolio_return_pct": 1.48,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-29",
-      "portfolio_value": 3079.21,
+      "portfolio_value": 3082.14,
       "benchmark_price": 687.85,
       "portfolio_return_pct": 1.1,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-30",
-      "portfolio_value": 3074.35,
+      "portfolio_value": 3077.28,
       "benchmark_price": 687.01,
       "portfolio_return_pct": 0.94,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-31",
-      "portfolio_value": 3051.13,
+      "portfolio_value": 3054.06,
       "benchmark_price": 681.92,
       "portfolio_return_pct": 0.18,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-02",
-      "portfolio_value": 3060.49,
+      "portfolio_value": 3063.42,
       "benchmark_price": 683.17,
       "portfolio_return_pct": 0.49,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-05",
-      "portfolio_value": 3083.26,
+      "portfolio_value": 3086.19,
       "benchmark_price": 687.72,
-      "portfolio_return_pct": 1.24,
+      "portfolio_return_pct": 1.23,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-06",
-      "portfolio_value": 3104.59,
+      "portfolio_value": 3107.52,
       "benchmark_price": 691.81,
-      "portfolio_return_pct": 1.94,
+      "portfolio_return_pct": 1.93,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-07",
-      "portfolio_value": 3094.15,
+      "portfolio_value": 3097.08,
       "benchmark_price": 689.58,
       "portfolio_return_pct": 1.59,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-08",
-      "portfolio_value": 3094.96,
+      "portfolio_value": 3097.89,
       "benchmark_price": 689.51,
       "portfolio_return_pct": 1.62,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-09",
-      "portfolio_value": 3115.3,
+      "portfolio_value": 3118.23,
       "benchmark_price": 694.07,
       "portfolio_return_pct": 2.29,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-12",
-      "portfolio_value": 3120.97,
+      "portfolio_value": 3123.9,
       "benchmark_price": 695.16,
       "portfolio_return_pct": 2.47,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-13",
-      "portfolio_value": 3114.76,
+      "portfolio_value": 3117.69,
       "benchmark_price": 693.77,
       "portfolio_return_pct": 2.27,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-14",
-      "portfolio_value": 3102.7,
+      "portfolio_value": 3105.63,
       "benchmark_price": 690.36,
       "portfolio_return_pct": 1.87,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-15",
-      "portfolio_value": 3112.15,
+      "portfolio_value": 3115.08,
       "benchmark_price": 692.24,
       "portfolio_return_pct": 2.18,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-16",
-      "portfolio_value": 3110.35,
+      "portfolio_value": 3113.28,
       "benchmark_price": 691.66,
       "portfolio_return_pct": 2.12,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-20",
-      "portfolio_value": 3049.69,
+      "portfolio_value": 3052.62,
       "benchmark_price": 677.58,
       "portfolio_return_pct": 0.13,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-21",
-      "portfolio_value": 3085.42,
+      "portfolio_value": 3088.35,
       "benchmark_price": 685.4,
-      "portfolio_return_pct": 1.31,
+      "portfolio_return_pct": 1.3,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-22",
-      "portfolio_value": 3101.53,
+      "portfolio_value": 3104.46,
       "benchmark_price": 688.98,
-      "portfolio_return_pct": 1.84,
+      "portfolio_return_pct": 1.83,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-23",
-      "portfolio_value": 3098.74,
+      "portfolio_value": 3101.67,
       "benchmark_price": 689.23,
       "portfolio_return_pct": 1.74,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-26",
-      "portfolio_value": 3111.97,
+      "portfolio_value": 3114.9,
       "benchmark_price": 692.73,
       "portfolio_return_pct": 2.18,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-27",
-      "portfolio_value": 3123.13,
+      "portfolio_value": 3126.06,
       "benchmark_price": 695.49,
       "portfolio_return_pct": 2.54,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-28",
-      "portfolio_value": 3121.42,
+      "portfolio_value": 3124.35,
       "benchmark_price": 695.42,
       "portfolio_return_pct": 2.49,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-29",
-      "portfolio_value": 3114.31,
+      "portfolio_value": 3117.24,
       "benchmark_price": 694.04,
       "portfolio_return_pct": 2.25,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-30",
-      "portfolio_value": 3098.83,
+      "portfolio_value": 3101.76,
       "benchmark_price": 691.97,
-      "portfolio_return_pct": 1.75,
+      "portfolio_return_pct": 1.74,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-02",
-      "portfolio_value": 3116.02,
+      "portfolio_value": 3118.95,
       "benchmark_price": 695.41,
       "portfolio_return_pct": 2.31,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-03",
-      "portfolio_value": 3092.35,
+      "portfolio_value": 3095.28,
       "benchmark_price": 689.53,
       "portfolio_return_pct": 1.53,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-04",
-      "portfolio_value": 3077.95,
+      "portfolio_value": 3080.88,
       "benchmark_price": 686.19,
       "portfolio_return_pct": 1.06,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-05",
-      "portfolio_value": 3038.8,
+      "portfolio_value": 3041.73,
       "benchmark_price": 677.62,
       "portfolio_return_pct": -0.22,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-06",
-      "portfolio_value": 3102.34,
+      "portfolio_value": 3105.27,
       "benchmark_price": 690.62,
       "portfolio_return_pct": 1.86,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-09",
-      "portfolio_value": 3117.46,
+      "portfolio_value": 3120.39,
       "benchmark_price": 693.95,
       "portfolio_return_pct": 2.36,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-10",
-      "portfolio_value": 3109.9,
+      "portfolio_value": 3112.83,
       "benchmark_price": 692.12,
       "portfolio_return_pct": 2.11,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-11",
-      "portfolio_value": 3106.93,
+      "portfolio_value": 3109.86,
       "benchmark_price": 691.96,
       "portfolio_return_pct": 2.01,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-12",
-      "portfolio_value": 3057.79,
+      "portfolio_value": 3060.72,
       "benchmark_price": 681.27,
       "portfolio_return_pct": 0.4,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-13",
-      "portfolio_value": 3063.55,
+      "portfolio_value": 3066.48,
       "benchmark_price": 681.75,
       "portfolio_return_pct": 0.59,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-17",
-      "portfolio_value": 3067.33,
+      "portfolio_value": 3070.26,
       "benchmark_price": 682.85,
       "portfolio_return_pct": 0.71,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-18",
-      "portfolio_value": 3083.17,
+      "portfolio_value": 3086.1,
       "benchmark_price": 686.29,
       "portfolio_return_pct": 1.23,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-19",
-      "portfolio_value": 3077.41,
+      "portfolio_value": 3080.34,
       "benchmark_price": 684.48,
       "portfolio_return_pct": 1.04,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-20",
-      "portfolio_value": 3096.13,
+      "portfolio_value": 3099.06,
       "benchmark_price": 689.43,
       "portfolio_return_pct": 1.66,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-23",
-      "portfolio_value": 3061.84,
+      "portfolio_value": 3064.77,
       "benchmark_price": 682.39,
       "portfolio_return_pct": 0.53,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-24",
-      "portfolio_value": 3086.59,
+      "portfolio_value": 3089.52,
       "benchmark_price": 687.35,
       "portfolio_return_pct": 1.34,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-25",
-      "portfolio_value": 3110.17,
+      "portfolio_value": 3113.1,
       "benchmark_price": 693.15,
       "portfolio_return_pct": 2.12,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-26",
-      "portfolio_value": 3098.11,
+      "portfolio_value": 3101.04,
       "benchmark_price": 689.3,
       "portfolio_return_pct": 1.72,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-27",
-      "portfolio_value": 3082.63,
+      "portfolio_value": 3085.56,
       "benchmark_price": 685.99,
       "portfolio_return_pct": 1.21,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-02",
-      "portfolio_value": 3085.78,
+      "portfolio_value": 3088.71,
       "benchmark_price": 686.38,
       "portfolio_return_pct": 1.32,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-03",
-      "portfolio_value": 3055.27,
+      "portfolio_value": 3058.2,
       "benchmark_price": 680.33,
       "portfolio_return_pct": 0.32,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-04",
-      "portfolio_value": 3077.41,
+      "portfolio_value": 3080.34,
       "benchmark_price": 685.13,
       "portfolio_return_pct": 1.04,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-05",
-      "portfolio_value": 3057.7,
+      "portfolio_value": 3060.63,
       "benchmark_price": 681.31,
       "portfolio_return_pct": 0.4,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-06",
-      "portfolio_value": 3016.39,
+      "portfolio_value": 3019.32,
       "benchmark_price": 672.38,
       "portfolio_return_pct": -0.96,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-09",
-      "portfolio_value": 3042.22,
+      "portfolio_value": 3045.15,
       "benchmark_price": 678.27,
       "portfolio_return_pct": -0.11,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-10",
-      "portfolio_value": 3035.29,
+      "portfolio_value": 3038.22,
       "benchmark_price": 677.18,
       "portfolio_return_pct": -0.34,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-11",
-      "portfolio_value": 3032.86,
+      "portfolio_value": 3035.79,
       "benchmark_price": 676.33,
       "portfolio_return_pct": -0.42,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-12",
-      "portfolio_value": 2984.98,
+      "portfolio_value": 2987.91,
       "benchmark_price": 666.06,
       "portfolio_return_pct": -1.99,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-13",
-      "portfolio_value": 2968.87,
+      "portfolio_value": 2971.8,
       "benchmark_price": 662.29,
       "portfolio_return_pct": -2.52,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-16",
-      "portfolio_value": 2998.84,
+      "portfolio_value": 3001.77,
       "benchmark_price": 669.03,
       "portfolio_return_pct": -1.54,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-17",
-      "portfolio_value": 3008.83,
+      "portfolio_value": 3011.76,
       "benchmark_price": 670.79,
       "portfolio_return_pct": -1.21,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-18",
-      "portfolio_value": 2967.88,
+      "portfolio_value": 2970.81,
       "benchmark_price": 661.43,
       "portfolio_return_pct": -2.55,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-19",
-      "portfolio_value": 2962.66,
+      "portfolio_value": 2965.59,
       "benchmark_price": 659.8,
       "portfolio_return_pct": -2.72,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-20",
-      "portfolio_value": 2916.76,
+      "portfolio_value": 2919.69,
       "benchmark_price": 648.57,
       "portfolio_return_pct": -4.23,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-23",
-      "portfolio_value": 2951.41,
+      "portfolio_value": 2954.34,
       "benchmark_price": 655.38,
       "portfolio_return_pct": -3.09,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-24",
-      "portfolio_value": 2942.32,
+      "portfolio_value": 2945.25,
       "benchmark_price": 653.18,
       "portfolio_return_pct": -3.39,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-25",
-      "portfolio_value": 2960.05,
+      "portfolio_value": 2962.98,
       "benchmark_price": 656.82,
       "portfolio_return_pct": -2.81,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-26",
-      "portfolio_value": 2909.65,
+      "portfolio_value": 2912.58,
       "benchmark_price": 645.09,
-      "portfolio_return_pct": -4.47,
+      "portfolio_return_pct": -4.46,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-27",
-      "portfolio_value": 2851.51,
+      "portfolio_value": 2854.44,
       "benchmark_price": 634.09,
       "portfolio_return_pct": -6.37,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-30",
-      "portfolio_value": 2838.82,
+      "portfolio_value": 2841.75,
       "benchmark_price": 631.97,
-      "portfolio_return_pct": -6.79,
+      "portfolio_return_pct": -6.78,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-31",
-      "portfolio_value": 2927.1,
+      "portfolio_value": 2930.03,
       "benchmark_price": 650.34,
       "portfolio_return_pct": -3.89,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-01",
-      "portfolio_value": 2951.51,
+      "portfolio_value": 2954.44,
       "benchmark_price": 655.24,
       "portfolio_return_pct": -3.09,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-02",
-      "portfolio_value": 2956.19,
+      "portfolio_value": 2959.12,
       "benchmark_price": 655.83,
-      "portfolio_return_pct": -2.94,
+      "portfolio_return_pct": -2.93,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-06",
-      "portfolio_value": 2969.24,
+      "portfolio_value": 2972.17,
       "benchmark_price": 658.93,
       "portfolio_return_pct": -2.51,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-07",
-      "portfolio_value": 2971.22,
+      "portfolio_value": 2974.15,
       "benchmark_price": 659.22,
       "portfolio_return_pct": -2.44,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-08",
-      "portfolio_value": 3045.65,
+      "portfolio_value": 3048.58,
       "benchmark_price": 676.01,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-09",
-      "portfolio_value": 3061.4,
+      "portfolio_value": 3064.33,
       "benchmark_price": 679.91,
       "portfolio_return_pct": 0.52,
       "benchmark_return_pct": null
@@ -34767,12 +34767,12 @@ export const ff2026ImportedDashboardGoldenFixture = {
   "range_metrics": {
     "1M": {
       "summary": {
-        "start_value": 3032.86,
+        "start_value": 3035.79,
         "end_value": 3071.0,
         "net_contributions": 0.0,
         "investment_gain": 24.940000000000055,
         "time_weighted_return_pct": 0.94,
-        "money_weighted_return_pct": 0.8223261212189173,
+        "money_weighted_return_pct": 0.8215324511906309,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
@@ -34780,11 +34780,11 @@ export const ff2026ImportedDashboardGoldenFixture = {
       "monthly_returns": [
         {
           "month": "2026-03",
-          "return_pct": -3.487137553332509
+          "return_pct": -3.483771934158786
         },
         {
           "month": "2026-04",
-          "return_pct": 4.91612859143864
+          "return_pct": 4.8112135370627085
         }
       ],
       "monthly_returns_reliable": true,
@@ -34792,12 +34792,12 @@ export const ff2026ImportedDashboardGoldenFixture = {
     },
     "3M": {
       "summary": {
-        "start_value": 3094.96,
+        "start_value": 3097.89,
         "end_value": 3071.0,
         "net_contributions": 0.0,
         "investment_gain": -37.159999999999854,
         "time_weighted_return_pct": -1.08,
-        "money_weighted_return_pct": -1.2006617209915427,
+        "money_weighted_return_pct": -1.1995261290749464,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
@@ -34805,19 +34805,19 @@ export const ff2026ImportedDashboardGoldenFixture = {
       "monthly_returns": [
         {
           "month": "2026-01",
-          "return_pct": 0.12504200377387864
+          "return_pct": 0.12492373841548332
         },
         {
           "month": "2026-02",
-          "return_pct": -0.5227779516785325
+          "return_pct": -0.5222841225626662
         },
         {
           "month": "2026-03",
-          "return_pct": -5.045367105361331
+          "return_pct": -5.040576102879168
         },
         {
           "month": "2026-04",
-          "return_pct": 4.91612859143864
+          "return_pct": 4.8112135370627085
         }
       ],
       "monthly_returns_reliable": true,
@@ -34825,12 +34825,12 @@ export const ff2026ImportedDashboardGoldenFixture = {
     },
     "YTD": {
       "summary": {
-        "start_value": 3060.49,
+        "start_value": 3063.42,
         "end_value": 3071.0,
         "net_contributions": 0.0,
-        "investment_gain": -2.6899999999996,
+        "investment_gain": -2.6900000000000546,
         "time_weighted_return_pct": 0.03,
-        "money_weighted_return_pct": -0.08789442213500452,
+        "money_weighted_return_pct": -0.08781035574619395,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
@@ -34838,19 +34838,19 @@ export const ff2026ImportedDashboardGoldenFixture = {
       "monthly_returns": [
         {
           "month": "2026-01",
-          "return_pct": 1.2527405742218
+          "return_pct": 1.2515423937951908
         },
         {
           "month": "2026-02",
-          "return_pct": -0.5227779516785325
+          "return_pct": -0.5222841225626662
         },
         {
           "month": "2026-03",
-          "return_pct": -5.045367105361331
+          "return_pct": -5.040576102879168
         },
         {
           "month": "2026-04",
-          "return_pct": 4.91612859143864
+          "return_pct": 4.8112135370627085
         }
       ],
       "monthly_returns_reliable": true,
@@ -34858,12 +34858,12 @@ export const ff2026ImportedDashboardGoldenFixture = {
     },
     "1Y": {
       "summary": {
-        "start_value": 3045.64,
+        "start_value": 3048.57,
         "end_value": 3071.0,
         "net_contributions": 0.0,
-        "investment_gain": 12.16000000000031,
+        "investment_gain": 12.159999999999854,
         "time_weighted_return_pct": 0.52,
-        "money_weighted_return_pct": 0.3992592689878091,
+        "money_weighted_return_pct": 0.39887553836716405,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
@@ -34871,23 +34871,23 @@ export const ff2026ImportedDashboardGoldenFixture = {
       "monthly_returns": [
         {
           "month": "2025-12",
-          "return_pct": 0.18025767983078644
+          "return_pct": 0.18008443302925947
         },
         {
           "month": "2026-01",
-          "return_pct": 1.5633552159362907
+          "return_pct": 1.5618553662992918
         },
         {
           "month": "2026-02",
-          "return_pct": -0.5227779516785325
+          "return_pct": -0.5222841225626662
         },
         {
           "month": "2026-03",
-          "return_pct": -5.045367105361331
+          "return_pct": -5.040576102879168
         },
         {
           "month": "2026-04",
-          "return_pct": 4.91612859143864
+          "return_pct": 4.8112135370627085
         }
       ],
       "monthly_returns_reliable": true,
@@ -34895,12 +34895,12 @@ export const ff2026ImportedDashboardGoldenFixture = {
     },
     "All": {
       "summary": {
-        "start_value": 3045.64,
+        "start_value": 3048.57,
         "end_value": 3071.0,
         "net_contributions": 0.0,
-        "investment_gain": 12.16000000000031,
+        "investment_gain": 12.159999999999854,
         "time_weighted_return_pct": 0.52,
-        "money_weighted_return_pct": 0.3992592689878091,
+        "money_weighted_return_pct": 0.39887553836716405,
         "benchmark_return_pct": null,
         "excess_return_pct": null
       },
@@ -34908,23 +34908,23 @@ export const ff2026ImportedDashboardGoldenFixture = {
       "monthly_returns": [
         {
           "month": "2025-12",
-          "return_pct": 0.18025767983078644
+          "return_pct": 0.18008443302925947
         },
         {
           "month": "2026-01",
-          "return_pct": 1.5633552159362907
+          "return_pct": 1.5618553662992918
         },
         {
           "month": "2026-02",
-          "return_pct": -0.5227779516785325
+          "return_pct": -0.5222841225626662
         },
         {
           "month": "2026-03",
-          "return_pct": -5.045367105361331
+          "return_pct": -5.040576102879168
         },
         {
           "month": "2026-04",
-          "return_pct": 4.91612859143864
+          "return_pct": 4.8112135370627085
         }
       ],
       "monthly_returns_reliable": true,

@@ -39,17 +39,45 @@ withholds a number the product already computed correctly.**
 |---|---|---|
 | US-34.1 | Findings-first audit of the withheld Dashboard surface | Done |
 | US-34.2 | Publish the replay's TWR under an explicit `replay_derived` trust state | Done |
-| US-34.3 | Make the cash anchor reachable | Next phase |
+| US-34.3 | Anchor opening cash on the statement's own starting cash | Done |
 | US-34.4 | Disclose what a withheld holding was worth, and stop withholding immaterial days | Next phase |
 | US-34.5 | Publish the benchmark return on a stated basis | Next phase |
 | US-34.6 | Stop the money-weighted return and investment gain from publishing the reconciliation adjustment | Done |
 | US-34.7 | Decide the drawdown's price basis | Next phase |
 | US-34.8 | Publish the terminal day's return now that a trustworthy terminal value exists | Next phase |
 
-Recommended order: US-34.2 and US-34.6 (done), then US-34.3 (which also resolves
-most of F-5), US-34.4, US-34.5, US-34.8, US-34.7.
+Recommended order: US-34.2, US-34.6 and US-34.3 (done), then US-34.4, US-34.5,
+US-34.8, US-34.7.
 
 ### Slice log
+
+- **US-34.3 (2026-08-13)** — **the standing "opening cash is degraded" warning
+  finally clears, because there is no longer a plug to disclose.** The replay
+  derived opening cash as `starting_nav − opening_positions_value`, whose two
+  terms are dated differently by construction — period-start NAV against
+  window-start position values — so it absorbed five trading days of market
+  movement and reported `degraded` on **every run of every statement**. A
+  disclosure that cannot clear teaches the researcher to ignore the ones that
+  matter. The broker reports the figure directly
+  (`ImportedCashBalance.starting_cash`): observed truth, exactly dated, no
+  market data needed. Opening cash **$3,252.74 → $4,672.04**, residual
+  **−$1,377.59 → +$46.69**, and the terminal reconciliation
+  **+$1,366.17 → −$58.11** — 96% of that adjustment was the anchor offset
+  riding through the window. **Trust now follows the anchor's SOURCE**: an
+  observed figure is `verified`, and the residual is published beside it as a
+  different fact (how well the ledger reconciles the statement's two cash
+  endpoints), degrading only above `REPLAY_OPENING_CASH_RESIDUAL_SHARE` (2%,
+  measured margin 1.0%). The derived identity and the request path survive
+  untouched as fallbacks. **F-5 is reduced, not closed** — at −$58.11 the
+  adjustment still exceeds tolerance, so the terminal day's return stays
+  withheld, and no AC claims otherwise. Owner decisions recorded: the
+  statement anchor over extending the valuation window (which needs an FMP
+  re-capture), and trust-follows-source over degrade-on-any-residual. Golden
+  diff characterised: cash, `total_portfolio_value` and the return/summary
+  families move by the anchor correction; `total_market_value`, `market_value`,
+  `market_price`, `quantity`, `trade_flow`, `weight` and `cost_basis` are
+  byte-identical — this story moves cash, not valuations. 709 backend (+6) +
+  322 frontend (+2) green; tsc + dead-code gate clean.
 
 - **US-34.6 (2026-08-13)** — **the money-weighted return was publishing an
   accounting entry as investor performance.** US-31.3 established that the
