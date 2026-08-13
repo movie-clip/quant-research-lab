@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from app.core.constants import (
+    REPLAY_OPENING_CASH_RESIDUAL_SHARE,
     REPLAY_RECONCILIATION_TOLERANCE,
     REPLAY_SHARE_UNIT_DISCONTINUITY_RATIO,
     SYNTHETIC_COVERAGE_DE_MINIMIS_WEIGHT,
@@ -424,7 +425,21 @@ class PortfolioStateEngine:
                 # the input gap here (US-31.2 / F-1).
                 self.unpriced_replay_symbols.add(symbol)
 
-        if self.snapshot.statement_totals is not None and self.snapshot.statement_totals.starting_nav is not None:
+        # US-34.3 (Epic 34 F-2): precedence — the statement's OWN reported opening
+        # cash first. The derived identity below mixes a period-start NAV with
+        # window-start position values, absorbing the days between them as a
+        # plug; the broker's reported figure has no such gap and needs no market
+        # data. Only when the statement does not report one do we derive.
+        statement_starting_cash = self._statement_starting_cash(to_base_currency, first_date)
+        if statement_starting_cash is not None:
+            base_cash = statement_starting_cash
+            self.cash_anchor = self._classify_cash_anchor(
+                base_cash=base_cash,
+                window_start=first_date,
+                to_base_currency=to_base_currency,
+                basis="statement_starting_cash",
+            )
+        elif self.snapshot.statement_totals is not None and self.snapshot.statement_totals.starting_nav is not None:
             base_cash = initial_portfolio_value - opening_positions_value
             self.cash_anchor = self._classify_cash_anchor(
                 base_cash=base_cash,
@@ -670,18 +685,72 @@ class PortfolioStateEngine:
             net_flow += to_base_currency(entry.cash_effect, entry.cash_currency, entry.date.isoformat())
         return totals.cash_total - net_flow
 
-    def _classify_cash_anchor(self, *, base_cash: float, window_start: str, to_base_currency) -> CashAnchorDisclosure:
-        """US-31.3 (Epic 31 F-2): trust of `starting_nav − opening_positions_value`.
+    def _statement_starting_cash(self, to_base_currency, window_start: str) -> float | None:
+        """US-34.3 (Epic 34 F-2): the broker's OWN opening cash, FX-converted.
 
-        The anchor is only sound when the NAV's as-of date equals the date the
-        opening positions are valued at. When they differ, market movement
-        between the two dates is absorbed into cash as a plug, so the anchor is
-        `degraded` — it is still the best number available (and is carried), but
-        it is never presented as `verified`.
+        `ImportedCashBalance.starting_cash` is directly observed and exactly
+        dated at the statement-period start, which is precisely what the derived
+        `starting_nav − opening_positions_value` identity is not. Returns `None`
+        when no balance reports one, so the derivation stays as the fallback.
+
+        Balances are converted per currency and never summed raw — the
+        currency-mixed sum is the US-31.3 measurement trap.
+        """
+        reported = [
+            balance
+            for balance in self.snapshot.cash_balances
+            if balance.starting_cash is not None
+        ]
+        if not reported:
+            return None
+        return sum(
+            to_base_currency(balance.starting_cash, balance.currency, window_start)
+            for balance in reported
+        )
+
+    def _classify_cash_anchor(
+        self,
+        *,
+        base_cash: float,
+        window_start: str,
+        to_base_currency,
+        basis: str | None = None,
+    ) -> CashAnchorDisclosure:
+        """US-31.3 (Epic 31 F-2) + US-34.3 (Epic 34 F-2): the anchor's trust.
+
+        Two rules, because the two anchor families fail differently.
+
+        **Observed** (`statement_starting_cash`): the figure is broker truth, so
+        trust follows its SOURCE and it is `verified`. The residual still
+        measures something worth publishing — how well the ledger's flows
+        reconcile the statement's own two cash endpoints — but that is a
+        statement about the LEDGER, not evidence the opening cash is wrong. It
+        degrades only when the residual exceeds
+        `REPLAY_OPENING_CASH_RESIDUAL_SHARE` of opening cash, i.e. when the
+        ledger has genuinely failed to explain its own statement.
+
+        **Derived** (`starting_nav − opening_positions_value`): sound only when
+        the NAV's as-of date equals the date the opening positions are valued
+        at. When they differ, market movement between the two dates is absorbed
+        into cash as a plug, so the anchor is `degraded` — still the best number
+        available, and carried, but never presented as `verified`. Any residual
+        above `REPLAY_RECONCILIATION_TOLERANCE` also degrades it, because for a
+        derived figure a residual means the derivation is absorbing something.
         """
         nav_as_of = self._statement_period_start()
         implied = self._statement_implied_opening_cash(to_base_currency)
         residual = round(base_cash - implied, 2) if implied is not None else None
+
+        if basis == "statement_starting_cash":
+            share = abs(residual) / abs(base_cash) if residual is not None and base_cash else 0.0
+            reconciles = residual is None or share <= REPLAY_OPENING_CASH_RESIDUAL_SHARE
+            return CashAnchorDisclosure(
+                basis=basis,
+                trust="verified" if reconciles else "degraded",
+                nav_as_of=nav_as_of,
+                window_start=window_start,
+                residual=residual,
+            )
 
         dates_align = nav_as_of is not None and nav_as_of == window_start
         within_tolerance = residual is not None and abs(residual) <= REPLAY_RECONCILIATION_TOLERANCE

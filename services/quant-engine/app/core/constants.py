@@ -76,6 +76,26 @@ REPLAY_RECONCILIATION_TOLERANCE = 1.00
 REPLAY_SHARE_UNIT_DISCONTINUITY_RATIO = 5.0
 
 
+# US-34.3 (Epic 34 F-2): how far the statement's own reported opening cash may
+# sit from the ledger-implied figure (`cash_total` less FX-converted flows)
+# before the anchor stops claiming `verified`.
+#
+# Expressed as a SHARE OF OPENING CASH rather than an absolute, because the
+# residual measures how well the ledger's flows reconcile the statement's two
+# cash endpoints — a proportional question. `REPLAY_RECONCILIATION_TOLERANCE`
+# ($1.00) is the wrong instrument here: it was calibrated for cent-level
+# rounding across daily states, and applying it would degrade every statement
+# whose ledger is even slightly incomplete, recreating the always-on warning
+# this story exists to remove.
+#
+# Measured on the committed IB2026 statement: residual $46.69 on $4,672.04 of
+# opening cash = 1.0%. 2% leaves that comfortably inside while still catching a
+# statement whose ledger genuinely fails to explain its own cash movement.
+# Heuristic policy value, no academic basis — tune only as a reviewed change
+# (US-24.2 discipline).
+REPLAY_OPENING_CASH_RESIDUAL_SHARE = 0.02
+
+
 # US-24.7: statement-reconciliation materiality. A reconciliation check passes
 # when |actual - expected| is within this many base-currency units. Set at a
 # quarter of a unit to absorb per-record rounding across a statement's worth of

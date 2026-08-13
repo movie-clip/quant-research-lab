@@ -118,13 +118,20 @@ def test_f2_opening_cash_anchor_is_disclosed_not_silently_plugged(replay_context
     )
     anchor = engine.cash_anchor
 
+    # US-34.3 (Epic 34 F-2) INVERTED this pin again. F-2 was resolved by
+    # DISCLOSING the plug; it is now resolved by not creating one. The anchor
+    # takes the statement's own reported starting cash — observed truth, exactly
+    # dated — so there is no date mismatch to absorb and the anchor is
+    # `verified`. Previously: basis `statement_nav_date_mismatch`, trust
+    # `degraded`, residual -$1,377.59 (and -$1,196.61 pre-refresh), on every run
+    # of every statement.
     assert anchor is not None, "F-2 has regressed — the anchor is undisclosed again"
-    assert anchor.trust == "degraded", "a date-mismatched anchor must never claim verified"
-    assert anchor.basis == "statement_nav_date_mismatch"
+    assert anchor.basis == "statement_starting_cash"
+    assert anchor.trust == "verified"
     assert anchor.nav_as_of == "2026-01-01" and anchor.window_start == "2026-01-08"
-    # The residual is the market move between those two dates.
-    # US-33.4: -1,196.61 on the pre-refresh statement.
-    assert anchor.residual == pytest.approx(-1_377.59, abs=2.0)
+    # The residual now measures how well the LEDGER reconciles the statement's
+    # two cash endpoints — a different fact from the anchor's trust.
+    assert anchor.residual == pytest.approx(46.69, abs=2.0)
 
 
 def test_f3_terminal_reconciliation_is_never_published_as_a_return(replay_context) -> None:
@@ -164,8 +171,10 @@ def test_f3_terminal_reconciliation_is_never_published_as_a_return(replay_contex
 
     terminal = states[-1]
     # The adjustment is recorded, not hidden...
-    # US-33.4: 1,197.88 on the pre-refresh statement.
-    assert terminal.reconciliation_adjustment == pytest.approx(1_366.17, abs=2.0)
+    # US-33.4: 1,197.88 on the pre-refresh statement; 1,366.17 after it.
+    # US-34.3: -58.11 — 96% of that adjustment WAS the cash-anchor offset riding
+    # through the window, and it disappears once the anchor stops deriving.
+    assert terminal.reconciliation_adjustment == pytest.approx(-58.11, abs=2.0)
     # ...and the day it lands on publishes NO return.
     assert terminal.return_is_publishable is False
     series_dates = [d for d, _ in _portfolio_time_weighted_return_series(states)]
@@ -365,8 +374,8 @@ def test_us249_de_dilution_is_explained_by_the_cash_weight(replay_context) -> No
     cash-inclusive TWR was corrupted by unpriced-symbol cash events; US-24.10
     fixed that at source, so no exclusions remain:
 
-        annualised volatility   TWR 14.18%  ->  trade-neutral 14.91%   (x1.052)
-        median cash weight      4.01%       ->  predicted de-dilution  x1.042
+        annualised volatility   TWR 13.81%  ->  trade-neutral 14.91%   (x1.079)
+        median cash weight      6.50%       ->  predicted de-dilution  x1.069
 
     US-33.4 re-measured this on the 2026-08-11 statement, and the tripwire did
     its job on the way: before US-33.2 gave withheld-quantity symbols an
@@ -388,7 +397,8 @@ def test_us249_de_dilution_is_explained_by_the_cash_weight(replay_context) -> No
 
     weights = [s.cash[base] / s.total_portfolio_value for s in states if s.total_portfolio_value]
     median_weight = statistics.median(weights)
-    assert median_weight == pytest.approx(0.0401, abs=0.005)
+    # US-34.3: 0.0401 before opening cash moved to the statement's own figure.
+    assert median_weight == pytest.approx(0.0650, abs=0.005)
 
     def _vol(basis: str) -> float:
         series = _portfolio_time_weighted_return_series(states, basis=basis)
@@ -397,7 +407,7 @@ def test_us249_de_dilution_is_explained_by_the_cash_weight(replay_context) -> No
     twr_vol = _vol("portfolio_value")
     neutral_vol = _vol("market_value_trade_neutral")
 
-    assert twr_vol == pytest.approx(0.1418, abs=1e-3)
+    assert twr_vol == pytest.approx(0.1381, abs=1e-3)
     assert neutral_vol == pytest.approx(0.1491, abs=1e-3)
     # The whole move is the cash weight: ratio close to 1/(1 - median weight).
     assert neutral_vol / twr_vol == pytest.approx(1 / (1 - median_weight), rel=0.02)
@@ -424,8 +434,8 @@ def test_us2410_trade_price_anchor_removes_the_fabricated_twr_days(replay_contex
     states = _us249_states(replay_context)
     twr = dict(_portfolio_time_weighted_return_series(states, basis="portfolio_value"))
 
-    assert twr["2026-04-08"] == pytest.approx(0.025447, abs=1e-4)
-    assert twr["2026-04-27"] == pytest.approx(-0.001219, abs=1e-4)
+    assert twr["2026-04-08"] == pytest.approx(0.024724, abs=1e-4)
+    assert twr["2026-04-27"] == pytest.approx(-0.001191, abs=1e-4)
     # Nowhere near the fabricated values.
     assert abs(twr["2026-04-08"] - (-0.0790)) > 0.05
     assert abs(twr["2026-04-27"] - 0.0961) > 0.05
@@ -433,7 +443,7 @@ def test_us2410_trade_price_anchor_removes_the_fabricated_twr_days(replay_contex
     # the refreshed statement this is 2.7617% — unmoved to four decimals, which
     # is a strong signal that US-33.2's withholding removed a fabrication rather
     # than reshaping real performance.
-    assert max(abs(r) for r in twr.values()) == pytest.approx(0.027617, abs=1e-4)
+    assert max(abs(r) for r in twr.values()) == pytest.approx(0.026803, abs=1e-4)
 
 
 def test_us2410_symbols_move_from_unpriced_into_the_trade_anchored_tier(replay_context) -> None:
@@ -644,13 +654,13 @@ def test_us346_no_published_period_figure_contains_the_reconciliation(replay_con
     terminal = history.daily_states[-1]
 
     adjustment = terminal.reconciliation_adjustment
-    assert adjustment == pytest.approx(1_366.17, abs=2.0), "fixture lost its reconciliation"
+    assert adjustment == pytest.approx(-58.11, abs=2.0), "fixture lost its reconciliation"
 
     # The performance figures are computed from the market-derived value...
     assert market_derived_terminal_value(history.daily_states) == pytest.approx(
         terminal.total_portfolio_value - adjustment, abs=0.01
     )
-    assert summary.money_weighted_return_pct == pytest.approx(2.95, abs=0.02)
+    assert summary.money_weighted_return_pct == pytest.approx(2.88, abs=0.02)
     assert summary.investment_gain == pytest.approx(1_714.71, abs=0.02)
 
     # ...while the LEVEL keeps the broker's own ending NAV. Both halves matter:

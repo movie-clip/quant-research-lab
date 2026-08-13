@@ -26,6 +26,9 @@ import type {
 } from './types'
 
 const CASH_ANCHOR_BASIS_LABEL: Record<ReplayCashAnchor['basis'], string> = {
+  // US-34.3: only shown when the anchor is NOT verified, so this label describes
+  // an observed opening cash that the ledger nonetheless fails to reconcile.
+  statement_starting_cash: "the statement's own reported starting cash",
   statement_nav_at_window_start: "the statement's starting NAV, dated at the replay window start",
   statement_nav_date_mismatch:
     "the statement's starting NAV, but dated BEFORE the replay window starts",

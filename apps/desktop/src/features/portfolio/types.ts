@@ -574,7 +574,12 @@ export type DailyPortfolioState = {
  *  an as-of date; when they differ, market movement between them is absorbed
  *  into cash as a plug and the anchor is `degraded`, never `verified`. */
 export type ReplayCashAnchor = {
+  /** US-34.3 (Epic 34 F-2): `statement_starting_cash` is the strongest basis —
+   *  the broker's own reported opening cash, exactly dated at the period start.
+   *  Trust follows the SOURCE (observed = verified); the residual separately
+   *  reports how well the ledger reconciles the statement's two cash endpoints. */
   basis:
+    | 'statement_starting_cash'
     | 'statement_nav_at_window_start'
     | 'statement_nav_date_mismatch'
     | 'snapshot_cash_balances'

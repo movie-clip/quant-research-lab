@@ -17,7 +17,10 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.constants import SYNTHETIC_COVERAGE_DE_MINIMIS_WEIGHT
+from app.core.constants import (
+    REPLAY_OPENING_CASH_RESIDUAL_SHARE,
+    SYNTHETIC_COVERAGE_DE_MINIMIS_WEIGHT,
+)
 from app.domain.ledger import snapshot_to_ledger
 from app.engine.portfolio_state import PortfolioStateEngine, replay_symbol_universe
 from app.schemas.imports import ImportedPortfolioSnapshot, ImportedStatementTotals
@@ -211,17 +214,22 @@ class TestOpeningPositionCoverage:
         engine_opening_cash = states[0].cash[snapshot.statement.base_currency or "USD"]
         drift = engine_opening_cash - implied_opening_cash
 
-        # Pre-fix drift was $35,534.21 (PRD F-2); it collapsed to $1,097.18 on
-        # the pre-refresh statement — a 96.9% fall, confirming F-1 as the
-        # dominant term of the plug. On the 2026-08-11 statement (US-33.4) the
-        # same measurement is $1,305.78; the property under test is the
-        # collapse, not the exact figure.
-        pre_fix_drift = 35_534.21
-        assert abs(drift) == pytest.approx(1_305.78, abs=1.0)
-        assert abs(drift) < 0.05 * pre_fix_drift, (
-            f"F-1 is NOT the dominant term in the F-2 cash plug (drift={drift:,.2f}) — "
-            "re-scope the PRD causal chain before starting US-31.3"
+        # US-34.3 SUPERSEDED this measurement. It compared the derived anchor
+        # against a RAW currency-mixed implied figure — the basis US-31.3 AC3
+        # documents as wrong — to show F-1 was the dominant term of the F-2 cash
+        # plug (pre-fix $35,534.21 -> $1,097.18 -> $1,305.78). There is no plug
+        # left to measure: the anchor no longer derives at all, it reads the
+        # statement's own reported starting cash.
+        #
+        # The invariant worth keeping is the one that replaced it.
+        assert states[0].cash[snapshot.statement.base_currency or "USD"] == pytest.approx(
+            4_677.02, abs=1.0
         )
+        assert engine_opening_cash > implied_opening_cash, (
+            "day-one cash must reflect the statement's reported opening cash, "
+            "not the raw currency-mixed implied figure"
+        )
+        assert drift == pytest.approx(2_620.74, abs=1.0)
 
 
 class TestDeMinimisTruncationTrap:
@@ -621,10 +629,10 @@ class TestCashAnchorDisclosure:
     and trust. `starting_nav - opening_positions_value` is only sound when both
     terms share an as-of date."""
 
-    def test_cash_anchor_discloses_date_mismatch(self, ib2026_snapshot) -> None:
+    def _ib2026_engine(self, snapshot):
+        """The IB2026 replay, wired the way production wires it."""
         from app.analytics.performance import build_replay_currency_context
 
-        snapshot = ib2026_snapshot
         market_data = FrozenMarketData.from_file()
         hd = [e.trade_date.isoformat() for e in snapshot.ledger_entries if e.trade_date]
         hd += [p.as_of_date.isoformat() for p in snapshot.positions if p.as_of_date]
@@ -633,19 +641,158 @@ class TestCashAnchorDisclosure:
         syms = replay_symbol_universe(snapshot)
         ph = market_data.get_historical_prices_for_symbols(syms, start, end)
         fund_ccy, fx = build_replay_currency_context(snapshot, syms, vd)
+        return _build(snapshot, ph, vd, fx_history=fx, symbol_fund_currencies=fund_ccy)
 
-        engine, _states = _build(snapshot, ph, vd, fx_history=fx, symbol_fund_currencies=fund_ccy)
+    def test_cash_anchor_uses_the_statements_own_starting_cash(self, ib2026_snapshot) -> None:
+        """US-34.3 (Epic 34 F-2) AC1/AC3 — the anchor can finally be verified.
+
+        This test previously pinned `statement_nav_date_mismatch` / `degraded`
+        with a -$1,377.59 residual, because the anchor was DERIVED as
+        `starting_nav - opening_positions_value` from two differently-dated
+        terms. Those dates coincide only if an account trades on the first day
+        of its statement period, so the warning fired on every run of every
+        statement — a disclosure carrying no information.
+
+        The broker reports the figure directly, so the derivation is no longer
+        needed and the anchor is observed truth.
+        """
+        engine, states = self._ib2026_engine(ib2026_snapshot)
         anchor = engine.cash_anchor
 
         assert anchor is not None
-        # starting_nav is as of the statement-period start; the positions are
-        # valued at the replay window start - five trading days apart.
-        assert anchor.basis == "statement_nav_date_mismatch"
+        assert anchor.basis == "statement_starting_cash"
+        assert anchor.trust == "verified"
+        # The dates are still reported - they are provenance, not a verdict.
         assert anchor.nav_as_of == "2026-01-01"
         assert anchor.window_start == "2026-01-08"
-        # US-33.4: -1,196.61 on the pre-refresh statement.
-        assert anchor.residual == pytest.approx(-1_377.59, abs=2.0)
-        assert anchor.trust == "degraded"
+        # Day one opens on the statement's own cash (4,672.04) plus that day's
+        # trades, rather than the derived 3,252.74.
+        assert states[0].cash["USD"] == pytest.approx(4_677.02, abs=1.0)
+
+    def test_cash_anchor_publishes_its_residual_alongside_verified_trust(
+        self, ib2026_snapshot
+    ) -> None:
+        """US-34.3 AC4 — trust and residual are different facts.
+
+        Trust follows the anchor's SOURCE: an observed figure is verified. The
+        residual measures something else entirely — how well the ledger's flows
+        reconcile the statement's own two cash endpoints — and is published
+        rather than collapsed into the trust level.
+        """
+        engine, _states = self._ib2026_engine(ib2026_snapshot)
+        anchor = engine.cash_anchor
+
+        assert anchor.trust == "verified"
+        assert anchor.residual == pytest.approx(46.69, abs=1.0)
+        # 1.0% of opening cash - inside the documented share, hence verified.
+        assert abs(anchor.residual) / 4_672.04 < REPLAY_OPENING_CASH_RESIDUAL_SHARE
+
+    def test_cash_anchor_falls_back_to_the_derived_identity(self) -> None:
+        """US-34.3 AC2 — a statement reporting no starting cash is unchanged.
+
+        The derived `starting_nav - opening_positions_value` path and its two
+        bases survive intact; only the precedence above them is new.
+        """
+        dates = ["2025-01-02", "2025-01-03"]
+        snapshot = ImportedPortfolioSnapshot.model_validate(
+            imported_snapshot(
+                positions=[position("AAA", market_value=1000.0, quantity=10.0, close_price=100.0)],
+                # Reports an ENDING balance but no starting one.
+                cash_balances=[{"currency": "USD", "ending_cash": 500.0}],
+                statement_overrides={
+                    "statement_period": "2024-12-01 - 2025-01-03",
+                    "base_currency": "USD",
+                },
+            )
+        )
+        snapshot.statement_totals = ImportedStatementTotals(starting_nav=1500.0, cash_total=500.0)
+        price_histories = {"AAA": _rows("AAA", dates, price=100.0)}
+
+        engine, _states = _build(snapshot, price_histories, dates)
+
+        assert engine.cash_anchor.basis == "statement_nav_date_mismatch"
+        assert engine.cash_anchor.trust == "degraded"
+
+    def test_cash_anchor_uses_snapshot_balances_without_statement_totals(self) -> None:
+        """US-34.3 AC2 — the request path is untouched.
+
+        No `statement_totals` means nothing to derive from and nothing reported,
+        so the snapshot's own balances remain the honest anchor (US-30.1).
+        """
+        dates = ["2025-01-02", "2025-01-03"]
+        snapshot = _snapshot(
+            positions=[position("AAA", market_value=1000.0, quantity=10.0, close_price=100.0)],
+            cash_balances=[{"currency": "USD", "ending_cash": 250.0}],
+        )
+        price_histories = {"AAA": _rows("AAA", dates, price=100.0)}
+
+        engine, states = _build(snapshot, price_histories, dates)
+
+        assert engine.cash_anchor.basis == "snapshot_cash_balances"
+        assert engine.cash_anchor.trust == "verified"
+        assert states[0].cash["USD"] == pytest.approx(250.0, abs=0.01)
+
+    def test_cash_anchor_degrades_when_the_ledger_cannot_explain_the_statement(self) -> None:
+        """US-34.3 AC5 — the disclosure is still a signal.
+
+        Observed opening cash is not a licence to always claim verified. When
+        the ledger's flows fail to reconcile the statement's two cash endpoints
+        by more than the documented share, the anchor degrades and the card
+        speaks again.
+        """
+        dates = ["2025-01-02", "2025-01-03"]
+        snapshot = ImportedPortfolioSnapshot.model_validate(
+            imported_snapshot(
+                positions=[position("AAA", market_value=1000.0, quantity=10.0, close_price=100.0)],
+                # Reported opening cash 1,000; the statement's own ending cash of
+                # 500 with no ledger flows implies an opening of 500 - a 100%
+                # residual the ledger cannot account for.
+                cash_balances=[{"currency": "USD", "starting_cash": 1000.0, "ending_cash": 500.0}],
+                statement_overrides={
+                    "statement_period": "2025-01-02 - 2025-01-03",
+                    "base_currency": "USD",
+                },
+            )
+        )
+        snapshot.statement_totals = ImportedStatementTotals(starting_nav=1500.0, cash_total=500.0)
+        price_histories = {"AAA": _rows("AAA", dates, price=100.0)}
+
+        engine, _states = _build(snapshot, price_histories, dates)
+
+        assert engine.cash_anchor.basis == "statement_starting_cash"
+        assert engine.cash_anchor.trust == "degraded"
+        assert engine.cash_anchor.residual == pytest.approx(500.0, abs=1.0)
+
+    def test_multi_currency_starting_cash_is_converted_never_summed_raw(self) -> None:
+        """US-34.3 AC1/AC6 — the US-31.3 currency-mixed trap, restated.
+
+        Summing 1,000 USD and 1,000 EUR as 2,000 would be meaningless. Each
+        balance converts at the window start before it enters the anchor.
+        """
+        dates = ["2025-01-02", "2025-01-03"]
+        snapshot = ImportedPortfolioSnapshot.model_validate(
+            imported_snapshot(
+                positions=[position("AAA", market_value=1000.0, quantity=10.0, close_price=100.0)],
+                cash_balances=[
+                    {"currency": "USD", "starting_cash": 1000.0, "ending_cash": 1000.0},
+                    {"currency": "EUR", "starting_cash": 1000.0, "ending_cash": 1000.0},
+                ],
+                statement_overrides={
+                    "statement_period": "2025-01-02 - 2025-01-03",
+                    "base_currency": "USD",
+                },
+            )
+        )
+        snapshot.statement_totals = ImportedStatementTotals(starting_nav=1500.0, cash_total=2000.0)
+        price_histories = {"AAA": _rows("AAA", dates, price=100.0)}
+
+        engine, states = _build(
+            snapshot, price_histories, dates, fx_history=_static_fx(dates, {"EURUSD": 1.20})
+        )
+
+        # 1,000 USD + (1,000 EUR x 1.20) = 2,200 - never the raw 2,000.
+        assert states[0].cash["USD"] == pytest.approx(2_200.0, abs=0.01)
+        assert engine.cash_anchor.basis == "statement_starting_cash"
 
     def test_cash_anchor_verified_when_dates_align(self) -> None:
         # Statement period starts the same day the replay window does, and the
@@ -724,7 +871,9 @@ class TestTerminalReconciliationAdjustment:
         )
 
         # US-33.4: 1,197.88 on the pre-refresh statement.
-        assert states[-1].reconciliation_adjustment == pytest.approx(1_366.17, abs=2.0)
+        # US-34.3: 1,366.17 before the anchor moved to the statement's own
+        # starting cash.
+        assert states[-1].reconciliation_adjustment == pytest.approx(-58.11, abs=2.0)
         assert all(s.reconciliation_adjustment is None for s in states[:-1])
         # US-33.4: non-terminal days are publishable unless they carry a
         # withheld symbol's unbacked cash flow (US-33.2) — on IB2026 that is

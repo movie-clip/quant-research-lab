@@ -1621,8 +1621,11 @@ Fail-closed rule (US-30.1 / audit F-2):
   portfolio line is withheld entirely (explicit nulls). Never clamped, never
   compounded.
 
-Cash anchor rule (US-30.1 / audit F-1, `PortfolioStateEngine`):
-  base_cash = starting_nav − opening_positions_value   (statement totals present)
+Cash anchor rule (US-30.1 / audit F-1, extended by US-34.3, `PortfolioStateEngine`):
+  base_cash = Σ starting_cash (base-converted)         (statement reports its own
+                                                        opening cash — PREFERRED)
+  base_cash = starting_nav − opening_positions_value   (statement totals present,
+                                                        no reported starting cash)
   base_cash = Σ cash_balances (base-converted)         (no starting NAV — e.g.
                                                         request-path snapshots)
   The old 0 − opening_value fallback fabricated a large negative cash balance
@@ -1700,6 +1703,33 @@ Opening cash anchor + reconciliation adjustments (US-31.3 / Epic 31 F-2, F-3):
       trust = verified  iff nav_as_of == window_start AND
                             |residual| <= REPLAY_RECONCILIATION_TOLERANCE
               degraded  otherwise   (never verified on a date mismatch)
+
+  **Anchoring precedence (US-34.3 / Epic 34 F-2).** The derivation above is the
+  FALLBACK, not the rule. Its two terms are dated differently by construction,
+  and they coincide only if an account happens to trade on the first day of its
+  statement period — so the anchor reported `degraded` on every run of every
+  statement, a disclosure carrying no information. Where the statement reports
+  its own opening cash (`ImportedCashBalance.starting_cash`) the replay uses
+  that instead: directly observed broker truth, exactly dated at the period
+  start, requiring no market data.
+
+    basis = statement_starting_cash   (preferred; observed)
+    trust = verified  iff |residual| / |base_cash| <= REPLAY_OPENING_CASH_RESIDUAL_SHARE
+            degraded  otherwise
+
+  **Trust follows the anchor's source, not its residual.** For an OBSERVED
+  anchor the residual measures a different fact — how well the ledger's flows
+  reconcile the statement's own two cash endpoints — and is published alongside
+  the trust rather than collapsed into it. For a DERIVED anchor a residual does
+  mean the derivation is absorbing something, so the absolute
+  `REPLAY_RECONCILIATION_TOLERANCE` rule above still applies to it. The share
+  threshold is proportional because the question is proportional; measured on
+  IB2026, $46.69 on $4,672.04 of opening cash = 1.0%.
+
+  Measured effect on IB2026: opening cash $3,252.74 → **$4,672.04**, residual
+  −$1,377.59 → **+$46.69**, and the terminal reconciliation +$1,366.17 →
+  **−$58.11** — 96% of that adjustment was the anchor offset riding through the
+  window. Market values are unchanged: this rule moves cash, not valuations.
 
   The terminal reconciliation snaps the final state's `total_portfolio_value` to
   the statement's ending NAV — correct, since that is the broker's own number —
