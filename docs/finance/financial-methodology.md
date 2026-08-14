@@ -398,12 +398,50 @@ Measured on IB2026: leaving these days in the chain inflated annualised TWR
 volatility from 14.18% to 15.49% and made the window's largest apparent move
 (+3.08% on 2026-04-17) a pure artefact of a phantom position's cash.
 
-Materiality reuses `REPLAY_RECONCILIATION_TOLERANCE` ($1.00) rather than a
-relative bound. The deliberate consequence is mild **over**-withholding: on
-IB2026 two of the six withheld days carry unbacked flows of only $5.13 and
-$25.09, which distort nothing measurable, and their real returns are discarded
-with the four that matter. Withholding a real day is the safe error; publishing
-a fabricated one is not.
+**Materiality is a share of portfolio value (US-34.4).** The guard originally
+reused `REPLAY_RECONCILIATION_TOLERANCE` ($1.00) — a constant calibrated for
+cent-level rounding across daily states, not for materiality against a
+portfolio — and the consequence was real return days discarded for nothing. On
+IB2026 the six unbacked days are cleanly bimodal:
+
+```text
+0.0085% ($5.13)   0.0400% ($25.09)              <- distort nothing measurable
+2.7658%  2.8352%  3.3468%  3.7101%              <- genuinely un-interpretable
+```
+
+a **69x** gap. `REPLAY_UNBACKED_CASH_MATERIAL_SHARE` (0.1%) sits ~2.5x above the
+noise and ~28x below the signal, so the two immaterial days publish their real
+returns and the four material ones stay withheld.
+
+**A withholding also states its size (US-34.4 / Epic 34 F-3).** Naming the
+symbol and the evidence tells the researcher *why*, not *how much* — missing
+0.1% of a book and missing 30% of it read identically. The magnitude comes from
+the broker's own cash movements, which is what makes it derivable at all: the
+QUANTITY is the untrusted thing, so exposure cannot be measured as quantity x
+price.
+
+```text
+peak_net_cash_invested = max over days of ( − Σ FX-converted cash_effect )
+                         taken at each day's CLOSE
+exposure_day_count     = valuation days from the symbol's first trade to its last
+```
+
+Both are **lower bounds and spans, never valuations**. `peak_net_cash_invested`
+is what the broker paid, not what the position was worth, so it can understate
+the gap and never overstate it — surfaces must word it as "at least", and it
+must never enter `total_market_value`. `exposure_day_count` deliberately does
+not claim "days held": that needs a running quantity, and cumulative cash cannot
+substitute, because a round trip closing at a loss leaves a positive residual
+that would keep counting after the position closed.
+
+The share is `None` — not `0.0` — when the peak day's portfolio value is not
+positive, since the ratio would be meaningless there. An absent measurement is
+honest; a fabricated percentage is not.
+
+Measured on IB2026: LQQ peaked at **$2,130.62** (**3.52%** of the portfolio)
+across a **66-day** span of the 148-day window. The within-day gross reaches
+$4,410.08 on 2026-06-23 because a buy precedes a sell; the end-of-day figure is
+the one that matches the replay's end-of-day states.
 
 **Stated limitation.** A small split (2:1, 3:1) produces a ratio below the
 threshold and is **not** detected — its mixed units will still be summed.

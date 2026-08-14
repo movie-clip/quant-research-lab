@@ -245,4 +245,66 @@ describe('ReplayDisclosuresCard', () => {
     expect(text).toMatch(/starting cash/i)
     expect(text).toContain('500')
   })
+
+  it('states how much a withheld holding was worth (US-34.4)', () => {
+    render(
+      <ReplayDisclosuresCard
+        runMetadata={metadata({
+          quantity_withheld_symbols: [
+            {
+              symbol: 'LQQ',
+              reason: 'share_unit_discontinuity',
+              currency: 'EUR',
+              price_low: 9.0691,
+              price_high: 1977.9409,
+              price_ratio: 218.0967,
+              withheld_opening_quantity: 199,
+              peak_net_cash_invested: 2130.62,
+              peak_share_of_portfolio_pct: 3.52,
+              exposure_day_count: 66,
+            },
+          ],
+        })}
+      />,
+    )
+
+    const text = screen.getByRole('region', { name: /replay disclosures/i }).textContent ?? ''
+    // "Missing 0.1% of the book" and "missing 30% of it" read identically
+    // without a magnitude — this is the sentence that separates them.
+    expect(text).toContain('2,130.62')
+    expect(text).toContain('3.52%')
+    expect(text).toContain('66 days')
+    // A LOWER BOUND from broker cash, so it must not read as a valuation.
+    expect(text).toMatch(/at least/i)
+  })
+
+  it('claims no amount when the withholding has no measurable exposure', () => {
+    // A symbol whose net cash never went positive (or whose peak-day portfolio
+    // value was not positive) must not produce a spurious "$0.00 (0.00%)".
+    render(
+      <ReplayDisclosuresCard
+        runMetadata={metadata({
+          quantity_withheld_symbols: [
+            {
+              symbol: 'SPLIT',
+              reason: 'share_unit_discontinuity',
+              currency: 'EUR',
+              price_low: 9,
+              price_high: 1500,
+              price_ratio: 166.7,
+              withheld_opening_quantity: 198,
+              peak_net_cash_invested: 0,
+              peak_share_of_portfolio_pct: null,
+              exposure_day_count: 3,
+            },
+          ],
+        })}
+      />,
+    )
+
+    const text = screen.getByRole('region', { name: /replay disclosures/i }).textContent ?? ''
+    expect(text).toContain('SPLIT')
+    expect(text).not.toMatch(/at least/i)
+    expect(text).not.toContain('$0.00')
+  })
 })

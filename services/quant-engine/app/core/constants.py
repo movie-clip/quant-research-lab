@@ -96,6 +96,25 @@ REPLAY_SHARE_UNIT_DISCONTINUITY_RATIO = 5.0
 REPLAY_OPENING_CASH_RESIDUAL_SHARE = 0.02
 
 
+# US-34.4 (Epic 34 F-4): how large an UNBACKED cash flow must be, as a share of
+# that day's portfolio value, before the day's return is withheld.
+#
+# US-33.2 introduced the guard using `REPLAY_RECONCILIATION_TOLERANCE` ($1.00) —
+# a constant calibrated for cent-level rounding across daily states, not for
+# materiality against a portfolio. It therefore discarded real return days for
+# flows that distort nothing measurable.
+#
+# Measured on the committed IB2026 statement, the six unbacked days are cleanly
+# bimodal:
+#     0.0085%  ($5.13)     0.0400%  ($25.09)      <- distort nothing
+#     2.7658%  2.8352%     3.3468%  3.7101%       <- genuinely un-interpretable
+# a 69x gap. 0.1% sits ~2.5x above the noise and ~28x below the signal.
+#
+# Heuristic policy value, no academic basis — tune only as a reviewed change
+# (US-24.2 discipline).
+REPLAY_UNBACKED_CASH_MATERIAL_SHARE = 0.001
+
+
 # US-24.7: statement-reconciliation materiality. A reconciliation check passes
 # when |actual - expected| is within this many base-currency units. Set at a
 # quarter of a unit to absorb per-record rounding across a statement's worth of

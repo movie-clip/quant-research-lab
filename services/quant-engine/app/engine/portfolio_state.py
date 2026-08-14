@@ -51,6 +51,11 @@ class QuantityWithholding:
     price_high: float
     price_ratio: float
     withheld_opening_quantity: float
+    # US-34.4 (Epic 34 F-3): how much the researcher is not being shown, derived
+    # from broker cash alone. See `measure_withheld_exposure`.
+    peak_net_cash_invested: float = 0.0
+    peak_share_of_portfolio_pct: float | None = None
+    exposure_day_count: int = 0
 
 
 def detect_share_unit_discontinuities(
@@ -100,6 +105,78 @@ def detect_share_unit_discontinuities(
             withheld_opening_quantity=float(opening_positions.get(symbol, 0.0)),
         )
     return widest
+
+
+def measure_withheld_exposure(
+    trade_entries: list,
+    symbols: set[str],
+    to_base_currency,
+    valuation_dates: list[str],
+) -> dict[str, tuple[float, str | None, int]]:
+    """US-34.4 (Epic 34 F-3): how much cash the broker had in a withheld symbol.
+
+    A withheld symbol has no trustworthy QUANTITY — that is why it is withheld —
+    so its exposure cannot be measured as quantity x price. The broker's own cash
+    movements answer it without either: running the net cash paid into the symbol
+    gives what was at stake, from broker truth alone.
+
+    Returns `{symbol: (peak_end_of_day_net_invested, peak_day, exposure_day_count)}`.
+
+    **End-of-day, not within-day.** A same-day buy-then-sell drives the gross
+    figure well above anything ever held overnight (IB2026 LQQ: $4,410.08
+    within 2026-06-23 against $2,130.62 at its close). The replay's states are
+    end-of-day objects, so the end-of-day figure is the one that matches them.
+
+    **A lower bound, not a valuation.** It is what the broker paid, not what the
+    position was worth on any day, so it can understate the gap and never
+    overstate it. Callers must word it as "at least", and it must never enter
+    `total_market_value`.
+
+    `exposure_day_count` is the span of VALUATION dates from the symbol's first
+    trade to its last, inclusive — the stretch over which the replay showed the
+    researcher nothing for it.
+
+    It deliberately does NOT claim "days held". Answering that needs a running
+    QUANTITY, which is the untrusted thing, and cumulative cash cannot stand in
+    for it: a round trip that closes at a loss leaves a positive cash residual,
+    so every day after the position closed would keep counting (IB2026 LQQ: 44
+    days by that measure against a ~26-day true holding). The span is
+    unambiguous, derivable, and answers the question the researcher is actually
+    asking — for how long was this hidden from me.
+
+    Each cash effect is FX-converted before it enters the running total — the raw
+    per-currency sum is the US-31.3 currency-mixed trap.
+    """
+    by_symbol: dict[str, list] = {symbol: [] for symbol in symbols}
+    for entry in trade_entries:
+        if entry.entry_type in {"BUY", "SELL"} and entry.symbol in by_symbol:
+            by_symbol[entry.symbol].append(entry)
+
+    measured: dict[str, tuple[float, str | None, int]] = {}
+    for symbol, entries in by_symbol.items():
+        by_day: defaultdict[str, float] = defaultdict(float)
+        for entry in entries:
+            day = entry.date.isoformat()
+            by_day[day] += to_base_currency(entry.cash_effect, entry.cash_currency, day)
+
+        running = 0.0
+        peak = 0.0
+        peak_day: str | None = None
+        for day in sorted(by_day):
+            # `cash_effect` is negative for a buy, so the net INVESTED position
+            # is its negation. End-of-day: same-day trades are netted first.
+            running -= by_day[day]
+            if running > peak:
+                peak, peak_day = running, day
+
+        exposure_days = 0
+        if by_day:
+            first_trade, last_trade = min(by_day), max(by_day)
+            exposure_days = sum(
+                1 for day in valuation_dates if first_trade <= day <= last_trade
+            )
+        measured[symbol] = (round(peak, 2), peak_day, exposure_days)
+    return measured
 
 
 def _trade_quantity_totals(
@@ -586,10 +663,49 @@ class PortfolioStateEngine:
                 )
             )
 
+        # US-34.4 (Epic 34 F-3): size each withholding from the broker's own cash.
+        # Measured AFTER the states exist, because the share is expressed against
+        # the portfolio value on the day the exposure peaked — which is what makes
+        # it legible ("3.4% of the book") rather than a bare dollar figure.
+        if self.quantity_withheld:
+            self._attach_withheld_exposure(trade_entries, states, to_base_currency)
+
         if apply_terminal_reconciliation:
             self._reconcile_terminal_state_to_statement_totals(states)
 
         return states
+
+    def _attach_withheld_exposure(self, trade_entries, states, to_base_currency) -> None:
+        """US-34.4: record how much each withheld symbol had at stake."""
+        from dataclasses import replace
+
+        measured = measure_withheld_exposure(
+            trade_entries,
+            set(self.quantity_withheld),
+            to_base_currency,
+            [state.date for state in states],
+        )
+        for symbol, (peak, peak_day, exposure_days) in measured.items():
+            share: float | None = None
+            if peak > 0 and peak_day is not None and states:
+                # A trade can land on a non-valuation date, so take the first
+                # state at or after the peak — the portfolio the researcher would
+                # have been looking at.
+                reference = next(
+                    (state for state in states if state.date >= peak_day), states[-1]
+                )
+                # A non-positive portfolio value makes the ratio meaningless
+                # (it goes negative). Report NO share rather than a nonsense
+                # one — an absent measurement is honest, a fabricated
+                # percentage is not.
+                if reference.total_portfolio_value > 0:
+                    share = round(peak / reference.total_portfolio_value * 100, 2)
+            self.quantity_withheld[symbol] = replace(
+                self.quantity_withheld[symbol],
+                peak_net_cash_invested=peak,
+                peak_share_of_portfolio_pct=share,
+                exposure_day_count=exposure_days,
+            )
 
     def _effective_valuation_dates(
         self,

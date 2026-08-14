@@ -457,6 +457,92 @@ class TestShareUnitDiscontinuity:
         assert by_date["2025-01-06"].unbacked_cash_flow == pytest.approx(1_814.00, abs=0.01)
         assert not any(state.return_is_publishable for state in states)
 
+    # -- US-34.4 (Epic 34 F-3/F-4): size the gap, and stop over-withholding ----
+
+    def test_withholding_reports_what_the_broker_had_at_stake(self) -> None:
+        """US-34.4 AC1/AC2 — how much, and for how long, from cash alone.
+
+        The quantity is the untrusted thing, so the exposure cannot be measured
+        as quantity x price. Running the broker's own net cash gives a LOWER
+        BOUND: what was paid, not what it was worth.
+
+        This fixture buys at 1,457.78 then 1,566.40 (running 3,024.18) before
+        the post-split sale returns 1,814.00 — so the end-of-day peak is
+        3,024.18 on day two.
+        """
+        engine, _states = _build(
+            self._split_snapshot(), {"AAA": _rows("AAA", self.DATES)}, self.DATES
+        )
+        withholding = engine.quantity_withheld["SPLIT"]
+
+        assert withholding.peak_net_cash_invested == pytest.approx(3_024.18, abs=0.01)
+        # First trade to last, inclusive — the span the replay showed nothing for.
+        assert withholding.exposure_day_count == 3
+        # This fixture's SPLIT buys drive the portfolio value negative on the
+        # peak day, so the share is not computable — and is reported as absent
+        # rather than as a nonsense negative percentage.
+        assert withholding.peak_share_of_portfolio_pct is None
+
+    def test_withheld_exposure_converts_each_currency_before_accumulating(self) -> None:
+        """US-34.4 AC2 — the US-31.3 currency-mixed trap, restated.
+
+        A symbol traded in EUR must not have its cash summed as if it were base
+        currency. At 1.20 the same ledger is worth 20% more.
+        """
+        snapshot = self._split_snapshot()
+        dates = self.DATES
+        engine, _states = _build(
+            snapshot,
+            {"AAA": _rows("AAA", dates)},
+            dates,
+            fx_history=_static_fx(dates, {"EURUSD": 1.20}),
+        )
+
+        withholding = engine.quantity_withheld["SPLIT"]
+        assert withholding.peak_net_cash_invested == pytest.approx(3_024.18 * 1.20, abs=0.02)
+
+    def test_immaterial_unbacked_cash_leaves_the_day_publishable(self) -> None:
+        """US-34.4 AC5 — materiality is a share of the portfolio, not a dollar.
+
+        US-33.2 reused the $1.00 rounding tolerance, so a flow worth 0.05% of
+        the book cost a real return day. The same ledger against a portfolio 20x
+        larger must keep its returns.
+        """
+        dates = self.DATES
+        ledger = [
+            _trade("BUY", "SPLIT", "2025-01-02", 1.0, 1_000.0),
+            _trade("SELL", "SPLIT", "2025-01-06", 100.0, 10.0),
+        ]
+
+        big = _snapshot(positions=[position("AAA", market_value=20_000_000.0)], ledger_entries=ledger)
+        engine_big, states_big = _build(
+            big, {"AAA": _rows("AAA", dates, price=2_000_000.0)}, dates
+        )
+        small = _snapshot(positions=[position("AAA", market_value=100_000.0)], ledger_entries=ledger)
+        engine_small, states_small = _build(
+            small, {"AAA": _rows("AAA", dates, price=10_000.0)}, dates
+        )
+
+        # Same symbol withheld in both — only the materiality verdict differs.
+        assert "SPLIT" in engine_big.quantity_withheld
+        assert "SPLIT" in engine_small.quantity_withheld
+        assert all(state.return_is_publishable for state in states_big)
+        assert not all(state.return_is_publishable for state in states_small)
+
+    def test_no_discontinuity_reports_no_exposure_and_no_unbacked_days(self) -> None:
+        """US-34.4 AC9 — the measurement is a signal, not a permanent fixture."""
+        dates = self.DATES
+        snapshot = _snapshot(
+            positions=[position("AAA", market_value=10_000.0)],
+            ledger_entries=[_trade("BUY", "AAA", "2025-01-03", 4.0, 100.0)],
+        )
+
+        engine, states = _build(snapshot, {"AAA": _rows("AAA", dates)}, dates)
+
+        assert engine.quantity_withheld == {}
+        assert all(state.unbacked_cash_flow == 0.0 for state in states)
+        assert all(state.return_is_publishable for state in states)
+
     def test_ordinary_trades_leave_the_return_publishable(self) -> None:
         """AC11 — the guard must fire only for withheld symbols.
 
@@ -878,13 +964,14 @@ class TestTerminalReconciliationAdjustment:
         # US-33.4: non-terminal days are publishable unless they carry a
         # withheld symbol's unbacked cash flow (US-33.2) — on IB2026 that is
         # LQQ's six trade dates, and nothing else.
+        # US-34.4: 2026-06-10 ($25.09) and 2026-06-23 ($5.13) dropped out once
+        # the unbacked-cash guard became a share of portfolio value rather than
+        # the $1.00 rounding tolerance — they distort nothing measurable.
         unpublishable = [s.date for s in states[:-1] if not s.return_is_publishable]
         assert unpublishable == [
             "2026-04-14",
             "2026-04-17",
-            "2026-06-10",
             "2026-06-12",
-            "2026-06-23",
             "2026-07-17",
         ]
         assert all(s.unbacked_cash_flow for s in states[:-1] if not s.return_is_publishable)

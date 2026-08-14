@@ -603,6 +603,15 @@ export type ReplayQuantityWithholding = {
   price_high: number
   price_ratio: number
   withheld_opening_quantity: number
+  /** US-34.4 (Epic 34 F-3): how much the researcher is not being shown. Derived
+   *  from broker cash alone — the quantity is the untrusted thing — so it is a
+   *  LOWER BOUND on the position's value, not a valuation. Word it as
+   *  "at least"; never add it to a market value. */
+  peak_net_cash_invested?: number
+  /** `null` when the peak day's portfolio value is not positive — render no
+   *  share rather than a fabricated one. */
+  peak_share_of_portfolio_pct?: number | null
+  exposure_day_count?: number
 }
 
 export type ScenarioPreview = {

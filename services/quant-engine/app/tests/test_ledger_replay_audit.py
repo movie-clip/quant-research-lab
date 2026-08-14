@@ -669,3 +669,58 @@ def test_us346_no_published_period_figure_contains_the_reconciliation(replay_con
 
     # And the terminal day still publishes no time-weighted return (US-31.3).
     assert terminal.return_is_publishable is False
+
+
+def test_us344_withholding_states_how_much_was_at_stake(replay_context) -> None:
+    """US-34.4 (Epic 34 F-3) — the withholding is sized, not just named.
+
+    Epic 33 correctly refused to publish LQQ's reconstructed quantity, but told
+    the researcher nothing about magnitude: missing 0.1% of a book and missing
+    30% of it read identically. The broker's own cash answers it without a price
+    or a quantity — which matters, because the quantity is the untrusted thing.
+
+    Peak END-OF-DAY net investment. The within-day gross reaches $4,410.08 on
+    2026-06-23 (a buy precedes a sell), which overstates anything ever held
+    overnight; the replay's states are end-of-day objects.
+    """
+    _engine, _states = _us332_engine(replay_context)
+    engine, _ = _us332_engine(replay_context)
+    withholding = engine.quantity_withheld["LQQ"]
+
+    assert withholding.peak_net_cash_invested == pytest.approx(2_130.62, abs=1.0)
+    assert withholding.peak_share_of_portfolio_pct == pytest.approx(3.52, abs=0.05)
+    # First trade (2026-04-14) to last (2026-07-17), inclusive.
+    assert withholding.exposure_day_count == 66
+
+    # It is a LOWER BOUND on the position's value, not a valuation — so it must
+    # never have leaked into market value.
+    assert all(
+        item.symbol != "LQQ" for state in _states for item in state.positions
+    )
+
+
+def test_us344_immaterial_unbacked_days_are_no_longer_withheld(replay_context) -> None:
+    """US-34.4 (Epic 34 F-4) — the guard measures materiality, not cents.
+
+    US-33.2 reused `REPLAY_RECONCILIATION_TOLERANCE` ($1.00), a constant
+    calibrated for rounding across daily states. On this statement the six
+    unbacked days are bimodal — 0.0085% and 0.0400% of the portfolio against
+    2.77%-3.71% — so two real return days were being discarded for nothing.
+    """
+    _engine, states = _us332_engine(replay_context)
+
+    withheld = [state.date for state in states if not state.return_is_publishable]
+    assert withheld == [
+        "2026-04-14",
+        "2026-04-17",
+        "2026-06-12",
+        "2026-07-17",
+        "2026-08-11",
+    ]
+    # The two recovered days still CARRY unbacked cash — they are published
+    # because it is immaterial, not because the guard stopped noticing.
+    recovered = {state.date: state for state in states if state.date in {"2026-06-10", "2026-06-23"}}
+    assert recovered["2026-06-10"].unbacked_cash_flow == pytest.approx(25.09, abs=0.01)
+    assert recovered["2026-06-23"].unbacked_cash_flow == pytest.approx(-5.13, abs=0.01)
+    assert all(state.return_is_publishable for state in recovered.values())
+

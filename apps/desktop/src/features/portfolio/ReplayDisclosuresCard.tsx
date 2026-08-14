@@ -89,6 +89,30 @@ function QuantityWithholdingNote({ withholdings }: { withholdings: ReplayQuantit
       share unit — a split — so the reconstructed opening position cannot be trusted. It is left out
       of the replayed market value entirely rather than valued at a size that was never held. Cash
       movements from those trades are unaffected.
+      {/* US-34.4: say HOW MUCH is missing. "Missing 0.1% of the book" and
+          "missing 30% of it" read identically without this. The figure is a
+          LOWER BOUND from broker cash — hence "at least" — never a valuation. */}
+      {withholdings.some((item) => (item.peak_net_cash_invested ?? 0) > 0) ? (
+        <>
+          {' '}
+          At its largest the broker had at least{' '}
+          {withholdings
+            .filter((item) => (item.peak_net_cash_invested ?? 0) > 0)
+            .map((item) => {
+              const share =
+                item.peak_share_of_portfolio_pct != null
+                  ? ` (${item.peak_share_of_portfolio_pct.toFixed(2)}% of the portfolio)`
+                  : ''
+              return `${formatUsd(item.peak_net_cash_invested ?? 0)} in ${item.symbol}${share}`
+            })
+            .join('; ')}
+          , across{' '}
+          {withholdings
+            .map((item) => `${item.exposure_day_count ?? 0} days`)
+            .join('; ')}{' '}
+          of the replayed window.
+        </>
+      ) : null}
     </p>
   )
 }
