@@ -8174,7 +8174,10 @@ def test_terminal_adjusted_day_return_is_withheld_with_reason() -> None:
     # — LQQ's trade dates, where cash moved with no position behind it — so the
     # terminal day is the LAST entry, not the only one.
     assert metadata.withheld_return_dates[-1] == "2026-08-11"
-    assert len(metadata.withheld_return_dates) == 7
+    # US-34.4: 7 before the unbacked-cash guard became a materiality test —
+    # 2026-06-10 ($25.09) and 2026-06-23 ($5.13) were being withheld for flows
+    # worth 0.04% and 0.0085% of the book.
+    assert len(metadata.withheld_return_dates) == 5
     assert metadata.withheld_return_reason
     # Both causes are named: collapsing them would misdescribe six of the days.
     assert "accounting" in metadata.withheld_return_reason.lower()
@@ -8200,7 +8203,8 @@ def test_adjusted_day_never_enters_the_replay_return_series() -> None:
     # N states -> N-1 possible daily returns, minus every withheld day: the
     # reconciled terminal day plus US-33.2's six unbacked-cash days.
     withheld = [s.date for s in history.daily_states if not s.return_is_publishable]
-    assert len(withheld) == 7
+    # US-34.4: 7 -> 5; see the materiality note above.
+    assert len(withheld) == 5
     assert len(series) == len(history.daily_states) - 1 - len(withheld)
 
 
@@ -8314,7 +8318,8 @@ def test_replay_derived_basis_publishes_the_cumulative_return_series() -> None:
 
     published = [point for point in series if point.portfolio_return_pct is not None]
     assert len(series) == 148
-    assert len(published) == 141
+    # US-34.4: 141 before two immaterial unbacked days returned to the series.
+    assert len(published) == 143
 
     gaps = {point.date for point in series if point.portfolio_return_pct is None}
     assert gaps == set(history.run_metadata.withheld_return_dates)
@@ -8337,9 +8342,13 @@ def test_every_range_publishes_its_own_time_weighted_return() -> None:
     # US-34.3 re-pinned these: opening cash moved to the statement's own
     # reported figure, which lifts every return denominator (was 4.28 / 3.57 /
     # 2.43).
+    # US-34.4 re-pinned 3M and All: the two recovered days (2026-06-10,
+    # 2026-06-23) are genuine DOWN days that the flat $1.00 unbacked-cash
+    # tolerance had been discarding, so publishing them lowers the compounded
+    # figure. Was 4.19 / 3.49 / 2.40.
     assert twr["1M"] == pytest.approx(4.19, abs=0.05)
-    assert twr["3M"] == pytest.approx(3.49, abs=0.05)
-    assert twr["All"] == pytest.approx(2.40, abs=0.05)
+    assert twr["3M"] == pytest.approx(1.61, abs=0.05)
+    assert twr["All"] == pytest.approx(0.54, abs=0.05)
     # The windows genuinely differ — the defect above produced one number.
     assert len({round(value, 2) for value in twr.values()}) > 1
 
@@ -8363,7 +8372,9 @@ def test_published_return_discloses_what_the_withheld_days_cost() -> None:
     # stopped absorbing five days of market movement, so the withheld days no
     # longer hide a gain — they now hide a small loss, and the published return
     # very slightly OVERstates rather than understating by 1.80pp.
-    assert history.run_metadata.withheld_return_impact_pct == pytest.approx(-0.46, abs=0.02)
+    # US-34.4 re-measured this over the FIVE days that remain withheld: +1.40pp.
+    # It was -0.46 while two immaterial days were also being withheld.
+    assert history.run_metadata.withheld_return_impact_pct == pytest.approx(1.40, abs=0.02)
 
 
 def test_max_drawdown_stays_withheld_when_the_return_is_published() -> None:
@@ -8502,3 +8513,29 @@ def test_no_reconciliation_leaves_every_figure_untouched() -> None:
     summary = build_performance_summary(states, [])
     assert summary.investment_gain == 100.0
     assert summary.money_weighted_return_pct == pytest.approx(10.0, abs=0.01)
+
+
+def test_withholding_bound_reaches_the_run_metadata() -> None:
+    """US-34.4 AC1/AC3: the researcher can size the gap from the response."""
+    _snapshot, history = _us313_ib2026_history()
+    withholding = history.run_metadata.quantity_withheld_symbols[0]
+
+    assert withholding.symbol == "LQQ"
+    assert withholding.peak_net_cash_invested == pytest.approx(2_130.62, abs=1.0)
+    assert withholding.peak_share_of_portfolio_pct == pytest.approx(3.52, abs=0.05)
+    assert withholding.exposure_day_count == 66
+
+
+def test_immaterial_unbacked_days_return_to_the_published_series() -> None:
+    """US-34.4 AC5/AC7: five withheld days, not seven — and the impact is
+    re-measured over the days that remain."""
+    _snapshot, history = _us313_ib2026_history()
+    metadata = history.run_metadata
+
+    assert len(metadata.withheld_return_dates) == 5
+    assert "2026-06-10" not in metadata.withheld_return_dates
+    assert "2026-06-23" not in metadata.withheld_return_dates
+    assert metadata.withheld_return_dates[-1] == "2026-08-11"
+    # Re-measured, not stale: the two recovered days no longer contribute.
+    assert metadata.withheld_return_impact_pct == pytest.approx(1.40, abs=0.02)
+

@@ -40,16 +40,43 @@ withholds a number the product already computed correctly.**
 | US-34.1 | Findings-first audit of the withheld Dashboard surface | Done |
 | US-34.2 | Publish the replay's TWR under an explicit `replay_derived` trust state | Done |
 | US-34.3 | Anchor opening cash on the statement's own starting cash | Done |
-| US-34.4 | Disclose what a withheld holding was worth, and stop withholding immaterial days | Next phase |
+| US-34.4 | Say what a withheld holding was worth, and stop withholding immaterial days | Done |
 | US-34.5 | Publish the benchmark return on a stated basis | Next phase |
 | US-34.6 | Stop the money-weighted return and investment gain from publishing the reconciliation adjustment | Done |
 | US-34.7 | Decide the drawdown's price basis | Next phase |
 | US-34.8 | Publish the terminal day's return now that a trustworthy terminal value exists | Next phase |
 
-Recommended order: US-34.2, US-34.6 and US-34.3 (done), then US-34.4, US-34.5,
+Recommended order: US-34.2, US-34.6, US-34.3 and US-34.4 (done), then US-34.5,
 US-34.8, US-34.7.
 
 ### Slice log
+
+- **US-34.4 (2026-08-13)** — **a withholding now says how big it was, and stops
+  costing days it shouldn't.** Epic 33 correctly refused to publish LQQ's
+  reconstructed quantity but told the researcher nothing about magnitude —
+  missing 0.1% of a book and missing 30% of it read identically. The broker's
+  own cash answers it *without a price or a quantity*, which is what makes it
+  derivable at all, since the quantity is the untrusted thing: peak end-of-day
+  net investment **$2,130.62**, **3.52%** of the portfolio, across a **66-day**
+  span of the 148-day window. Both are bounds, not valuations — "at least",
+  never entering market value — and the share reports `None` rather than a
+  nonsense negative when the peak day's portfolio value is not positive.
+  **The unbacked-cash guard became a materiality test:** US-33.2 reused the
+  $1.00 rounding tolerance, so 2026-06-10 ($25.09, 0.0400%) and 2026-06-23
+  ($5.13, 0.0085%) lost real return days for flows that distort nothing.
+  `REPLAY_UNBACKED_CASH_MATERIAL_SHARE` (0.1%, a 69x margin over the noise)
+  publishes them again — withheld days **7 → 5** — and both recovered days turn
+  out to be genuine DOWN days, so the All-window TWR moves **2.40% → 0.54%** and
+  the withheld-impact figure **−0.46pp → +1.40pp**. Two corrections during
+  implementation, both recorded in the story: the field first named
+  `held_day_count` could not mean that (cumulative cash keeps counting after a
+  loss-closing round trip — 44 days against a ~26-day true holding), so it is
+  `exposure_day_count`; and the share had to become nullable after the synthetic
+  fixture produced −149%. Golden diff surgical: only `portfolio_return_pct` and
+  `time_weighted_return_pct` moved — `unbacked_cash_flow` itself is
+  byte-identical, which is the proof the guard changed a verdict rather than a
+  measurement. 717 backend (+8) + 324 frontend (+2) green; tsc + dead-code gate
+  clean.
 
 - **US-34.3 (2026-08-13)** — **the standing "opening cash is degraded" warning
   finally clears, because there is no longer a plug to disclose.** The replay

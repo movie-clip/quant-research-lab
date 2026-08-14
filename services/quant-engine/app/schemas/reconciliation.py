@@ -599,9 +599,21 @@ class DailyPortfolioState(BaseModel):
         `attribution.py`) cannot drift apart — the US-31.2 "one shared chain"
         lesson.
         """
-        from app.core.constants import REPLAY_RECONCILIATION_TOLERANCE
+        from app.core.constants import (
+            REPLAY_RECONCILIATION_TOLERANCE,
+            REPLAY_UNBACKED_CASH_MATERIAL_SHARE,
+        )
 
         adjustment = self.reconciliation_adjustment
         if adjustment is not None and abs(adjustment) > REPLAY_RECONCILIATION_TOLERANCE:
             return False
-        return abs(self.unbacked_cash_flow) <= REPLAY_RECONCILIATION_TOLERANCE
+        # US-34.4 (Epic 34 F-4): the unbacked-cash guard is MATERIALITY, so it is
+        # a share of that day's portfolio value — not the $1.00 rounding
+        # tolerance US-33.2 borrowed, which discarded real return days for flows
+        # worth 0.008% of the book.
+        if not self.unbacked_cash_flow:
+            return True
+        if not self.total_portfolio_value:
+            return False
+        share = abs(self.unbacked_cash_flow) / abs(self.total_portfolio_value)
+        return share <= REPLAY_UNBACKED_CASH_MATERIAL_SHARE

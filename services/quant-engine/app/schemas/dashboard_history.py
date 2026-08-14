@@ -162,6 +162,24 @@ class ReplayQuantityWithholding(BaseModel):
     price_high: float
     price_ratio: float
     withheld_opening_quantity: float
+    # US-34.4 (Epic 34 F-3): HOW MUCH the researcher is not being shown.
+    #
+    # Derived from the broker's own cash movements alone — no price, no quantity,
+    # no market data — because the quantity is precisely the untrusted thing.
+    # `peak_net_cash_invested` is the largest END-OF-DAY net cash the broker had
+    # in the symbol (each trade FX-converted before it enters the running total);
+    # the within-day gross figure would overstate what was ever held overnight.
+    #
+    # It is a LOWER BOUND, not a valuation: it is what the broker paid, not what
+    # the position was worth on any day. Erring low is the honest direction — it
+    # can understate what is missing, never overstate it — so surfaces must word
+    # it as "at least". It must never enter `total_market_value`.
+    peak_net_cash_invested: float = 0.0
+    # `None` when the portfolio value on the peak day is not positive — the
+    # ratio would be meaningless, and an absent measurement is honest where a
+    # fabricated percentage is not.
+    peak_share_of_portfolio_pct: float | None = None
+    exposure_day_count: int = 0
 
 
 class DashboardHistoryRunMetadata(BaseModel):

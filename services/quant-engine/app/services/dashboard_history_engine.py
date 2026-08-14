@@ -624,6 +624,10 @@ def run_imported_dashboard_history(
                     price_high=withholding.price_high,
                     price_ratio=withholding.price_ratio,
                     withheld_opening_quantity=withholding.withheld_opening_quantity,
+                    # US-34.4 (Epic 34 F-3): how much was at stake.
+                    peak_net_cash_invested=withholding.peak_net_cash_invested,
+                    peak_share_of_portfolio_pct=withholding.peak_share_of_portfolio_pct,
+                    exposure_day_count=withholding.exposure_day_count,
                 )
                 for withholding in quantity_withheld
             ],
