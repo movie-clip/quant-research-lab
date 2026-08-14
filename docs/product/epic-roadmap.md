@@ -41,13 +41,14 @@ withholds a number the product already computed correctly.**
 | US-34.2 | Publish the replay's TWR under an explicit `replay_derived` trust state | Done |
 | US-34.3 | Anchor opening cash on the statement's own starting cash | Done |
 | US-34.4 | Say what a withheld holding was worth, and stop withholding immaterial days | Done |
-| US-34.5 | Publish the benchmark return on a stated basis | Next phase |
+| US-34.5 | Publish the benchmark and excess return on a stated basis | Blocked on F-10 |
 | US-34.6 | Stop the money-weighted return and investment gain from publishing the reconciliation adjustment | Done |
 | US-34.7 | Decide the drawdown's price basis | Next phase |
 | US-34.8 | Publish the terminal day's return now that a trustworthy terminal value exists | Next phase |
+| US-34.9 | Source adjusted closes so the verified benchmark rung can fire | Next phase |
 
-Recommended order: US-34.2, US-34.6, US-34.3 and US-34.4 (done), then US-34.5,
-US-34.8, US-34.7.
+Recommended order: US-34.2, US-34.6, US-34.3 and US-34.4 (done); US-34.5 blocked
+on F-10; then US-34.8, US-34.7, US-34.9.
 
 ### Slice log
 

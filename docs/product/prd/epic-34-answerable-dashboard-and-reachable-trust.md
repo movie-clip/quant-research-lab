@@ -230,6 +230,62 @@ Deliberately **not** folded into US-34.6: relaxing a US-31.3 withholding is a
 guardrail change and deserves its own review, not a ride-along on a story about
 Modified Dietz inputs.
 
+### F-9 (Medium) — the verified-benchmark pilot cannot fire against the real provider
+
+Found by US-34.5 while checking its premise.
+`_validate_verified_benchmark_slice` admits a benchmark as
+`verified_total_return` only when **every in-window row carries `adjClose`**
+and the fetch came from `VERIFIED_BENCHMARK_ENDPOINT`, which is pinned to
+`"historical-price-eod/light"`.
+
+The FMP client has exactly **one** history method,
+`get_historical_price_light`, and **no `adjClose` handling anywhere** — the
+light endpoint returns `symbol, date, price, volume`. All 148 committed SPY
+rows carry no `adjClose`.
+
+The two conditions therefore cannot both hold against the real provider. The
+verified benchmark rung is unreachable by construction — the same shape as
+F-1a's five structural disqualifiers — and its tests pass only because they
+supply hand-written rows with `adjClose`, which is why it went unnoticed.
+
+Sourcing adjusted closes needs a different FMP endpoint, a client change and a
+`golden_market_data.json` re-capture, so US-34.5 publishes on the basis the
+current data supports and labels it, rather than pretending the verified rung is
+merely unlucky.
+
+### F-10 (High) — the investor-economics publication policy has no reachable rung
+
+Found by US-34.5, which is **blocked on it**.
+
+`investor_economics_partial_unlock` unlocks benchmark and excess scalars only
+for an *identical admitted exact slice*, and forbids client-side derivation
+(`client_derivation_rule = server_side_scalar_only_no_daily_series_subtraction_equivalence`,
+with `benchmark_relative_series` and `rebucketed_window_summaries` among the
+withheld families).
+
+Both of its unlock routes are now known to be unreachable in production:
+
+- the **portfolio** leg needs an admitted exact slice, which F-1a shows can
+  never be granted on the imported path (five structural disqualifiers);
+- the **benchmark** leg needs `verified_total_return`, which F-9 shows can never
+  be reached against the real provider (`adjClose` from an endpoint that does
+  not return it).
+
+So the policy is not a gate that rarely opens — it is a gate that cannot open,
+and its practical effect is a permanent silence on the Dashboard's benchmark
+comparison.
+
+US-34.5 could publish the comparison on a weaker, labelled rung (the US-34.2
+pattern), but doing so collides with the anti-derivation rule: US-34.2 already
+publishes the portfolio TWR per range, so a per-range benchmark scalar makes the
+withheld benchmark-relative families derivable by subtraction. **That is a
+product decision about an investor-facing withholding stance, not a test-fixing
+exercise**, so US-34.5 is parked rather than forced.
+
+The decision needed: should the anti-derivation rule survive now that the rungs
+it protects cannot fire, and if so, what may the Dashboard say about benchmark
+performance?
+
 ### Examined and found correct — do not "fix" these
 
 - **The Exposure and Risk tabs are healthy.** They run on the snapshot-analytics
@@ -280,6 +336,7 @@ because a stronger claim cannot be proven.** Concretely:
 | US-34.4 | Disclose what a withheld holding was worth, and stop withholding immaterial days | F-3 + F-4: bound the withheld position's value from the broker's own execution prices and surface it on the disclosure; replace the flat $1.00 unbacked-cash tolerance with a materiality test against portfolio value. |
 | US-34.5 | Publish the benchmark return on a stated basis | F-6: source `adjClose` where the provider offers it, and publish a `price_return_only` benchmark return labelled as such when it does not — a price return is a real number, and saying so beats saying nothing. |
 | US-34.6 | Stop the money-weighted return from carrying the reconciliation adjustment | F-7: MWR is computed from the reconciled `end_value`, so it publishes the accounting correction TWR withholds (FF2026: 3.75% vs 0.12%). Apply the US-31.3 rule to the money-weighted path too — the same guardrail, the same reason. Found by US-34.2. |
+| US-34.9 | Source adjusted closes so the verified benchmark rung can fire | F-9, found by US-34.5: the pilot requires `adjClose` from an endpoint that does not return it, so it is unreachable in production. Needs a new FMP endpoint, a client change and a market-data re-capture. |
 | US-34.8 | Publish the terminal day's return now that a trustworthy terminal value exists | F-8, found by US-34.6: US-31.3 withholds the reconciled day entirely because its value was overwritten; `market_derived_terminal_value` now supplies the un-overwritten value, so the day's return is computable. Closes the last TWR/MWR disagreement (FF2026: 0.41pp). A guardrail relaxation — needs its own review. |
 | US-34.7 | Decide the drawdown's price basis | Split out of US-34.2 during implementation: `_allow_dashboard_drawdown_outputs` is a hardcoded `False` whose two unread parameters say the intended gate is whether the **price inputs are adjusted** — a drawdown chained from unadjusted closes overstates the loss on dividend-paying holdings. That is a methodology question, not a flag to flip. |
 
