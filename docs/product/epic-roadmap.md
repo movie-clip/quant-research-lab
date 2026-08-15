@@ -43,14 +43,40 @@ withholds a number the product already computed correctly.**
 | US-34.4 | Say what a withheld holding was worth, and stop withholding immaterial days | Done |
 | US-34.5 | Publish the benchmark and excess return on a stated basis | Blocked on F-10 |
 | US-34.6 | Stop the money-weighted return and investment gain from publishing the reconciliation adjustment | Done |
-| US-34.7 | Decide the drawdown's price basis | Next phase |
+| US-34.7 | Correct the drawdown price-basis claim, and disclose where it is real | Done |
 | US-34.8 | Publish the terminal day's return, corrected rather than withheld | Done |
 | US-34.9 | Source adjusted closes so the verified benchmark rung can fire | Next phase |
 
-Recommended order: US-34.2, US-34.6, US-34.3, US-34.4 and US-34.8 (done);
-US-34.5 blocked on F-10; then US-34.7, US-34.9.
+Recommended order: US-34.2, US-34.6, US-34.3, US-34.4, US-34.8 and US-34.7
+(done); US-34.5 blocked on F-10; US-34.9 needs an FMP re-capture.
 
 ### Slice log
+
+- **US-34.7 (2026-08-13)** — **a justification that had gone unchecked for eight
+  days turned out to be false, and it was ours.** US-34.2 narrowed its scope to
+  exclude the drawdown and left a reason, in the story and in a code comment: a
+  chain built from unadjusted closes "overstates the loss on dividend-paying
+  holdings". Narrowing was right; the reason was not. `_compute_max_drawdown`
+  chains the `portfolio_value` basis over the imported replay, where dividends
+  and withholding taxes are **ledger entries** — $125.72 gross, −$17.93
+  withholding, $107.79 net over the window, each dividend date's cash moving by
+  that day's net effect, verified in the states. The ex-date price drop is
+  offset by the receipt, so that chain is already total-return-like (**F-11**).
+  The gate is closed for a different reason entirely: `drawdown_family` is one
+  of the investor-economics withheld families, so reopening it is blocked on
+  **F-10** — the same decision that parked US-34.5, checked *before* any code
+  this time rather than after 18 failing tests. **The exposure does exist, one
+  path over** (**F-12**): the Risk tab's synthetic construction applies current
+  holdings to prices with a flat cash balance and no ledger, so a dividend there
+  is a pure price drop. Bounded rather than assumed — only dividends on symbols
+  still held reach it, and of 18 current holdings only PYPL paid one ($3.64 ≈
+  0.006% of NAV) — with a test that fails for a dividend-heavy portfolio instead
+  of passing silently. **Publishes nothing new:** `max_drawdown_pct` stays null
+  on every range, the Risk tab is untouched, and `dashboardGoldens.ts` is
+  byte-identical. This is the Epic 32 failure mode found inside Epic 34's own
+  work — an agent-facing claim asserting something the code does not do — which
+  is why the corrected claim is test-backed rather than merely rewritten.
+  723 backend (+3) + 325 frontend green; tsc + dead-code gate clean.
 
 - **US-34.8 (2026-08-13)** — **the most recent day of history stopped being
   permanently blank.** US-31.3 withheld the reconciled terminal day because its

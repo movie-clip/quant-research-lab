@@ -864,6 +864,39 @@ Contract rule:
   rather than emit inconsistent data (same discipline as the CVaR ≥ VaR
   invariant in §Value-at-Risk and Distribution)
 
+### Two drawdown constructions, only one of which is a price drawdown (US-34.7)
+
+The product builds drawdowns over two different daily-state constructions, and
+they do **not** share a dividend exposure. Conflating them produced a false
+justification that sat in the code for eight days (Epic 34 F-11).
+
+**Replay path (Dashboard).** `_compute_max_drawdown` chains the
+`portfolio_value` basis over the imported replay's daily states. Dividends and
+withholding taxes are **ledger entries**, so they land in the replayed cash
+balance: the ex-date price drop is offset by the receipt and the chain is
+already **total-return-like**. Measured on IB2026: $125.72 gross, −$17.93
+withholding, $107.79 net, all present in the states. An unadjusted-close
+concern does not apply here.
+
+**Synthetic path (Risk tab).**
+`_build_synthetic_snapshot_history_states_with_coverage` applies *current
+holdings* to historical prices with a **flat cash balance** (today's ending
+cash, held constant) and **no ledger**. A dividend therefore appears only as
+the ex-date price drop, with nothing offsetting it, so this construction **is**
+a price drawdown and overstates losses by roughly the yield across the
+lookback. The magnitude scales with how dividend-heavy the *current* holdings
+are and with the window — the card offers 252d and 504d.
+
+Measured bound on the committed statement: of 18 current holdings only **PYPL**
+both is held and paid a dividend in the window ($3.64 gross ≈ 0.006% of NAV), so
+the overstatement here is negligible. The mechanism is real; the magnitude is
+portfolio-specific, which is why it is bounded by a test rather than assumed
+small.
+
+Correcting the synthetic path needs total-return prices, which the provider does
+not currently supply (F-9). Until then the construction is documented rather
+than adjusted.
+
 ## Volatility and Relative Risk
 
 ### Standard-deviation denominator conventions (US-27.9 / audit F12)

@@ -240,16 +240,25 @@ def _allow_dashboard_drawdown_outputs(
     symbol_price_histories: dict[str, list[dict]],
 ) -> bool:
     # Dashboard investor-economics policy stays narrower than the underlying proof
-    # system: drawdown and other path-derived outputs remain withheld for now.
+    # system: `drawdown_family` is one of
+    # `investor_economics_partial_unlock.withheld_families`, so this output stays
+    # withheld until that policy is decided. Reopening it is blocked on Epic 34
+    # F-10, the same decision that parked US-34.5 — it would move 22 pinned
+    # `max_drawdown_pct is None` assertions and two named policy tests.
     #
-    # US-34.2 deliberately did NOT open this gate alongside the return. The two
-    # parameters — never read by this stub — say what the intent was: allow the
-    # drawdown when the PRICE INPUTS are on an adjusted basis, not when the
-    # replay is publishable. A drawdown chained from unadjusted closes is a
-    # PRICE drawdown, which overstates the loss on dividend-paying holdings, and
-    # that is a methodology question this story did not research. It is
-    # Epic 34's own follow-up (see the PRD story list), not a line to flip while
-    # publishing the return.
+    # US-34.7 CORRECTED the justification that used to sit here. US-34.2 claimed
+    # the gate was really about whether the price inputs are adjusted, because a
+    # drawdown from unadjusted closes "overstates the loss on dividend-paying
+    # holdings". That is false on THIS path: `_compute_max_drawdown` chains the
+    # `portfolio_value` basis over the imported replay, where dividends arrive as
+    # LEDGER CASH ($125.72 gross / $107.79 net over the IB2026 window, verified
+    # in the daily states), so the ex-date price drop is offset by the receipt
+    # and the chain is already total-return-like.
+    #
+    # The exposure is real on the SYNTHETIC path (Risk tab), which applies a flat
+    # cash balance and no ledger — see `financial-methodology.md` §Wealth Index
+    # and Drawdown. The two parameters below are retained because that is the
+    # question a future gate would ask; they are not read today.
     return False
 
 

@@ -8638,3 +8638,72 @@ def test_a_clean_terminal_state_is_unaffected_by_the_correction() -> None:
     assert current.return_is_publishable is True
     assert _time_weighted_daily_return(previous, current) == pytest.approx(0.05)
 
+
+# -- US-34.7 (Epic 34 F-11): the drawdown gate's justification, corrected --
+
+
+def test_replay_path_captures_dividend_cash() -> None:
+    """US-34.7 AC4 — the claim that replaced the false one, held to account.
+
+    US-34.2 justified the closed drawdown gate by saying a chain built from
+    unadjusted closes "overstates the loss on dividend-paying holdings". On THIS
+    path that is false: dividends and withholding taxes are ledger entries, so
+    they land in the replayed cash balance and the ex-date price drop is offset
+    by the receipt.
+
+    Pinning it means a future change that stopped applying dividend cash would
+    fail here, rather than silently restoring the exposure the docs used to
+    claim.
+    """
+    from app.domain.ledger import snapshot_to_ledger
+
+    snapshot, history = _us313_ib2026_history()
+    ledger = snapshot_to_ledger(snapshot)
+    dividends = [e for e in ledger if e.entry_type == "DIVIDEND"]
+    taxes = [e for e in ledger if e.entry_type == "WITHHOLDING_TAX"]
+
+    gross = sum(e.cash_effect or 0.0 for e in dividends)
+    withheld = sum(e.cash_effect or 0.0 for e in taxes)
+    assert gross == pytest.approx(125.72, abs=0.01)
+    assert withheld == pytest.approx(-17.93, abs=0.01)
+
+    # Each dividend date's cash moves by that day's net ledger effect — the
+    # receipt is really in the states, not merely in the ledger.
+    states = {state.date: state for state in history.daily_states}
+    dates = [state.date for state in history.daily_states]
+    checked = 0
+    for entry in dividends:
+        day = entry.date.isoformat()
+        if day not in states:
+            continue  # a dividend on a non-valuation date lands the next day
+        index = dates.index(day)
+        if index == 0:
+            continue
+        net_that_day = sum(
+            e.cash_effect or 0.0
+            for e in ledger
+            if e.date.isoformat() == day
+        )
+        delta = states[day].cash["USD"] - states[dates[index - 1]].cash["USD"]
+        assert delta == pytest.approx(net_that_day, abs=0.02)
+        checked += 1
+    assert checked >= 5, "too few dividend dates checked to be meaningful"
+
+
+def test_dashboard_drawdown_stays_withheld_pending_the_policy_decision() -> None:
+    """US-34.7 AC1/AC6 — the gate is closed for the REAL reason.
+
+    `drawdown_family` is one of the investor-economics withheld families, so the
+    output stays null until that policy is decided (Epic 34 F-10, the same block
+    that parked US-34.5). This story corrects the justification; it publishes
+    nothing new.
+    """
+    _snapshot, history = _us313_ib2026_history()
+    ranges = history.range_metrics or {}
+
+    assert ranges, "fixture produced no ranges"
+    assert all(metrics.max_drawdown_pct is None for metrics in ranges.values())
+    # The family is named in the policy the gate actually defers to.
+    families = history.run_metadata.investor_economics_partial_unlock.withheld_families
+    assert "drawdown_family" in families
+
