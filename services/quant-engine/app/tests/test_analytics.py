@@ -7281,17 +7281,18 @@ def test_ff2026_dashboard_truth_values_match_imported_history_and_overview(mocke
     # return is computable and US-31.3's blanket withholding is partly obsolete.
     twr = visible_summary["time_weighted_return_pct"]
     mwr = history.range_metrics["All"].summary.money_weighted_return_pct
-    assert twr == pytest.approx(0.12, abs=0.02)
-    assert mwr == pytest.approx(expected_summary["money_weighted_return_pct"], abs=0.02)
 
-    terminal = history.daily_states[-1]
-    previous = history.daily_states[-2]
-    market_terminal = terminal.total_portfolio_value - (terminal.reconciliation_adjustment or 0.0)
-    terminal_day_market_return = (market_terminal / previous.total_portfolio_value - 1) * 100
-    assert mwr - twr == pytest.approx(terminal_day_market_return, abs=0.05), (
-        "the TWR/MWR residual must be the terminal day's market move — anything "
-        "else means an accounting entry is still leaking into one of them"
+    # US-34.8 closed the last gap. With ZERO external flows the two independent
+    # statistics must agree; they differed by exactly the terminal day's market
+    # move while US-31.3 was withholding that day (0.12% vs 0.51%). Now the day
+    # is published with the accounting adjustment removed rather than blanked,
+    # and they converge — which is the strongest available evidence that neither
+    # carries the adjustment.
+    assert twr == pytest.approx(mwr, abs=0.02), (
+        "with zero flows the time- and money-weighted returns must agree; a gap "
+        "means one of them still carries the terminal reconciliation"
     )
+    assert mwr == pytest.approx(expected_summary["money_weighted_return_pct"], abs=0.02)
     assert visible_summary["money_weighted_return_pct"] == expected_summary["money_weighted_return_pct"]
     assert max_drawdown == expected_summary["max_drawdown_pct"]
     # US-34.2: the golden describes the FULL period, so it is asserted against
@@ -7841,18 +7842,33 @@ def test_trade_neutral_basis_is_undiluted_by_a_cash_sleeve() -> None:
     assert abs(twr_with[0][1]) < abs(neutral_with[0][1])
 
 
-def test_trade_neutral_basis_still_withholds_a_reconciled_day() -> None:
-    """AC7 — the US-31.3 withholding predicate wins on this basis too: the new
-    chain must not become a way to smuggle an accounting correction back into a
-    return series (guardrail #3)."""
-    states = [
-        _neutral_state("2026-06-29", market_value=1000.0, cash=100.0),
-        # Adjustment far above REPLAY_RECONCILIATION_TOLERANCE (1.00).
-        _neutral_state("2026-06-30", market_value=1200.0, cash=100.0, reconciliation_adjustment=200.0),
-    ]
+def test_trade_neutral_basis_never_carries_the_reconciliation() -> None:
+    """US-34.8 restated this guard around its SUBSTANCE.
 
-    assert states[-1].return_is_publishable is False
-    assert _portfolio_time_weighted_return_series(states, basis="market_value_trade_neutral") == []
+    The claim was, and remains, that an accounting correction must never enter a
+    return series (guardrail #3). It used to be enforced by withholding the
+    reconciled day outright; US-34.8 enforces it by construction instead — this
+    basis chains `total_market_value`, which the terminal reconciliation never
+    touches, so the day's return is identical whatever the adjustment is.
+
+    Asserting that invariance is a stronger test than asserting an empty list:
+    it fails if the adjustment ever reaches this chain, rather than merely if
+    the day stops being skipped.
+    """
+    def _series(adjustment: float):
+        states = [
+            _neutral_state("2026-06-29", market_value=1000.0, cash=100.0),
+            _neutral_state(
+                "2026-06-30", market_value=1200.0, cash=100.0, reconciliation_adjustment=adjustment
+            ),
+        ]
+        return _portfolio_time_weighted_return_series(states, basis="market_value_trade_neutral")
+
+    # Adjustments far above REPLAY_RECONCILIATION_TOLERANCE (1.00), in both
+    # directions, must not move the return by a cent.
+    baseline = _series(0.0)
+    assert baseline == _series(200.0) == _series(-200.0)
+    assert baseline == [("2026-06-30", pytest.approx(0.2))]
 
 
 def test_trade_neutral_basis_skips_a_zero_prior_market_value() -> None:
@@ -8163,9 +8179,15 @@ def test_replay_cash_anchor_disclosed_on_run_metadata() -> None:
     assert anchor.residual == pytest.approx(46.69, abs=2.0)
 
 
-def test_terminal_adjusted_day_return_is_withheld_with_reason() -> None:
-    """US-31.3 AC5/AC6: the adjusted terminal day is withheld, with a reason —
-    a visible gap, never a silently missing point."""
+def test_withheld_days_are_named_with_only_the_causes_that_fired() -> None:
+    """US-31.3 AC5/AC6, restated by US-34.8 AC8.
+
+    The claim is unchanged: a withheld day is a visible gap with a stated
+    reason, never a silently missing point. What changed is which causes can
+    fire. The reconciled terminal day is now CORRECTED rather than withheld, so
+    the reason must stop naming the terminal reconciliation — a disclosure that
+    describes a withholding which is not happening is worse than no disclosure.
+    """
     _snapshot, history = _us313_ib2026_history()
     metadata = history.run_metadata
 
@@ -8173,16 +8195,23 @@ def test_terminal_adjusted_day_return_is_withheld_with_reason() -> None:
     # follows the refresh (was 2026-06-30). US-33.2 adds six more withheld days
     # — LQQ's trade dates, where cash moved with no position behind it — so the
     # terminal day is the LAST entry, not the only one.
-    assert metadata.withheld_return_dates[-1] == "2026-08-11"
-    # US-34.4: 7 before the unbacked-cash guard became a materiality test —
-    # 2026-06-10 ($25.09) and 2026-06-23 ($5.13) were being withheld for flows
-    # worth 0.04% and 0.0085% of the book.
-    assert len(metadata.withheld_return_dates) == 5
+    # US-34.8: 2026-08-11 is published now — its return is computed with the
+    # reconciliation removed rather than the day being blanked. What remains
+    # withheld is the unbacked-cash set (US-33.2 / US-34.4), whose cause is a
+    # missing POSITION and for which no corrected value exists.
+    assert metadata.withheld_return_dates[-1] == "2026-07-17"
+    assert "2026-08-11" not in metadata.withheld_return_dates
+    # US-34.4 took this from 7 to 5 (two immaterial unbacked days); US-34.8
+    # takes it to 4 (the reconciled terminal day is corrected, not withheld).
+    assert len(metadata.withheld_return_dates) == 4
     assert metadata.withheld_return_reason
-    # Both causes are named: collapsing them would misdescribe six of the days.
-    assert "accounting" in metadata.withheld_return_reason.lower()
-    assert "withheld" in metadata.withheld_return_reason.lower()
-    assert "no position behind it" in metadata.withheld_return_reason.lower()
+    reason = metadata.withheld_return_reason.lower()
+    # Only the unbacked-cash cause fires now, so only it may be named.
+    assert "no position behind it" in reason
+    assert "accounting" not in reason, (
+        "the reason still names the terminal reconciliation, which no longer "
+        "withholds any day (US-34.8)"
+    )
     # The state itself records the adjustment that caused the withholding.
     assert history.daily_states[-1].date == "2026-08-11"
     # US-34.3: 1,366.17 before the anchor moved to the statement's own starting
@@ -8198,13 +8227,15 @@ def test_adjusted_day_never_enters_the_replay_return_series() -> None:
     series = _portfolio_time_weighted_return_series(history.daily_states)
 
     dates = [d for d, _ in series]
-    # US-33.4: the terminal (adjusted) day follows the statement.
-    assert history.daily_states[-1].date not in dates
+    # US-34.8: the terminal day IS in the series now. The guarantee it used to
+    # be excluded FOR — that the adjustment never enters a return — is met by
+    # computing the day on the market-derived value instead.
+    assert history.daily_states[-1].date in dates
     # N states -> N-1 possible daily returns, minus every withheld day: the
     # reconciled terminal day plus US-33.2's six unbacked-cash days.
     withheld = [s.date for s in history.daily_states if not s.return_is_publishable]
-    # US-34.4: 7 -> 5; see the materiality note above.
-    assert len(withheld) == 5
+    # US-34.4: 7 -> 5 (materiality); US-34.8: 5 -> 4 (terminal day corrected).
+    assert len(withheld) == 4
     assert len(series) == len(history.daily_states) - 1 - len(withheld)
 
 
@@ -8318,13 +8349,21 @@ def test_replay_derived_basis_publishes_the_cumulative_return_series() -> None:
 
     published = [point for point in series if point.portfolio_return_pct is not None]
     assert len(series) == 148
-    # US-34.4: 141 before two immaterial unbacked days returned to the series.
-    assert len(published) == 143
+    # 141 -> 143 (US-34.4, two immaterial unbacked days) -> 144 (US-34.8, the
+    # corrected terminal day).
+    assert len(published) == 144
 
     gaps = {point.date for point in series if point.portfolio_return_pct is None}
     assert gaps == set(history.run_metadata.withheld_return_dates)
-    assert "2026-08-11" in gaps  # US-31.3, the reconciled terminal day
+    # US-34.8: the reconciled terminal day is no longer a gap — it is computed
+    # with the adjustment removed. Every remaining gap is an unbacked-cash day.
+    assert "2026-08-11" not in gaps
     assert "2026-04-17" in gaps  # US-33.2, an unbacked-cash day
+    assert all(
+        state.unbacked_cash_flow
+        for state in history.daily_states
+        if state.date in gaps
+    )
 
 
 def test_every_range_publishes_its_own_time_weighted_return() -> None:
@@ -8372,9 +8411,10 @@ def test_published_return_discloses_what_the_withheld_days_cost() -> None:
     # stopped absorbing five days of market movement, so the withheld days no
     # longer hide a gain — they now hide a small loss, and the published return
     # very slightly OVERstates rather than understating by 1.80pp.
-    # US-34.4 re-measured this over the FIVE days that remain withheld: +1.40pp.
-    # It was -0.46 while two immaterial days were also being withheld.
-    assert history.run_metadata.withheld_return_impact_pct == pytest.approx(1.40, abs=0.02)
+    # Re-measured over the days that ACTUALLY remain withheld each time:
+    # -0.46 (seven days) -> +1.40 (five, US-34.4) -> +1.48 (four, US-34.8, once
+    # the terminal day is corrected rather than blanked).
+    assert history.run_metadata.withheld_return_impact_pct == pytest.approx(1.48, abs=0.02)
 
 
 def test_max_drawdown_stays_withheld_when_the_return_is_published() -> None:
@@ -8532,10 +8572,69 @@ def test_immaterial_unbacked_days_return_to_the_published_series() -> None:
     _snapshot, history = _us313_ib2026_history()
     metadata = history.run_metadata
 
-    assert len(metadata.withheld_return_dates) == 5
+    assert len(metadata.withheld_return_dates) == 4
     assert "2026-06-10" not in metadata.withheld_return_dates
     assert "2026-06-23" not in metadata.withheld_return_dates
-    assert metadata.withheld_return_dates[-1] == "2026-08-11"
-    # Re-measured, not stale: the two recovered days no longer contribute.
-    assert metadata.withheld_return_impact_pct == pytest.approx(1.40, abs=0.02)
+    # US-34.8: the terminal day left this set too.
+    assert "2026-08-11" not in metadata.withheld_return_dates
+    assert metadata.withheld_return_dates[-1] == "2026-07-17"
+    # Re-measured, not stale: the recovered days no longer contribute.
+    assert metadata.withheld_return_impact_pct == pytest.approx(1.48, abs=0.02)
+
+
+# -- US-34.8 (Epic 34 F-8): the terminal day is corrected, not withheld --
+
+
+def test_terminal_day_publishes_its_market_return() -> None:
+    """US-34.8 AC1: the day the researcher looks at first is no longer blank.
+
+    US-31.3 withheld it because its value had been overwritten and no
+    un-overwritten one existed. US-34.6 created that value, so the day chains
+    from the previous state exactly as every other day does.
+    """
+    from app.analytics.risk import _portfolio_time_weighted_return_series
+
+    _snapshot, history = _us313_ib2026_history()
+    states = history.daily_states
+    terminal, previous = states[-1], states[-2]
+    series = dict(_portfolio_time_weighted_return_series(states))
+
+    assert terminal.date == "2026-08-11"
+    assert terminal.date not in history.run_metadata.withheld_return_dates
+    assert series[terminal.date] == pytest.approx(0.000038, abs=1e-5)
+
+    # The published figure is the market-derived chain, to the cent.
+    market_derived = terminal.total_portfolio_value - terminal.reconciliation_adjustment
+    expected = (market_derived - terminal.external_cash_flow) / previous.total_portfolio_value - 1
+    assert series[terminal.date] == pytest.approx(expected, abs=1e-9)
+
+
+def test_a_clean_terminal_state_is_unaffected_by_the_correction() -> None:
+    """US-34.8 AC7: a run with nothing to correct is byte-identical.
+
+    The request path carries no `statement_totals`, so nothing is reconciled and
+    the correction subtracts zero.
+    """
+    from app.analytics.performance import _time_weighted_daily_return
+
+    previous = DailyPortfolioState(
+        date="2025-01-02",
+        cash={"USD": 0.0},
+        positions=[],
+        total_market_value=1000.0,
+        total_portfolio_value=1000.0,
+        external_cash_flow=0.0,
+    )
+    current = DailyPortfolioState(
+        date="2025-01-03",
+        cash={"USD": 0.0},
+        positions=[],
+        total_market_value=1050.0,
+        total_portfolio_value=1050.0,
+        external_cash_flow=0.0,
+    )
+
+    assert current.reconciliation_adjustment is None
+    assert current.return_is_publishable is True
+    assert _time_weighted_daily_return(previous, current) == pytest.approx(0.05)
 

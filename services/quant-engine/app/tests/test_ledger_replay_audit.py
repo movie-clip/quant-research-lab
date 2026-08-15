@@ -175,12 +175,28 @@ def test_f3_terminal_reconciliation_is_never_published_as_a_return(replay_contex
     # US-34.3: -58.11 — 96% of that adjustment WAS the cash-anchor offset riding
     # through the window, and it disappears once the anchor stops deriving.
     assert terminal.reconciliation_adjustment == pytest.approx(-58.11, abs=2.0)
-    # ...and the day it lands on publishes NO return.
-    assert terminal.return_is_publishable is False
-    series_dates = [d for d, _ in _portfolio_time_weighted_return_series(states)]
-    assert terminal.date not in series_dates, (
-        "F-3 has regressed — an accounting adjustment is being published as a return"
+
+    # US-34.8 changed HOW F-3 is enforced, not WHAT it requires. The day is no
+    # longer blanked; its return is computed from the market-derived value, so
+    # the adjustment still never reaches a return. The test asserts that
+    # directly, which is stronger than asserting the day is absent: it fails if
+    # the adjustment ever moves the published figure.
+    assert terminal.return_is_publishable is True
+    series = dict(_portfolio_time_weighted_return_series(states))
+    assert terminal.date in series
+
+    previous = states[-2]
+    market_derived = terminal.total_portfolio_value - terminal.reconciliation_adjustment
+    expected = (market_derived - terminal.external_cash_flow) / previous.total_portfolio_value - 1
+    assert series[terminal.date] == pytest.approx(expected, abs=1e-9), (
+        "F-3 has regressed — an accounting adjustment is reaching a published return"
     )
+    # And the reconciled value would have given a materially different number,
+    # which is what makes the correction load-bearing rather than cosmetic.
+    reconciled = (
+        terminal.total_portfolio_value - terminal.external_cash_flow
+    ) / previous.total_portfolio_value - 1
+    assert abs(series[terminal.date] - reconciled) > 1e-6
 
 
 # ── F-4 / F-5 (recorded 2026-07-24, US-31.4 / US-31.5) ──────────────────────
@@ -667,8 +683,9 @@ def test_us346_no_published_period_figure_contains_the_reconciliation(replay_con
     # dropping the entry from the level would discard broker truth.
     assert summary.end_value == pytest.approx(snapshot.statement_totals.ending_nav, abs=0.01)
 
-    # And the terminal day still publishes no time-weighted return (US-31.3).
-    assert terminal.return_is_publishable is False
+    # US-34.8: the terminal day publishes again — with the adjustment removed
+    # from the value, which is what keeps US-31.3's guarantee intact.
+    assert terminal.return_is_publishable is True
 
 
 def test_us344_withholding_states_how_much_was_at_stake(replay_context) -> None:
@@ -709,13 +726,14 @@ def test_us344_immaterial_unbacked_days_are_no_longer_withheld(replay_context) -
     """
     _engine, states = _us332_engine(replay_context)
 
+    # US-34.8 removed 2026-08-11: the reconciled terminal day is corrected
+    # rather than withheld, leaving only the unbacked-cash set.
     withheld = [state.date for state in states if not state.return_is_publishable]
     assert withheld == [
         "2026-04-14",
         "2026-04-17",
         "2026-06-12",
         "2026-07-17",
-        "2026-08-11",
     ]
     # The two recovered days still CARRY unbacked cash — they are published
     # because it is immaterial, not because the guard stopped noticing.

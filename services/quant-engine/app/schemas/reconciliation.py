@@ -587,26 +587,36 @@ class DailyPortfolioState(BaseModel):
 
     @property
     def return_is_publishable(self) -> bool:
-        """US-31.3 (Epic 31 F-3) + US-33.2: may a return be published for this day?
+        """US-33.2 + US-34.8: may a return be published for this day?
 
-        False when the state carries a material reconciliation adjustment (an
-        accounting correction, not performance) or a material unbacked cash flow
-        (cash moved by a withheld-quantity symbol, whose position is in no market
-        value — so the portfolio value steps with nothing behind it). In both
-        cases the state cannot be interpreted as a market move, so every return
-        builder must withhold (null) rather than compute. Defined here, on the
-        state itself, so the three consumers (`performance.py`, `risk.py`,
-        `attribution.py`) cannot drift apart — the US-31.2 "one shared chain"
-        lesson.
+        False only when the state carries a material **unbacked cash flow** —
+        cash moved by a withheld-quantity symbol, whose position is in no market
+        value, so the portfolio value steps with nothing behind it. That state
+        cannot be interpreted as a market move at all, and no corrected value
+        exists for it.
+
+        A reconciled terminal day is publishable (US-34.8): its return is
+        computed from the market-derived value, so the accounting adjustment
+        never enters it. US-31.3's requirement is met by correction rather than
+        by blanking the day.
+
+        Defined here, on the state itself, so the three consumers
+        (`performance.py`, `risk.py`, `attribution.py`) cannot drift apart — the
+        US-31.2 "one shared chain" lesson.
         """
-        from app.core.constants import (
-            REPLAY_RECONCILIATION_TOLERANCE,
-            REPLAY_UNBACKED_CASH_MATERIAL_SHARE,
-        )
+        from app.core.constants import REPLAY_UNBACKED_CASH_MATERIAL_SHARE
 
-        adjustment = self.reconciliation_adjustment
-        if adjustment is not None and abs(adjustment) > REPLAY_RECONCILIATION_TOLERANCE:
-            return False
+        # US-34.8 (Epic 34 F-8): a reconciled terminal day is PUBLISHABLE again.
+        #
+        # US-31.3 required that an accounting adjustment never be published as a
+        # return, and satisfied that by withholding the day — because the day's
+        # value had been overwritten and no un-overwritten one existed. US-34.6
+        # created that value (`market_derived_terminal_value`), so the return is
+        # now computed with the adjustment REMOVED. F-3's requirement holds by
+        # construction, and a real day of market movement stops being discarded.
+        #
+        # The unbacked-cash cause below is untouched: there the missing thing is
+        # a POSITION, not an adjustment, and no corrected value exists for it.
         # US-34.4 (Epic 34 F-4): the unbacked-cash guard is MATERIALITY, so it is
         # a share of that day's portfolio value — not the $1.00 rounding
         # tolerance US-33.2 borrowed, which discarded real return days for flows

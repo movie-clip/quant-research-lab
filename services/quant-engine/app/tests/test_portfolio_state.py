@@ -24,6 +24,7 @@ from app.core.constants import (
 from app.domain.ledger import snapshot_to_ledger
 from app.engine.portfolio_state import PortfolioStateEngine, replay_symbol_universe
 from app.schemas.imports import ImportedPortfolioSnapshot, ImportedStatementTotals
+from app.schemas.reconciliation import DailyPortfolioState
 from app.scripts.export_dashboard_goldens import _docs_statement_path, _repo_root
 from app.scripts.frozen_market_data import FrozenMarketData
 from app.services.statement_importer import import_statements
@@ -967,7 +968,7 @@ class TestTerminalReconciliationAdjustment:
         # US-34.4: 2026-06-10 ($25.09) and 2026-06-23 ($5.13) dropped out once
         # the unbacked-cash guard became a share of portfolio value rather than
         # the $1.00 rounding tolerance — they distort nothing measurable.
-        unpublishable = [s.date for s in states[:-1] if not s.return_is_publishable]
+        unpublishable = [s.date for s in states if not s.return_is_publishable]
         assert unpublishable == [
             "2026-04-14",
             "2026-04-17",
@@ -975,13 +976,54 @@ class TestTerminalReconciliationAdjustment:
             "2026-07-17",
         ]
         assert all(s.unbacked_cash_flow for s in states[:-1] if not s.return_is_publishable)
-        # ...and that day's return is therefore not publishable.
-        assert states[-1].return_is_publishable is False
+        # US-34.8: ...and that day's return IS publishable again — computed from
+        # the market-derived value, so the adjustment never enters it.
+        assert states[-1].return_is_publishable is True
         # No state is withheld for a RECONCILIATION reason except the terminal
         # one — the six above are the separate US-33.2 unbacked-cash case.
         assert not [
             s for s in states[:-1] if s.reconciliation_adjustment is not None
         ]
+
+    def test_terminal_return_is_unmoved_by_the_size_of_the_adjustment(self) -> None:
+        """US-34.8 AC2 — the guarantee, asserted directly.
+
+        US-31.3 required that an accounting adjustment never be published as a
+        return, and enforced it by blanking the day. US-34.8 enforces it by
+        computing the day on the market-derived value instead, which is a
+        stronger claim: the published return must be IDENTICAL whatever the
+        adjustment is. This fails if the adjustment ever reaches the figure.
+        """
+        from app.analytics.performance import _time_weighted_daily_return
+
+        previous = DailyPortfolioState(
+            date="2025-01-02",
+            cash={"USD": 0.0},
+            positions=[],
+            total_market_value=1000.0,
+            total_portfolio_value=1000.0,
+            external_cash_flow=0.0,
+        )
+
+        def _terminal(adjustment: float) -> DailyPortfolioState:
+            # `total_portfolio_value` is the RECONCILED level, so a bigger
+            # adjustment means the same market outcome snapped further.
+            return DailyPortfolioState(
+                date="2025-01-03",
+                cash={"USD": 0.0},
+                positions=[],
+                total_market_value=1100.0,
+                total_portfolio_value=1100.0 + adjustment,
+                external_cash_flow=0.0,
+                reconciliation_adjustment=adjustment,
+            )
+
+        baseline = _time_weighted_daily_return(previous, _terminal(0.0))
+        assert baseline == pytest.approx(0.10)
+        for adjustment in (500.0, -500.0, 5_000.0):
+            state = _terminal(adjustment)
+            assert state.return_is_publishable is True
+            assert _time_weighted_daily_return(previous, state) == pytest.approx(baseline)
 
     def test_no_reconciliation_adjustment_when_states_reconcile(self) -> None:
         # Terminal value already equals the statement's ending NAV -> the

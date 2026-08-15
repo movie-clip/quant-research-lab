@@ -44,13 +44,39 @@ withholds a number the product already computed correctly.**
 | US-34.5 | Publish the benchmark and excess return on a stated basis | Blocked on F-10 |
 | US-34.6 | Stop the money-weighted return and investment gain from publishing the reconciliation adjustment | Done |
 | US-34.7 | Decide the drawdown's price basis | Next phase |
-| US-34.8 | Publish the terminal day's return now that a trustworthy terminal value exists | Next phase |
+| US-34.8 | Publish the terminal day's return, corrected rather than withheld | Done |
 | US-34.9 | Source adjusted closes so the verified benchmark rung can fire | Next phase |
 
-Recommended order: US-34.2, US-34.6, US-34.3 and US-34.4 (done); US-34.5 blocked
-on F-10; then US-34.8, US-34.7, US-34.9.
+Recommended order: US-34.2, US-34.6, US-34.3, US-34.4 and US-34.8 (done);
+US-34.5 blocked on F-10; then US-34.7, US-34.9.
 
 ### Slice log
+
+- **US-34.8 (2026-08-13)** — **the most recent day of history stopped being
+  permanently blank.** US-31.3 withheld the reconciled terminal day because its
+  value had been overwritten by the statement snap and no un-overwritten one
+  existed; US-34.6 created that value, so the day's return is now computed with
+  the accounting adjustment *removed* rather than the day being blanked. **This
+  is not a relaxation:** F-3's requirement — an adjustment must never be
+  published as a return — is satisfied by construction, and the regression pins
+  now assert the stronger property that the published return is **invariant to
+  the adjustment's size** (tested against ±$500 and $5,000). On IB2026 the
+  terminal day publishes **+0.0038%**, an ordinary market move; withheld days
+  **5 → 4**, all four now the unbacked-cash cause, whose missing thing is a
+  *position* and for which no corrected value exists. **The confirmation is
+  FF2026:** with zero external flows the time- and money-weighted returns had
+  disagreed by exactly that day's market move (0.12% vs 0.51%) — they now
+  converge, which is the strongest available evidence that neither carries the
+  adjustment. **Found on the way:** `risk.py` holds a *second, independent copy*
+  of the daily-return formula. `return_is_publishable` is shared — its docstring
+  says so, precisely so the consumers "cannot drift apart" — but the arithmetic
+  is not, so the correction reached one chain and not the other and the terminal
+  day read −0.085% on one and +0.0038% on the other until it was caught. Both
+  now apply it; collapsing them to one implementation is logged as a refactor
+  rather than folded in. Golden diff surgical: only `portfolio_return_pct` and
+  `time_weighted_return_pct` moved — `reconciliation_adjustment` and every level
+  byte-identical. 720 backend (+3) + 325 frontend (+1) green; tsc + dead-code
+  gate clean.
 
 - **US-34.4 (2026-08-13)** — **a withholding now says how big it was, and stops
   costing days it shouldn't.** Epic 33 correctly refused to publish LQQ's

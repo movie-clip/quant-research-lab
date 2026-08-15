@@ -595,6 +595,39 @@ doing the same subtraction independently is exactly how they would drift apart.
 *Consequence to disclose:* the displayed value, gain and contributions no longer
 reconcile by subtraction, so the surface must say why (US-34.6 AC6).
 
+**The daily return uses it too (US-34.8).** US-31.3 required that an accounting
+adjustment never be published as a return, and enforced that by WITHHOLDING the
+reconciled terminal day — because at the time no un-overwritten value existed.
+This rule creates one, so the day's return is computed from the market-derived
+value instead:
+
+```text
+r_terminal = (market_derived_terminal_value − external_cash_flow) / PV_{t−1} − 1
+```
+
+That satisfies US-31.3's requirement *more exactly* than blanking did: the
+adjustment cannot enter the figure by construction, and a real day of market
+movement stops being discarded. The published return is **invariant to the size
+of the adjustment**, which is the property the regression pins assert.
+
+Withholding remains for the other cause: a day whose cash moved with no position
+behind it (US-33.2) has no corrected value available, because the missing thing
+there is a *position*, not an adjustment.
+
+*Why no materiality bound on the adjustment.* A large adjustment means the
+replay's valuation disagrees with broker truth — a concern about the **whole
+window**, since every other day is valued by the same machinery with no
+cross-check at all. The terminal day is the only day that *can* be checked;
+withholding it while publishing the unchecked days would be backwards. The
+adjustment is already disclosed as the window-level signal it is.
+
+*Both return chains apply it.* `performance.py::_time_weighted_daily_return` and
+`risk.py::_portfolio_time_weighted_return_series` are two independent
+implementations of the same formula — `return_is_publishable` is shared between
+them, the arithmetic is not — so the correction is applied in both. The
+market-value bases need no equivalent: the reconciliation moves
+`total_portfolio_value` and cash, never `total_market_value`.
+
 ## Monthly Returns (Dashboard)
 
 Monthly returns compound the same cash-flow-neutral daily returns as the

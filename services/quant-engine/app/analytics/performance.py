@@ -352,12 +352,16 @@ def build_true_performance_series(
 def _time_weighted_daily_return(previous_state: DailyPortfolioState, current_state: DailyPortfolioState) -> float | None:
     if previous_state.total_portfolio_value == 0:
         return None
-    # US-31.3 (Epic 31 F-3): a day whose value was moved by the terminal
-    # reconciliation carries an accounting correction, not a market move —
-    # withhold rather than publish it as performance (guardrail #3).
+    # US-33.2: a day whose cash moved with no position behind it cannot be read
+    # as a market move at all — withhold rather than fabricate (guardrail #3).
     if not current_state.return_is_publishable:
         return None
-    return ((current_state.total_portfolio_value - current_state.external_cash_flow) / previous_state.total_portfolio_value) - 1
+    # US-34.8 (Epic 34 F-8): a reconciled day uses the MARKET-DERIVED value, so
+    # the accounting adjustment never enters the return. US-31.3 achieved the
+    # same guarantee by publishing nothing; this achieves it while keeping the
+    # day's real market movement.
+    current_value = current_state.total_portfolio_value - (current_state.reconciliation_adjustment or 0.0)
+    return ((current_value - current_state.external_cash_flow) / previous_state.total_portfolio_value) - 1
 
 
 def build_performance_summary(daily_states: list[DailyPortfolioState], performance_series: list[PerformancePoint]) -> PerformanceSummary:
