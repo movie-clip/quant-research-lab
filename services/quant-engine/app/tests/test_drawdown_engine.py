@@ -133,3 +133,50 @@ def test_run_drawdown_engine_skips_decomposition_when_no_positions() -> None:
     result = run_drawdown_engine(request)
     assert result.trust == "unavailable"
     assert result.episodes == []
+
+
+def test_synthetic_path_dividend_exposure_is_bounded_on_this_statement() -> None:
+    """US-34.7 AC5 (Epic 34 F-12) — where the price-basis exposure IS real.
+
+    The synthetic construction applies CURRENT holdings to historical prices
+    with a flat cash balance and no ledger, so a dividend appears only as the
+    ex-date price drop with no offsetting receipt. That makes this path a genuine
+    PRICE drawdown, overstated by roughly the yield across the lookback — unlike
+    the replay path, whose ledger carries the cash.
+
+    On the committed statement the exposure is negligible because only one
+    current holding paid a dividend in the window. The assertion is a BOUND, not
+    a pin: a dividend-heavy portfolio must surface here rather than pass
+    silently.
+    """
+    from app.domain.ledger import snapshot_to_ledger
+    from app.scripts.export_dashboard_goldens import _docs_statement_path, _repo_root
+    from app.services.statement_importer import import_statements
+
+    snapshot = import_statements(
+        [str(_docs_statement_path(_repo_root(), "IB2026.csv", "IB2026.pdf", "2026.pdf"))]
+    )
+    held = {position.symbol for position in snapshot.positions}
+    ledger = snapshot_to_ledger(snapshot)
+
+    # Only dividends on symbols STILL HELD reach the synthetic path, because it
+    # values current holdings — a since-sold payer never enters it.
+    exposed = {
+        entry.symbol
+        for entry in ledger
+        if entry.entry_type == "DIVIDEND" and entry.symbol in held
+    }
+    assert exposed == {"PYPL"}
+
+    exposure = sum(
+        entry.cash_effect or 0.0
+        for entry in ledger
+        if entry.entry_type == "DIVIDEND" and entry.symbol in held
+    )
+    nav = snapshot.statement_totals.ending_nav
+    assert exposure / nav < 0.0005, (
+        f"the synthetic drawdown's dividend overstatement is {exposure / nav:.4%} "
+        "of NAV — above the documented bound, so it can no longer be treated as "
+        "negligible (see financial-methodology.md, Wealth Index and Drawdown)"
+    )
+

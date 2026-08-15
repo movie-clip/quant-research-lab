@@ -286,6 +286,47 @@ The decision needed: should the anti-derivation rule survive now that the rungs
 it protects cannot fire, and if so, what may the Dashboard say about benchmark
 performance?
 
+### F-11 (Medium) — the drawdown gate cited an exposure its own path does not have
+
+Found by US-34.7 while checking the justification US-34.2 left behind. That note
+— in the story and in a code comment — claimed a drawdown chained from
+unadjusted closes "overstates the loss on dividend-paying holdings", and stood
+as the stated reason the Dashboard drawdown stayed withheld.
+
+**On the Dashboard's path it is false.** `_compute_max_drawdown` chains the
+`portfolio_value` basis over the imported replay, where dividends and
+withholding taxes are **ledger entries** and land in the replayed cash balance.
+The ex-date price drop is offset by the receipt, so the chain is already
+total-return-like. Verified in the states: $125.72 gross, −$17.93 withholding,
+$107.79 net over the IB2026 window, each dividend date's cash moving by that
+day's net ledger effect.
+
+The real reason the gate is closed is that `drawdown_family` is one of
+`investor_economics_partial_unlock.withheld_families` — so reopening it is
+blocked on **F-10**, the same decision that parked US-34.5.
+
+This is the Epic 32 failure mode inside Epic 34's own work: an agent-facing
+justification asserting something the code does not do, written in good faith
+and plausible enough to survive unexamined.
+
+### F-12 (Low) — the exposure is real on the synthetic path, which already ships
+
+The Risk tab's Drawdown Analytics card is built over
+`_build_synthetic_snapshot_history_states_with_coverage`, which applies *current
+holdings* to historical prices with a **flat cash balance** and **no ledger**. A
+dividend there appears only as the ex-date price drop with nothing offsetting
+it, so that construction genuinely is a price drawdown, overstated by roughly
+the yield across the lookback (the card offers 252d and 504d).
+
+Bounded on the committed statement: only dividends on symbols **still held**
+reach this path, and of 18 current holdings only **PYPL** paid one in the window
+($3.64 gross ≈ 0.006% of NAV). Negligible here, real in mechanism, and
+portfolio-specific — so US-34.7 pins it as a bound that fails for a
+dividend-heavy portfolio rather than assuming it stays small.
+
+Correcting it needs total-return prices the provider does not supply (F-9), so
+it is documented rather than adjusted.
+
 ### Examined and found correct — do not "fix" these
 
 - **The Exposure and Risk tabs are healthy.** They run on the snapshot-analytics
