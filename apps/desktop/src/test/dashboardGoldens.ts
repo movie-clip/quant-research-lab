@@ -31428,7 +31428,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "date": "2026-08-11",
       "portfolio_value": 65429.98,
       "benchmark_price": 770.56,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.54,
       "benchmark_return_pct": null
     }
   ],
@@ -31657,7 +31657,7 @@ export const ff2026DashboardGolden = {
   "monthlyStatusLabel": "Monthly-return status: Live market history",
   "portfolioValue": "$3071.00",
   "startValue": "$3097.89",
-  "timeWeightedReturn": "-1.08%",
+  "timeWeightedReturn": "-1.20%",
   "netContributions": "$0.00",
   "moneyWeightedReturn": "-1.20%",
   "drawdown": "n/a",
@@ -34756,7 +34756,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
       "date": "2026-04-10",
       "portfolio_value": 3071.0,
       "benchmark_price": 679.46,
-      "portfolio_return_pct": null,
+      "portfolio_return_pct": 0.4,
       "benchmark_return_pct": null
     }
   ],
@@ -34771,7 +34771,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         "end_value": 3071.0,
         "net_contributions": 0.0,
         "investment_gain": 24.940000000000055,
-        "time_weighted_return_pct": 0.94,
+        "time_weighted_return_pct": 0.82,
         "money_weighted_return_pct": 0.8215324511906309,
         "benchmark_return_pct": null,
         "excess_return_pct": null
@@ -34796,7 +34796,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         "end_value": 3071.0,
         "net_contributions": 0.0,
         "investment_gain": -37.159999999999854,
-        "time_weighted_return_pct": -1.08,
+        "time_weighted_return_pct": -1.2,
         "money_weighted_return_pct": -1.1995261290749464,
         "benchmark_return_pct": null,
         "excess_return_pct": null
@@ -34829,7 +34829,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         "end_value": 3071.0,
         "net_contributions": 0.0,
         "investment_gain": -2.6900000000000546,
-        "time_weighted_return_pct": 0.03,
+        "time_weighted_return_pct": -0.09,
         "money_weighted_return_pct": -0.08781035574619395,
         "benchmark_return_pct": null,
         "excess_return_pct": null
@@ -34862,7 +34862,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         "end_value": 3071.0,
         "net_contributions": 0.0,
         "investment_gain": 12.159999999999854,
-        "time_weighted_return_pct": 0.52,
+        "time_weighted_return_pct": 0.4,
         "money_weighted_return_pct": 0.39887553836716405,
         "benchmark_return_pct": null,
         "excess_return_pct": null
@@ -34899,7 +34899,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
         "end_value": 3071.0,
         "net_contributions": 0.0,
         "investment_gain": 12.159999999999854,
-        "time_weighted_return_pct": 0.52,
+        "time_weighted_return_pct": 0.4,
         "money_weighted_return_pct": 0.39887553836716405,
         "benchmark_return_pct": null,
         "excess_return_pct": null

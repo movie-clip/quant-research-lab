@@ -1575,10 +1575,21 @@ def _portfolio_time_weighted_return_series(
             if previous_value == 0:
                 previous_state = state
                 continue
-            daily_return = ((state.total_portfolio_value - state.external_cash_flow) / previous_value) - 1
-        # US-31.3 (Epic 31 F-3): skip a day whose value was moved by the terminal
-        # reconciliation — an accounting correction must never enter a return
-        # series (and thus volatility, beta, correlation or any rolling window).
+            # US-34.8 (Epic 34 F-8): the MARKET-DERIVED value, so the terminal
+            # reconciliation never enters a return — the same correction
+            # `performance.py::_time_weighted_daily_return` applies.
+            #
+            # This branch is a second, independent implementation of that
+            # formula. `return_is_publishable` is shared between them; the
+            # ARITHMETIC is not, which is how the correction reached the
+            # dashboard chain and not this one until it was caught. The
+            # market-value bases above need no equivalent: the reconciliation
+            # moves `total_portfolio_value` and cash, never `total_market_value`.
+            current_value = state.total_portfolio_value - (state.reconciliation_adjustment or 0.0)
+            daily_return = ((current_value - state.external_cash_flow) / previous_value) - 1
+        # US-33.2: skip a day whose cash moved with no position behind it — it
+        # cannot be read as a market move, so it must not enter a return series
+        # (and thus volatility, beta, correlation or any rolling window).
         if not state.return_is_publishable:
             previous_state = state
             continue

@@ -307,4 +307,28 @@ describe('ReplayDisclosuresCard', () => {
     expect(text).not.toMatch(/at least/i)
     expect(text).not.toContain('$0.00')
   })
+
+  it('names only the withholding causes that actually fired (US-34.8)', () => {
+    // The engine composes the reason from the causes present. Once the
+    // reconciled terminal day is CORRECTED rather than withheld, the reason must
+    // stop naming the terminal reconciliation — a disclosure describing a
+    // withholding that is not happening is worse than none.
+    render(
+      <ReplayDisclosuresCard
+        runMetadata={metadata({
+          withheld_return_dates: ['2026-04-14', '2026-04-17', '2026-06-12', '2026-07-17'],
+          withheld_return_reason:
+            'Return withheld: a holding whose reconstructed quantity was withheld traded that day, moving cash with no position behind it in market value.',
+        })}
+      />,
+    )
+
+    const text = screen.getByRole('region', { name: /replay disclosures/i }).textContent ?? ''
+    expect(text).toMatch(/no position behind it/i)
+    expect(text).not.toMatch(/accounting entry/i)
+    // The four remaining days are still named — withheld is never silent.
+    expect(text).toContain('2026-04-14')
+    expect(text).toContain('2026-07-17')
+    expect(text).not.toContain('2026-08-11')
+  })
 })
