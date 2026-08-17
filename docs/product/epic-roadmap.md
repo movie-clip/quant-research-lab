@@ -41,16 +41,51 @@ withholds a number the product already computed correctly.**
 | US-34.2 | Publish the replay's TWR under an explicit `replay_derived` trust state | Done |
 | US-34.3 | Anchor opening cash on the statement's own starting cash | Done |
 | US-34.4 | Say what a withheld holding was worth, and stop withholding immaterial days | Done |
-| US-34.5 | Publish the benchmark and excess return on a stated basis | Blocked on F-10 |
+| US-34.5 | Publish the benchmark and excess return on a stated basis | Done |
 | US-34.6 | Stop the money-weighted return and investment gain from publishing the reconciliation adjustment | Done |
 | US-34.7 | Correct the drawdown price-basis claim, and disclose where it is real | Done |
 | US-34.8 | Publish the terminal day's return, corrected rather than withheld | Done |
 | US-34.9 | Source adjusted closes so the verified benchmark rung can fire | Next phase |
 
-Recommended order: US-34.2, US-34.6, US-34.3, US-34.4, US-34.8 and US-34.7
-(done); US-34.5 blocked on F-10; US-34.9 needs an FMP re-capture.
+Recommended order: US-34.2, US-34.6, US-34.3, US-34.4, US-34.8, US-34.7 and
+US-34.5 (done); US-34.9 needs an FMP re-capture.
 
 ### Slice log
+
+- **US-34.5 (2026-08-17)** — **the withheld figure was already derivable; the
+  rule was removing the label, not the information.** Parked on 2026-08-13
+  pending an owner decision on the investor-economics publication policy (F-10),
+  and unparked when that decision came: retire the anti-derivation rule for the
+  benchmark leg, scope the unlock to benchmark + excess. The evidence that
+  settled it — the same response already publishes the **148 dated benchmark
+  prices** these figures are computed from, twice over (`benchmark.points` and
+  `performance_series[].benchmark_price`), next to 148 portfolio values and
+  US-34.2's portfolio return chain. Any reader with a spreadsheet already had
+  the number; what they did *not* have was the **basis label**, which is exactly
+  what makes a **price** return read as a **total** return. Publishing it
+  labelled is strictly safer than the silence it replaced. On IB2026 the
+  Dashboard now shows SPY **+11.75%** and **−11.21pp** excess for All,
+  **+4.22% / −2.61pp** for 3M, **+2.85% / +1.34pp** for 1M — re-based per range
+  through US-34.2's helper, because reading the slice's last point would have
+  reported since-inception for every window (the defect US-34.2 found on the
+  portfolio leg, and invisible in the 2-point policy fixtures where every range
+  *is* the full window). **A latent bug surfaced while retiring the rule:** the
+  old gate was `verified_total_return AND slice_admitted`, so replacing the
+  first clause alone would have left the fallback able to publish an
+  `unverified_adjusted_proxy` return whenever the *portfolio's* slice happened
+  to be admitted — one leg's proof status standing in as evidence about the
+  other leg's data. The gate is now the basis and nothing else. **Published is
+  not promoted:** the basis contract still reads `price_return_only`,
+  `investor_economics_status` still reads `withheld`, the daily benchmark chain
+  and `drawdown_family` stay withheld, and a test asserts that exact pairing.
+  The mixed-basis bias is disclosed rather than hidden — a price return omits
+  the benchmark's dividends, so it understates the benchmark and **flatters**
+  the excess by roughly 0.7pp over this window. ~15 policy tests were restated
+  on substance (not blanket-updated): the surviving guards — proxy bases publish
+  nothing, non-exact windows still withhold the *portfolio* scalar, a missing
+  leg yields no excess — are all still asserted. Two dead helpers and the four
+  unit tests that existed only for them were removed. 727 backend + 329 frontend
+  green; tsc + dead-code gate clean.
 
 - **US-34.7 (2026-08-13)** — **a justification that had gone unchecked for eight
   days turned out to be false, and it was ours.** US-34.2 narrowed its scope to

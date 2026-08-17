@@ -15,6 +15,8 @@ export const ib2026DashboardGolden = {
   "timeWeightedReturn": "1.61%",
   "netContributions": "$0.00",
   "moneyWeightedReturn": "1.91%",
+  "benchmarkReturn": "4.22%",
+  "excessReturn": "-2.61%",
   "drawdown": "n/a",
   "loadedFiles": [
     "IB2026.csv"
@@ -4581,7 +4583,7 @@ export const ib2026ImportedDashboardGoldenFixture = {
     "symbol": "SPY",
     "start_price": 689.51,
     "end_price": 770.56,
-    "return_pct": null,
+    "return_pct": 11.75,
     "return_basis_contract": "price_return_only",
     "points": [
       {
@@ -31445,8 +31447,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "investment_gain": 4234.210000000006,
         "time_weighted_return_pct": 4.19,
         "money_weighted_return_pct": 6.912558028977115,
-        "benchmark_return_pct": null,
-        "excess_return_pct": null
+        "benchmark_return_pct": 2.85,
+        "excess_return_pct": 1.34
       },
       "max_drawdown_pct": null,
       "monthly_returns": [
@@ -31470,8 +31472,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "investment_gain": 1229.7100000000064,
         "time_weighted_return_pct": 1.61,
         "money_weighted_return_pct": 1.9136959257298525,
-        "benchmark_return_pct": null,
-        "excess_return_pct": null
+        "benchmark_return_pct": 4.22,
+        "excess_return_pct": -2.61
       },
       "max_drawdown_pct": null,
       "monthly_returns": [
@@ -31503,8 +31505,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "investment_gain": 1714.7100000000064,
         "time_weighted_return_pct": 0.54,
         "money_weighted_return_pct": 2.881694927738503,
-        "benchmark_return_pct": null,
-        "excess_return_pct": null
+        "benchmark_return_pct": 11.75,
+        "excess_return_pct": -11.21
       },
       "max_drawdown_pct": null,
       "monthly_returns": [
@@ -31552,8 +31554,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "investment_gain": 1714.7100000000064,
         "time_weighted_return_pct": 0.54,
         "money_weighted_return_pct": 2.881694927738503,
-        "benchmark_return_pct": null,
-        "excess_return_pct": null
+        "benchmark_return_pct": 11.75,
+        "excess_return_pct": -11.21
       },
       "max_drawdown_pct": null,
       "monthly_returns": [
@@ -31601,8 +31603,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "investment_gain": 1714.7100000000064,
         "time_weighted_return_pct": 0.54,
         "money_weighted_return_pct": 2.881694927738503,
-        "benchmark_return_pct": null,
-        "excess_return_pct": null
+        "benchmark_return_pct": 11.75,
+        "excess_return_pct": -11.21
       },
       "max_drawdown_pct": null,
       "monthly_returns": [
@@ -31660,6 +31662,8 @@ export const ff2026DashboardGolden = {
   "timeWeightedReturn": "-1.20%",
   "netContributions": "$0.00",
   "moneyWeightedReturn": "-1.20%",
+  "benchmarkReturn": "-1.46%",
+  "excessReturn": "0.26%",
   "drawdown": "n/a",
   "loadedFiles": [
     "FF2026.pdf"
@@ -31961,7 +31965,7 @@ export const ff2026ImportedDashboardGoldenFixture = {
     "symbol": "SPY",
     "start_price": 680.27,
     "end_price": 679.46,
-    "return_pct": null,
+    "return_pct": -0.12,
     "return_basis_contract": "price_return_only",
     "points": [
       {
@@ -34773,8 +34777,8 @@ export const ff2026ImportedDashboardGoldenFixture = {
         "investment_gain": 24.940000000000055,
         "time_weighted_return_pct": 0.82,
         "money_weighted_return_pct": 0.8215324511906309,
-        "benchmark_return_pct": null,
-        "excess_return_pct": null
+        "benchmark_return_pct": 0.46,
+        "excess_return_pct": 0.36
       },
       "max_drawdown_pct": null,
       "monthly_returns": [
@@ -34798,8 +34802,8 @@ export const ff2026ImportedDashboardGoldenFixture = {
         "investment_gain": -37.159999999999854,
         "time_weighted_return_pct": -1.2,
         "money_weighted_return_pct": -1.1995261290749464,
-        "benchmark_return_pct": null,
-        "excess_return_pct": null
+        "benchmark_return_pct": -1.46,
+        "excess_return_pct": 0.26
       },
       "max_drawdown_pct": null,
       "monthly_returns": [
@@ -34831,8 +34835,8 @@ export const ff2026ImportedDashboardGoldenFixture = {
         "investment_gain": -2.6900000000000546,
         "time_weighted_return_pct": -0.09,
         "money_weighted_return_pct": -0.08781035574619395,
-        "benchmark_return_pct": null,
-        "excess_return_pct": null
+        "benchmark_return_pct": -0.55,
+        "excess_return_pct": 0.46
       },
       "max_drawdown_pct": null,
       "monthly_returns": [
@@ -34864,8 +34868,8 @@ export const ff2026ImportedDashboardGoldenFixture = {
         "investment_gain": 12.159999999999854,
         "time_weighted_return_pct": 0.4,
         "money_weighted_return_pct": 0.39887553836716405,
-        "benchmark_return_pct": null,
-        "excess_return_pct": null
+        "benchmark_return_pct": -0.12,
+        "excess_return_pct": 0.52
       },
       "max_drawdown_pct": null,
       "monthly_returns": [
@@ -34901,8 +34905,8 @@ export const ff2026ImportedDashboardGoldenFixture = {
         "investment_gain": 12.159999999999854,
         "time_weighted_return_pct": 0.4,
         "money_weighted_return_pct": 0.39887553836716405,
-        "benchmark_return_pct": null,
-        "excess_return_pct": null
+        "benchmark_return_pct": -0.12,
+        "excess_return_pct": 0.52
       },
       "max_drawdown_pct": null,
       "monthly_returns": [

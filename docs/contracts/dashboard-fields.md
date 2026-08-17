@@ -126,9 +126,9 @@ Current dashboard-history run-metadata semantics:
   - `mode = allowlisted_exact_slice_scalars_only` means consumers must not generalize from any admitted scalar to broader benchmark-relative or path-derived families
   - `exact_slice_scalar_allowlist` is authoritative per-field policy:
     - `range_metrics[*].summary.time_weighted_return_pct`: only for the identical admitted exact portfolio slice
-    - `range_metrics[*].summary.benchmark_return_pct`: only for that same identical admitted exact slice and only with independently verified benchmark `verified_total_return`
-    - `range_metrics[*].summary.excess_return_pct`: only for that same identical admitted slice pair, only when both already-allowlisted exact-slice legs are present in the same server response, and only from the server-side scalar runtime path
-  - `client_derivation_rule = server_side_scalar_only_no_daily_series_subtraction_equivalence` means consumers must not treat daily-series subtraction, benchmark-path reconstruction, or any local derivation as equivalent to a future server-emitted exact-slice scalar
+    - `range_metrics[*].summary.benchmark_return_pct` (`unlock_condition = publishing_benchmark_return_basis_only`, US-34.5): published whenever the **benchmark's own** basis supports a return — `verified_total_return` or `price_return_only` — re-based to each range's own start. It does **not** depend on the portfolio's exact-slice admission: the two legs are measured from different data, and one leg's proof status is not evidence about the other's. `unverified_adjusted_proxy` and `unavailable` still publish nothing.
+    - `range_metrics[*].summary.excess_return_pct` (`unlock_condition = both_published_legs_present_only`, US-34.5): strictly the difference of the two **published** figures, rounded to 2dp. If either leg is null the excess is null — never a figure computed against a null read as zero.
+  - `client_derivation_rule = labelled_scalars_published_daily_series_withheld` (US-34.5, owner decision 2026-08-17) means the per-range scalars are published **with their basis label**, while the daily benchmark return chain stays withheld. This replaced `server_side_scalar_only_no_daily_series_subtraction_equivalence`, which withheld figures the same response already made derivable from its own published prices — removing the label rather than the information, and making a price return more likely to be misread as a total return.
   - `withheld_families` explicitly fences the broader withheld families that remain off-limits even if one of the allowlisted scalars is present
 - `run_metadata.reproducibility.*`
   - records the import timestamp, latest snapshot as-of date, effective history window, requested benchmark symbol, and current market-data dataset version used by the dashboard-history engine
@@ -137,11 +137,12 @@ Investor-economics withholding rule:
 
 - daily history and performance-series rows may still exist while `run_metadata.investor_economics_status.status = withheld`
 - in that state, dashboard-history now publishes an explicit partial-unlock contract for the only allowlisted exception path
-- under that contract, dashboard-history only allows three live exact-slice scalar outputs today: portfolio-only `time_weighted_return_pct`, exact-slice `benchmark_return_pct` only when the benchmark basis is independently `verified_total_return`, and exact-slice `excess_return_pct` only when both admitted exact-slice legs are present in the same server response
-- exact-slice `excess_return_pct` is admitted only as same-slice subtraction of those two already-admitted exact-slice scalars; if either leg is withheld, null, unverified, or scope-mismatched, `excess_return_pct` must remain `null`
-- current runtime now emits only that exact-slice `excess_return_pct` scalar exception; `max_drawdown_pct` and all other investor-economics outputs still remain withheld even when one or both exact-slice scalar outputs are present
-- monthly/rebucketed/rolling/non-identical-window outputs must not be inferred or reconstructed from those two scalars
-- daily-series subtraction or client-side derivation must not be treated as equivalent to the server-emitted exact-slice scalar
+- under that contract, dashboard-history allows three live scalar outputs today: `time_weighted_return_pct` (portfolio, on the exact-slice or `replay_derived` rung), `benchmark_return_pct` (on any publishing benchmark basis), and `excess_return_pct` (when both of those are present)
+- `excess_return_pct` is admitted only as the subtraction of those two published scalars; if either leg is withheld, null, unverified, or scope-mismatched, `excess_return_pct` must remain `null`
+- `max_drawdown_pct` and all other investor-economics outputs still remain withheld even when the scalar outputs are present
+- monthly/rebucketed/rolling/non-identical-window outputs must not be inferred or reconstructed from those scalars
+- the **daily** `performance_series[*].benchmark_return_pct` chain remains withheld (`benchmark_relative_series`); the chart indexes `benchmark_price` itself, so the chain is not needed to draw it
+- **publishing is not promotion**: a published `benchmark_return_pct` on `price_return_only` is a price return, not a total return. `run_metadata.return_basis_contract.benchmark_path` states which, `investor_economics_status` stays `withheld`, and the UI must render the basis marker rather than presenting the figure bare
 - downstream consumers must treat those `null` values as deliberate withholding tied to the run metadata, not as a generic history failure
 
 ## Truth Classes
@@ -250,7 +251,7 @@ Import admission is informational on Dashboard: workspace creation is non-blocki
 3. If cards/chart/history come from one snapshot and composition cards come from another snapshot, Dashboard is internally inconsistent and that is a bug.
 4. If a history-based field cannot be supported faithfully, the UI must render `n/a`, hide the unstable cards, or show an unavailable panel.
 5. Imported history replay is only trustworthy when the broker snapshot and required market-data support are both present; otherwise the result must degrade to `unavailable`.
-6. Dashboard-history withholding is distinct from unavailability: when `run_metadata.investor_economics_status` is `withheld`, history may still be present, but only the explicit allowlisted exact-slice scalars described in `run_metadata.investor_economics_partial_unlock` may appear; only exact-slice `range_metrics[*].summary.excess_return_pct` joins `time_weighted_return_pct` and exact-slice `benchmark_return_pct`, while `max_drawdown_pct` and other non-allowlisted investor-economics outputs must stay `null`/hidden on the Performance card. `RiskSummaryCard` sidesteps this by sourcing drawdown from the separate, unwithheld diagnostics path instead.
+6. Dashboard-history withholding is distinct from unavailability: when `run_metadata.investor_economics_status` is `withheld`, history may still be present, but only the allowlisted scalars described in `run_metadata.investor_economics_partial_unlock` may appear — `time_weighted_return_pct`, `benchmark_return_pct` and `excess_return_pct`, each on its own stated condition (US-34.5) — while `max_drawdown_pct` and other non-allowlisted investor-economics outputs must stay `null`/hidden on the Performance card. `RiskSummaryCard` sidesteps this by sourcing drawdown from the separate, unwithheld diagnostics path instead.
 7. `risk_concentration_summary.top_*_risk_share` fields are 0-1 fractions, not percentages — a consumer that renders them with a bare `%` suffix without multiplying by 100 is wrong by a factor of ~100 (this exact bug was caught and fixed during US-25.4).
 
 ## Current Coverage Status

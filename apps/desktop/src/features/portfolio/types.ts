@@ -254,13 +254,18 @@ export type DashboardHistoryInvestorEconomicsScalarPolicy = {
     | 'identical_admitted_exact_slice_only'
     | 'identical_admitted_exact_slice_with_independently_verified_benchmark_total_return_only'
     | 'identical_admitted_exact_slice_pair_only'
+    // US-34.5 (Epic 34 F-10): the conditions that gate the benchmark leg now.
+    | 'publishing_benchmark_return_basis_only'
+    | 'both_published_legs_present_only'
   runtime_enabled: boolean
 }
 
 export type DashboardHistoryInvestorEconomicsPartialUnlock = {
   mode: 'allowlisted_exact_slice_scalars_only'
   exact_slice_scalar_allowlist: DashboardHistoryInvestorEconomicsScalarPolicy[]
-  client_derivation_rule: 'server_side_scalar_only_no_daily_series_subtraction_equivalence'
+  client_derivation_rule:
+    | 'server_side_scalar_only_no_daily_series_subtraction_equivalence'
+    | 'labelled_scalars_published_daily_series_withheld'
   withheld_families: Array<
     | 'benchmark_relative_series'
     | 'benchmark_relative_path_derived_outputs'

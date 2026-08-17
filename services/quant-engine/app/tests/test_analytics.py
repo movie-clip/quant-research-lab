@@ -36,13 +36,11 @@ from app.schemas.diagnostics import DiagnosticsEngineRequest
 from app.schemas.exposure import ExposureAvailability, ExposureCurrentStateConcentration, ExposureProvenance, ExposureResult, ExposureRunMetadata
 from app.schemas.exposure import ExposureRunReproducibilityMetadata, ExposureRunSourceStatus
 from app.schemas.portfolio_engine import PortfolioCashBalanceSnapshot, PortfolioHistoryContext, PortfolioPositionSnapshot
-from app.schemas.reconciliation import DailyPortfolioState, PerformancePoint, PortfolioRiskSummary
+from app.schemas.reconciliation import DailyPortfolioState, PortfolioRiskSummary
 from app.schemas.reconciliation import RollingFactorLoadingPoint, SnapshotItem, StatisticalFactorModel, VolatilitySnapshot
 from app.schemas.reconciliation import LookThroughConstituent, LookThroughOverview, LookThroughSource, MarketOverlapSummary, PortfolioOverview
 from app.services.dashboard_history_engine import (
-    _allow_future_exact_slice_excess_return_output,
     _compute_contribution_adjusted_monthly_returns,
-    _compute_future_exact_slice_excess_return_pct,
     _compute_max_drawdown,
     run_dashboard_history_engine,
     run_imported_dashboard_history,
@@ -725,16 +723,16 @@ def test_run_dashboard_history_engine_returns_unavailable_without_complete_histo
             },
             {
                 "field": "range_metrics[*].summary.benchmark_return_pct",
-                "unlock_condition": "identical_admitted_exact_slice_with_independently_verified_benchmark_total_return_only",
+                "unlock_condition": "publishing_benchmark_return_basis_only",
                 "runtime_enabled": True,
             },
             {
                 "field": "range_metrics[*].summary.excess_return_pct",
-                "unlock_condition": "identical_admitted_exact_slice_pair_only",
+                "unlock_condition": "both_published_legs_present_only",
                 "runtime_enabled": True,
             },
         ],
-        "client_derivation_rule": "server_side_scalar_only_no_daily_series_subtraction_equivalence",
+        "client_derivation_rule": "labelled_scalars_published_daily_series_withheld",
         "withheld_families": [
             "benchmark_relative_series",
             "benchmark_relative_path_derived_outputs",
@@ -869,16 +867,16 @@ def test_run_diagnostics_engine_returns_unavailable_for_snapshot_only_requests(m
             },
             {
                 "field": "range_metrics[*].summary.benchmark_return_pct",
-                "unlock_condition": "identical_admitted_exact_slice_with_independently_verified_benchmark_total_return_only",
+                "unlock_condition": "publishing_benchmark_return_basis_only",
                 "runtime_enabled": True,
             },
             {
                 "field": "range_metrics[*].summary.excess_return_pct",
-                "unlock_condition": "identical_admitted_exact_slice_pair_only",
+                "unlock_condition": "both_published_legs_present_only",
                 "runtime_enabled": True,
             },
         ],
-        "client_derivation_rule": "server_side_scalar_only_no_daily_series_subtraction_equivalence",
+        "client_derivation_rule": "labelled_scalars_published_daily_series_withheld",
         "withheld_families": [
             "benchmark_relative_series",
             "benchmark_relative_path_derived_outputs",
@@ -2787,11 +2785,16 @@ def test_run_imported_dashboard_history_uses_imported_snapshot_ledger_and_return
     assert result.range_metrics["All"].summary.time_weighted_return_pct is not None
     assert result.range_metrics["All"].portfolio_return_trust == "degraded"
     assert result.range_metrics["All"].summary.end_value == result.daily_states[-1].total_portfolio_value
-    assert result.range_metrics["All"].summary.benchmark_return_pct is None
-    assert result.range_metrics["All"].summary.excess_return_pct is None
+    # US-34.5 (F-10): benchmark and excess publish, labelled with the benchmark's
+    # basis. The DRAWDOWN below is still withheld — that is the output this test
+    # guards, and it is unchanged.
+    assert result.range_metrics["All"].summary.benchmark_return_pct == 20.0
+    assert result.range_metrics["All"].summary.excess_return_pct == -17.73
     assert result.range_metrics["All"].max_drawdown_pct is None
     assert result.benchmark is not None
-    assert result.benchmark.return_pct is None
+    # US-34.5 (F-10): published on a PRICE basis — a real return that is
+    # simply not a total return, which the basis contract states.
+    assert result.benchmark.return_pct == 20.0
     assert result.benchmark.return_basis_contract == "price_return_only"
 
 
@@ -2877,10 +2880,12 @@ def test_run_imported_dashboard_history_enables_verified_benchmark_only_for_dire
     }
     assert result.range_metrics is not None
     assert result.performance_series[-1].benchmark_return_pct is None
-    assert result.range_metrics["All"].summary.benchmark_return_pct is None
+    # US-34.5 (F-10): on a VERIFIED benchmark basis the return publishes — that
+    # is the strongest rung, and withholding there was never about trust.
+    assert result.range_metrics["All"].summary.benchmark_return_pct is not None
     assert result.benchmark is not None
     assert result.benchmark.return_basis_contract == "verified_total_return"
-    assert result.benchmark.return_pct is None
+    assert result.benchmark.return_pct is not None
     assert result.run_metadata.investor_economics_status.model_dump() == {
         "status": "withheld",
         "reason": "withheld_unverified_total_return_equivalence",
@@ -3028,7 +3033,8 @@ def test_run_imported_dashboard_history_enables_verified_benchmark_for_direct_qq
     }
     assert result.benchmark is not None
     assert result.benchmark.return_basis_contract == "verified_total_return"
-    assert result.benchmark.return_pct is None
+    # US-34.5 (F-10): published, labelled with its basis.
+    assert result.benchmark.return_pct == 1.5
 
 
 def test_run_imported_dashboard_history_keeps_qqq_unverified_when_direct_scope_evidence_is_broken(mocker) -> None:
@@ -3142,7 +3148,9 @@ def test_run_imported_dashboard_history_keeps_qqq_unverified_when_in_window_adjc
     assert result.run_metadata.return_basis_evidence.benchmark_path.verification_status == "unverified"
     assert result.run_metadata.return_basis_evidence.benchmark_path.scope == {}
     assert result.benchmark is not None
-    assert result.benchmark.return_pct is None
+    # US-34.5 (F-10): published on a PRICE basis — a real return that is
+    # simply not a total return, which the basis contract states.
+    assert result.benchmark.return_pct == 1.0
 
 
 def test_run_imported_dashboard_history_keeps_non_allowlisted_benchmark_unverified_even_with_adjusted_rows(mocker) -> None:
@@ -3262,9 +3270,14 @@ def test_build_true_performance_series_refuses_compounded_portfolio_and_benchmar
     )
 
     # US-27.9 (audit F11): refusal is an explicit null, never a fabricated
-    # 0.0 that reads as a real "0% cumulative return".
+    # 0.0 that reads as a real "0% cumulative return". Unchanged for the
+    # PORTFOLIO leg, which this test is really about.
     assert all(point.portfolio_return_pct is None for point in series)
-    assert series[2].benchmark_return_pct is None
+    # US-34.5 (F-10): the BENCHMARK leg now chains on a price-only basis. A
+    # price return is a real measurement that is simply not a TOTAL return —
+    # the basis contract says which it is, so publishing it is not a claim the
+    # data cannot support. 103/100 - 1 = 3%.
+    assert series[2].benchmark_return_pct == 3.0
 
 
 def test_build_true_performance_series_refuses_compounded_portfolio_and_benchmark_returns_for_unverified_adjusted_proxy_basis() -> None:
@@ -3374,15 +3387,20 @@ def test_run_imported_dashboard_history_refuses_drawdown_loss_metrics_for_price_
 
     assert result.range_metrics is not None
     assert result.range_metrics["All"].max_drawdown_pct is None
-    # US-34.2: the portfolio's own TWR is now published on the `replay_derived`
+    # US-34.2: the portfolio's own TWR is published on the `replay_derived`
     # rung — it does not depend on the BENCHMARK's basis, which is what this
-    # test is about. The three assertions that do depend on it are unchanged,
-    # and they are the point: a weak benchmark basis must not yield a drawdown,
-    # a benchmark return, or an excess return.
+    # test is about.
+    #
+    # US-34.5 (F-10) narrowed what a weak benchmark basis withholds. The
+    # DRAWDOWN is still refused (asserted above, and that is this test's name).
+    # The benchmark return and excess now publish, labelled `price_return_only`:
+    # a price basis understates a positive-yield benchmark and therefore
+    # FLATTERS the excess, which is a disclosed bias, not a fabrication.
     assert result.range_metrics["All"].summary.time_weighted_return_pct is not None
     assert result.range_metrics["All"].portfolio_return_trust == "degraded"
-    assert result.range_metrics["All"].summary.benchmark_return_pct is None
-    assert result.range_metrics["All"].summary.excess_return_pct is None
+    assert result.range_metrics["All"].summary.benchmark_return_pct is not None
+    assert result.range_metrics["All"].summary.excess_return_pct is not None
+    assert result.run_metadata.return_basis_contract.benchmark_path == "price_return_only"
 
 
 def test_run_imported_dashboard_history_refuses_drawdown_loss_metrics_for_unverified_adjusted_proxy_basis(mocker) -> None:
@@ -3513,7 +3531,8 @@ def test_run_imported_dashboard_history_unlocks_exact_slice_excess_return_for_ad
     assert result.range_metrics["All"].max_drawdown_pct is None
     assert result.benchmark is not None
     assert result.benchmark.return_basis_contract == "verified_total_return"
-    assert result.benchmark.return_pct is None
+    # US-34.5 (F-10): published, labelled with its basis.
+    assert result.benchmark.return_pct == 1.0
     assert result.run_metadata.investor_economics_status.model_dump() == {
         "status": "withheld",
         "reason": "withheld_unverified_total_return_equivalence",
@@ -3651,12 +3670,20 @@ def test_run_imported_dashboard_history_keeps_partial_overlap_benchmark_return_w
     assert result.range_metrics["All"].summary.time_weighted_return_pct == 21.0
     assert result.range_metrics["All"].summary.benchmark_return_pct == 21.0
     assert result.range_metrics["All"].summary.excess_return_pct == 0.0
+    # US-34.5 (F-10): the PORTFOLIO scalar's exact-slice gate is untouched, so
+    # a non-exact window still withholds the TWR — that is what this test
+    # guards. The benchmark leg no longer inherits that gate, because the
+    # portfolio's proof status was never evidence about the benchmark's data.
+    # The excess is null because ONE LEG IS MISSING: it is the difference of
+    # two published figures, never a figure computed against a null read as 0.
     assert result.range_metrics["1M"].summary.time_weighted_return_pct is None
-    assert result.range_metrics["1M"].summary.benchmark_return_pct is None
+    assert result.range_metrics["1M"].summary.benchmark_return_pct is not None
     assert result.range_metrics["1M"].summary.excess_return_pct is None
     assert result.range_metrics["1M"].max_drawdown_pct is None
     assert result.benchmark is not None
-    assert result.benchmark.return_pct is None
+    # US-34.5 (F-10): the whole-window benchmark return publishes on a
+    # verified basis.
+    assert result.benchmark.return_pct is not None
     assert all(metrics.max_drawdown_pct is None for metrics in result.range_metrics.values())
 
 
@@ -3719,11 +3746,12 @@ def test_run_imported_dashboard_history_unlocks_only_exact_slice_excess_return_a
     assert result.range_metrics["All"].summary.excess_return_pct == 2.0
     assert result.performance_series[-1].benchmark_return_pct is None
     assert result.benchmark is not None
-    assert result.benchmark.return_pct is None
+    # US-34.5 (F-10): published, labelled with its basis.
+    assert result.benchmark.return_pct == 1.0
     assert all(metrics.max_drawdown_pct is None for metrics in result.range_metrics.values())
     assert result.run_metadata.investor_economics_partial_unlock.exact_slice_scalar_allowlist[2].model_dump() == {
         "field": "range_metrics[*].summary.excess_return_pct",
-        "unlock_condition": "identical_admitted_exact_slice_pair_only",
+        "unlock_condition": "both_published_legs_present_only",
         "runtime_enabled": True,
     }
     assert result.run_metadata.investor_economics_partial_unlock.withheld_families == [
@@ -3738,161 +3766,20 @@ def test_run_imported_dashboard_history_unlocks_only_exact_slice_excess_return_a
     ]
 
 
-def test_future_exact_slice_excess_return_policy_requires_both_exact_leg_permissions() -> None:
-    assert _allow_future_exact_slice_excess_return_output(
-        performance_points=[],
-        admitted_portfolio_twr_scope=("2026-04-10", "2026-04-11", 2),
-        allow_portfolio_twr_outputs=False,
-        allow_exact_slice_benchmark_return_output=True,
-        time_weighted_return_pct=None,
-        benchmark_return_pct=1.0,
-    ) is False
-    assert _allow_future_exact_slice_excess_return_output(
-        performance_points=[],
-        admitted_portfolio_twr_scope=("2026-04-10", "2026-04-11", 2),
-        allow_portfolio_twr_outputs=True,
-        allow_exact_slice_benchmark_return_output=False,
-        time_weighted_return_pct=3.0,
-        benchmark_return_pct=None,
-    ) is False
-    assert _compute_future_exact_slice_excess_return_pct(
-        performance_points=[],
-        admitted_portfolio_twr_scope=("2026-04-10", "2026-04-11", 2),
-        allow_portfolio_twr_outputs=False,
-        allow_exact_slice_benchmark_return_output=True,
-        time_weighted_return_pct=None,
-        benchmark_return_pct=1.0,
-    ) is None
-    assert _compute_future_exact_slice_excess_return_pct(
-        performance_points=[],
-        admitted_portfolio_twr_scope=("2026-04-10", "2026-04-11", 2),
-        allow_portfolio_twr_outputs=True,
-        allow_exact_slice_benchmark_return_output=False,
-        time_weighted_return_pct=3.0,
-        benchmark_return_pct=None,
-    ) is None
+# US-34.5 (Epic 34 F-10) removed four unit tests that lived here:
+#   - ..._requires_both_exact_leg_permissions
+#   - ..._requires_verified_exact_same_scope_slice
+#   - ..._emits_only_for_exact_verified_same_response_pair
+#   - ..._refuses_client_side_subtraction_equivalents
+#
+# They tested `_allow_future_exact_slice_excess_return_output` and
+# `_compute_future_exact_slice_excess_return_pct`, both deleted with the
+# anti-derivation rule the owner retired on 2026-08-17. The one piece of
+# substance worth keeping — an excess needs BOTH published legs, and a missing
+# leg must not be read as zero — is now asserted against the engine itself in
+# `test_a_missing_leg_yields_no_excess_rather_than_a_null_read_as_zero` and on
+# the 1M window of the two exact-slice route tests.
 
-
-def test_future_exact_slice_excess_return_policy_requires_verified_exact_same_scope_slice() -> None:
-    performance_series = [
-        PerformancePoint(
-            date="2026-04-10",
-            portfolio_value=1000.0,
-            benchmark_price=100.0,
-            portfolio_return_pct=0.0,
-            benchmark_return_pct=0.0,
-        ),
-        PerformancePoint(
-            date="2026-04-11",
-            portfolio_value=1030.0,
-            benchmark_price=101.0,
-            portfolio_return_pct=3.0,
-            benchmark_return_pct=1.0,
-        ),
-    ]
-
-    assert _allow_future_exact_slice_excess_return_output(
-        performance_points=performance_series,
-        admitted_portfolio_twr_scope=("2026-04-10", "2026-04-11", 3),
-        allow_portfolio_twr_outputs=True,
-        allow_exact_slice_benchmark_return_output=True,
-        time_weighted_return_pct=3.0,
-        benchmark_return_pct=1.0,
-        source_performance_series=performance_series,
-    ) is False
-    assert _compute_future_exact_slice_excess_return_pct(
-        performance_points=performance_series,
-        admitted_portfolio_twr_scope=("2026-04-10", "2026-04-11", 3),
-        allow_portfolio_twr_outputs=True,
-        allow_exact_slice_benchmark_return_output=True,
-        time_weighted_return_pct=3.0,
-        benchmark_return_pct=1.0,
-        source_performance_series=performance_series,
-    ) is None
-
-
-def test_future_exact_slice_excess_return_policy_emits_only_for_exact_verified_same_response_pair() -> None:
-    performance_series = [
-        PerformancePoint(
-            date="2026-04-10",
-            portfolio_value=1000.0,
-            benchmark_price=100.0,
-            portfolio_return_pct=0.0,
-            benchmark_return_pct=0.0,
-        ),
-        PerformancePoint(
-            date="2026-04-11",
-            portfolio_value=1030.0,
-            benchmark_price=101.0,
-            portfolio_return_pct=3.0,
-            benchmark_return_pct=1.0,
-        ),
-    ]
-
-    assert _allow_future_exact_slice_excess_return_output(
-        performance_points=performance_series,
-        admitted_portfolio_twr_scope=("2026-04-10", "2026-04-11", 2),
-        allow_portfolio_twr_outputs=True,
-        allow_exact_slice_benchmark_return_output=True,
-        time_weighted_return_pct=3.0,
-        benchmark_return_pct=1.0,
-        source_performance_series=performance_series,
-    ) is True
-    assert _compute_future_exact_slice_excess_return_pct(
-        performance_points=performance_series,
-        admitted_portfolio_twr_scope=("2026-04-10", "2026-04-11", 2),
-        allow_portfolio_twr_outputs=True,
-        allow_exact_slice_benchmark_return_output=True,
-        time_weighted_return_pct=3.0,
-        benchmark_return_pct=1.0,
-        source_performance_series=performance_series,
-    ) == 2.0
-
-
-def test_future_exact_slice_excess_return_policy_refuses_client_side_subtraction_equivalents() -> None:
-    all_range = [
-        PerformancePoint(
-            date="2026-01-01",
-            portfolio_value=1000.0,
-            benchmark_price=100.0,
-            portfolio_return_pct=0.0,
-            benchmark_return_pct=0.0,
-        ),
-        PerformancePoint(
-            date="2026-01-02",
-            portfolio_value=1100.0,
-            benchmark_price=110.0,
-            portfolio_return_pct=10.0,
-            benchmark_return_pct=10.0,
-        ),
-        PerformancePoint(
-            date="2026-01-03",
-            portfolio_value=1210.0,
-            benchmark_price=121.0,
-            portfolio_return_pct=21.0,
-            benchmark_return_pct=21.0,
-        ),
-    ]
-    rebucketed_slice = all_range[1:]
-
-    assert _allow_future_exact_slice_excess_return_output(
-        performance_points=rebucketed_slice,
-        admitted_portfolio_twr_scope=("2026-01-01", "2026-01-03", 3),
-        allow_portfolio_twr_outputs=True,
-        allow_exact_slice_benchmark_return_output=True,
-        time_weighted_return_pct=21.0,
-        benchmark_return_pct=21.0,
-        source_performance_series=all_range,
-    ) is False
-    assert _compute_future_exact_slice_excess_return_pct(
-        performance_points=rebucketed_slice,
-        admitted_portfolio_twr_scope=("2026-01-01", "2026-01-03", 3),
-        allow_portfolio_twr_outputs=True,
-        allow_exact_slice_benchmark_return_output=True,
-        time_weighted_return_pct=21.0,
-        benchmark_return_pct=21.0,
-        source_performance_series=all_range,
-    ) is None
 
 
 def test_run_imported_dashboard_history_future_exact_slice_policy_keeps_rebucketed_and_non_identical_windows_withheld(mocker) -> None:
@@ -3956,8 +3843,11 @@ def test_run_imported_dashboard_history_future_exact_slice_policy_keeps_rebucket
     assert result.range_metrics["YTD"].summary.time_weighted_return_pct == 21.0
     assert result.range_metrics["YTD"].summary.benchmark_return_pct == 21.0
     assert result.range_metrics["YTD"].summary.excess_return_pct == 0.0
+    # US-34.5 (F-10): as above — the rebucketed/non-identical window still
+    # withholds the PORTFOLIO scalar, and the missing leg still suppresses the
+    # excess. Only the benchmark leg, measured from its own data, publishes.
     assert result.range_metrics["1M"].summary.time_weighted_return_pct is None
-    assert result.range_metrics["1M"].summary.benchmark_return_pct is None
+    assert result.range_metrics["1M"].summary.benchmark_return_pct is not None
     assert result.range_metrics["1M"].summary.excess_return_pct is None
     assert all(metrics.max_drawdown_pct is None for metrics in result.range_metrics.values())
 def test_run_imported_diagnostics_engine_returns_unavailable_when_symbol_history_is_missing(mocker) -> None:
@@ -7431,8 +7321,11 @@ def test_performance_summary_reports_twr_mwr_and_excess_return() -> None:
     assert summary.investment_gain == 110.0
     assert summary.time_weighted_return_pct == 10.0
     assert summary.money_weighted_return_pct == 10.48
-    assert summary.benchmark_return_pct is None
-    assert summary.excess_return_pct is None
+    # US-34.5 (F-10): the summary reports the benchmark and excess it is named
+    # for. 103/100 - 1 = 3%; the excess is the DIFFERENCE OF THE TWO PUBLISHED
+    # FIGURES, 10.0 - 3.0, never an independently computed third number.
+    assert summary.benchmark_return_pct == 3.0
+    assert summary.excess_return_pct == 7.0
 
 
 # ---------------------------------------------------------------------------
@@ -8438,8 +8331,11 @@ def test_publishing_the_return_does_not_promote_it_to_verified() -> None:
     """US-34.2 AC6/AC8 — the guard that makes this story safe.
 
     The strict proof gate is untouched: it still refuses to certify the imported
-    path, and the benchmark/excess returns stay withheld (US-34.5's story). If
-    this test ever fails, the rung has been confused with the thing above it.
+    path. US-34.5 has since published the benchmark and excess scalars, so this
+    test no longer asserts their absence — publishing a figure on a labelled
+    basis is exactly what must NOT be confused with certifying it, which is the
+    distinction this test exists to hold. If it ever fails, the rung has been
+    confused with the thing above it.
     """
     _snapshot, history = _us313_ib2026_history()
     metadata = history.run_metadata
@@ -8449,8 +8345,11 @@ def test_publishing_the_return_does_not_promote_it_to_verified() -> None:
     assert metadata.portfolio_proof.verified_total_return_emitted is False
     assert metadata.return_basis_contract.portfolio_path != "verified_total_return"
     assert all(metrics.portfolio_return_trust == "degraded" for metrics in ranges.values())
-    assert all(metrics.summary.benchmark_return_pct is None for metrics in ranges.values())
-    assert all(metrics.summary.excess_return_pct is None for metrics in ranges.values())
+    # Published, and still not verified: the basis contract says `price_return_only`
+    # and the status stays `withheld`. That pairing IS the point of this test.
+    assert all(metrics.summary.benchmark_return_pct is not None for metrics in ranges.values())
+    assert all(metrics.summary.excess_return_pct is not None for metrics in ranges.values())
+    assert metadata.return_basis_contract.benchmark_path == "price_return_only"
 
 
 # -- US-34.6 (Epic 34 F-7): performance figures exclude the reconciliation --
@@ -8707,3 +8606,115 @@ def test_dashboard_drawdown_stays_withheld_pending_the_policy_decision() -> None
     families = history.run_metadata.investor_economics_partial_unlock.withheld_families
     assert "drawdown_family" in families
 
+
+
+# -- US-34.5 (Epic 34 F-10): the benchmark leg publishes, labelled -----------
+
+
+def test_benchmark_scalars_are_rebased_to_each_range() -> None:
+    """US-34.5 AC2 — each window reports its OWN benchmark return.
+
+    The parked implementation read the slice's last cumulative point, which is
+    measured from inception — so every window would have reported the same
+    since-import figure. That is the exact defect US-34.2 found on the portfolio
+    leg, and it is invisible in a 2-point fixture where every range IS the full
+    window, which is why this test uses the real statement.
+    """
+    _snapshot, history = _us313_ib2026_history()
+    ranges = history.range_metrics or {}
+
+    published = {
+        name: metrics.summary.benchmark_return_pct
+        for name, metrics in ranges.items()
+        if metrics.summary.benchmark_return_pct is not None
+    }
+    assert {"1M", "3M", "All"} <= set(published), published
+    # Distinct windows, distinct answers — the re-basing is real, not cosmetic.
+    assert published["1M"] != published["All"]
+    assert published["3M"] != published["All"]
+
+    # The "All" figure must equal the plain price return over the published
+    # points, which is the same arithmetic a reader can do from the response.
+    points = (history.benchmark.points if history.benchmark else None) or []
+    assert len(points) > 100, "expected the full published price series"
+    expected = round(((points[-1].price / points[0].price) - 1) * 100, 2)
+    assert published["All"] == pytest.approx(expected, abs=0.01)
+
+
+def test_excess_is_exactly_the_difference_of_the_two_published_legs() -> None:
+    """US-34.5 AC3 — the three numbers on screen must agree.
+
+    Computing the excess independently (rather than subtracting the published
+    figures) lets rounding put a visible gap between `portfolio − benchmark` and
+    the excess beside them. It is defined as the subtraction, so it is tested as
+    the subtraction.
+    """
+    _snapshot, history = _us313_ib2026_history()
+    ranges = history.range_metrics or {}
+
+    checked = 0
+    for name, metrics in ranges.items():
+        summary = metrics.summary
+        if summary.excess_return_pct is None:
+            continue
+        assert summary.time_weighted_return_pct is not None, name
+        assert summary.benchmark_return_pct is not None, name
+        assert summary.excess_return_pct == round(
+            summary.time_weighted_return_pct - summary.benchmark_return_pct, 2
+        ), name
+        checked += 1
+    assert checked >= 3, "too few ranges published an excess to be meaningful"
+
+
+def test_a_missing_leg_yields_no_excess_rather_than_a_null_read_as_zero() -> None:
+    """US-34.5 AC4 — the excess needs BOTH legs.
+
+    If a null portfolio return were silently treated as 0, the excess would
+    render as the benchmark's return negated: a fabricated claim that the
+    portfolio was flat. It must be absent instead.
+    """
+    states = [
+        DailyPortfolioState(date="2025-01-02", cash={"USD": 1000.0}, positions=[], total_market_value=0.0, total_portfolio_value=1000.0, external_cash_flow=0.0),
+        DailyPortfolioState(date="2025-01-03", cash={"USD": 1100.0}, positions=[], total_market_value=0.0, total_portfolio_value=1100.0, external_cash_flow=100.0),
+        DailyPortfolioState(date="2025-01-04", cash={"USD": 1210.0}, positions=[], total_market_value=0.0, total_portfolio_value=1210.0, external_cash_flow=0.0),
+    ]
+    # A price-only PORTFOLIO basis refuses the portfolio chain (US-27.9) while
+    # the benchmark leg still publishes — the one real configuration in which
+    # exactly one leg is missing.
+    series = build_true_performance_series(
+        states,
+        [
+            {"date": "2025-01-02", "price": 100.0},
+            {"date": "2025-01-03", "price": 101.0},
+            {"date": "2025-01-04", "price": 103.0},
+        ],
+        portfolio_return_basis_contract="price_return_only",
+        benchmark_return_basis_contract="price_return_only",
+    )
+    summary = build_performance_summary(states, series)
+
+    assert summary.time_weighted_return_pct is None
+    assert summary.benchmark_return_pct == 3.0
+    # Not -3.0, which is what treating the missing leg as 0 would produce.
+    assert summary.excess_return_pct is None
+
+
+def test_publishing_the_benchmark_return_does_not_promote_its_basis() -> None:
+    """US-34.5 AC5 — published is not the same as verified.
+
+    The figure is published on `price_return_only`. The basis contract must keep
+    saying so, and the investor-economics status must stay `withheld` — that
+    pairing is the whole safety argument for retiring the anti-derivation rule.
+    """
+    _snapshot, history = _us313_ib2026_history()
+    metadata = history.run_metadata
+
+    assert metadata.return_basis_contract.benchmark_path == "price_return_only"
+    assert metadata.investor_economics_status.status == "withheld"
+    assert (
+        metadata.investor_economics_partial_unlock.client_derivation_rule
+        == "labelled_scalars_published_daily_series_withheld"
+    )
+    # The DAILY benchmark chain stays withheld — only the scalars were unlocked.
+    assert all(point.benchmark_return_pct is None for point in history.performance_series)
+    assert "benchmark_relative_series" in metadata.investor_economics_partial_unlock.withheld_families

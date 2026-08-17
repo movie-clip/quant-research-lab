@@ -75,6 +75,12 @@ class DashboardHistoryInvestorEconomicsScalarPolicy(BaseModel):
         "identical_admitted_exact_slice_only",
         "identical_admitted_exact_slice_with_independently_verified_benchmark_total_return_only",
         "identical_admitted_exact_slice_pair_only",
+        # US-34.5 (F-10): the two conditions that actually gate the benchmark
+        # leg now. The exact-slice variants above still gate the PORTFOLIO leg
+        # and are retained, not renamed — the portfolio scalar's condition is
+        # unchanged by this story.
+        "publishing_benchmark_return_basis_only",
+        "both_published_legs_present_only",
     ]
     runtime_enabled: bool
 
@@ -82,9 +88,34 @@ class DashboardHistoryInvestorEconomicsScalarPolicy(BaseModel):
 class DashboardHistoryInvestorEconomicsPartialUnlock(BaseModel):
     mode: Literal["allowlisted_exact_slice_scalars_only"]
     exact_slice_scalar_allowlist: list[DashboardHistoryInvestorEconomicsScalarPolicy]
-    client_derivation_rule: Literal["server_side_scalar_only_no_daily_series_subtraction_equivalence"]
+    # US-34.5 (Epic 34 F-10), owner decision 2026-08-17: the anti-derivation
+    # rule is RETIRED for the benchmark leg.
+    #
+    # It withheld `benchmark_return_pct` and `excess_return_pct` on the grounds
+    # that publishing them would let a client derive withheld benchmark-relative
+    # outputs by subtraction. But the same response already publishes the 148
+    # dated benchmark prices those figures are computed from — twice, via
+    # `benchmark.points` and `performance_series[].benchmark_price` — alongside
+    # the portfolio values and (since US-34.2) the portfolio return chain. Every
+    # withheld figure was therefore already derivable: the rule removed the
+    # LABEL, not the information.
+    #
+    # Worse, it made the misreading more likely. A researcher who computed the
+    # benchmark return themselves got no basis marker, so a PRICE return read as
+    # a total return. Publishing it labelled is the safer of the two.
+    #
+    # Scope of the decision: the benchmark leg only. `drawdown_family` and the
+    # verified-total-return rung are untouched and still withheld.
+    client_derivation_rule: Literal[
+        "server_side_scalar_only_no_daily_series_subtraction_equivalence",
+        "labelled_scalars_published_daily_series_withheld",
+    ]
     withheld_families: list[
         Literal[
+            # US-34.5 (F-10): `benchmark_relative_series` stays withheld — the
+            # DAILY chain is still not published, because the chart indexes
+            # prices itself and publishing it buys nothing. What changed is the
+            # per-range SCALARS, which are now published with their basis.
             "benchmark_relative_series",
             "benchmark_relative_path_derived_outputs",
             "drawdown_family",

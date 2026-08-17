@@ -255,7 +255,10 @@ merely unlucky.
 
 ### F-10 (High) — the investor-economics publication policy has no reachable rung
 
-Found by US-34.5, which is **blocked on it**.
+**RESOLVED 2026-08-17** by owner decision; US-34.5 shipped on it. See the
+resolution at the end of this finding.
+
+Found by US-34.5, which was **blocked on it**.
 
 `investor_economics_partial_unlock` unlocks benchmark and excess scalars only
 for an *identical admitted exact slice*, and forbids client-side derivation
@@ -286,6 +289,35 @@ The decision needed: should the anti-derivation rule survive now that the rungs
 it protects cannot fire, and if so, what may the Dashboard say about benchmark
 performance?
 
+**Resolution (owner, 2026-08-17): retire the anti-derivation rule for the
+benchmark leg; scope the unlock to the benchmark return and the excess.**
+
+The argument that settled it is that the rule was **not actually withholding
+information**. The same response publishes the 148 dated benchmark prices those
+scalars are computed from — twice, via `benchmark.points` and
+`performance_series[].benchmark_price` — beside 148 portfolio values and
+US-34.2's portfolio return chain. Subtraction was always available to anyone who
+wanted it. What the rule withheld was the **basis label**, and that is the part
+that carries the risk: an unlabelled figure a researcher computes themselves
+reads as a total return when it is a price return. The labelled server-side
+figure is the safer artefact.
+
+Scope of the retirement, deliberately narrow:
+
+- **Unlocked**: `range_metrics[*].summary.benchmark_return_pct` (condition
+  `publishing_benchmark_return_basis_only`) and `.excess_return_pct` (condition
+  `both_published_legs_present_only`), plus the whole-window
+  `benchmark.return_pct`.
+- **Still withheld**: the daily `benchmark_relative_series` chain (the chart
+  indexes prices itself, so publishing it buys nothing), `drawdown_family`, and
+  every rebucketed/rewindowed summary family.
+- **Unchanged**: the verified-total-return rung's conditions, the portfolio
+  leg's exact-slice condition, and `investor_economics_status`, which still
+  reads `withheld`. Publishing on a labelled basis is not a trust promotion.
+
+F-1a and F-9 are untouched by this: both rungs remain unreachable. This decision
+adds a rung *below* them rather than lowering either bar — the US-34.2 pattern.
+
 ### F-11 (Medium) — the drawdown gate cited an exposure its own path does not have
 
 Found by US-34.7 while checking the justification US-34.2 left behind. That note
@@ -303,7 +335,9 @@ day's net ledger effect.
 
 The real reason the gate is closed is that `drawdown_family` is one of
 `investor_economics_partial_unlock.withheld_families` — so reopening it is
-blocked on **F-10**, the same decision that parked US-34.5.
+blocked on **F-10**, the same decision that parked US-34.5. (F-10 was resolved
+on 2026-08-17, but its resolution is scoped to the benchmark leg — the drawdown
+family stays withheld, so this remains blocked.)
 
 This is the Epic 32 failure mode inside Epic 34's own work: an agent-facing
 justification asserting something the code does not do, written in good faith

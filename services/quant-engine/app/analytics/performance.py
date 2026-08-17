@@ -20,6 +20,14 @@ _PUBLISHING_PORTFOLIO_BASES: frozenset[str] = frozenset(
     {"verified_total_return", "replay_derived"}
 )
 
+# US-34.5: the benchmark's equivalent. The daily chain is computed so the
+# per-range scalars can be re-based from it server-side; the published series
+# still has its benchmark leg withheld (`_withhold_benchmark_return_series`),
+# because the chart indexes prices itself and publishing the chain buys nothing.
+_PUBLISHING_BENCHMARK_BASES: frozenset[str] = frozenset(
+    {"verified_total_return", "price_return_only"}
+)
+
 
 def _coerce_float(value: object) -> float | None:
     if value is None:
@@ -332,7 +340,9 @@ def build_true_performance_series(
                     portfolio_return_pct = round((cumulative_growth - 1) * 100, 2)
         benchmark_return_pct = (
             round(((benchmark_price / benchmark_start_price) - 1) * 100, 2)
-            if benchmark_price is not None and benchmark_start_price != 0 and resolved_benchmark_return_basis_contract == "verified_total_return"
+            if benchmark_price is not None
+            and benchmark_start_price != 0
+            and resolved_benchmark_return_basis_contract in _PUBLISHING_BENCHMARK_BASES
             else None
         )
         points.append(

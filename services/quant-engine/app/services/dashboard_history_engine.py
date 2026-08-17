@@ -1,7 +1,7 @@
-from typing import TypedDict, cast
+from typing import TypedDict
 
 from app.core.constants import DEFAULT_BENCHMARK_SYMBOL
-from app.analytics.performance import build_replay_currency_context, market_derived_terminal_value, build_replay_states_with_cash_anchor, build_true_performance_series, replay_disclosures, withheld_return_impact_pct
+from app.analytics.performance import _PUBLISHING_BENCHMARK_BASES, build_replay_currency_context, market_derived_terminal_value, build_replay_states_with_cash_anchor, build_true_performance_series, replay_disclosures, withheld_return_impact_pct
 from app.engine.portfolio_state import replay_symbol_universe
 from app.analytics.risk import (
     _build_drawdown_from_return_index,
@@ -279,16 +279,26 @@ def _build_dashboard_investor_economics_partial_unlock() -> DashboardHistoryInve
             ),
             DashboardHistoryInvestorEconomicsScalarPolicy(
                 field="range_metrics[*].summary.benchmark_return_pct",
-                unlock_condition="identical_admitted_exact_slice_with_independently_verified_benchmark_total_return_only",
+                # US-34.5 (F-10): published whenever the benchmark's own basis
+                # supports a return, labelled with that basis. It no longer
+                # depends on the PORTFOLIO's exact-slice admission — the two
+                # legs are measured from different data and one leg's proof
+                # status was never evidence about the other's.
+                unlock_condition="publishing_benchmark_return_basis_only",
                 runtime_enabled=True,
             ),
             DashboardHistoryInvestorEconomicsScalarPolicy(
                 field="range_metrics[*].summary.excess_return_pct",
-                unlock_condition="identical_admitted_exact_slice_pair_only",
+                # US-34.5: strictly the difference of the two published legs.
+                # A missing leg yields no excess — never a figure computed
+                # against a null silently read as zero.
+                unlock_condition="both_published_legs_present_only",
                 runtime_enabled=DASHBOARD_EXACT_SLICE_EXCESS_RETURN_RUNTIME_ENABLED,
             ),
         ],
-        client_derivation_rule="server_side_scalar_only_no_daily_series_subtraction_equivalence",
+        # US-34.5 (F-10): the benchmark scalars are published with their basis;
+        # the daily benchmark chain stays withheld.
+        client_derivation_rule="labelled_scalars_published_daily_series_withheld",
         withheld_families=[
             "benchmark_relative_series",
             "benchmark_relative_path_derived_outputs",
@@ -364,69 +374,23 @@ def _slice_matches_admitted_scope(
     )
 
 
-def _allow_exact_slice_benchmark_return_output(
-    *,
-    performance_points,
-    admitted_portfolio_twr_scope: tuple[str, str, int] | None,
-    benchmark_return_basis_contract: str,
-    source_performance_series=None,
-) -> bool:
-    return (
-        benchmark_return_basis_contract == "verified_total_return"
-        and _slice_matches_admitted_scope(
-            performance_points,
-            admitted_portfolio_twr_scope,
-            source_performance_series=source_performance_series,
-        )
-    )
-
-
-def _allow_future_exact_slice_excess_return_output(
-    *,
-    performance_points,
-    admitted_portfolio_twr_scope: tuple[str, str, int] | None,
-    allow_portfolio_twr_outputs: bool,
-    allow_exact_slice_benchmark_return_output: bool,
-    time_weighted_return_pct: float | None,
-    benchmark_return_pct: float | None,
-    source_performance_series=None,
-) -> bool:
-    if not allow_portfolio_twr_outputs or not allow_exact_slice_benchmark_return_output:
-        return False
-    if time_weighted_return_pct is None or benchmark_return_pct is None:
-        return False
-    return _slice_matches_admitted_scope(
-        performance_points,
-        admitted_portfolio_twr_scope,
-        source_performance_series=source_performance_series,
-    )
-
-
-def _compute_future_exact_slice_excess_return_pct(
-    *,
-    performance_points,
-    admitted_portfolio_twr_scope: tuple[str, str, int] | None,
-    allow_portfolio_twr_outputs: bool,
-    allow_exact_slice_benchmark_return_output: bool,
-    time_weighted_return_pct: float | None,
-    benchmark_return_pct: float | None,
-    source_performance_series=None,
-) -> float | None:
-    if not _allow_future_exact_slice_excess_return_output(
-        performance_points=performance_points,
-        admitted_portfolio_twr_scope=admitted_portfolio_twr_scope,
-        allow_portfolio_twr_outputs=allow_portfolio_twr_outputs,
-        allow_exact_slice_benchmark_return_output=allow_exact_slice_benchmark_return_output,
-        time_weighted_return_pct=time_weighted_return_pct,
-        benchmark_return_pct=benchmark_return_pct,
-        source_performance_series=source_performance_series,
-    ):
-        return None
-    if not DASHBOARD_EXACT_SLICE_EXCESS_RETURN_RUNTIME_ENABLED:
-        return None
-    portfolio_return = cast(float, time_weighted_return_pct)
-    benchmark_return = cast(float, benchmark_return_pct)
-    return portfolio_return - benchmark_return
+def _allow_benchmark_return_output(*, benchmark_return_basis_contract: str) -> bool:
+    # US-34.5 (Epic 34 F-6/F-10): a benchmark return is publishable whenever its
+    # own basis supports one.
+    #
+    # Requiring `verified_total_return` AND an admitted exact slice left the
+    # figure null on every run of every statement — and both of those rungs are
+    # unreachable in production (F-9, F-1a). The anti-derivation rule that used
+    # to justify the wider withholding was retired by the owner on 2026-08-17:
+    # the same response already publishes the 148 benchmark prices these figures
+    # are computed from, so withholding removed the LABEL, not the information —
+    # and an unlabelled figure a researcher computes themselves is the more
+    # dangerous of the two, because a PRICE return then reads as a total return.
+    # The basis is the ONLY gate. An admitted-exact-slice fallback used to sit
+    # here, which would have published an `unverified_adjusted_proxy` return
+    # whenever the PORTFOLIO's slice happened to be admitted — one leg's proof
+    # status standing in as evidence about the other leg's data.
+    return benchmark_return_basis_contract in _PUBLISHING_BENCHMARK_BASES
 
 
 def _withhold_benchmark_return_series(performance_series):
@@ -667,7 +631,11 @@ def run_imported_dashboard_history(
             resolved_benchmark_symbol,
             benchmark_rows,
             return_basis_contract=return_basis_contract.benchmark_path,
-            allow_return_pct=False,
+            # US-34.5 (F-10): the whole-window benchmark return is published,
+            # labelled with its basis. The hardcoded `False` withheld it on every
+            # run while the 148 prices it is computed from were published in the
+            # same object (`points`), so it removed the label, not the number.
+            allow_return_pct=True,
         ),
         range_metrics=_build_range_metrics(
             daily_states,
@@ -801,18 +769,15 @@ def _build_range_metrics(
             source_performance_series=performance_series,
         )
         allow_portfolio_twr_outputs = verified_twr_slice or portfolio_return_basis == "replay_derived"
-        allow_exact_slice_benchmark_return_output = _allow_exact_slice_benchmark_return_output(
-            performance_points=perf,
-            admitted_portfolio_twr_scope=admitted_portfolio_twr_scope,
+        allow_benchmark_return_output = _allow_benchmark_return_output(
             benchmark_return_basis_contract=benchmark_return_basis_contract,
-            source_performance_series=performance_series,
         )
         metrics[range_name] = DashboardRangeMetrics(
                 summary=_compute_visible_summary(
                     states,
                     perf,
                     allow_portfolio_twr_outputs=allow_portfolio_twr_outputs,
-                    allow_exact_slice_benchmark_return_output=allow_exact_slice_benchmark_return_output,
+                    allow_benchmark_return_output=allow_benchmark_return_output,
                     admitted_portfolio_twr_scope=admitted_portfolio_twr_scope,
                     source_performance_series=performance_series,
                 ),
@@ -889,15 +854,23 @@ def _compute_money_weighted_return(states) -> float | None:
     return ((end_value - start_value - total_flows) / denominator) * 100
 
 
-def _last_published_return_pct(performance_points) -> float | None:
-    """The most recent non-null cumulative return in a slice (US-34.2)."""
+def _last_published_return_pct(performance_points, field: str = "portfolio_return_pct") -> float | None:
+    """The most recent non-null cumulative return in a slice (US-34.2).
+
+    US-34.5 parameterised the field so the benchmark scalars re-base through the
+    same code path as the portfolio ones — two implementations would drift, the
+    way `performance.py` and `risk.py` did (US-34.8).
+    """
     for point in reversed(performance_points):
-        if point.portfolio_return_pct is not None:
-            return point.portfolio_return_pct
+        value = getattr(point, field)
+        if value is not None:
+            return value
     return None
 
 
-def _range_time_weighted_return_pct(anchored_perf, source_performance_series) -> float | None:
+def _range_time_weighted_return_pct(
+    anchored_perf, source_performance_series, field: str = "portfolio_return_pct"
+) -> float | None:
     """A range's TWR, re-based to the range's own starting point (US-34.2).
 
     `portfolio_return_pct` on each point is CUMULATIVE FROM THE SERIES START —
@@ -915,16 +888,16 @@ def _range_time_weighted_return_pct(anchored_perf, source_performance_series) ->
     carry a synthetic anchor at the prior state's date; using `<=` bases on that
     same date, which is why the anchor's own copied return is never the base.
     """
-    end_pct = _last_published_return_pct(anchored_perf)
+    end_pct = _last_published_return_pct(anchored_perf, field)
     if end_pct is None or not anchored_perf:
         return end_pct
     start_pct = 0.0
     if source_performance_series:
         range_start = anchored_perf[0].date
         prior = [
-            point.portfolio_return_pct
+            getattr(point, field)
             for point in source_performance_series
-            if point.date <= range_start and point.portfolio_return_pct is not None
+            if point.date <= range_start and getattr(point, field) is not None
         ]
         if prior:
             start_pct = prior[-1]
@@ -938,7 +911,7 @@ def _compute_visible_summary(
     performance_series,
     *,
     allow_portfolio_twr_outputs: bool,
-    allow_exact_slice_benchmark_return_output: bool,
+    allow_benchmark_return_output: bool,
     admitted_portfolio_twr_scope: tuple[str, str, int] | None,
     source_performance_series=None,
 ) -> PerformanceSummary:
@@ -978,19 +951,30 @@ def _compute_visible_summary(
         if allow_portfolio_twr_outputs
         else None
     )
+    # US-34.5: re-based to the range's own start, exactly as the portfolio side
+    # is. Reading the slice's last point would report since-inception for every
+    # window — the defect US-34.2 found on the portfolio path.
     benchmark_return_pct = (
-        anchored_perf[-1].benchmark_return_pct
-        if anchored_perf and allow_exact_slice_benchmark_return_output
+        _range_time_weighted_return_pct(
+            anchored_perf, source_performance_series, "benchmark_return_pct"
+        )
+        if allow_benchmark_return_output
         else None
     )
-    excess_return_pct = _compute_future_exact_slice_excess_return_pct(
-        performance_points=performance_series,
-        admitted_portfolio_twr_scope=admitted_portfolio_twr_scope,
-        allow_portfolio_twr_outputs=allow_portfolio_twr_outputs,
-        allow_exact_slice_benchmark_return_output=allow_exact_slice_benchmark_return_output,
-        time_weighted_return_pct=time_weighted_return_pct,
-        benchmark_return_pct=benchmark_return_pct,
-        source_performance_series=source_performance_series,
+    # US-34.5 (Epic 34 F-6): the excess is the DIFFERENCE OF THE TWO PUBLISHED
+    # FIGURES, never an independent computation — deriving it separately invites
+    # the three numbers on screen to disagree by rounding. Both legs must be
+    # present; one missing leg yields no excess, never a figure computed against
+    # a null treated as zero.
+    #
+    # It mixes two bases when the benchmark is `price_return_only`: a price
+    # return omits the benchmark's dividends, so it understates the benchmark and
+    # FLATTERS this excess. That bias is disclosed on the surface and in the
+    # methodology, not hidden and not used as a reason for silence.
+    excess_return_pct = (
+        round(time_weighted_return_pct - benchmark_return_pct, 2)
+        if time_weighted_return_pct is not None and benchmark_return_pct is not None
+        else None
     )
     money_weighted_return_pct = _compute_money_weighted_return(anchored_states)
     return PerformanceSummary(
