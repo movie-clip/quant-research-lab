@@ -1,6 +1,6 @@
 # Current Product State
 
-*Canonical shipped-state inventory. Updated: 2026-07-04 (after Epic 25).*
+*Canonical shipped-state inventory. Updated: 2026-08-19 (after Epic 34 — an answerable Dashboard: replay-derived TWR, statement-anchored opening cash, disclosed withholdings, a published terminal day, and a verified total-return benchmark).*
 
 ---
 

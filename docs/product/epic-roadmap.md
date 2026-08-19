@@ -1,20 +1,53 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: 2026-07-18 (Epic 31 — Ledger Replay Correctness **active** (US-31.1 audit done; F-1..F-3 open, blocks tech-debt US-24.9); Epic 30 — Exposure Improvements **complete** (all 8 stories done, closed 2026-07-16; created from the verified drift-panel findings F-1..F-6, extended by the US-30.4 audit's F-7..F-10; calculations-first); Epic 29 — Chart First-Render Reliability **complete** (salvaged from a parallel session, renumbered from its "Epic 27"); Epic 28 — IBKR CSV Importer & Statement-Refresh Resilience **complete** (all 3 stories done 2026-07-07); Epic 27 — Financial Calculation Correctness **complete** (all 9 stories done, findings F1–F13 resolved); Epic 25 — Dashboard Performance & Risk Summary complete; Epic 24 — Codebase Improvement **complete** (all 11 stories done, closed 2026-08-09); Epic 26 — Currency Exposure & Risk **complete** (US-26.1 + US-26.2 done 2026-08-11; US-26.3 logged as tech debt); Epic 23 — dead-code cleanup & codebase review complete; Epics 13/18/19/20/21/22 complete).*
+*Living execution snapshot. Updated: **2026-08-19**.*
+
+**Every epic is complete.** Most recently shipped: **Epic 34 — An Answerable
+Dashboard** (9 stories, closed 2026-08-19), preceded by **Epic 33 — Corporate
+Actions & Replay Quantity Integrity** and **Epic 32 — Project Hygiene &
+Agent-Facing Doc Accuracy** (3 stories, closed 2026-08-19). Epics 13 and
+18–31 are complete; see each section below.
+
+**Open items**, none of which block anything:
+
+- Tech debt **US-26.3** (currency-risk follow-up) and the optional **US-26.4**
+  — see `docs/tech-debt-register.md`.
+- Epic 34 findings deliberately left open with reasons recorded in its PRD:
+  **F-1a** (the portfolio leg's exact-slice admission is structurally
+  unreachable), **F-10**'s untouched half (the drawdown family stays
+  withheld) and **F-12** (a bounded synthetic-path dividend exposure).
+- A cache hazard found by US-34.9: `manage_cache.py clear` does not cover the
+  `history_yf` namespace, and the FMP client persists 401/402/403/404 as an
+  empty result — a transient failure becomes a durable one. Not yet ticketed.
+
+**No epic is active.** The next one is unscoped; pick from the open items
+above or start a fresh audit.
 
 ---
 
-## Active Epic: Epic 34 — An Answerable Dashboard: Reachable Trust States
+## Completed Epic: Epic 34 — An Answerable Dashboard: Reachable Trust States
 
 **PRD:** [`docs/product/prd/epic-34-answerable-dashboard-and-reachable-trust.md`](product/prd/epic-34-answerable-dashboard-and-reachable-trust.md)
 
+**Closed 2026-08-19. All 9 stories Done.**
+
 Created 2026-08-13 from reading the shipped product end to end after Epic 33
-closed. The guardrails work; the result is a product that is **correct and
+closed. *The paragraphs below describe the state that prompted the epic, not
+today's product — see the slice log for what each story changed.*
+
+The guardrails worked; the result was a product that was **correct and
 silent**. On the Dashboard — the tab whose job is portfolio performance —
-time-weighted return, benchmark return, excess return and max drawdown are
-**`null` in all five ranges, on every run**. One number survives (money-weighted
-return, 5.30%), while the statement's own TWR of **4.765666%** sits imported and
-the engine computes 14.18% annualised volatility internally.
+time-weighted return, benchmark return, excess return and max drawdown were
+**`null` in all five ranges, on every run**. One number survived (money-weighted
+return, 5.30%), while the statement's own TWR of **4.765666%** sat imported and
+the engine computed 14.18% annualised volatility internally.
+
+**Where it ended:** every range publishes a TWR on an explicit `replay_derived`
+rung, opening cash is anchored on the statement's own figure, the withheld
+holding's value is disclosed, the terminal day publishes a corrected return, and
+the benchmark comparison is a **`verified_total_return`** — SPY +12.35%, excess
+−11.92pp. `max_drawdown_pct` remains withheld, deliberately and for a reason
+that is now recorded and test-backed (F-11).
 
 Two causes, both structural rather than data-quality:
 `return_basis_contract.portfolio_path` is a **hardcoded literal**
@@ -386,14 +419,16 @@ refresh in US-33.4.
 
 ---
 
-## Active Epic: Epic 32 — Project Hygiene & Agent-Facing Doc Accuracy
+## Completed Epic: Epic 32 — Project Hygiene & Agent-Facing Doc Accuracy
 
 **PRD:** [`docs/product/prd/epic-32-project-hygiene-and-agent-docs.md`](product/prd/epic-32-project-hygiene-and-agent-docs.md)
 
-Created 2026-08-12 from an end-of-cycle review after Epic 26 closed. The code is
+**Closed 2026-08-19. All 3 stories Done.**
+
+Created 2026-08-12 from an end-of-cycle review after Epic 26 closed. The code was
 in good shape — every epic Completed, one open tech-debt row, suite green — but
-the **navigation layer around it** has drifted, and two findings deferred on
-2026-06-19 are still live.
+the **navigation layer around it** had drifted, and two findings deferred on
+2026-06-19 were still live.
 
 Eight findings, all verified against the repository (not assumed). Two are
 **wrong instructions** rather than stale status, and those are the expensive
@@ -409,9 +444,31 @@ US-32.1's real deliverable is a test rather than another correction.
 |---|---|---|
 | US-32.1 | Fix the agent-facing instructions that point at files that do not exist | Done |
 | US-32.2 | Bring the Risk-tab cards under the design-system audit | Done |
-| US-32.3 | Refresh the status surfaces so "where are we?" is answerable | Next phase |
+| US-32.3 | Refresh the status surfaces so "where are we?" is answerable | Done |
 
 ### Slice log
+
+- **US-32.3 (2026-08-19)** — **the status-surface story had itself gone
+  stale, which is the finding.** F-6/F-7/F-8. Written 2026-08-12, its AC1 asked
+  the roadmap to state "every epic Completed, Epic 26 most recently shipped" —
+  four epics have shipped since, and the roadmap's own summary line still read
+  *Updated: 2026-07-18, Epic 31 active*. The AC's intent ("no epic is described
+  as active when it is not") was implemented against **today's** truth rather
+  than its 2026-08-12 example, and the drift is recorded rather than quietly
+  papered over. **Epic 34 and Epic 32 are both closed here**, their headings
+  moved from Active to Completed and their present-tense problem statements
+  marked as describing the state that prompted them — a closed epic's PRD
+  reading like a live bug report is how the next reader is misled. **AC2/AC3
+  changed the shape of the pointer, not just its target:** CLAUDE.md named Epic
+  13's PRD as "most recent shipped", so it went stale the moment Epic 14
+  shipped; it now sends the reader to `epic-roadmap.md` first and names the
+  current PRD as a convenience, saying so. **AC6** removed the unconditional
+  "commit; squash-merge; prune" from `build-story`'s close-out — publishing is
+  the user's call, and a skill instructing otherwise contradicts the harness
+  rule. Every story file now answers a status sweep (US-8.4 gained the header
+  field while keeping its `## Status` date). Documentation only; goldens
+  byte-identical.
+
 
 - **US-32.2 (2026-08-19)** — **a two-tab gate on a three-tab product.** F-5:
   `designSystem.audit.test.ts` mechanically enforces the Epic-12 contract — no

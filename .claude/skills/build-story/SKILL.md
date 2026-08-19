@@ -197,8 +197,10 @@ Once `verify-story` is green:
    - Add a slice-log entry to `docs/product/epic-roadmap.md` + flip snapshot row
    - Update `docs/product/stories/README.md` status column
 
-2. Commit (one commit per ticket is fine, or one per story). Name the PR
-   `US-<n>: <title>`. Squash-merge; prune local + remote branch;
+2. Commit when the user asks for it (one commit per ticket is fine, or one per
+   story). Do not push or open a PR unless the user has asked — committing and
+   publishing are the user's call, not a default step. When they do: name the PR
+   `US-<n>: <title>`, squash-merge, prune local + remote branch, and
    fast-forward the primary worktree.
 
 ## Definition of Done checklist
