@@ -668,7 +668,7 @@ export function DrawdownAnalyticsCard({ snapshot }: DrawdownAnalyticsCardProps) 
       badge={
         <TrustBadge
           type={trust}
-          tooltip="Synthetic: computed from current holdings × historical prices. Underwater curve and episodes derived from daily portfolio value series."
+          tooltip="Computed from current holdings applied to historical prices. Underwater curve and episodes derived from the daily portfolio-value series."
         />
       }
       actions={
