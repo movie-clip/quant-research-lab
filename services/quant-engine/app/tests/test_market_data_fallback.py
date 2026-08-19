@@ -103,3 +103,26 @@ def test_nonfinite_yfinance_rows_are_filtered_and_all_bad_falls_through(svc):
 
     assert rows == [{"symbol": "VUAA", "date": "2024-01-02", "price": 95.0, "adjClose": 95.0}]
     assert service.last_fetch_meta["VUAA"]["resolved_symbol"] == "VUAA"
+
+
+def test_a_plan_entitlement_402_still_falls_through_to_yfinance(mocker) -> None:
+    """US-35.1 AC8 — the UCITS path depends on 402 behaving as it does today.
+
+    FMP returns 402 for the LSE/UCITS listings it does not serve on this plan,
+    on every run. That negative is a durable answer about the symbol, and the
+    yfinance fallback is what makes those positions valuable at all. Narrowing
+    401 must not disturb it — this test fails if a later change folds 402 in
+    with 401 on the assumption that both are "auth" failures.
+    """
+    fmp_mock = mocker.patch.object(md, "FmpClient")
+    fmp_mock.return_value.get_historical_price_light.return_value = []  # 402 -> negative cached -> []
+    yf_mock = mocker.patch.object(md, "YFinanceClient")
+    yf_mock.return_value.get_historical_price_light.return_value = [
+        {"symbol": "ISLN.L", "date": "2024-01-02", "price": 100.0, "adjClose": 99.0},
+    ]
+
+    service = md.MarketDataService()
+    rows = service.get_historical_prices("ISLN", "2024-01-01", "2024-01-31")
+
+    assert rows, "the fallback must still supply rows when FMP cannot serve the listing"
+    assert rows[0]["adjClose"] == 99.0
