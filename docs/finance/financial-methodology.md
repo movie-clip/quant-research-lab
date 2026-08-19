@@ -745,10 +745,26 @@ Publishing on a stated basis is **not** a trust promotion:
 `run_metadata.return_basis_contract.benchmark_path` continues to name the basis
 and `investor_economics_status` continues to read `withheld`.
 
+**Where the adjusted series comes from (US-34.9).** `verified_total_return`
+requires an adjusted close on every in-window row *and* a fetch from the
+endpoint named in `VERIFIED_BENCHMARK_ENDPOINT`. Until US-34.9 that constant
+named `historical-price-eod/light`, which returns no adjusted close, so the two
+conditions were mutually unsatisfiable and the rung could never fire (F-9). It
+now names `historical-price-eod/dividend-adjusted`, whose response carries
+`close` (split-adjusted) beside `adjClose` (split **and** dividend adjusted).
+
+The adjusted series is used for the benchmark **return only**. Position and FX
+history stay on the unadjusted endpoint: a dividend-adjusted series is a return
+series, not a value series, and valuing holdings with it would make
+`total_market_value` disagree with the broker's own statement. The scope is
+enforced structurally — `get_direct_verified_benchmark_history` is the only
+caller of the adjusted method.
+
 Implementation:
 - `services/quant-engine/app/services/dashboard_history_engine.py`
 - `_allow_benchmark_return_output(...)`, `_range_time_weighted_return_pct(...)`
 - `services/quant-engine/app/services/benchmark_service.py`
+- `services/quant-engine/app/clients/fmp.py` — `get_historical_price_dividend_adjusted(...)`
 
 ## Wealth Index and Drawdown
 

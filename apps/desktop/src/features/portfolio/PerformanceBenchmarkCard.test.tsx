@@ -114,6 +114,36 @@ describe('PerformanceBenchmarkCard benchmark leg', () => {
     expect(text).not.toMatch(/understates the benchmark/i)
   })
 
+  // US-34.9 (Epic 34 F-9): once the benchmark is sourced from the
+  // dividend-adjusted endpoint the basis becomes `verified_total_return`, and
+  // the price-return caveat stops being true. It must disappear with it —
+  // a stale caveat is its own kind of false claim.
+  it('drops the price-return caveat on a verified total-return basis', () => {
+    render(
+      <PerformanceBenchmarkCard
+        result={analysis({ benchmarkBasis: 'verified_total_return' })}
+        activeRange="All"
+      />,
+    )
+
+    const text = screen.getByRole('region', { name: /performance & benchmark/i }).textContent ?? ''
+    // The figures still render...
+    expect(text).toContain('11.75%')
+    expect(text).toContain('-11.21%')
+    // ...without the price-basis marker or the dividend caveat.
+    expect(text).not.toMatch(/Price-return only/)
+    expect(text).not.toMatch(/understates the benchmark/i)
+    expect(text).not.toMatch(/excludes the benchmark/i)
+  })
+
+  it('keeps the caveat while the basis is still a price return', () => {
+    render(<PerformanceBenchmarkCard result={analysis()} activeRange="All" />)
+
+    const text = screen.getByRole('region', { name: /performance & benchmark/i }).textContent ?? ''
+    expect(text).toMatch(/Price-return only/)
+    expect(text).toMatch(/understates the benchmark/i)
+  })
+
   it('shows no number and no caveat when the benchmark leg is withheld', () => {
     render(
       <PerformanceBenchmarkCard

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import time
 from collections import deque
 from pathlib import Path
@@ -21,6 +22,58 @@ _IN_FLIGHT_REQUESTS: dict[str, list[dict[str, Any]]] = {}
 _RATE_LIMIT_LOCK = Lock()
 _REQUEST_TIMESTAMPS: deque[float] = deque()
 
+
+
+def _coerce_finite_float(value: Any) -> float | None:
+    """A finite float, or None. US-34.9.
+
+    `None`, a non-numeric string and NaN/inf all mean "no usable value here".
+    NaN in particular passes an `is not None` check and `float()` alike, which
+    is how non-finite bars poisoned the correlation engines in 2026-06 — so the
+    finiteness check is not optional.
+    """
+    if value is None:
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _map_dividend_adjusted_rows(symbol: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Map a dividend-adjusted EOD response into this project's row shape (US-34.9).
+
+    Output rows carry `symbol`, `date`, `price` (the unadjusted close),
+    `adjClose` and `volume`. Anything without a date, a usable close or a usable
+    adjusted close is dropped — a partially adjusted series must stay partially
+    adjusted so `detect_history_return_basis` can see that it is, rather than
+    being silently completed here.
+    """
+    mapped: list[dict[str, Any]] = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        date = row.get("date")
+        if not isinstance(date, str) or not date:
+            continue
+        close = _coerce_finite_float(row.get("close"))
+        adj_close = _coerce_finite_float(row.get("adjClose"))
+        if close is None or adj_close is None:
+            continue
+        volume_raw = row.get("volume")
+        try:
+            volume = int(volume_raw) if volume_raw is not None else None
+        except (TypeError, ValueError):
+            volume = None
+        mapped.append({
+            "symbol": row.get("symbol") or symbol,
+            "date": date[:10],
+            "price": close,
+            "adjClose": adj_close,
+            "volume": volume,
+        })
+    return mapped
 
 class FmpClient:
     def __init__(self) -> None:
@@ -133,6 +186,47 @@ class FmpClient:
             },
             ttl_seconds=self.history_ttl_seconds,
         )
+
+    def get_historical_price_dividend_adjusted(self, symbol: str, from_date: str, to_date: str) -> list[dict[str, Any]]:
+        """Split- AND dividend-adjusted EOD history (US-34.9, Epic 34 F-9).
+
+        The `light` endpoint above returns `symbol, date, price, volume` and no
+        adjusted close, which made the `verified_total_return` benchmark rung
+        unsatisfiable: it needs every row to carry `adjClose` AND the fetch to
+        come from the endpoint named in `VERIFIED_BENCHMARK_ENDPOINT`, and no
+        single endpoint could do both.
+
+        `historical-price-eod/dividend-adjusted` returns `close` (split-adjusted
+        only) alongside `adjClose` (split and dividend adjusted), so both
+        conditions can hold at once.
+
+        The response is mapped into this project's row shape rather than passed
+        through, for two reasons:
+
+        - it has no `price` key, and `MarketDataService._sanitize_price_rows`
+          drops every row whose `price` is absent — an unmapped response would
+          blank the benchmark silently, reaching a fail-closed path for an
+          accidental reason;
+        - `price` is deliberately the UNADJUSTED close, so existing consumers
+          (valuation, the chart's raw series) see exactly what they saw before.
+          `adjClose` carries the adjusted figure, and the shared price selector
+          in `analytics/risk.py` prefers it for RETURNS.
+
+        A row missing `date`, `close` or a finite `adjClose` is dropped here,
+        fail-closed — never back-filled from the unadjusted close, which would
+        fabricate a dividend adjustment that does not exist.
+        """
+        rows = self._get(
+            "history",
+            "historical-price-eod/dividend-adjusted",
+            {
+                "symbol": symbol,
+                "from": from_date,
+                "to": to_date,
+            },
+            ttl_seconds=self.history_ttl_seconds,
+        )
+        return _map_dividend_adjusted_rows(symbol, rows)
 
     def get_profile(self, symbol: str) -> list[dict[str, Any]]:
         return self._get("profile", "profile", {"symbol": symbol}, ttl_seconds=self.quote_ttl_seconds)

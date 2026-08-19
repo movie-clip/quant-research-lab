@@ -232,6 +232,14 @@ Modified Dietz inputs.
 
 ### F-9 (Medium) — the verified-benchmark pilot cannot fire against the real provider
 
+**CODE RESOLVED 2026-08-17 by US-34.9; awaiting the owner's data re-capture.**
+The endpoint constant now names `historical-price-eod/dividend-adjusted`, so
+both conditions are satisfiable by one response and the rung fires under test.
+It stays dormant in production until `golden_market_data.json` is re-captured
+with an `FMP_API_KEY` — which is why `app/tests/test_golden_market_data_basis.py`
+pins the committed capture's real `adjClose` coverage, so the gap is visible
+rather than silent.
+
 Found by US-34.5 while checking its premise.
 `_validate_verified_benchmark_slice` admits a benchmark as
 `verified_total_return` only when **every in-window row carries `adjClose`**

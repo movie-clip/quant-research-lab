@@ -231,7 +231,7 @@ def test_detect_histories_return_basis_requires_all_populated_histories_to_be_ve
 def test_get_direct_spy_benchmark_history_records_direct_vendor_scope_metadata(mocker) -> None:
     client_mock = mocker.patch("app.services.market_data.FmpClient")
     instance = client_mock.return_value
-    instance.get_historical_price_light.return_value = [{"date": "2024-01-02", "price": 100.0, "adjClose": 99.5}]
+    instance.get_historical_price_dividend_adjusted.return_value = [{"date": "2024-01-02", "price": 100.0, "adjClose": 99.5}]
 
     service = MarketDataService()
     rows = service.get_direct_spy_benchmark_history("2024-01-01", "2024-01-31")
@@ -239,14 +239,17 @@ def test_get_direct_spy_benchmark_history_records_direct_vendor_scope_metadata(m
     assert rows == [{"date": "2024-01-02", "price": 100.0, "adjClose": 99.5}]
     # US-20.2: the client is called with the canonical (year-quantized) range;
     # the result is sliced back to the requested window.
-    instance.get_historical_price_light.assert_called_once_with("SPY", "2024-01-01", "2024-12-31")
+    # US-34.9: via the DIVIDEND-ADJUSTED endpoint — the light one returns no
+    # `adjClose`, so the verified rung could never fire on it (F-9).
+    instance.get_historical_price_dividend_adjusted.assert_called_once_with("SPY", "2024-01-01", "2024-12-31")
+    instance.get_historical_price_light.assert_not_called()
     assert service.get_last_fetch_meta("SPY") == {
         "type": "history",
         "requested_symbol": "SPY",
         "resolved_symbol": "SPY",
         "cached": True,
         "vendor": "FMP",
-        "endpoint": "historical-price-eod/light",
+        "endpoint": "historical-price-eod/dividend-adjusted",
         "direct_path_only": True,
         "fallback_used": False,
         "proxy_used": False,
@@ -258,20 +261,21 @@ def test_get_direct_spy_benchmark_history_records_direct_vendor_scope_metadata(m
 def test_get_direct_verified_benchmark_history_records_direct_vendor_scope_metadata_for_qqq(mocker) -> None:
     client_mock = mocker.patch("app.services.market_data.FmpClient")
     instance = client_mock.return_value
-    instance.get_historical_price_light.return_value = [{"date": "2024-01-02", "price": 400.0, "adjClose": 399.0}]
+    instance.get_historical_price_dividend_adjusted.return_value = [{"date": "2024-01-02", "price": 400.0, "adjClose": 399.0}]
 
     service = MarketDataService()
     rows = service.get_direct_verified_benchmark_history("QQQ", "2024-01-01", "2024-01-31")
 
     assert rows == [{"date": "2024-01-02", "price": 400.0, "adjClose": 399.0}]
-    instance.get_historical_price_light.assert_called_once_with("QQQ", "2024-01-01", "2024-12-31")
+    instance.get_historical_price_dividend_adjusted.assert_called_once_with("QQQ", "2024-01-01", "2024-12-31")
+    instance.get_historical_price_light.assert_not_called()
     assert service.get_last_fetch_meta("QQQ") == {
         "type": "history",
         "requested_symbol": "QQQ",
         "resolved_symbol": "QQQ",
         "cached": True,
         "vendor": "FMP",
-        "endpoint": "historical-price-eod/light",
+        "endpoint": "historical-price-eod/dividend-adjusted",
         "direct_path_only": True,
         "fallback_used": False,
         "proxy_used": False,
@@ -288,6 +292,8 @@ def test_get_direct_verified_benchmark_history_rejects_non_allowlisted_symbols(m
     rows = service.get_direct_verified_benchmark_history("VOO", "2024-01-01", "2024-01-31")
 
     assert rows == []
+    # US-34.9: neither endpoint is reached — the allowlist is checked first.
+    instance.get_historical_price_dividend_adjusted.assert_not_called()
     instance.get_historical_price_light.assert_not_called()
     assert service.get_last_fetch_meta("VOO") is None
 
@@ -401,7 +407,7 @@ def test_yfinance_fallback_rows_are_normalized_and_sliced(mocker) -> None:
 def test_verified_benchmark_overlapping_windows_share_canonical_call(mocker) -> None:
     client_mock = mocker.patch("app.services.market_data.FmpClient")
     instance = client_mock.return_value
-    instance.get_historical_price_light.return_value = [
+    instance.get_historical_price_dividend_adjusted.return_value = [
         {"date": "2024-03-10", "price": 500.0, "adjClose": 499.0},
         {"date": "2024-09-30", "price": 510.0, "adjClose": 509.0},
     ]
@@ -413,7 +419,7 @@ def test_verified_benchmark_overlapping_windows_share_canonical_call(mocker) -> 
     assert first == [{"date": "2024-03-10", "price": 500.0, "adjClose": 499.0}]
     canonical_calls = [
         (call.args[0], call.args[1], call.args[2])
-        for call in instance.get_historical_price_light.call_args_list
+        for call in instance.get_historical_price_dividend_adjusted.call_args_list
     ]
     assert canonical_calls == [
         ("SPY", "2024-01-01", "2024-12-31"),
