@@ -30,6 +30,11 @@ const CARDS_WITH_BADGE = [
   'FactorDriftSummaryCard.tsx',
   'IntraCorrelationHeatmap.tsx',
   'CurrencyRiskCard.tsx',
+  // US-32.2: all three Risk-tab cards render synthetic-history analytics
+  // (current holdings x historical prices), so each carries a Synthetic badge.
+  'StressScenariosCard.tsx',
+  'DrawdownAnalyticsCard.tsx',
+  'VarDistributionCard.tsx',
 ]
 
 /** Every card file the design system covers (incl. IndexedReturnChart). */
@@ -61,6 +66,13 @@ const ALL_CARD_FILES = [
   // US-26.2: synthetic history (current holdings x historical prices), so
   // unlike the US-26.1 composition card this one DOES carry a Synthetic badge.
   'CurrencyRiskCard.tsx',
+  // US-32.2 (Epic 32 F-5): the three Risk-tab cards. They used the Epic-12
+  // primitives by convention, but nothing checked — a hex literal, a px value
+  // or a hand-rolled Synthetic badge in any of them shipped green. The gate
+  // covered two tabs of a three-tab product.
+  'StressScenariosCard.tsx',
+  'DrawdownAnalyticsCard.tsx',
+  'VarDistributionCard.tsx',
 ]
 
 const HEX_REGEX = /#[0-9a-fA-F]{3,8}\b/g
@@ -192,6 +204,10 @@ describe('Epic 12 design-system audit', () => {
       'IndexedReturnChart.tsx',
       'RollingCorrelationChart.tsx',
       'FactorAttributionCard.tsx',
+      // US-32.2: the two Risk-tab cards that draw charts. StressScenariosCard
+      // is deliberately absent — it renders a scenario table, no chart.
+      'DrawdownAnalyticsCard.tsx',
+      'VarDistributionCard.tsx',
     ]
     const missing: string[] = []
     for (const name of CHART_FILES) {

@@ -408,10 +408,30 @@ US-32.1's real deliverable is a test rather than another correction.
 | Story | Title | Status |
 |---|---|---|
 | US-32.1 | Fix the agent-facing instructions that point at files that do not exist | Done |
-| US-32.2 | Bring the Risk-tab cards under the design-system audit | Next phase |
+| US-32.2 | Bring the Risk-tab cards under the design-system audit | Done |
 | US-32.3 | Refresh the status surfaces so "where are we?" is answerable | Next phase |
 
 ### Slice log
+
+- **US-32.2 (2026-08-19)** — **a two-tab gate on a three-tab product.** F-5:
+  `designSystem.audit.test.ts` mechanically enforces the Epic-12 contract — no
+  hex literals, no `px` literals, one source for the `Synthetic` label — over
+  the files in `ALL_CARD_FILES`, and all three Risk-tab cards were absent. They
+  followed the primitives by convention, but a hex value or a hand-rolled badge
+  in any of them shipped green. **Adding them surfaced two real violations:**
+  `DrawdownAnalyticsCard` and `VarDistributionCard` opened their badge tooltip
+  with `"Synthetic: …"`, duplicating the string `TrustBadge` already renders
+  from its own `LABELS` map. Fixed rather than waived — the tooltips now read
+  like the compliant cards', describing the construction instead of restating
+  the badge. **AC5 was demonstrated, not assumed:** injecting
+  `{ color: "#ff0000", padding: "4px" }` into `StressScenariosCard` failed both
+  the hex and px checks, where before this story the same literal was invisible
+  to them; the canary was reverted byte-for-byte. `StressScenariosCard` needed
+  no change — its only `Synthetic` matches are the `SyntheticHistoryCoverage`
+  type name, which the boundary-aware regex correctly ignores. All three cards
+  are in `CARDS_WITH_BADGE` (all render synthetic history); only the two that
+  draw charts are in `CHART_FILES`. 751 backend + 331 frontend green.
+
 
 - **US-32.1 (2026-08-19)** — **a document that admits it cannot be trusted is a
   document that should be checked mechanically.** F-3/F-4: CLAUDE.md told every

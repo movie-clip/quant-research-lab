@@ -311,7 +311,7 @@ export function VarDistributionCard({ snapshot }: VarDistributionCardProps) {
       badge={
         <TrustBadge
           type={trust}
-          tooltip="Synthetic: computed from current holdings × historical prices. Historical-simulation VaR — backward-looking by construction."
+          tooltip="Computed from current holdings applied to historical prices. Historical-simulation VaR — backward-looking by construction."
         />
       }
       actions={
