@@ -38,7 +38,7 @@ Exposure also shows a **vs Market drift panel** at the top: rolling portfolio re
 | `README.md` | Public-facing project overview |
 | `CLAUDE.md` (this file) | Agent onboarding: project identity, guardrails, conventions |
 | `docs/product/epic-roadmap.md` | Epic snapshot + slice log |
-| `docs/product/prd/epic-13-risk-analytics-tab.md` | Most-recent shipped epic PRD (Epic 13) |
+| `docs/product/prd/epic-34-answerable-dashboard-and-reachable-trust.md` | Most-recently shipped epic PRD (Epic 34). **If this looks stale, `docs/product/epic-roadmap.md` is the source of truth for which epic is current** — this row is a convenience pointer, not the record. |
 | `docs/product/stories/` | User stories — one file per story |
 | `docs/product/current-product-state.md` | Canonical shipped-state inventory |
 | `docs/finance/financial-methodology.md` | Source of truth for every financial formula |
@@ -200,6 +200,6 @@ Plus two reference skills (consulted *from within* the cycle, not steps in it):
 1. **For methodology questions** → `docs/finance/financial-methodology.md`
 2. **For "what's shipped today"** → `docs/product/current-product-state.md`
 3. **For "what's the next story"** → `docs/product/stories/` + the `build-story` skill
-4. **For "what's the scope of this epic"** → `docs/product/prd/epic-13-risk-analytics-tab.md` (most recent shipped epic) or whichever epic is Active per `docs/product/epic-roadmap.md`
+4. **For "what's the scope of this epic"** → read `docs/product/epic-roadmap.md` **first** to find which epic is current, then open that epic's PRD in `docs/product/prd/`. At the time of writing the most recent is Epic 34 (`epic-34-answerable-dashboard-and-reachable-trust.md`), but the roadmap is the authority — a named PRD here goes stale every time an epic ships.
 5. **For "where are we overall"** → `docs/product/epic-roadmap.md`
 6. **For "where does this field come from"** → `docs/contracts/<area>-fields.md`

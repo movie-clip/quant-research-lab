@@ -1,5 +1,7 @@
 # US-8.4 — Strip App.tsx workflow state and workspace storage
 
+**Status:** Done (2026-05-25)
+
 ## Story statement
 
 As a developer maintaining the codebase post-Epic-8 pivot, I want all dead state, callbacks, and persistence code for deleted workflow features (Workspace, Backtest, Monitoring, Construction, Optimizer, Ranking, Proposal) removed from `App.tsx` and `portfolioWorkspaceStorage.ts`, so that the codebase reflects only the Dashboard + Exposure surface that is actually shipped.
