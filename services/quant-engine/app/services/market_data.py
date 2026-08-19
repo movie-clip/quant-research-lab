@@ -6,7 +6,7 @@ from threading import Lock
 from typing import Iterable, Literal
 
 from app.core.symbols import canonicalize_symbol, resolve_etf_holdings_candidates, resolve_symbol_candidates
-from app.clients.fmp import FmpClient
+from app.clients.fmp import FmpClient, MarketDataAuthError
 from app.clients.yfinance_client import YFinanceClient
 from app.schemas.return_basis import ReturnBasisContract, ReturnBasisEvidence, ReturnBasisPathTrust
 from app.services.holdings_history import HoldingsHistoryStore
@@ -278,6 +278,13 @@ class MarketDataService:
             for candidate in resolve_symbol_candidates(requested_symbol, symbol_overrides, kind="quote"):
                 try:
                     rows = self.client.get_quote_short(candidate)
+                except MarketDataAuthError:
+                    # US-35.1: a configuration failure is not a fact about this
+                    # symbol, so it must not be flattened into "no data for it".
+                    # Every OTHER exception still degrades below -- those catches
+                    # are load-bearing for symbol resolution, which tries
+                    # VUAA.L -> VUAA -> a US proxy and expects most to fail.
+                    raise
                 except Exception:  # noqa: BLE001
                     continue
                 if rows:
@@ -328,6 +335,13 @@ class MarketDataService:
                 rows = self._sanitize_price_rows(
                     self.client.get_historical_price_light(candidate, canonical_from, canonical_to)
                 )
+            except MarketDataAuthError:
+                # US-35.1: a configuration failure is not a fact about this
+                # symbol, so it must not be flattened into "no data for it".
+                # Every OTHER exception still degrades below -- those catches
+                # are load-bearing for symbol resolution, which tries
+                # VUAA.L -> VUAA -> a US proxy and expects most to fail.
+                raise
             except Exception:  # noqa: BLE001
                 continue
             rows = _slice_price_rows(rows, from_date, to_date)
@@ -342,6 +356,13 @@ class MarketDataService:
                 rows = self._sanitize_price_rows(
                     self._yfinance().get_historical_price_light(candidate, canonical_from, canonical_to)
                 )
+            except MarketDataAuthError:
+                # US-35.1: a configuration failure is not a fact about this
+                # symbol, so it must not be flattened into "no data for it".
+                # Every OTHER exception still degrades below -- those catches
+                # are load-bearing for symbol resolution, which tries
+                # VUAA.L -> VUAA -> a US proxy and expects most to fail.
+                raise
             except Exception:  # noqa: BLE001
                 continue
             rows = _slice_price_rows(rows, from_date, to_date)
@@ -372,6 +393,13 @@ class MarketDataService:
             rows = self._sanitize_price_rows(
                 self.client.get_historical_price_dividend_adjusted(requested_symbol, canonical_from, canonical_to)
             )
+        except MarketDataAuthError:
+            # US-35.1: a configuration failure is not a fact about this
+            # symbol, so it must not be flattened into "no data for it".
+            # Every OTHER exception still degrades below -- those catches
+            # are load-bearing for symbol resolution, which tries
+            # VUAA.L -> VUAA -> a US proxy and expects most to fail.
+            raise
         except Exception:  # noqa: BLE001
             return []
         rows = _slice_price_rows(rows, from_date, to_date)
@@ -433,6 +461,13 @@ class MarketDataService:
         for candidate in resolve_symbol_candidates(requested_symbol, symbol_overrides, kind="quote"):
             try:
                 rows = self.client.get_profile(candidate)
+            except MarketDataAuthError:
+                # US-35.1: a configuration failure is not a fact about this
+                # symbol, so it must not be flattened into "no data for it".
+                # Every OTHER exception still degrades below -- those catches
+                # are load-bearing for symbol resolution, which tries
+                # VUAA.L -> VUAA -> a US proxy and expects most to fail.
+                raise
             except Exception:  # noqa: BLE001
                 continue
             if rows:
@@ -445,6 +480,13 @@ class MarketDataService:
         for candidate in resolve_etf_holdings_candidates(requested_symbol, symbol_overrides):
             try:
                 rows = self.client.get_etf_holders(candidate)
+            except MarketDataAuthError:
+                # US-35.1: a configuration failure is not a fact about this
+                # symbol, so it must not be flattened into "no data for it".
+                # Every OTHER exception still degrades below -- those catches
+                # are load-bearing for symbol resolution, which tries
+                # VUAA.L -> VUAA -> a US proxy and expects most to fail.
+                raise
             except Exception:  # noqa: BLE001
                 continue
             if rows:

@@ -16,12 +16,64 @@ Agent-Facing Doc Accuracy** (3 stories, closed 2026-08-19). Epics 13 and
   **F-1a** (the portfolio leg's exact-slice admission is structurally
   unreachable), **F-10**'s untouched half (the drawdown family stays
   withheld) and **F-12** (a bounded synthetic-path dividend exposure).
-- A cache hazard found by US-34.9: `manage_cache.py clear` does not cover the
-  `history_yf` namespace, and the FMP client persists 401/402/403/404 as an
-  empty result — a transient failure becomes a durable one. Not yet ticketed.
+- The cache hazard US-34.9 hit is now **Epic 35**, with the framing corrected:
+  the bare `clear` *does* remove `history_yf` (only `--namespace` cannot target
+  it), and the sharp edge is not negative caching in general but that a **401 is
+  returned as data** rather than raised.
 
-**No epic is active.** The next one is unscoped; pick from the open items
-above or start a fresh audit.
+**Active: Epic 35 — Market-Data Failure Honesty** (created 2026-08-19 from the
+cache hazard US-34.9 hit). Three findings, all verified empirically: a 401 comes
+back as empty data rather than an error and persists for 24h (F-1); the cache
+lists a namespace `--namespace` cannot clear (F-2); the golden capture cannot
+tell that it degraded, and overwrote 73 series with 21 while reporting success
+(F-3).
+
+---
+
+
+## Active Epic: Epic 35 — Market-Data Failure Honesty
+
+**PRD:** [`docs/product/prd/epic-35-market-data-cache-resilience.md`](product/prd/epic-35-market-data-cache-resilience.md)
+
+Created 2026-08-19 from the cache hazard US-34.9 hit while re-capturing the
+frozen market data. The guardrails about not fabricating financial numbers hold;
+this epic is about the layer underneath — **what the market-data client does
+when it cannot get an answer.** Today it converts a failure into an *absence*,
+and every engine downstream then degrades honestly on data that never should
+have reached them.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-35.1 | Stop returning an auth failure as if it were missing data | Done |
+| US-35.2 | Make every cache namespace clearable and inspectable | Backlog |
+| US-35.3 | Refuse to overwrite the golden capture with a degraded one | Backlog |
+
+### Slice log
+
+- **US-35.1 (2026-08-19)** — **the system was good at saying "I don't know" and
+  bad at saying "I couldn't ask".** F-1: a 401 was negative-cached as `[]` and
+  then immediately re-read by the stale-fallback branch three lines below, which
+  returned the empty list it had just written — so the error vanished. Every
+  engine then degraded to `unavailable` *correctly*, on data that meant "your
+  key is wrong". With an 86400s history TTL, one bad run answered `[]` for every
+  symbol it touched for a day, and fixing the key did not help until the cache
+  was cleared by hand. **The fix had to cross two layers**, which was the
+  substance of the story: `MarketDataService` catches `Exception` at six call
+  sites and would have flattened the raised error straight back into `[]`. Those
+  catches are load-bearing — symbol resolution tries `VUAA.L` → `VUAA` → a US
+  proxy and expects most candidates to fail — so each now re-raises
+  `MarketDataAuthError` and swallows everything else exactly as before, tested in
+  both directions. **404 and 402 were deliberately left alone:** "this symbol
+  does not exist" and "not served on this plan" are durable facts about the
+  *symbol*, and the UCITS listings depend on 402 falling through to the yfinance
+  fallback — two tests exist purely to stop a later reader folding them in with
+  401. Verified against the live API with a deliberately invalid key: raises with
+  the cause named, writes no cache entry, and a corrected key works on the next
+  call. **Count correction:** the story said eight broad catches; there are six.
+  Behaviour-neutral on a healthy run — goldens byte-identical. 760 backend (+9)
+  + 331 frontend green.
 
 ---
 

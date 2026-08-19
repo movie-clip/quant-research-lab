@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from app.services.market_data import MarketDataService, detect_histories_return_basis, detect_history_return_basis
 from app.services.holdings_history import HoldingsHistoryStore
 from app.core.symbols import canonicalize_symbol, resolve_proxy_candidates, resolve_symbol_candidates
@@ -609,3 +611,58 @@ def test_fmp_client_timeout_comes_from_settings(mocker) -> None:
 
     assert Settings().fmp_request_timeout_seconds == 30.0
     assert Settings().fmp_legacy_base_url == "https://financialmodelingprep.com/api/v3"
+
+
+# -- US-35.1 (Epic 35 F-1): the error has to survive the service layer -------
+
+
+def test_an_auth_error_propagates_instead_of_being_flattened_to_no_data(mocker) -> None:
+    """US-35.1 AC4 — fixing the client alone would have changed nothing.
+
+    `MarketDataService` catches `Exception` at every call site, so a raised
+    auth error would have been swallowed one layer up and turned back into the
+    empty result this story exists to eliminate.
+    """
+    from app.clients.fmp import MarketDataAuthError
+
+    client_mock = mocker.patch("app.services.market_data.FmpClient")
+    client_mock.return_value.get_historical_price_light.side_effect = MarketDataAuthError("rejected")
+
+    service = MarketDataService()
+    with pytest.raises(MarketDataAuthError):
+        service.get_historical_prices("AAPL", "2024-01-01", "2024-01-31")
+
+
+def test_a_non_auth_failure_at_the_same_call_site_still_degrades(mocker) -> None:
+    """US-35.1 AC4, the other direction — the broad catches stay load-bearing.
+
+    Symbol resolution tries VUAA.L -> VUAA -> a US proxy and expects most
+    candidates to fail. If narrowing the auth case had also narrowed these, a
+    normal resolution miss would become a hard error.
+    """
+    client_mock = mocker.patch("app.services.market_data.FmpClient")
+    client_mock.return_value.get_historical_price_light.side_effect = RuntimeError("transient blip")
+
+    service = MarketDataService()
+    assert service.get_historical_prices("AAPL", "2024-01-01", "2024-01-31") == []
+
+
+def test_one_unresolvable_symbol_does_not_fail_the_whole_portfolio(mocker) -> None:
+    """US-35.1 AC5 — a per-symbol failure must stay per-symbol."""
+    client_mock = mocker.patch("app.services.market_data.FmpClient")
+
+    def by_symbol(symbol, *_a, **_k):
+        if symbol == "NOPE":
+            raise RuntimeError("unresolvable")
+        return [{"date": "2024-01-02", "price": 100.0}]
+
+    client_mock.return_value.get_historical_price_light.side_effect = by_symbol
+
+    service = MarketDataService()
+    result = service.get_historical_prices_for_symbols(
+        ["AAPL", "NOPE", "MSFT"], "2024-01-01", "2024-01-31"
+    )
+
+    assert result.get("AAPL"), "a good symbol must still return rows"
+    assert result.get("MSFT"), "a good symbol must still return rows"
+    assert not result.get("NOPE"), "the unresolvable one degrades on its own"

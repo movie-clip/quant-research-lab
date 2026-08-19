@@ -119,6 +119,25 @@ by `get_direct_verified_benchmark_history` being its only caller.
 
 ---
 
+## When there is no price history, check this first (US-35.1)
+
+Empty results have two very different causes, and the client now tells them
+apart:
+
+- **`MarketDataAuthError` raised** → the key is missing or was rejected (401).
+  This is a configuration failure, not a data gap. It is **never cached**, so
+  fix `FMP_API_KEY` in `services/quant-engine/.env` and re-run — no cache clear
+  needed.
+- **`[]` returned** → a genuine answer about that symbol: 404 (does not exist),
+  or 402/403 (not served on this plan — the UCITS listings take this path and
+  fall through to the yfinance fallback). These *are* negative-cached, for
+  `fmp_history_cache_ttl_seconds` (86400s), which is deliberate: it blocks a
+  retry storm.
+
+Before US-35.1 a 401 also returned `[]`, so a wrong key looked exactly like an
+empty market and persisted for a day. If you are debugging a Dashboard that has
+gone entirely quiet, check the key before the data.
+
 ## Symbol resolution pipeline
 
 Every market data request goes through this pipeline:

@@ -145,6 +145,28 @@ satisfied each symbol (`'fmp'` | `'yfinance'`). The FMP-first path is unchanged
 when FMP has data; yfinance is never a proxy substitute (it fetches the *real*
 holding from a second source).
 
+**Failure classes at the seam (US-35.1):** the seam distinguishes *"there is no
+data for this symbol"* from *"this machine could not ask"*, because only the
+first is a fact about the portfolio.
+
+| Failure | Scope | Behaviour |
+|---|---|---|
+| 404, unresolvable symbol, delisted | that symbol | negative-cached, returns `[]` — the caller degrades to `unavailable` |
+| 402/403 (plan entitlement) | that symbol | negative-cached, returns `[]` — the yfinance fallback then serves UCITS listings |
+| **401, or no API key configured** | **every symbol** | raises `MarketDataAuthError`; **never cached** |
+
+A configuration failure cannot be represented as an absence of data. It used to
+be: a 401 was negative-cached as `[]` and immediately re-read by the
+stale-fallback branch, so the error was swallowed, every engine degraded to
+`unavailable` perfectly correctly, and nothing reported the real cause — for
+`fmp_history_cache_ttl_seconds` (86400) at a time, surviving a corrected key.
+
+`MarketDataService` still catches `Exception` broadly at every call site, and
+those catches are load-bearing: symbol resolution tries `VUAA.L` → `VUAA` → a US
+proxy and expects most candidates to fail. They re-raise `MarketDataAuthError`
+specifically and swallow everything else exactly as before, so a per-symbol
+failure stays per-symbol.
+
 **Row sanitization rule (US-18.4):** rows with an absent or non-finite `price`
 (NaN/inf — e.g. a Yahoo/pandas missing bar) never leave the seam:
 `MarketDataService` filters them on every history return path, and the yfinance

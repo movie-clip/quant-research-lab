@@ -17,6 +17,23 @@ from app.core.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
+
+class MarketDataAuthError(RuntimeError):
+    """The market-data credential is missing or was rejected (US-35.1).
+
+    Distinct from "this symbol has no data", and the distinction is the whole
+    point. A 401 says nothing about the symbol that was requested — it says this
+    machine could not ask. Returning `[]` for it made a configuration error
+    indistinguishable from an empty market, and every engine downstream then
+    degraded to `unavailable` perfectly correctly, so nothing anywhere reported
+    the real cause.
+
+    `MarketDataService` catches `Exception` broadly at every call site so that
+    one unresolvable symbol cannot fail a whole-portfolio fetch. Those catches
+    are load-bearing for symbol resolution and stay; they re-raise THIS type
+    specifically, because it is not a fact about any one symbol.
+    """
+
 _IN_FLIGHT_LOCK = Lock()
 _IN_FLIGHT_REQUESTS: dict[str, list[dict[str, Any]]] = {}
 _RATE_LIMIT_LOCK = Lock()
@@ -146,7 +163,13 @@ class FmpClient:
 
     def _get(self, namespace: str, path: str, params: dict[str, Any], ttl_seconds: int) -> list[dict[str, Any]]:
         if not self.api_key:
-            raise ValueError("FMP_API_KEY is not configured")
+            # US-35.1 AC7: the same failure class as a rejected key — the caller
+            # is not configured — so it raises the same type and surfaces the
+            # same way, rather than a bare ValueError that reads as a bug.
+            raise MarketDataAuthError(
+                "FMP_API_KEY is not configured. Set it in the environment or in "
+                "services/quant-engine/.env, then retry."
+            )
 
         cache_key = None
         if self.cache is not None:
@@ -187,7 +210,32 @@ class FmpClient:
             return rows
         except httpx.HTTPStatusError as exc:
             status_code = exc.response.status_code if exc.response is not None else None
-            if self.cache is not None and cache_key is not None and status_code in {401, 402, 403, 404}:
+            # US-35.1: an authentication failure is NOT a fact about this symbol,
+            # so it is never written to the cache and never returned as data.
+            #
+            # It used to be negative-cached alongside 404 and then immediately
+            # re-read by the stale-fallback branch below, which returned the `[]`
+            # it had just written — swallowing the error entirely. With a 24-hour
+            # history TTL, one bad run then answered `[]` for every symbol it
+            # touched for a day, and fixing the key did not help until the cache
+            # was cleared by hand.
+            if status_code == 401:
+                logger.error(
+                    "FMP rejected the API key [%s] %s status=401 — not cached", namespace, params
+                )
+                raise MarketDataAuthError(
+                    "The FMP API key was rejected (HTTP 401). Check FMP_API_KEY in "
+                    "services/quant-engine/.env. This is a configuration failure, "
+                    "not missing market data."
+                ) from exc
+            # 404 keeps its negative cache: "this symbol does not exist" IS a
+            # durable fact about the request, and caching it blocks a retry storm.
+            #
+            # 402/403 keep theirs deliberately (US-35.1 AC8). They are entitlement
+            # answers about a symbol on this plan — the UCITS listings FMP does not
+            # serve return 402 on every run and fall through to the yfinance
+            # fallback, which is working as intended.
+            if self.cache is not None and cache_key is not None and status_code in {402, 403, 404}:
                 logger.warning("FMP negative cache [%s] %s status=%s", namespace, params, status_code)
                 self.cache.set(cache_key, [])
             if self.cache is not None and cache_key is not None:
@@ -299,7 +347,13 @@ class FmpClient:
 
     def get_etf_holders(self, symbol: str) -> list[dict[str, Any]]:
         if not self.api_key:
-            raise ValueError("FMP_API_KEY is not configured")
+            # US-35.1 AC7: the same failure class as a rejected key — the caller
+            # is not configured — so it raises the same type and surfaces the
+            # same way, rather than a bare ValueError that reads as a bug.
+            raise MarketDataAuthError(
+                "FMP_API_KEY is not configured. Set it in the environment or in "
+                "services/quant-engine/.env, then retry."
+            )
 
         cache_key = None
         cache_identifier = json.dumps({"path": f"api/v3/etf-holder/{symbol}", "params": {}}, sort_keys=True)

@@ -18,6 +18,16 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
+### Epic 35 — Market-Data Failure Honesty (active)
+
+PRD: [`prd/epic-35-market-data-cache-resilience.md`](../prd/epic-35-market-data-cache-resilience.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-35.1](US-35.1-auth-failure-is-not-missing-data.md) | Stop returning an auth failure as if it were missing data | F-1: a 401 is negative-cached as `[]` and immediately re-read as "stale", so the error is swallowed — a wrong key produces an empty Dashboard, not an error, and persists for 24h. Verified empirically. The fix must cross two layers: `MarketDataService` catches `Exception` at eight call sites, and those catches are load-bearing for symbol resolution, so a per-symbol failure must keep degrading while a config failure propagates | Done |
+| US-35.2 | Make every cache namespace clearable and inspectable | F-2: `list` prints `history_yf`; `clear --namespace` cannot target it (the glob is `history-*.json`). The bare `clear` does remove it, so the gap is a partial clear with no warning | Backlog |
+| US-35.3 | Refuse to overwrite the golden capture with a degraded one | F-3: `capture_golden_market_data` writes whatever it recorded and prints the count. It overwrote a 73-series capture with 21 series and reported success | Backlog |
+
 ### Epic 34 — An Answerable Dashboard: Reachable Trust States (active)
 
 PRD: [`prd/epic-34-answerable-dashboard-and-reachable-trust.md`](../prd/epic-34-answerable-dashboard-and-reachable-trust.md)
