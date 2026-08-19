@@ -62,6 +62,10 @@ proposing related work** — duplication is a much worse smell than coupling.
 | `app/analytics/activity.py` | Monthly ledger activity series, holdings timeline | Already covers activity/timeline reconstruction |
 | `app/analytics/reconciliation.py` | Statement reconciliation checks (cash, NAV, withholding) | This is import-admission territory, not a new-metric target |
 | `app/analytics/overview.py` | `build_portfolio_overview` — current-holdings snapshot summary | Already covers basic snapshot overview |
+| `app/analytics/currency.py` | Base-currency conversion for weight denominators (US-30.5a) | Already covers FX-correct weighting |
+| `app/analytics/currency_exposure.py` | Currency exposure by weight (US-26.1) | Already covers currency mix |
+| `app/analytics/currency_risk.py` | Currency risk contribution — share of return volatility from FX moves (US-26.2) | Already covers FX risk decomposition |
+| `app/analytics/portfolio_imports.py` | Composition layer over the analytics modules for the import path | Not a metric target; wires existing analytics |
 | `app/services/drift_engine.py` | Portfolio vs benchmark drift (1m/3m/6m/12m/since-import + indexed series) — **no separate `analytics/drift.py`**; the drift computation lives directly in the service | Already covers drift windows |
 | `app/services/<name>_engine.py` | Wires market data → pure analytics. Use `MarketDataService`. |
 | `app/services/attribution_engine.py` | Has the `_lookback_calendar_days(window) = ceil(window*1.6)+30` heuristic + uses `_build_synthetic_snapshot_history_states` from `diagnostics_engine.py` — reuse for any new windowed synthetic-history analytic. This heuristic and `MIN_DAILY_OBSERVATIONS`/`DEFAULT_BENCHMARK_SYMBOL` now live in the shared `app/core/constants.py` (US-24.3) — import from there, don't re-derive. |
@@ -82,7 +86,11 @@ of this table named modules that don't exist: `app/analytics/portfolio.py`
 / `app/analytics/exposure.py` (drift lives in `services/drift_engine.py`;
 sector/look-through exposure lives inside `risk.py`). Both were caught only
 by grepping the actual codebase mid-task, not by re-reading this table more
-carefully. **Run `ls services/quant-engine/app/analytics/` before trusting
+carefully.
+
+Since US-32.1 the table is **checked mechanically** — a phantom row or a
+missing module now fails the suite rather than waiting to mislead someone.
+The habit is still worth keeping: **run `ls services/quant-engine/app/analytics/` before trusting
 any row here for a nontrivial change** — don't just grep for the one
 function name you expect; confirm the whole module list, since the fastest
 way this table goes stale is a name that *sounds* right.

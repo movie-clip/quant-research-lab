@@ -161,7 +161,7 @@ cd apps/desktop && npx tsc --noEmit    # type-check (NOT run by run_all_tests.py
   fixture. The canonical fix is `python scripts/run_all_tests.py` (which
   regenerates first). For narrow iteration, prefix with
   `SKIP_GOLDEN_FRESHNESS_CHECK=1` — e.g.
-  `SKIP_GOLDEN_FRESHNESS_CHECK=1 python -m pytest app/tests/test_my_new.py -v`.
+  `SKIP_GOLDEN_FRESHNESS_CHECK=1 python -m pytest app/tests/test_<your_module>.py -v`.
 - **`dashboardGoldens.ts` modified after `run_all_tests.py`.** This is an
   FMP-cache artifact (data fetched on this machine differs slightly from
   committed goldens). Unless your story actually changed dashboard output:
