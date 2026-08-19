@@ -226,18 +226,32 @@ def test_an_unknown_symbol_still_negative_caches_and_returns_empty(tmp_path, mon
     assert len(list(tmp_path.glob("*.json"))) == 1, "404 should still be negative-cached"
 
 
-def test_an_unset_key_raises_the_same_error_as_a_rejected_one(tmp_path) -> None:
-    """US-35.1 AC7 — both are the same failure class: the caller is not configured.
+def test_an_unset_key_is_not_treated_as_a_rejected_one(tmp_path) -> None:
+    """US-35.1 AC7 was WRONG, and this test records why.
 
-    It used to raise a bare `ValueError`, which reads like a programming bug
-    rather than a setup problem.
+    The story claimed "no key" and "rejected key" are the same failure class, so
+    both should raise `MarketDataAuthError`. Shipping that turned every route
+    into a 400 in CI, which runs **deliberately keyless** — the suite is
+    network-free, so engines are expected to reach the client, get nothing, and
+    degrade to `unavailable`. Running without a key is a supported mode, not a
+    misconfiguration.
+
+    So an unset key keeps raising the plain `ValueError` that
+    `MarketDataService` swallows on its way to `[]`. A REJECTED key still raises
+    `MarketDataAuthError` uncached — the part of the story that mattered.
+
+    This test is the guard against re-unifying them: they look like the same
+    thing and are not.
     """
     client = FmpClient()
     client.api_key = ""
     client.cache = JsonFileCache(tmp_path)
 
-    with pytest.raises(MarketDataAuthError) as excinfo:
+    with pytest.raises(ValueError) as excinfo:
         client.get_historical_price_light("AAPL", "2026-08-01", "2026-08-11")
+    assert not isinstance(excinfo.value, MarketDataAuthError), (
+        "an unset key must stay swallowable so the keyless offline mode keeps working"
+    )
     assert "not configured" in str(excinfo.value)
 
 
