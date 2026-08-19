@@ -138,6 +138,28 @@ Before US-35.1 a 401 also returned `[]`, so a wrong key looked exactly like an
 empty market and persisted for a day. If you are debugging a Dashboard that has
 gone entirely quiet, check the key before the data.
 
+## Clearing the cache (US-35.2)
+
+`python scripts/manage_cache.py list` prints a per-namespace summary; `clear
+--namespace <name>` accepts **any namespace present on disk** (the choices are
+derived, not a hand-written list, because nothing declares the set — a namespace
+exists because some caller passed that string to `build_key`).
+
+| Namespace | Written by |
+|---|---|
+| `history` | `FmpClient._get`, equity/ETF history |
+| `history_yf` | `YFinanceClient` — the non-US listings FMP cannot serve |
+| `fx` | `FmpClient._get` when the symbol ends `USD` |
+| `quote`, `profile` | quote-short / profile |
+| `fundamentals` | income, balance sheet, cash flow, ratios, key metrics |
+| `holdings` | `get_etf_holders` (legacy v3) |
+| `screener`, `index_constituents` | screener, S&P 500 constituents |
+
+**`--namespace history` does NOT clear `history_yf`.** They are two providers'
+caches and the matching is exact by design — clearing FMP's history must not
+discard the yfinance rows for the 14 UCITS listings. The CLI now says so when it
+happens. To clear everything, omit `--namespace`.
+
 ## Symbol resolution pipeline
 
 Every market data request goes through this pipeline:
