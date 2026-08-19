@@ -142,6 +142,7 @@ Investor-economics withholding rule:
 - `max_drawdown_pct` and all other investor-economics outputs still remain withheld even when the scalar outputs are present
 - monthly/rebucketed/rolling/non-identical-window outputs must not be inferred or reconstructed from those scalars
 - the **daily** `performance_series[*].benchmark_return_pct` chain remains withheld (`benchmark_relative_series`); the chart indexes `benchmark_price` itself, so the chain is not needed to draw it
+- the benchmark's adjusted series is fetched from `historical-price-eod/dividend-adjusted` and used for the **return only** (US-34.9); position and FX valuation stay on `historical-price-eod/light`, because a dividend-adjusted series is a return series and would put `total_market_value` at odds with the broker's statement
 - **publishing is not promotion**: a published `benchmark_return_pct` on `price_return_only` is a price return, not a total return. `run_metadata.return_basis_contract.benchmark_path` states which, `investor_economics_status` stays `withheld`, and the UI must render the basis marker rather than presenting the figure bare
 - downstream consumers must treat those `null` values as deliberate withholding tied to the run metadata, not as a generic history failure
 

@@ -174,7 +174,7 @@ def test_f3_terminal_reconciliation_is_never_published_as_a_return(replay_contex
     # US-33.4: 1,197.88 on the pre-refresh statement; 1,366.17 after it.
     # US-34.3: -58.11 — 96% of that adjustment WAS the cash-anchor offset riding
     # through the window, and it disappears once the anchor stops deriving.
-    assert terminal.reconciliation_adjustment == pytest.approx(-58.11, abs=2.0)
+    assert terminal.reconciliation_adjustment == pytest.approx(-19.98, abs=2.0)
 
     # US-34.8 changed HOW F-3 is enforced, not WHAT it requires. The day is no
     # longer blanked; its return is computed from the market-derived value, so
@@ -240,7 +240,10 @@ def test_f5_semi_resolves_to_held_line_not_bare_us_ticker(replay_context) -> Non
     # 0.22%). The claim under test is that the served quote is the HELD GBP
     # line — not the bare US ticker, which was 40.58 against 17.998.
     assert quote == pytest.approx(position.close_price, rel=0.005)
-    assert position.quantity * quote == pytest.approx(2_922.80, abs=1.0)
+    # US-34.9: now the broker's STATED market value to the cent (statement_truths
+    # pins SEMI at 2,929.20 for 200 units) -- the old figure was a carried-forward
+    # 2026-08-10 close standing in for the 08-11 one the statement actually used.
+    assert position.quantity * quote == pytest.approx(2_929.20, abs=1.0)
 
 
 def test_f4_resolved_by_fund_currency_conversion(replay_context) -> None:
@@ -511,7 +514,7 @@ def test_us2410_terminal_reconciliation_does_not_worsen(replay_context) -> None:
     snapshot, _price_histories, _valuation_dates = replay_context
     states = _us249_states(replay_context)
 
-    assert states[-1].total_market_value == pytest.approx(64_934.40, abs=1.0)
+    assert states[-1].total_market_value == pytest.approx(64_896.27, abs=1.0)
     assert states[-1].total_market_value == pytest.approx(
         snapshot.statement_totals.stock_total, rel=0.001
     )
@@ -643,7 +646,7 @@ def test_us332_peak_market_value_returns_to_a_plausible_band(replay_context) -> 
     # Every day of the window is now within a plausible band of the statement's
     # own stock total — the pre-fix replay ran ~8x above it for three months.
     assert peak.total_market_value < stock_total * 1.05
-    assert states[-1].total_market_value == pytest.approx(64_934.40, abs=1.0)
+    assert states[-1].total_market_value == pytest.approx(64_896.27, abs=1.0)
 
 
 def test_us346_no_published_period_figure_contains_the_reconciliation(replay_context) -> None:
@@ -670,14 +673,14 @@ def test_us346_no_published_period_figure_contains_the_reconciliation(replay_con
     terminal = history.daily_states[-1]
 
     adjustment = terminal.reconciliation_adjustment
-    assert adjustment == pytest.approx(-58.11, abs=2.0), "fixture lost its reconciliation"
+    assert adjustment == pytest.approx(-19.98, abs=2.0), "fixture lost its reconciliation"
 
     # The performance figures are computed from the market-derived value...
     assert market_derived_terminal_value(history.daily_states) == pytest.approx(
         terminal.total_portfolio_value - adjustment, abs=0.01
     )
-    assert summary.money_weighted_return_pct == pytest.approx(2.88, abs=0.02)
-    assert summary.investment_gain == pytest.approx(1_714.71, abs=0.02)
+    assert summary.money_weighted_return_pct == pytest.approx(2.76, abs=0.02)
+    assert summary.investment_gain == pytest.approx(1_645.99, abs=0.02)
 
     # ...while the LEVEL keeps the broker's own ending NAV. Both halves matter:
     # dropping the entry from the level would discard broker truth.

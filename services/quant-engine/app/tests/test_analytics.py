@@ -252,7 +252,7 @@ def _mock_ib2026_dashboard_market_data(mocker, snapshot: ImportedPortfolioSnapsh
         "resolved_symbol": "SPY",
         "cached": True,
         "vendor": "FMP",
-        "endpoint": "historical-price-eod/light",
+        "endpoint": "historical-price-eod/dividend-adjusted",
         "direct_path_only": True,
         "fallback_used": False,
         "proxy_used": False,
@@ -2811,7 +2811,7 @@ def test_run_imported_dashboard_history_enables_verified_benchmark_only_for_dire
         "resolved_symbol": "SPY",
         "cached": True,
         "vendor": "FMP",
-        "endpoint": "historical-price-eod/light",
+        "endpoint": "historical-price-eod/dividend-adjusted",
         "direct_path_only": True,
         "fallback_used": False,
         "proxy_used": False,
@@ -2863,7 +2863,7 @@ def test_run_imported_dashboard_history_enables_verified_benchmark_only_for_dire
             "requested_symbol": "SPY",
             "resolved_symbol": "SPY",
             "vendor": "FMP",
-            "endpoint": "historical-price-eod/light",
+            "endpoint": "historical-price-eod/dividend-adjusted",
             "direct_path_only": True,
             "fallback_used": False,
             "symbol_override_used": False,
@@ -2905,7 +2905,7 @@ def test_run_imported_dashboard_history_keeps_adjusted_spy_unverified_when_direc
         "resolved_symbol": "SPY",
         "cached": True,
         "vendor": "FMP",
-        "endpoint": "historical-price-eod/light",
+        "endpoint": "historical-price-eod/dividend-adjusted",
         "direct_path_only": False,
         "fallback_used": True,
         "proxy_used": False,
@@ -2964,7 +2964,7 @@ def test_run_imported_dashboard_history_enables_verified_benchmark_for_direct_qq
         "resolved_symbol": "QQQ",
         "cached": True,
         "vendor": "FMP",
-        "endpoint": "historical-price-eod/light",
+        "endpoint": "historical-price-eod/dividend-adjusted",
         "direct_path_only": True,
         "fallback_used": False,
         "proxy_used": False,
@@ -3016,7 +3016,7 @@ def test_run_imported_dashboard_history_enables_verified_benchmark_for_direct_qq
             "requested_symbol": "QQQ",
             "resolved_symbol": "QQQ",
             "vendor": "FMP",
-            "endpoint": "historical-price-eod/light",
+            "endpoint": "historical-price-eod/dividend-adjusted",
             "direct_path_only": True,
             "fallback_used": False,
             "proxy_used": False,
@@ -3050,7 +3050,7 @@ def test_run_imported_dashboard_history_keeps_qqq_unverified_when_direct_scope_e
         "resolved_symbol": "QQQ",
         "cached": True,
         "vendor": "FMP",
-        "endpoint": "historical-price-eod/light",
+        "endpoint": "historical-price-eod/dividend-adjusted",
         "direct_path_only": True,
         "fallback_used": True,
         "proxy_used": False,
@@ -3107,7 +3107,7 @@ def test_run_imported_dashboard_history_keeps_qqq_unverified_when_in_window_adjc
         "resolved_symbol": "QQQ",
         "cached": True,
         "vendor": "FMP",
-        "endpoint": "historical-price-eod/light",
+        "endpoint": "historical-price-eod/dividend-adjusted",
         "direct_path_only": True,
         "fallback_used": False,
         "proxy_used": False,
@@ -3166,7 +3166,7 @@ def test_run_imported_dashboard_history_keeps_non_allowlisted_benchmark_unverifi
         "resolved_symbol": "VOO",
         "cached": True,
         "vendor": "FMP",
-        "endpoint": "historical-price-eod/light",
+        "endpoint": "historical-price-eod/dividend-adjusted",
         "direct_path_only": True,
         "fallback_used": False,
         "proxy_used": False,
@@ -3480,7 +3480,7 @@ def test_run_imported_dashboard_history_unlocks_exact_slice_excess_return_for_ad
         "resolved_symbol": "SPY",
         "cached": True,
         "vendor": "FMP",
-        "endpoint": "historical-price-eod/light",
+        "endpoint": "historical-price-eod/dividend-adjusted",
         "direct_path_only": True,
         "fallback_used": False,
         "proxy_used": False,
@@ -3552,7 +3552,7 @@ def test_run_imported_dashboard_history_keeps_exact_slice_benchmark_return_withh
         "resolved_symbol": "SPY",
         "cached": True,
         "vendor": "FMP",
-        "endpoint": "historical-price-eod/light",
+        "endpoint": "historical-price-eod/dividend-adjusted",
         "direct_path_only": False,
         "fallback_used": True,
         "proxy_used": False,
@@ -3624,7 +3624,7 @@ def test_run_imported_dashboard_history_keeps_partial_overlap_benchmark_return_w
         "resolved_symbol": "SPY",
         "cached": True,
         "vendor": "FMP",
-        "endpoint": "historical-price-eod/light",
+        "endpoint": "historical-price-eod/dividend-adjusted",
         "direct_path_only": True,
         "fallback_used": False,
         "proxy_used": False,
@@ -3700,7 +3700,7 @@ def test_run_imported_dashboard_history_unlocks_only_exact_slice_excess_return_a
         "resolved_symbol": "SPY",
         "cached": True,
         "vendor": "FMP",
-        "endpoint": "historical-price-eod/light",
+        "endpoint": "historical-price-eod/dividend-adjusted",
         "direct_path_only": True,
         "fallback_used": False,
         "proxy_used": False,
@@ -3796,7 +3796,7 @@ def test_run_imported_dashboard_history_future_exact_slice_policy_keeps_rebucket
         "resolved_symbol": "SPY",
         "cached": True,
         "vendor": "FMP",
-        "endpoint": "historical-price-eod/light",
+        "endpoint": "historical-price-eod/dividend-adjusted",
         "direct_path_only": True,
         "fallback_used": False,
         "proxy_used": False,
@@ -7117,7 +7117,7 @@ def test_ff2026_dashboard_truth_values_match_imported_history_and_overview(mocke
         "resolved_symbol": "SPY",
         "cached": True,
         "vendor": "FMP",
-        "endpoint": "historical-price-eod/light",
+        "endpoint": "historical-price-eod/dividend-adjusted",
         "direct_path_only": True,
         "fallback_used": False,
         "proxy_used": False,
@@ -8109,7 +8109,7 @@ def test_withheld_days_are_named_with_only_the_causes_that_fired() -> None:
     assert history.daily_states[-1].date == "2026-08-11"
     # US-34.3: 1,366.17 before the anchor moved to the statement's own starting
     # cash — 96% of it was the anchor offset riding through the window.
-    assert history.daily_states[-1].reconciliation_adjustment == pytest.approx(-58.11, abs=2.0)
+    assert history.daily_states[-1].reconciliation_adjustment == pytest.approx(-19.98, abs=2.0)
 
 
 def test_adjusted_day_never_enters_the_replay_return_series() -> None:
@@ -8278,9 +8278,9 @@ def test_every_range_publishes_its_own_time_weighted_return() -> None:
     # 2026-06-23) are genuine DOWN days that the flat $1.00 unbacked-cash
     # tolerance had been discarding, so publishing them lowers the compounded
     # figure. Was 4.19 / 3.49 / 2.40.
-    assert twr["1M"] == pytest.approx(4.19, abs=0.05)
-    assert twr["3M"] == pytest.approx(1.61, abs=0.05)
-    assert twr["All"] == pytest.approx(0.54, abs=0.05)
+    assert twr["1M"] == pytest.approx(4.14, abs=0.05)
+    assert twr["3M"] == pytest.approx(1.56, abs=0.05)
+    assert twr["All"] == pytest.approx(0.43, abs=0.05)
     # The windows genuinely differ — the defect above produced one number.
     assert len({round(value, 2) for value in twr.values()}) > 1
 
@@ -8345,11 +8345,12 @@ def test_publishing_the_return_does_not_promote_it_to_verified() -> None:
     assert metadata.portfolio_proof.verified_total_return_emitted is False
     assert metadata.return_basis_contract.portfolio_path != "verified_total_return"
     assert all(metrics.portfolio_return_trust == "degraded" for metrics in ranges.values())
-    # Published, and still not verified: the basis contract says `price_return_only`
-    # and the status stays `withheld`. That pairing IS the point of this test.
+    # Published, and the PORTFOLIO still not verified. US-34.9 raised the
+    # benchmark leg to `verified_total_return`; the portfolio leg is untouched,
+    # which is what this test guards.
     assert all(metrics.summary.benchmark_return_pct is not None for metrics in ranges.values())
     assert all(metrics.summary.excess_return_pct is not None for metrics in ranges.values())
-    assert metadata.return_basis_contract.benchmark_path == "price_return_only"
+    assert metadata.return_basis_contract.benchmark_path == "verified_total_return"
 
 
 # -- US-34.6 (Epic 34 F-7): performance figures exclude the reconciliation --
@@ -8368,7 +8369,7 @@ def test_money_weighted_return_excludes_the_reconciliation_adjustment() -> None:
     terminal = history.daily_states[-1]
 
     # US-34.3: 2.95 before opening cash moved to the statement's own figure.
-    assert summary.money_weighted_return_pct == pytest.approx(2.88, abs=0.02)
+    assert summary.money_weighted_return_pct == pytest.approx(2.76, abs=0.02)
     # The removed amount IS the recorded adjustment — not an unexplained shift.
     contaminated = (
         (terminal.total_portfolio_value - summary.start_value - summary.net_contributions)
@@ -8396,7 +8397,7 @@ def test_investment_gain_excludes_the_reconciliation_adjustment() -> None:
     summary = (history.range_metrics or {})["All"].summary
     terminal = history.daily_states[-1]
 
-    assert summary.investment_gain == pytest.approx(1_714.71, abs=0.02)
+    assert summary.investment_gain == pytest.approx(1_645.99, abs=0.02)
     assert summary.investment_gain == pytest.approx(
         summary.end_value
         - summary.start_value
@@ -8500,7 +8501,11 @@ def test_terminal_day_publishes_its_market_return() -> None:
 
     assert terminal.date == "2026-08-11"
     assert terminal.date not in history.run_metadata.withheld_return_dates
-    assert series[terminal.date] == pytest.approx(0.000038, abs=1e-5)
+    # US-34.9: the 2026-08-11 re-capture supplied REAL terminal-day closes for
+    # the 14 holdings that previously carried 2026-08-10 forward, so the day is
+    # now a small decline rather than a near-flat carry artefact. Still an
+    # ordinary market move, which is what US-34.8 published it to be.
+    assert series[terminal.date] == pytest.approx(-0.000545, abs=1e-5)
 
     # The published figure is the market-derived chain, to the cent.
     market_derived = terminal.total_portfolio_value - terminal.reconciliation_adjustment
@@ -8702,15 +8707,19 @@ def test_a_missing_leg_yields_no_excess_rather_than_a_null_read_as_zero() -> Non
 def test_publishing_the_benchmark_return_does_not_promote_its_basis() -> None:
     """US-34.5 AC5 — published is not the same as verified.
 
-    The figure is published on `price_return_only`. The basis contract must keep
-    saying so, and the investor-economics status must stay `withheld` — that
-    pairing is the whole safety argument for retiring the anti-derivation rule.
+    US-34.9 moved the benchmark onto `verified_total_return`. The pairing this
+    test exists for is unchanged and is the point: the benchmark's basis can be
+    the STRONGEST rung while the PORTFOLIO's investor-economics status stays
+    `withheld`. The two are separate claims about separate data — conflating
+    them is exactly the confusion this test guards against.
     """
     _snapshot, history = _us313_ib2026_history()
     metadata = history.run_metadata
 
-    assert metadata.return_basis_contract.benchmark_path == "price_return_only"
+    assert metadata.return_basis_contract.benchmark_path == "verified_total_return"
     assert metadata.investor_economics_status.status == "withheld"
+    # The portfolio leg is NOT promoted with it.
+    assert metadata.return_basis_contract.portfolio_path == "replay_derived"
     assert (
         metadata.investor_economics_partial_unlock.client_derivation_rule
         == "labelled_scalars_published_daily_series_withheld"
@@ -8718,3 +8727,179 @@ def test_publishing_the_benchmark_return_does_not_promote_its_basis() -> None:
     # The DAILY benchmark chain stays withheld — only the scalars were unlocked.
     assert all(point.benchmark_return_pct is None for point in history.performance_series)
     assert "benchmark_relative_series" in metadata.investor_economics_partial_unlock.withheld_families
+
+
+# -- US-34.9 (Epic 34 F-9): the verified benchmark rung becomes reachable ----
+
+
+def _us349_verified_benchmark_snapshot():
+    """The two-day imported fixture the verified-rung tests share."""
+    return ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 10),
+            source_path="snapshot.pdf",
+            detected_format="pdf",
+            account_id="U123",
+            base_currency="USD",
+            statement_period="2026-04-10 - 2026-04-11",
+            page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency="USD", ending_cash=100.0)],
+        positions=[ImportedPosition(as_of_date=date(2026, 4, 11), symbol="AAPL", quantity=10.0, cost_basis=1000.0, close_price=115.0, market_value=1150.0, unrealized_pnl=150.0, currency="USD")],
+        ledger_entries=[ImportedLedgerEntry(entry_type="BUY", trade_date=date(2026, 4, 10), symbol="AAPL", quantity=10.0, price=100.0, gross_amount=1000.0, net_amount=1000.0, currency="USD", source_section="Trades")],
+    )
+
+
+def _us349_fetch_meta(**overrides):
+    meta = {
+        "type": "history",
+        "requested_symbol": "SPY",
+        "resolved_symbol": "SPY",
+        "cached": True,
+        "vendor": "FMP",
+        "endpoint": "historical-price-eod/dividend-adjusted",
+        "direct_path_only": True,
+        "fallback_used": False,
+        "proxy_used": False,
+        "mixed_source": False,
+        "symbol_override_used": False,
+    }
+    meta.update(overrides)
+    return meta
+
+
+def _us349_run(mocker, *, benchmark_rows, fetch_meta):
+    market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
+    service = market_data.return_value
+    service.get_direct_verified_benchmark_history.return_value = benchmark_rows
+    service.get_last_fetch_meta.return_value = fetch_meta
+    service.get_historical_prices_for_symbols.return_value = {
+        "AAPL": [
+            {"date": "2026-04-10", "price": 110.0},
+            {"date": "2026-04-11", "price": 115.0},
+        ],
+    }
+    return run_imported_dashboard_history(_us349_verified_benchmark_snapshot(), "SPY")
+
+
+_US349_ADJUSTED_ROWS = [
+    {"date": "2026-04-10", "price": 100.0, "adjClose": 100.0},
+    {"date": "2026-04-11", "price": 101.0, "adjClose": 101.5},
+]
+
+
+def test_verified_benchmark_rung_fires_on_a_fully_adjusted_slice(mocker) -> None:
+    """US-34.9 AC4 — the rung that F-9 showed could never fire, firing.
+
+    Before US-34.9 this combination was unreachable: the validator demanded
+    `adjClose` on every row AND an endpoint that returns none. The endpoint move
+    makes both satisfiable by one response, and the published figure is computed
+    from the ADJUSTED series (101.5/100.0 - 1 = 1.5%), not the raw closes
+    (101.0/100.0 - 1 = 1.0%) — which is the whole point of the rung.
+    """
+    result = _us349_run(mocker, benchmark_rows=_US349_ADJUSTED_ROWS, fetch_meta=_us349_fetch_meta())
+
+    assert result.run_metadata.return_basis_contract.benchmark_path == "verified_total_return"
+    assert result.benchmark is not None
+    assert result.benchmark.return_pct == 1.5
+    assert result.range_metrics is not None
+    assert result.range_metrics["All"].summary.benchmark_return_pct == 1.5
+
+
+def test_one_row_without_adjclose_keeps_the_benchmark_below_verified(mocker) -> None:
+    """US-34.9 AC6 — a PARTIALLY adjusted series is not an adjusted series.
+
+    This is the disqualifier most likely to be silently lost: 147 of 148 rows
+    carrying `adjClose` still means the chain would splice two bases together.
+    It must fall back, and never fabricate the missing adjustment from the
+    unadjusted close.
+    """
+    rows = [
+        {"date": "2026-04-10", "price": 100.0, "adjClose": 100.0},
+        {"date": "2026-04-11", "price": 101.0},
+    ]
+    result = _us349_run(mocker, benchmark_rows=rows, fetch_meta=_us349_fetch_meta())
+
+    assert result.run_metadata.return_basis_contract.benchmark_path != "verified_total_return"
+    # Falls to the price basis and publishes there (US-34.5), rather than going
+    # silent — 101.0/100.0 - 1 = 1.0%, computed from the unadjusted closes.
+    assert result.run_metadata.return_basis_contract.benchmark_path == "price_return_only"
+    assert result.benchmark is not None
+    assert result.benchmark.return_pct == 1.0
+
+
+def test_a_mismatched_endpoint_keeps_the_benchmark_below_verified(mocker) -> None:
+    """US-34.9 AC6 — the endpoint clause is load-bearing and now tested.
+
+    No test pinned this disqualifier before US-34.9: every fixture supplied the
+    matching endpoint, so a change to `VERIFIED_BENCHMARK_ENDPOINT` alone could
+    not fail anything. That is the same blind spot that let F-9 survive, so it
+    is closed here rather than assumed.
+    """
+    result = _us349_run(
+        mocker,
+        benchmark_rows=_US349_ADJUSTED_ROWS,
+        fetch_meta=_us349_fetch_meta(endpoint="historical-price-eod/light"),
+    )
+
+    assert result.run_metadata.return_basis_contract.benchmark_path != "verified_total_return"
+    assert result.run_metadata.return_basis_contract.benchmark_path == "unverified_adjusted_proxy"
+    # An unadmitted proxy publishes nothing (US-34.5 kept this closed).
+    assert result.benchmark is not None
+    assert result.benchmark.return_pct is None
+
+
+def test_a_proxied_fetch_keeps_the_benchmark_below_verified(mocker) -> None:
+    """US-34.9 AC6 — adjusted rows do not launder a proxied fetch."""
+    result = _us349_run(
+        mocker,
+        benchmark_rows=_US349_ADJUSTED_ROWS,
+        fetch_meta=_us349_fetch_meta(proxy_used=True, direct_path_only=False),
+    )
+
+    assert result.run_metadata.return_basis_contract.benchmark_path != "verified_total_return"
+    assert result.benchmark is not None
+    assert result.benchmark.return_pct is None
+
+
+def test_the_verified_benchmark_does_not_touch_portfolio_valuation(mocker) -> None:
+    """US-34.9 AC3 — the hard scope constraint, asserted rather than intended.
+
+    A dividend-adjusted series is a RETURN series, not a VALUE series. If it
+    ever reached position valuation, `total_market_value` would stop agreeing
+    with the broker's own statement — the truth-class mixing the project's
+    second guardrail forbids. The positions here are priced at 110/115, so the
+    market values are pinned to those raw prices regardless of what the
+    benchmark's basis is.
+    """
+    adjusted = _us349_run(mocker, benchmark_rows=_US349_ADJUSTED_ROWS, fetch_meta=_us349_fetch_meta())
+    unadjusted = _us349_run(
+        mocker,
+        benchmark_rows=[
+            {"date": "2026-04-10", "price": 100.0},
+            {"date": "2026-04-11", "price": 101.0},
+        ],
+        fetch_meta=_us349_fetch_meta(),
+    )
+
+    # The benchmark basis differs between the two runs...
+    assert adjusted.run_metadata.return_basis_contract.benchmark_path == "verified_total_return"
+    assert unadjusted.run_metadata.return_basis_contract.benchmark_path == "price_return_only"
+    # ...and every portfolio valuation is identical across both.
+    assert [state.total_market_value for state in adjusted.daily_states] == [1100.0, 1150.0]
+    assert (
+        [state.total_market_value for state in adjusted.daily_states]
+        == [state.total_market_value for state in unadjusted.daily_states]
+    )
+    assert (
+        [state.total_portfolio_value for state in adjusted.daily_states]
+        == [state.total_portfolio_value for state in unadjusted.daily_states]
+    )
+    assert (
+        [state.cash for state in adjusted.daily_states]
+        == [state.cash for state in unadjusted.daily_states]
+    )

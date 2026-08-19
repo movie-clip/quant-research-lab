@@ -27,7 +27,12 @@ HistoryReturnBasisContract = Literal[
 
 VERIFIED_BENCHMARK_SYMBOL_ALLOWLIST = frozenset({"SPY", "QQQ"})
 VERIFIED_BENCHMARK_VENDOR = "FMP"
-VERIFIED_BENCHMARK_ENDPOINT = "historical-price-eod/light"
+# US-34.9 (Epic 34 F-9): the verified rung requires every row to carry
+# `adjClose` AND the fetch to have come from this endpoint. Pinned to the
+# `light` endpoint — which returns no adjusted close — those two conditions
+# were mutually unsatisfiable, so the rung could never fire in production.
+# The dividend-adjusted endpoint returns both `close` and `adjClose`.
+VERIFIED_BENCHMARK_ENDPOINT = "historical-price-eod/dividend-adjusted"
 
 
 def _row_has_adjusted_close(row: dict) -> bool:
@@ -357,9 +362,15 @@ class MarketDataService:
         # (drift, dashboard, correlation) — normalize to the shared canonical
         # range and slice, same as get_historical_prices.
         canonical_from, canonical_to = _canonical_history_range(from_date, to_date)
+        # US-34.9: the benchmark — and ONLY the benchmark — reads adjusted closes.
+        # Position and FX history stay on `get_historical_price_light`, because a
+        # dividend-adjusted series is a RETURN series, not a VALUE series: using
+        # it to value holdings would make `total_market_value` disagree with the
+        # broker's own statement. This method has no other callers, which is what
+        # makes that scope enforceable rather than merely intended.
         try:
             rows = self._sanitize_price_rows(
-                self.client.get_historical_price_light(requested_symbol, canonical_from, canonical_to)
+                self.client.get_historical_price_dividend_adjusted(requested_symbol, canonical_from, canonical_to)
             )
         except Exception:  # noqa: BLE001
             return []

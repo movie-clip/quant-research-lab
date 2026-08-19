@@ -54,8 +54,14 @@ def test_maps_frame_to_fmp_shaped_rows(monkeypatch):
     first = rows[0]
     assert first["symbol"] == "VUAA.L"
     assert first["date"] == "2024-01-01"
-    # price == adjClose (adjusted close), so return-basis classifies verified.
-    assert first["price"] == first["adjClose"] == 9.0
+    # US-34.9: `price` is the TRADED close and `adjClose` the adjusted one.
+    # They used to be the same value (both adjusted), which meant this provider
+    # VALUED holdings at adjusted prices — so every dividend silently rewrote
+    # their history and dragged the replay away from the broker's statement.
+    # Returns still classify on `adjClose`, so nothing that wanted total-return
+    # behaviour lost it.
+    assert first["price"] == 10.0        # Close
+    assert first["adjClose"] == 9.0      # Adj Close
     assert "volume" in first
 
 
@@ -82,7 +88,12 @@ def test_nan_bars_are_skipped(monkeypatch):
 
     assert len(rows) == 3  # the NaN and inf bars are omitted, finite rows kept
     assert all(
-        isinstance(r["price"], float) and r["price"] == r["adjClose"] and r["price"] == r["price"]  # not NaN
+        isinstance(r["price"], float)
+        and isinstance(r["adjClose"], float)
+        # US-34.9: the two are now distinct values, so both are checked for
+        # finiteness independently rather than by comparing them to each other.
+        and r["price"] == r["price"]        # not NaN
+        and r["adjClose"] == r["adjClose"]  # not NaN
         for r in rows
     )
     assert [r["date"] for r in rows] == ["2024-01-01", "2024-01-02", "2024-01-04"]

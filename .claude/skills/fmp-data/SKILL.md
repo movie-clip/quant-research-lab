@@ -64,6 +64,7 @@ FmpClient                   ← raw HTTP + caching layer
 |---|---|---|---|
 | `get_quote_short(symbol)` | `quote-short` | `quote` | `fmp_quote_cache_ttl_seconds` |
 | `get_historical_price_light(symbol, from, to)` | `historical-price-eod/light` | `history` | `fmp_history_cache_ttl_seconds` |
+| `get_historical_price_dividend_adjusted(symbol, from, to)` | `historical-price-eod/dividend-adjusted` | `history` | `fmp_history_cache_ttl_seconds` |
 | `get_profile(symbol)` | `profile` | `profile` | quote TTL |
 | `get_etf_holders(symbol)` | `etf-holder/{symbol}` (v3) | `holdings` | history TTL |
 | `get_screener_results(...)` | `stock-screener` | `screener` | history TTL |
@@ -74,9 +75,47 @@ FmpClient                   ← raw HTTP + caching layer
 | `get_key_metrics_ttm(symbol)` | `key-metrics-ttm` | `fundamentals` | history TTL |
 | `get_sp500_constituents()` | `sp500-constituent` | `index_constituents` | history TTL |
 
-The `historical-price-eod/light` endpoint returns `adjClose` for US-listed equities
-and ETFs. The presence of `adjClose` is what classifies a history as
-`verified_adjusted_close`; absence means `unverified_close_only`.
+### Which endpoint gives you an adjusted close (US-34.9 / Epic 34 F-13)
+
+**This section previously said the `light` endpoint returns `adjClose` for
+US-listed equities and ETFs. That was the inverse of the truth**, and it is the
+claim that let F-9 sit unnoticed: an agent reading it would conclude SPY already
+had adjusted closes and look for the bug elsewhere.
+
+What the committed capture actually shows (`app/scripts/golden_market_data.json`,
+pinned by `app/tests/test_golden_market_data_basis.py`):
+
+| Source | Endpoint / path | `adjClose`? | Which symbols |
+|---|---|---|---|
+| FMP | `historical-price-eod/light` | **no** | every symbol FMP serves — all US names, incl. SPY |
+| FMP | `historical-price-eod/full` | no (`close` only) | benchmark only — joined with the row below |
+| FMP | `historical-price-eod/dividend-adjusted` | **yes** (no `close`) | benchmark only, see below |
+| yfinance fallback | `Ticker.history(auto_adjust=False)` | **yes** | non-US listings FMP cannot serve (SXRV, VUAA, IUIT, SGLD…) |
+
+Before US-34.9 the only adjusted closes in this repo came from the **yfinance
+fallback**, for **non-US** listings — 2,079 of 9,288 frozen rows, and none of
+them US. Since the 2026-08-17 re-capture SPY carries them too, from the
+dividend-adjusted endpoint. Ordinary US positions still do not, deliberately.
+
+**Two calls, joined.** Neither endpoint carries both figures: `full` returns
+`close` and no `adjClose`; `dividend-adjusted` returns `adjClose` and **no
+`close`**. `get_historical_price_dividend_adjusted` joins them on date and sorts
+**ascending** — FMP returns newest-first, and the verified-slice validator
+requires ascending order (F-14).
+
+The presence of `adjClose` is what classifies a history as
+`verified_adjusted_close`; absence means `unverified_close_only`. But note the
+next step: `classify_history_return_basis_contract` maps
+`verified_adjusted_close` to **`unverified_adjusted_proxy`**, not to
+`verified_total_return`. Only `_validate_verified_benchmark_slice` — allowlisted
+symbol, direct single-vendor fetch, the pinned endpoint, and complete `adjClose`
+coverage — reaches the verified rung.
+
+**`get_historical_price_dividend_adjusted` is for the benchmark only.** It
+returns a *return* series, not a *value* series: valuing holdings with it would
+make `total_market_value` disagree with the broker's statement. Position and FX
+history stay on `get_historical_price_light`, and the narrow scope is enforced
+by `get_direct_verified_benchmark_history` being its only caller.
 
 ---
 

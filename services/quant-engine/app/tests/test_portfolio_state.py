@@ -188,7 +188,7 @@ class TestOpeningPositionCoverage:
         # so it keeps the US-27.7 statement-close anchor (valued flat at its
         # PERIOD-END price on day one). That anchor is broker-truth-adjacent and
         # disclosed via `statement_anchored_symbols`, not a US-31.2 defect.
-        assert day_one.total_market_value == pytest.approx(49_024.04, abs=1.0)
+        assert day_one.total_market_value == pytest.approx(49_050.54, abs=1.0)
         implied_shortfall = 50_116.24 - day_one.total_market_value
         assert implied_shortfall / 50_116.24 < 0.03
 
@@ -699,8 +699,8 @@ class TestIB2026FundCurrencyReconciliation:
         # 3,580.07). LQQ was a third pin here until US-33.2 withheld its
         # reconstructed quantity — a withheld symbol is in no state at all, so
         # the assertion is now that it is ABSENT rather than valued.
-        assert by_symbol["SXRV"].market_value == pytest.approx(10_215.55, abs=1.0)
-        assert by_symbol["SEMI"].market_value == pytest.approx(3_948.12, abs=1.0)
+        assert by_symbol["SXRV"].market_value == pytest.approx(10_192.01, abs=1.0)
+        assert by_symbol["SEMI"].market_value == pytest.approx(3_956.76, abs=1.0)
         assert "LQQ" not in by_symbol
         # DEFS (DEFS.L quotes USD): unchanged, never double-converted.
         assert by_symbol["DEFS"].market_value == pytest.approx(
@@ -708,7 +708,7 @@ class TestIB2026FundCurrencyReconciliation:
             * max(price_histories["DEFS"], key=lambda r: r["date"])["price"],
             abs=1.0,
         )
-        assert terminal.total_market_value == pytest.approx(64_934.40, abs=2.0)
+        assert terminal.total_market_value == pytest.approx(64_896.27, abs=2.0)
 
 
 class TestCashAnchorDisclosure:
@@ -960,7 +960,7 @@ class TestTerminalReconciliationAdjustment:
         # US-33.4: 1,197.88 on the pre-refresh statement.
         # US-34.3: 1,366.17 before the anchor moved to the statement's own
         # starting cash.
-        assert states[-1].reconciliation_adjustment == pytest.approx(-58.11, abs=2.0)
+        assert states[-1].reconciliation_adjustment == pytest.approx(-19.98, abs=2.0)
         assert all(s.reconciliation_adjustment is None for s in states[:-1])
         # US-33.4: non-terminal days are publishable unless they carry a
         # withheld symbol's unbacked cash flow (US-33.2) — on IB2026 that is
