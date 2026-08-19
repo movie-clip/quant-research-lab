@@ -151,6 +151,20 @@ of deliberate updates:
    market-data fixture (live FMP; needed because the new statement widens the
    history window and may add symbols), regenerates
    `dashboardGoldens.ts`, and runs the full suite.
+
+   **The capture refuses to degrade (US-35.3).** Before writing, it compares the
+   new capture against the committed one and stops if the series count drops,
+   total rows fall by more than 5%, the benchmark comes back empty, or any
+   symbol goes from having data to having none. It prints what changed and
+   writes nothing. This exists because on 2026-08-19 the capture overwrote a
+   73-series fixture with a 21-series one and reported success — the fixture the
+   whole network-free suite derives from, replaced silently.
+
+   If the refusal is *correct* — you deliberately imported a smaller portfolio —
+   re-run with `--allow-smaller-capture`. If it is not, the usual causes are a
+   rejected `FMP_API_KEY` (which now raises rather than returning empty data,
+   US-35.1) or a poisoned cache: check `python scripts/manage_cache.py list`,
+   and note that `--namespace history` does **not** clear `history_yf` (US-35.2).
 3. **Update the statement-truth pins** — all in ONE module:
    `services/quant-engine/app/tests/statement_truths.py`. The failing test is
    `test_importer_csv.py::test_statement_matches_truths_module`, and its

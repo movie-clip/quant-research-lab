@@ -12,6 +12,7 @@ from app.scripts.frozen_market_data import (
     RecordingMarketData,
 )
 from app.services.dashboard_history_engine import run_imported_dashboard_history
+from app.scripts.capture_guard import assess_capture_regression
 from app.services.statement_importer import import_statements
 
 
@@ -272,7 +273,10 @@ def render_dashboard_goldens_text(repo_root: Path | None = None, *, market_data:
     return _render_typescript(ib_expected, ib_fixture, ff_expected, ff_fixture)
 
 
-def capture_golden_market_data(repo_root: Path | None = None) -> Path:
+ALLOW_SMALLER_CAPTURE_FLAG = "--allow-smaller-capture"
+
+
+def capture_golden_market_data(repo_root: Path | None = None, *, allow_smaller: bool = False) -> Path:
     """Run the generator against a LIVE MarketDataService through a recording
     proxy and freeze the exact rows + fetch-meta the goldens consume into
     `golden_market_data.json`. This is the one place that touches live data —
@@ -287,6 +291,35 @@ def capture_golden_market_data(repo_root: Path | None = None) -> Path:
     # Drive the full generation so every consumed (symbol, window) is recorded.
     render_dashboard_goldens_text(repo_root, market_data=recorder)
     payload = recorder.to_payload()
+
+    # US-35.3: do not overwrite a good fixture with a degraded run. On
+    # 2026-08-19 this wrote a 21-series capture over a 73-series one and printed
+    # success; the damage was caught only because a human compared the counts.
+    committed = None
+    if GOLDEN_MARKET_DATA_PATH.exists():
+        try:
+            committed = json.loads(GOLDEN_MARKET_DATA_PATH.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            # An unreadable baseline is not evidence the new capture is bad, and
+            # refusing here would make a corrupt fixture unrecoverable.
+            committed = None
+
+    reasons = assess_capture_regression(payload, committed)
+    if reasons:
+        print("Refusing to overwrite the committed capture — it looks degraded:")
+        for reason in reasons:
+            print(f"  - {reason}")
+        if not allow_smaller:
+            print()
+            print(
+                "Nothing was written. If this shrink is real (a smaller statement, "
+                f"fewer holdings), re-run with {ALLOW_SMALLER_CAPTURE_FLAG}. "
+                "Otherwise check FMP_API_KEY and the cache "
+                "(`python scripts/manage_cache.py list`) before retrying."
+            )
+            raise SystemExit(1)
+        print(f"Proceeding anyway: {ALLOW_SMALLER_CAPTURE_FLAG} was given.")
+
     GOLDEN_MARKET_DATA_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     series_count = len(payload["series"])
     print(f"Wrote {GOLDEN_MARKET_DATA_PATH} ({series_count} series)")
@@ -297,7 +330,9 @@ def main(argv: list[str] | None = None) -> None:
     args = sys.argv[1:] if argv is None else argv
     repo_root = _repo_root()
     if "--capture" in args:
-        capture_golden_market_data(repo_root)
+        capture_golden_market_data(
+            repo_root, allow_smaller=ALLOW_SMALLER_CAPTURE_FLAG in args
+        )
         return
     output_path = _dashboard_golden_output_path(repo_root)
     output_path.write_text(render_dashboard_goldens_text(repo_root), encoding="utf-8")
