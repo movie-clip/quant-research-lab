@@ -147,3 +147,67 @@ def test_clear_memory_forces_reparse_and_missing_file_is_none(tmp_path: Path, mo
     cache.get(key)  # re-reads after clear
     assert spy.call_count == 1
     assert cache.get(cache.build_key("history", "MISSING")) is None
+
+
+# ── US-35.2: namespace targeting is exact, and enumerable ───────────────────
+
+
+def test_clearing_history_leaves_the_yfinance_cache_standing(tmp_path: Path) -> None:
+    """US-35.2 AC2 — a GUARD, not a fix: this behaviour is already correct.
+
+    `history-*.json` does not match `history_yf-abc.json`, because the character
+    after `history` is `_`, not `-`. They are two providers' caches and must
+    stay separately targetable.
+
+    The obvious "tidy-up" — matching by bare prefix — would silently merge them,
+    so clearing FMP's history would also throw away the yfinance rows for the 14
+    UCITS listings. This test exists to make that change fail.
+    """
+    cache = JsonFileCache(tmp_path)
+    cache.set(cache.build_key("history", "historical:SPY"), [{"date": "2026-01-02", "price": 1.0}])
+    cache.set(cache.build_key("history_yf", "historical:VUAA.L"), [{"date": "2026-01-02", "price": 2.0}])
+
+    assert cache.clear(namespace="history") == 1
+    assert cache.namespaces() == {"history_yf": 1}
+
+
+def test_clearing_the_yfinance_cache_leaves_fmp_history_standing(tmp_path: Path) -> None:
+    """US-35.2 AC2 — the same exactness in the other direction."""
+    cache = JsonFileCache(tmp_path)
+    cache.set(cache.build_key("history", "historical:SPY"), [{"date": "2026-01-02", "price": 1.0}])
+    cache.set(cache.build_key("history_yf", "historical:VUAA.L"), [{"date": "2026-01-02", "price": 2.0}])
+
+    assert cache.clear(namespace="history_yf") == 1
+    assert cache.namespaces() == {"history": 1}
+
+
+def test_clearing_everything_includes_the_yfinance_cache(tmp_path: Path) -> None:
+    """US-35.2 AC5 — the bare clear is the escape hatch and must stay total."""
+    cache = JsonFileCache(tmp_path)
+    cache.set(cache.build_key("history", "historical:SPY"), [{"date": "2026-01-02", "price": 1.0}])
+    cache.set(cache.build_key("history_yf", "historical:VUAA.L"), [{"date": "2026-01-02", "price": 2.0}])
+    cache.set(cache.build_key("holdings", "etf:SPY"), [{"asset": "AAPL"}])
+
+    assert cache.clear() == 3
+    assert cache.namespaces() == {}
+
+
+def test_namespaces_are_derived_from_disk_not_declared(tmp_path: Path) -> None:
+    """US-35.2 AC1/AC4 — the enumeration the CLI's choices are built from.
+
+    Nothing declares the namespace set; one exists because a caller passed that
+    string to `build_key`. A namespace nobody has ever heard of must therefore
+    still be listed, which is what makes a hand-maintained choice list
+    unnecessary.
+    """
+    cache = JsonFileCache(tmp_path)
+    cache.set(cache.build_key("history", "a"), [{"x": 1}])
+    cache.set(cache.build_key("history", "b"), [{"x": 2}])
+    cache.set(cache.build_key("a_brand_new_namespace", "c"), [{"x": 3}])
+
+    assert cache.namespaces() == {"a_brand_new_namespace": 1, "history": 2}
+
+
+def test_namespaces_is_empty_for_an_empty_cache(tmp_path: Path) -> None:
+    """US-35.2 AC4 — an empty cache reports nothing, not `{'unknown': 0}`."""
+    assert JsonFileCache(tmp_path).namespaces() == {}

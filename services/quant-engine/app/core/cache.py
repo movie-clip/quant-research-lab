@@ -113,7 +113,36 @@ class JsonFileCache:
                 continue
         return entries
 
+    def namespaces(self) -> dict[str, int]:
+        """Namespace -> entry count, derived from what is on disk (US-35.2).
+
+        Nothing declares the set of namespaces: one exists because some caller
+        passed that string to `build_key`. Any hand-maintained list of them is
+        therefore guaranteed to drift, which is exactly what happened to the
+        `manage_cache.py --namespace` choices — `history_yf`, `holdings`,
+        `profile`, `fundamentals`, `screener` and `index_constituents` all
+        existed and none could be named.
+        """
+        counts: dict[str, int] = {}
+        for path in self.base_dir.glob("*.json"):
+            namespace = path.name.split("-", 1)[0] if "-" in path.name else "unknown"
+            counts[namespace] = counts.get(namespace, 0) + 1
+        return dict(sorted(counts.items()))
+
     def clear(self, namespace: str | None = None) -> int:
+        """Remove cache entries; returns the count removed.
+
+        The return type stays an `int` deliberately: `CacheClearResult.removed`
+        on the `/cache` route is typed from it, and US-35.2 is a CLI-reporting
+        story with no mandate to change a published response contract. The
+        per-namespace breakdown the CLI prints is derived from `namespaces()`
+        either side of the call instead.
+
+        Namespace matching includes the `-` separator and is therefore exact:
+        `history-*.json` does **not** match `history_yf-abc.json`. That is
+        deliberate and is pinned by tests — they are two providers' caches, and
+        matching by bare prefix would silently merge them.
+        """
         removed = 0
         pattern = "*.json" if namespace in {None, "fmp"} else f"{namespace}-*.json"
         for path in self.base_dir.glob(pattern):

@@ -47,10 +47,32 @@ have reached them.
 | Story | Title | Status |
 |---|---|---|
 | US-35.1 | Stop returning an auth failure as if it were missing data | Done |
-| US-35.2 | Make every cache namespace clearable and inspectable | Backlog |
+| US-35.2 | Make every cache namespace clearable and inspectable | Done |
 | US-35.3 | Refuse to overwrite the golden capture with a degraded one | Backlog |
 
 ### Slice log
+
+- **US-35.2 (2026-08-19)** — **the CLI listed namespaces it could not clear.**
+  F-2: `manage_cache.py list` printed `history`, `history_yf`, `holdings` and
+  `fx`; `clear --namespace` accepted a hand-written `{quote, history, fx, fmp}`.
+  Most of what the cache holds was unnameable, so the only way to clear the
+  yfinance cache was to clear everything. **Two premise corrections, both caught
+  before implementing:** the claimed prefix collision does **not** exist — the
+  glob includes the `-` separator, so `history-*.json` never matched
+  `history_yf-abc.json` — and `test_cache.py` already existed where the plan
+  said "new". The collision AC became a **guard** against introducing one, since
+  matching by bare prefix is the obvious tidy-up and would silently discard the
+  yfinance rows for the 14 UCITS listings whenever someone cleared FMP history.
+  **`clear()` kept its `int` return deliberately:** the first implementation
+  changed it to a per-namespace dict until `cache_admin.py` showed
+  `CacheClearResult.removed` on the `/cache` route is typed from it — a
+  published contract this story had no mandate to change, so the breakdown is
+  derived at the CLI instead. Choices now come from disk, a partial clear
+  reports what it left standing, and a typo is rejected with the present
+  namespaces rather than reporting `Removed 0 cache file(s).` — which was
+  indistinguishable from success. Goldens byte-identical. 771 backend (+11) +
+  331 frontend green.
+
 
 - **US-35.1 (2026-08-19)** — **the system was good at saying "I don't know" and
   bad at saying "I couldn't ask".** F-1: a 401 was negative-cached as `[]` and
