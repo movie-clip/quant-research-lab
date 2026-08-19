@@ -170,7 +170,36 @@ export function PerformanceBenchmarkCard({ result, activeRange }: PerformanceBen
           <span className="stat-label">Net Contributions</span>
           <span className="benchmark-card-value">{formatCurrency(metrics.summary.net_contributions)}</span>
         </div>
+        {/* US-34.5 (Epic 34 F-10): the benchmark return and the excess. Both were
+            published as null on every run before this story, so the card never
+            rendered them at all. The basis marker is text, not colour alone. */}
+        <div className="benchmark-card-metric">
+          <span className="stat-label">
+            {benchmarkSymbol} Return
+            {benchmarkBasis != null && benchmarkBasis !== 'verified_total_return' ? (
+              <span className="helper"> · {returnBasisLabel(benchmarkBasis)}</span>
+            ) : null}
+          </span>
+          <span className="benchmark-card-value">{formatPct(metrics.summary.benchmark_return_pct)}</span>
+        </div>
+        <div className="benchmark-card-metric">
+          <span className="stat-label">Excess Return</span>
+          <span className="benchmark-card-value">{formatPct(metrics.summary.excess_return_pct)}</span>
+        </div>
       </div>
+
+      {/* US-34.5: a price return omits the benchmark's dividends, so it
+          understates the benchmark and FLATTERS the excess. Publishing the pair
+          without saying so would let a reader take a flattered number at face
+          value — the same failure US-34.2 fixed on the withheld-days side. */}
+      {benchmarkBasis === 'price_return_only' && metrics.summary.benchmark_return_pct != null ? (
+        <p className="helper" style={{ marginTop: 'var(--space-md)' }}>
+          {benchmarkSymbol} Return is a price return: it excludes the benchmark&apos;s dividends, so
+          it understates the benchmark by roughly its yield over this window (about 0.7 percentage
+          points a year for a broad US equity index at current yields). Excess Return is the
+          difference of the two figures above and is flattered by about the same amount.
+        </p>
+      ) : null}
 
       {reconciliationAdjustment != null && Math.abs(reconciliationAdjustment) > 1 ? (
         <p className="helper" style={{ marginTop: 'var(--space-md)' }}>

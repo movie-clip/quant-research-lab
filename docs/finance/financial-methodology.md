@@ -707,6 +707,49 @@ Implementation:
 Financial rule:
 - these return paths must not overclaim investor-economics trust when adjusted-close or total-return-equivalent support is not proven for the specific contract path
 
+### Mixed-basis portfolio-vs-benchmark comparison (US-34.5)
+
+The Dashboard's `excess_return_pct` compares two returns measured on **different
+bases**. No new equation is involved — the excess is defined as the subtraction
+of the two figures actually published:
+
+```text
+excess_return_pct = round(time_weighted_return_pct - benchmark_return_pct, 2)
+```
+
+It is computed *from the published scalars*, never derived independently, so the
+three figures on screen always reconcile. If either leg is null the excess is
+null; a missing leg is never read as zero.
+
+**Bases and the direction of the bias.** The portfolio leg is a cash-inclusive
+time-weighted return over the imported replay, where dividends arrive as ledger
+entries — so it is already total-return-like (see F-11 under US-34.7). The
+benchmark leg is whatever its own data supports:
+
+| `benchmark_path` | Benchmark return | Note |
+|---|---|---|
+| `verified_total_return` | published | dividends included; comparison is like-for-like |
+| `price_return_only` | published | **dividends excluded** |
+| `unverified_adjusted_proxy` | withheld | adjustment claimed but not provable |
+| `unavailable` | withheld | no data |
+
+On `price_return_only` the benchmark's dividends are omitted, so the benchmark
+is **understated** and the excess is **flattered** — always in the portfolio's
+favour, never against it. The magnitude is approximately the benchmark's
+dividend yield over the window: for a broad US equity index at a ~1.2% trailing
+yield, roughly **0.7pp over a seven-month window**. That is large enough to
+matter for a close comparison, so it is disclosed on the surface next to the
+figures rather than left for the reader to infer.
+
+Publishing on a stated basis is **not** a trust promotion:
+`run_metadata.return_basis_contract.benchmark_path` continues to name the basis
+and `investor_economics_status` continues to read `withheld`.
+
+Implementation:
+- `services/quant-engine/app/services/dashboard_history_engine.py`
+- `_allow_benchmark_return_output(...)`, `_range_time_weighted_return_pct(...)`
+- `services/quant-engine/app/services/benchmark_service.py`
+
 ## Wealth Index and Drawdown
 
 ### Wealth index

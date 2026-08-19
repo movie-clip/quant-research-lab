@@ -900,6 +900,33 @@ describe('App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
     await waitFor(() => expect(screen.getByText(ib2026DashboardGolden.loadedFileLabel)).toBeTruthy())
+
+    // US-34.5 (Epic 34 F-10): the benchmark return and the excess reach the
+    // screen, measured from the real IB2026 statement. Both rendered "n/a" on
+    // every range on every run before this story.
+    //
+    // The assertion is deliberately not pinned to one range's number — the
+    // active range here is not the goldens' `range_key` — so it checks that
+    // real percentages render, and the per-range values are checked against the
+    // engine response itself below.
+    const card = screen.getByRole('region', { name: /performance & benchmark/i })
+    const cardText = card.textContent ?? ''
+    expect(cardText).toMatch(/Benchmark Return-?\d+\.\d\d%/)
+    expect(cardText).toMatch(/Excess Return-?\d+\.\d\d%/)
+    expect(ib2026DashboardGolden.benchmarkReturn).not.toBe('n/a')
+    expect(ib2026DashboardGolden.excessReturn).not.toBe('n/a')
+
+    // Every range publishes both legs, and the excess is exactly the difference
+    // of the two published figures — the same identity the engine asserts.
+    for (const metrics of Object.values(ib2026ImportedDashboardGoldenFixture.range_metrics)) {
+      const summary = metrics.summary
+      expect(summary.benchmark_return_pct).not.toBeNull()
+      expect(summary.excess_return_pct).not.toBeNull()
+      expect(summary.excess_return_pct).toBeCloseTo(
+        Number(summary.time_weighted_return_pct) - Number(summary.benchmark_return_pct),
+        2,
+      )
+    }
   })
 
 

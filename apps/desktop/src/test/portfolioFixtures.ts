@@ -584,16 +584,16 @@ export function createDashboardHistoryRunMetadataFixture(status: 'default' | 'un
       },
       {
         field: 'range_metrics[*].summary.benchmark_return_pct',
-        unlock_condition: 'identical_admitted_exact_slice_with_independently_verified_benchmark_total_return_only',
+        unlock_condition: 'publishing_benchmark_return_basis_only',
         runtime_enabled: true,
       },
       {
         field: 'range_metrics[*].summary.excess_return_pct',
-        unlock_condition: 'identical_admitted_exact_slice_pair_only',
+        unlock_condition: 'both_published_legs_present_only',
         runtime_enabled: false,
       },
     ],
-    client_derivation_rule: 'server_side_scalar_only_no_daily_series_subtraction_equivalence',
+    client_derivation_rule: 'labelled_scalars_published_daily_series_withheld',
     withheld_families: [
       'benchmark_relative_series',
       'benchmark_relative_path_derived_outputs',

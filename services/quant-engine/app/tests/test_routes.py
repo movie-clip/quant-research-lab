@@ -510,16 +510,16 @@ def test_diagnostics_engine_route_marks_snapshot_only_history_as_unavailable() -
             },
             {
                 "field": "range_metrics[*].summary.benchmark_return_pct",
-                "unlock_condition": "identical_admitted_exact_slice_with_independently_verified_benchmark_total_return_only",
+                "unlock_condition": "publishing_benchmark_return_basis_only",
                 "runtime_enabled": True,
             },
             {
                 "field": "range_metrics[*].summary.excess_return_pct",
-                "unlock_condition": "identical_admitted_exact_slice_pair_only",
+                "unlock_condition": "both_published_legs_present_only",
                 "runtime_enabled": True,
             },
         ],
-        "client_derivation_rule": "server_side_scalar_only_no_daily_series_subtraction_equivalence",
+        "client_derivation_rule": "labelled_scalars_published_daily_series_withheld",
         "withheld_families": [
             "benchmark_relative_series",
             "benchmark_relative_path_derived_outputs",
@@ -1621,7 +1621,8 @@ def test_imported_dashboard_history_engine_route_admits_exact_slice_when_full_po
     assert payload["range_metrics"]["All"]["summary"]["excess_return_pct"] == 2.0
     assert payload["range_metrics"]["All"]["max_drawdown_pct"] is None
     assert payload["benchmark"]["return_basis_contract"] == "verified_total_return"
-    assert payload["benchmark"]["return_pct"] is None
+    # US-34.5 (F-10): published over the wire, labelled with its basis.
+    assert payload["benchmark"]["return_pct"] == 1.0
     assert payload["run_metadata"]["investor_economics_status"] == {
         "status": "withheld",
         "reason": "withheld_unverified_total_return_equivalence",
@@ -1683,6 +1684,12 @@ def test_imported_dashboard_history_engine_route_keeps_exact_slice_benchmark_ret
     assert payload["run_metadata"]["portfolio_proof"]["admission"]["readiness_status"] == "exact_slice_admitted"
     assert payload["performance_series"][-1]["benchmark_return_pct"] is None
     assert payload["range_metrics"]["All"]["summary"]["time_weighted_return_pct"] == 3.0
+    # US-34.5 (F-10) did NOT loosen this case. `direct_path_only: False` makes
+    # the adjusted-looking series an `unverified_adjusted_proxy` — a basis the
+    # project has never admitted as a return basis, so it publishes nothing.
+    # Publishing on a PRICE basis is a labelled measurement; publishing on an
+    # unverified proxy would be a claim about adjustment the data cannot support.
+    assert payload["run_metadata"]["return_basis_contract"]["benchmark_path"] == "unverified_adjusted_proxy"
     assert payload["range_metrics"]["All"]["summary"]["benchmark_return_pct"] is None
     assert payload["range_metrics"]["All"]["summary"]["excess_return_pct"] is None
     assert payload["range_metrics"]["All"]["max_drawdown_pct"] is None
@@ -1746,7 +1753,8 @@ def test_imported_dashboard_history_engine_route_unlocks_only_exact_slice_excess
     assert payload["range_metrics"]["All"]["summary"]["benchmark_return_pct"] == 1.0
     assert payload["range_metrics"]["All"]["summary"]["excess_return_pct"] == 2.0
     assert payload["performance_series"][-1]["benchmark_return_pct"] is None
-    assert payload["benchmark"]["return_pct"] is None
+    # US-34.5 (F-10): published over the wire, labelled with its basis.
+    assert payload["benchmark"]["return_pct"] == 1.0
     assert all(metrics["max_drawdown_pct"] is None for metrics in payload["range_metrics"].values())
     assert payload["run_metadata"]["investor_economics_status"] == {
         "status": "withheld",
@@ -1754,7 +1762,7 @@ def test_imported_dashboard_history_engine_route_unlocks_only_exact_slice_excess
     }
     assert payload["run_metadata"]["investor_economics_partial_unlock"]["exact_slice_scalar_allowlist"][2] == {
         "field": "range_metrics[*].summary.excess_return_pct",
-        "unlock_condition": "identical_admitted_exact_slice_pair_only",
+        "unlock_condition": "both_published_legs_present_only",
         "runtime_enabled": True,
     }
     assert payload["run_metadata"]["investor_economics_partial_unlock"]["withheld_families"] == [
@@ -1829,10 +1837,14 @@ def test_imported_dashboard_history_engine_route_keeps_non_exact_windows_withhel
     assert payload["range_metrics"]["YTD"]["summary"]["benchmark_return_pct"] == 21.0
     assert payload["range_metrics"]["YTD"]["summary"]["excess_return_pct"] == 0.0
     assert payload["range_metrics"]["1M"]["summary"]["time_weighted_return_pct"] is None
-    assert payload["range_metrics"]["1M"]["summary"]["benchmark_return_pct"] is None
+    # US-34.5 (F-10): the non-exact window still withholds the PORTFOLIO scalar
+    # (asserted above) — the benchmark leg is measured from its own data and no
+    # longer inherits that gate. The excess stays null: one leg is missing.
+    assert payload["range_metrics"]["1M"]["summary"]["benchmark_return_pct"] == 21.0
     assert payload["range_metrics"]["1M"]["summary"]["excess_return_pct"] is None
     assert payload["performance_series"][-1]["benchmark_return_pct"] is None
-    assert payload["benchmark"]["return_pct"] is None
+    # US-34.5 (F-10): published over the wire, labelled with its basis.
+    assert payload["benchmark"]["return_pct"] == 21.0
     assert all(metrics["max_drawdown_pct"] is None for metrics in payload["range_metrics"].values())
 
 

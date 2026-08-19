@@ -156,6 +156,11 @@ def _build_expected_values(snapshot: dict[str, Any], overview: dict[str, Any], h
         "timeWeightedReturn": _format_pct(selected_summary.get("time_weighted_return_pct")),
         "netContributions": _format_money(selected_summary.get("net_contributions")),
         "moneyWeightedReturn": _format_pct(selected_summary.get("money_weighted_return_pct")),
+        # US-34.5 (Epic 34 F-10): the benchmark leg reaches the screen. Carried
+        # through the goldens so the assertion runs against the REAL statement,
+        # not a hand-written fixture.
+        "benchmarkReturn": _format_pct(selected_summary.get("benchmark_return_pct")),
+        "excessReturn": _format_pct(selected_summary.get("excess_return_pct")),
         "drawdown": _format_pct(selected_range_metrics.get("max_drawdown_pct")),
         "loadedFiles": loaded_files,
         "monthlyReturns": [
