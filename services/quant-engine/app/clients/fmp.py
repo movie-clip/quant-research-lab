@@ -163,13 +163,20 @@ class FmpClient:
 
     def _get(self, namespace: str, path: str, params: dict[str, Any], ttl_seconds: int) -> list[dict[str, Any]]:
         if not self.api_key:
-            # US-35.1 AC7: the same failure class as a rejected key — the caller
-            # is not configured — so it raises the same type and surfaces the
-            # same way, rather than a bare ValueError that reads as a bug.
-            raise MarketDataAuthError(
-                "FMP_API_KEY is not configured. Set it in the environment or in "
-                "services/quant-engine/.env, then retry."
-            )
+            # US-35.1 AC7 was WRONG and is reverted here. It made an unset key
+            # raise `MarketDataAuthError`, reasoning that "no key" and "rejected
+            # key" are the same configuration failure.
+            #
+            # They are not. Running with NO key is a SUPPORTED mode: the test
+            # suite is network-free by design and CI has no key at all, so every
+            # engine is expected to reach the client, get nothing back, and
+            # degrade to `unavailable`. Raising here turned that into a 400 on
+            # every route.
+            #
+            # A REJECTED key (401) is a different thing — the caller tried to
+            # authenticate and was refused — and that still raises, uncached,
+            # which is the part of this story that mattered.
+            raise ValueError("FMP_API_KEY is not configured")
 
         cache_key = None
         if self.cache is not None:
@@ -347,13 +354,20 @@ class FmpClient:
 
     def get_etf_holders(self, symbol: str) -> list[dict[str, Any]]:
         if not self.api_key:
-            # US-35.1 AC7: the same failure class as a rejected key — the caller
-            # is not configured — so it raises the same type and surfaces the
-            # same way, rather than a bare ValueError that reads as a bug.
-            raise MarketDataAuthError(
-                "FMP_API_KEY is not configured. Set it in the environment or in "
-                "services/quant-engine/.env, then retry."
-            )
+            # US-35.1 AC7 was WRONG and is reverted here. It made an unset key
+            # raise `MarketDataAuthError`, reasoning that "no key" and "rejected
+            # key" are the same configuration failure.
+            #
+            # They are not. Running with NO key is a SUPPORTED mode: the test
+            # suite is network-free by design and CI has no key at all, so every
+            # engine is expected to reach the client, get nothing back, and
+            # degrade to `unavailable`. Raising here turned that into a 400 on
+            # every route.
+            #
+            # A REJECTED key (401) is a different thing — the caller tried to
+            # authenticate and was refused — and that still raises, uncached,
+            # which is the part of this story that mattered.
+            raise ValueError("FMP_API_KEY is not configured")
 
         cache_key = None
         cache_identifier = json.dumps({"path": f"api/v3/etf-holder/{symbol}", "params": {}}, sort_keys=True)
