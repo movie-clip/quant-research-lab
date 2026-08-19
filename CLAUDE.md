@@ -74,7 +74,7 @@ apps/desktop/src/
     settings/
 
 services/quant-engine/app/
-  api/routes/           # FastAPI routes: exposure, dashboard_history, diagnostics, drift, attribution, correlation, stress, drawdown, distribution, imports, market_data, health
+  api/routes/           # FastAPI routes: exposure, dashboard_history, diagnostics, drift, attribution, correlation, stress, drawdown, distribution, provenance, imports, market_data, cache, currency_risk, health
   analytics/            # Portfolio analytics (returns, drawdown, distribution, exposure, risk, attribution, correlation)
   clients/              # FMP market data client (with caching)
   core/                 # Settings, logging, caching infrastructure
@@ -161,7 +161,7 @@ The quality gates are enforced mechanically, not honor-system:
 - **Schemas first**: `app/schemas/` is the contract source of truth. Change schemas before routes or business logic.
 - **Market data via FMP client**: `app/clients/fmp.py` handles caching. Never call FMP directly from routes.
 - **Trust semantics**: Every field that can be missing carries a trust level. Never fabricate.
-- **Route pattern**: Check existing routes in `app/api/routes/` first. Schemas → service → route → register in `app/main.py` → tests.
+- **Route pattern**: Check existing routes in `app/api/routes/` first. Schemas → service → route → register in `app/api/main.py` → tests.
 
 ## Frontend Conventions (`apps/desktop/`)
 

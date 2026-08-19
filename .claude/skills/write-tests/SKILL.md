@@ -30,7 +30,7 @@ Three modes, pick the right one:
 
 ```bash
 # Narrow iteration — fastest, skip golden freshness check
-SKIP_GOLDEN_FRESHNESS_CHECK=1 python -m pytest app/tests/test_my_new.py -v
+SKIP_GOLDEN_FRESHNESS_CHECK=1 python -m pytest app/tests/test_<your_module>.py -v
 
 # Backend only, with goldens regenerated
 cd services/quant-engine && python -m pytest

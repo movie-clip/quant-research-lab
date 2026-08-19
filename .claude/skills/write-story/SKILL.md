@@ -73,14 +73,23 @@ trust-state logic:
 
 | Module path | What goes here |
 |---|---|
-| `services/quant-engine/app/analytics/correlation.py` | Pearson, beta, R² scalars |
-| `services/quant-engine/app/analytics/attribution.py` | Factor return attribution |
-| `services/quant-engine/app/analytics/risk.py` | Rolling factor model, volatility, rolling risk series |
+| `services/quant-engine/app/analytics/performance.py` | TWR, Modified Dietz money-weighted return, daily portfolio states, enriched positions |
+| `services/quant-engine/app/analytics/risk.py` | Volatility, drawdown, rolling factor model, rolling risk series, risk contribution + concentration, relative risk — **and** sector / look-through composition. Much larger than its name suggests; grep it before adding a module |
+| `services/quant-engine/app/analytics/correlation.py` | Pearson ρ, beta, R², pairwise matrix, diversification ratio, effective number of bets |
+| `services/quant-engine/app/analytics/attribution.py` | Factor return attribution (per-factor contribution + residual) |
 | `services/quant-engine/app/analytics/drawdown.py` | Underwater curve, drawdown episodes, per-position contributors (Risk tab) |
 | `services/quant-engine/app/analytics/distribution.py` | Return histogram, percentiles, VaR/CVaR, distribution shape (Risk tab) |
-| `services/quant-engine/app/analytics/drift.py` | Portfolio vs benchmark drift |
-| `services/quant-engine/app/analytics/exposure.py` | Sector / look-through composition |
-| `services/quant-engine/app/analytics/portfolio.py` | TWR, money-weighted return |
+| `services/quant-engine/app/analytics/currency.py` | Base-currency conversion for weight denominators |
+| `services/quant-engine/app/analytics/currency_exposure.py` | Currency exposure by weight |
+| `services/quant-engine/app/analytics/currency_risk.py` | Currency risk contribution — how much return volatility came from FX |
+| `services/quant-engine/app/analytics/activity.py` | Monthly ledger activity series, holdings timeline |
+| `services/quant-engine/app/analytics/reconciliation.py` | Statement reconciliation checks (cash, NAV, withholding) |
+| `services/quant-engine/app/analytics/overview.py` | `build_portfolio_overview` — current-holdings snapshot summary |
+| `services/quant-engine/app/analytics/portfolio_imports.py` | Composition layer over the analytics modules for the import path |
+| `services/quant-engine/app/services/drift_engine.py` | Portfolio vs benchmark drift — **there is no `analytics/drift.py`**; the computation lives in the service |
+
+This table is checked mechanically by `app/tests/test_docs_paths.py` (US-32.1):
+a phantom row or a missing analytics module fails the suite.
 | `services/quant-engine/app/services/<name>_engine.py` | Service that wires market data → pure analytics |
 | `services/quant-engine/app/api/routes/<name>.py` | FastAPI route (registered in `app/api/main.py`) |
 | `services/quant-engine/app/schemas/<name>.py` | Pydantic request/response models |

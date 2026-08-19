@@ -179,7 +179,7 @@ Checks:
 | Stray files | No untracked debug logs, scratch files, `.bak` files |
 
 For "story actually changes dashboard output" — heuristic: did any file under
-`services/quant-engine/app/services/dashboard*` or `app/analytics/portfolio.py`
+`services/quant-engine/app/services/dashboard*` or `app/analytics/performance.py`
 change? If no → goldens must be reverted. If yes → goldens diff must match
 intent.
 

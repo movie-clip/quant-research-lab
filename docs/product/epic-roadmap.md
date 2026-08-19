@@ -407,9 +407,35 @@ US-32.1's real deliverable is a test rather than another correction.
 
 | Story | Title | Status |
 |---|---|---|
-| US-32.1 | Fix the agent-facing instructions that point at files that do not exist | Next phase |
+| US-32.1 | Fix the agent-facing instructions that point at files that do not exist | Done |
 | US-32.2 | Bring the Risk-tab cards under the design-system audit | Next phase |
 | US-32.3 | Refresh the status surfaces so "where are we?" is answerable | Next phase |
+
+### Slice log
+
+- **US-32.1 (2026-08-19)** — **a document that admits it cannot be trusted is a
+  document that should be checked mechanically.** F-3/F-4: CLAUDE.md told every
+  implementer to register routes in `app/main.py` — a file this repository has
+  never had — and the `write-story` module table named three analytics modules
+  that do not exist while omitting eight that do. Both corrected, but the real
+  deliverable is `test_docs_paths.py`: that table had been fixed **twice before
+  and drifted back both times**, and `quant-research` carried a warning telling
+  readers to `ls` the directory before trusting it. **The scan found two more
+  instances the story did not know about** — `build-story` and `write-tests`
+  used a placeholder that read as a real file, and, more seriously,
+  `verify-story` decided whether goldens should move by checking
+  `app/analytics/portfolio.py`, a module that has never existed, so that
+  heuristic could never fire on the real one: a broken check inside the skill
+  that gates commits. **The checker verifies claims in both directions** — a doc
+  asserting a path does *not* exist fails if it does — and there is deliberately
+  no opt-out marker, since an exemption is exactly how this drift would return.
+  Absence cues are honoured only in prose; a table row is always a positive
+  claim, because rows routinely name a real module while noting a wrong one in
+  the same sentence. **AC4's premise was stale and is recorded as such:**
+  `quant-research`'s table had no phantom rows; it was missing four real
+  modules. Behaviour-neutral — no production code, `dashboardGoldens.ts`
+  byte-identical. 751 backend (+11) + 331 frontend green; tsc + dead-code clean.
+
 
 Recommended order: US-32.1 first (it misleads every implementer, every day it
 is left), then US-32.2 (mechanical gate), then US-32.3 (status text only).
