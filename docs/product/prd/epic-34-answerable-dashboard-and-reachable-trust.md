@@ -232,13 +232,13 @@ Modified Dietz inputs.
 
 ### F-9 (Medium) — the verified-benchmark pilot cannot fire against the real provider
 
-**CODE RESOLVED 2026-08-17 by US-34.9; awaiting the owner's data re-capture.**
-The endpoint constant now names `historical-price-eod/dividend-adjusted`, so
-both conditions are satisfiable by one response and the rung fires under test.
-It stays dormant in production until `golden_market_data.json` is re-captured
-with an `FMP_API_KEY` — which is why `app/tests/test_golden_market_data_basis.py`
-pins the committed capture's real `adjClose` coverage, so the gap is visible
-rather than silent.
+**RESOLVED 2026-08-17 by US-34.9, code and data.** The endpoint constant now
+names `historical-price-eod/dividend-adjusted`, the capture was refreshed with a
+live key, and the rung **fires in production**: SPY publishes **+12.35%** on
+`verified_total_return` against a **+11.75%** price return, and the excess moves
+to **−11.92pp**.
+
+Resolving it required a second fix the finding did not name — see **F-14**.
 
 Found by US-34.5 while checking its premise.
 `_validate_verified_benchmark_slice` admits a benchmark as
@@ -409,6 +409,50 @@ it is the document an agent consults *precisely when* it is least able to check.
 
 US-34.9 corrects the claim as AC9, naming the endpoint per field and the vendor
 per basis, rather than deleting the sentence.
+
+
+### F-14 (Medium) — vendor row order was a second, silent disqualifier
+
+Found by US-34.9 while landing the F-9 fix, and only visible because the data
+was actually re-captured.
+
+`_validate_verified_benchmark_slice` requires `ordered_dates ==
+sorted(ordered_dates)`. FMP returns EOD history **newest-first**. So even after
+the endpoint was corrected and every row carried `adjClose`, the validator still
+rejected the slice — the verified rung remained unreachable for a reason nobody
+had named.
+
+**It failed silently, and the silence made it worse than the original bug.**
+With complete `adjClose` the basis classified as `unverified_adjusted_proxy`,
+which US-34.5 deliberately excludes from publishing. The Dashboard therefore
+went from publishing a labelled **+11.75%** price return to publishing
+**nothing at all** — a strict regression, reached by a change intended to
+strengthen the figure, with no failing test anywhere.
+
+The fix normalises to ascending order in the client's join rather than relaxing
+the validator, so the check keeps doing its real job — catching a scrambled or
+duplicated series — instead of encoding one vendor's sort order as a trust
+condition. `test_golden_market_data_basis.py` pins the committed capture's
+ordering per window.
+
+**Why it went unseen:** every fixture for the verified rung hand-wrote its rows
+in ascending order. Same shape as F-9, one clause along — which is the argument
+for pinning real captured data rather than only synthetic rows.
+
+### F-15 (Medium) — the fallback provider valued holdings at adjusted prices
+
+Found by US-34.9 while separating its own effects from the re-capture's.
+
+`yfinance_client._fetch` put the **adjusted** close in both `price` and
+`adjClose`. Because `price` is what values holdings, every dividend silently
+rewrote the price history of the 14 non-US positions this provider serves.
+FMP-served holdings were valued at traded prices; these were not — two valuation
+bases inside one `total_market_value`, which is the truth-class mixing the
+project's second guardrail forbids.
+
+It is the same defect US-34.9 was fixing on the FMP side, so it was fixed in the
+same pass: `price` is now `Close` and `adjClose` stays `Adj Close`. Returns are
+unaffected — `select_history_price_series` still prefers `adjClose`.
 
 
 ## Goal

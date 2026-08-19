@@ -8109,7 +8109,7 @@ def test_withheld_days_are_named_with_only_the_causes_that_fired() -> None:
     assert history.daily_states[-1].date == "2026-08-11"
     # US-34.3: 1,366.17 before the anchor moved to the statement's own starting
     # cash — 96% of it was the anchor offset riding through the window.
-    assert history.daily_states[-1].reconciliation_adjustment == pytest.approx(-58.11, abs=2.0)
+    assert history.daily_states[-1].reconciliation_adjustment == pytest.approx(-19.98, abs=2.0)
 
 
 def test_adjusted_day_never_enters_the_replay_return_series() -> None:
@@ -8278,9 +8278,9 @@ def test_every_range_publishes_its_own_time_weighted_return() -> None:
     # 2026-06-23) are genuine DOWN days that the flat $1.00 unbacked-cash
     # tolerance had been discarding, so publishing them lowers the compounded
     # figure. Was 4.19 / 3.49 / 2.40.
-    assert twr["1M"] == pytest.approx(4.19, abs=0.05)
-    assert twr["3M"] == pytest.approx(1.61, abs=0.05)
-    assert twr["All"] == pytest.approx(0.54, abs=0.05)
+    assert twr["1M"] == pytest.approx(4.14, abs=0.05)
+    assert twr["3M"] == pytest.approx(1.56, abs=0.05)
+    assert twr["All"] == pytest.approx(0.43, abs=0.05)
     # The windows genuinely differ — the defect above produced one number.
     assert len({round(value, 2) for value in twr.values()}) > 1
 
@@ -8345,11 +8345,12 @@ def test_publishing_the_return_does_not_promote_it_to_verified() -> None:
     assert metadata.portfolio_proof.verified_total_return_emitted is False
     assert metadata.return_basis_contract.portfolio_path != "verified_total_return"
     assert all(metrics.portfolio_return_trust == "degraded" for metrics in ranges.values())
-    # Published, and still not verified: the basis contract says `price_return_only`
-    # and the status stays `withheld`. That pairing IS the point of this test.
+    # Published, and the PORTFOLIO still not verified. US-34.9 raised the
+    # benchmark leg to `verified_total_return`; the portfolio leg is untouched,
+    # which is what this test guards.
     assert all(metrics.summary.benchmark_return_pct is not None for metrics in ranges.values())
     assert all(metrics.summary.excess_return_pct is not None for metrics in ranges.values())
-    assert metadata.return_basis_contract.benchmark_path == "price_return_only"
+    assert metadata.return_basis_contract.benchmark_path == "verified_total_return"
 
 
 # -- US-34.6 (Epic 34 F-7): performance figures exclude the reconciliation --
@@ -8368,7 +8369,7 @@ def test_money_weighted_return_excludes_the_reconciliation_adjustment() -> None:
     terminal = history.daily_states[-1]
 
     # US-34.3: 2.95 before opening cash moved to the statement's own figure.
-    assert summary.money_weighted_return_pct == pytest.approx(2.88, abs=0.02)
+    assert summary.money_weighted_return_pct == pytest.approx(2.76, abs=0.02)
     # The removed amount IS the recorded adjustment — not an unexplained shift.
     contaminated = (
         (terminal.total_portfolio_value - summary.start_value - summary.net_contributions)
@@ -8396,7 +8397,7 @@ def test_investment_gain_excludes_the_reconciliation_adjustment() -> None:
     summary = (history.range_metrics or {})["All"].summary
     terminal = history.daily_states[-1]
 
-    assert summary.investment_gain == pytest.approx(1_714.71, abs=0.02)
+    assert summary.investment_gain == pytest.approx(1_645.99, abs=0.02)
     assert summary.investment_gain == pytest.approx(
         summary.end_value
         - summary.start_value
@@ -8500,7 +8501,11 @@ def test_terminal_day_publishes_its_market_return() -> None:
 
     assert terminal.date == "2026-08-11"
     assert terminal.date not in history.run_metadata.withheld_return_dates
-    assert series[terminal.date] == pytest.approx(0.000038, abs=1e-5)
+    # US-34.9: the 2026-08-11 re-capture supplied REAL terminal-day closes for
+    # the 14 holdings that previously carried 2026-08-10 forward, so the day is
+    # now a small decline rather than a near-flat carry artefact. Still an
+    # ordinary market move, which is what US-34.8 published it to be.
+    assert series[terminal.date] == pytest.approx(-0.000545, abs=1e-5)
 
     # The published figure is the market-derived chain, to the cent.
     market_derived = terminal.total_portfolio_value - terminal.reconciliation_adjustment
@@ -8702,15 +8707,19 @@ def test_a_missing_leg_yields_no_excess_rather_than_a_null_read_as_zero() -> Non
 def test_publishing_the_benchmark_return_does_not_promote_its_basis() -> None:
     """US-34.5 AC5 — published is not the same as verified.
 
-    The figure is published on `price_return_only`. The basis contract must keep
-    saying so, and the investor-economics status must stay `withheld` — that
-    pairing is the whole safety argument for retiring the anti-derivation rule.
+    US-34.9 moved the benchmark onto `verified_total_return`. The pairing this
+    test exists for is unchanged and is the point: the benchmark's basis can be
+    the STRONGEST rung while the PORTFOLIO's investor-economics status stays
+    `withheld`. The two are separate claims about separate data — conflating
+    them is exactly the confusion this test guards against.
     """
     _snapshot, history = _us313_ib2026_history()
     metadata = history.run_metadata
 
-    assert metadata.return_basis_contract.benchmark_path == "price_return_only"
+    assert metadata.return_basis_contract.benchmark_path == "verified_total_return"
     assert metadata.investor_economics_status.status == "withheld"
+    # The portfolio leg is NOT promoted with it.
+    assert metadata.return_basis_contract.portfolio_path == "replay_derived"
     assert (
         metadata.investor_economics_partial_unlock.client_derivation_rule
         == "labelled_scalars_published_daily_series_withheld"

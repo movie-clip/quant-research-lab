@@ -71,7 +71,22 @@ class YFinanceClient:
                 logger.info("yfinance empty [%s] %s", _CACHE_NAMESPACE, symbol)
                 return []
 
+            # US-34.9: `price` is the TRADED close and `adjClose` the adjusted
+            # one — the same split FMP's benchmark path uses.
+            #
+            # This client previously put the ADJUSTED close in both. Because
+            # `price` is what values holdings, every dividend silently rewrote
+            # the history of the 14 positions this provider serves, dragging the
+            # replay away from the broker's own statement: on the 2026-08-17
+            # re-capture the terminal market value moved from $64,934.40 to
+            # $64,896.27 against a stated `stock_total` of $64,922.99 — drift
+            # +$11.41 -> -$26.72, growing with each dividend.
+            #
+            # A dividend-adjusted series is a RETURN series, not a VALUE series.
+            # Returns still use `adjClose`: `select_history_price_series` prefers
+            # it, so nothing that wants total-return behaviour loses it.
             adj_col = "Adj Close" if "Adj Close" in frame.columns else "Close"
+            close_col = "Close" if "Close" in frame.columns else adj_col
             rows: list[dict[str, Any]] = []
             for index, record in frame.iterrows():
                 adj = record.get(adj_col)
@@ -80,6 +95,15 @@ class YFinanceClient:
                 try:
                     adj_value = float(adj)
                 except (TypeError, ValueError):
+                    continue
+                close_raw = record.get(close_col)
+                try:
+                    close_value = float(close_raw) if close_raw is not None else None
+                except (TypeError, ValueError):
+                    close_value = None
+                if close_value is None or not math.isfinite(close_value):
+                    # No usable traded price: fail closed rather than valuing the
+                    # holding at an adjusted price that is not what it traded at.
                     continue
                 # pandas encodes missing bars as float('nan'), which passes the
                 # None check and float() conversion above. A non-finite bar is
@@ -97,7 +121,7 @@ class YFinanceClient:
                 rows.append({
                     "symbol": symbol,
                     "date": date_str,
-                    "price": adj_value,
+                    "price": close_value,
                     "adjClose": adj_value,
                     "volume": volume,
                 })

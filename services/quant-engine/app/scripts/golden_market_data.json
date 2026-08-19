@@ -3,7 +3,7 @@
     "SPY": {
       "cached": true,
       "direct_path_only": true,
-      "endpoint": "historical-price-eod/light",
+      "endpoint": "historical-price-eod/dividend-adjusted",
       "fallback_used": false,
       "mixed_source": false,
       "proxy_used": false,
@@ -214,7 +214,7 @@
           "date": "2026-06-25",
           "price": 275.15,
           "symbol": "AAPL",
-          "volume": 107253700
+          "volume": 107253659
         },
         {
           "date": "2026-06-24",
@@ -1809,1005 +1809,1012 @@
       "from": "2026-01-08",
       "rows": [
         {
-          "adjClose": 23.61669921875,
+          "adjClose": 23.170166015625,
           "date": "2026-01-08",
-          "price": 23.61669921875,
+          "price": 24.5,
           "symbol": "ACOMO.AS",
           "volume": 27107
         },
         {
-          "adjClose": 23.857685089111328,
+          "adjClose": 23.40659523010254,
           "date": "2026-01-09",
-          "price": 23.857685089111328,
+          "price": 24.75,
           "symbol": "ACOMO.AS",
           "volume": 32939
         },
         {
-          "adjClose": 23.80948829650879,
+          "adjClose": 23.359310150146484,
           "date": "2026-01-12",
-          "price": 23.80948829650879,
+          "price": 24.700000762939453,
           "symbol": "ACOMO.AS",
           "volume": 46544
         },
         {
-          "adjClose": 23.905881881713867,
+          "adjClose": 23.453880310058594,
           "date": "2026-01-13",
-          "price": 23.905881881713867,
+          "price": 24.799999237060547,
           "symbol": "ACOMO.AS",
           "volume": 14215
         },
         {
-          "adjClose": 23.95408058166504,
+          "adjClose": 23.50116729736328,
           "date": "2026-01-14",
-          "price": 23.95408058166504,
+          "price": 24.850000381469727,
           "symbol": "ACOMO.AS",
           "volume": 17833
         },
         {
-          "adjClose": 24.146867752075195,
+          "adjClose": 23.690309524536133,
           "date": "2026-01-15",
-          "price": 24.146867752075195,
+          "price": 25.049999237060547,
           "symbol": "ACOMO.AS",
           "volume": 52192
         },
         {
-          "adjClose": 24.339658737182617,
+          "adjClose": 23.87945556640625,
           "date": "2026-01-16",
-          "price": 24.339658737182617,
+          "price": 25.25,
           "symbol": "ACOMO.AS",
           "volume": 23193
         },
         {
-          "adjClose": 24.436054229736328,
+          "adjClose": 23.974027633666992,
           "date": "2026-01-19",
-          "price": 24.436054229736328,
+          "price": 25.350000381469727,
           "symbol": "ACOMO.AS",
           "volume": 25997
         },
         {
-          "adjClose": 24.146867752075195,
+          "adjClose": 23.690309524536133,
           "date": "2026-01-20",
-          "price": 24.146867752075195,
+          "price": 25.049999237060547,
           "symbol": "ACOMO.AS",
           "volume": 25911
         },
         {
-          "adjClose": 23.905881881713867,
+          "adjClose": 23.453880310058594,
           "date": "2026-01-21",
-          "price": 23.905881881713867,
+          "price": 24.799999237060547,
           "symbol": "ACOMO.AS",
           "volume": 19756
         },
         {
-          "adjClose": 24.436054229736328,
+          "adjClose": 23.974027633666992,
           "date": "2026-01-22",
-          "price": 24.436054229736328,
+          "price": 25.350000381469727,
           "symbol": "ACOMO.AS",
           "volume": 21005
         },
         {
-          "adjClose": 24.484251022338867,
+          "adjClose": 24.02131462097168,
           "date": "2026-01-23",
-          "price": 24.484251022338867,
+          "price": 25.399999618530273,
           "symbol": "ACOMO.AS",
           "volume": 15616
         },
         {
-          "adjClose": 24.53244972229004,
+          "adjClose": 24.068601608276367,
           "date": "2026-01-26",
-          "price": 24.53244972229004,
+          "price": 25.450000762939453,
           "symbol": "ACOMO.AS",
           "volume": 24271
         },
         {
-          "adjClose": 24.146867752075195,
+          "adjClose": 23.690309524536133,
           "date": "2026-01-27",
-          "price": 24.146867752075195,
+          "price": 25.049999237060547,
           "symbol": "ACOMO.AS",
           "volume": 35274
         },
         {
-          "adjClose": 24.05047607421875,
+          "adjClose": 23.595741271972656,
           "date": "2026-01-28",
-          "price": 24.05047607421875,
+          "price": 24.950000762939453,
           "symbol": "ACOMO.AS",
           "volume": 22237
         },
         {
-          "adjClose": 24.09867286682129,
+          "adjClose": 23.64302635192871,
           "date": "2026-01-29",
-          "price": 24.09867286682129,
+          "price": 25.0,
           "symbol": "ACOMO.AS",
           "volume": 14675
         },
         {
-          "adjClose": 23.95408058166504,
+          "adjClose": 23.50116729736328,
           "date": "2026-01-30",
-          "price": 23.95408058166504,
+          "price": 24.850000381469727,
           "symbol": "ACOMO.AS",
           "volume": 20129
         },
         {
-          "adjClose": 24.53244972229004,
+          "adjClose": 24.068601608276367,
           "date": "2026-02-02",
-          "price": 24.53244972229004,
+          "price": 25.450000762939453,
           "symbol": "ACOMO.AS",
           "volume": 53262
         },
         {
-          "adjClose": 24.677040100097656,
+          "adjClose": 24.210458755493164,
           "date": "2026-02-03",
-          "price": 24.677040100097656,
+          "price": 25.600000381469727,
           "symbol": "ACOMO.AS",
           "volume": 34400
         },
         {
-          "adjClose": 24.725236892700195,
+          "adjClose": 24.25774383544922,
           "date": "2026-02-04",
-          "price": 24.725236892700195,
+          "price": 25.649999618530273,
           "symbol": "ACOMO.AS",
           "volume": 18209
         },
         {
-          "adjClose": 24.966224670410156,
+          "adjClose": 24.49417495727539,
           "date": "2026-02-05",
-          "price": 24.966224670410156,
+          "price": 25.899999618530273,
           "symbol": "ACOMO.AS",
           "volume": 20964
         },
         {
-          "adjClose": 25.207210540771484,
+          "adjClose": 24.73060417175293,
           "date": "2026-02-06",
-          "price": 25.207210540771484,
+          "price": 26.149999618530273,
           "symbol": "ACOMO.AS",
           "volume": 25562
         },
         {
-          "adjClose": 25.255409240722656,
+          "adjClose": 24.777891159057617,
           "date": "2026-02-09",
-          "price": 25.255409240722656,
+          "price": 26.200000762939453,
           "symbol": "ACOMO.AS",
           "volume": 21813
         },
         {
-          "adjClose": 25.448196411132812,
+          "adjClose": 24.96703338623047,
           "date": "2026-02-10",
-          "price": 25.448196411132812,
+          "price": 26.399999618530273,
           "symbol": "ACOMO.AS",
           "volume": 18729
         },
         {
-          "adjClose": 25.159013748168945,
+          "adjClose": 24.683319091796875,
           "date": "2026-02-11",
-          "price": 25.159013748168945,
+          "price": 26.100000381469727,
           "symbol": "ACOMO.AS",
           "volume": 23662
         },
         {
-          "adjClose": 24.966224670410156,
+          "adjClose": 24.49417495727539,
           "date": "2026-02-12",
-          "price": 24.966224670410156,
+          "price": 25.899999618530273,
           "symbol": "ACOMO.AS",
           "volume": 21116
         },
         {
-          "adjClose": 25.207210540771484,
+          "adjClose": 24.73060417175293,
           "date": "2026-02-13",
-          "price": 25.207210540771484,
+          "price": 26.149999618530273,
           "symbol": "ACOMO.AS",
           "volume": 30261
         },
         {
-          "adjClose": 25.303606033325195,
+          "adjClose": 24.825176239013672,
           "date": "2026-02-16",
-          "price": 25.303606033325195,
+          "price": 26.25,
           "symbol": "ACOMO.AS",
           "volume": 15633
         },
         {
-          "adjClose": 25.592788696289062,
+          "adjClose": 25.1088924407959,
           "date": "2026-02-17",
-          "price": 25.592788696289062,
+          "price": 26.549999237060547,
           "symbol": "ACOMO.AS",
           "volume": 25075
         },
         {
-          "adjClose": 25.978368759155273,
+          "adjClose": 25.487180709838867,
           "date": "2026-02-18",
-          "price": 25.978368759155273,
+          "price": 26.950000762939453,
           "symbol": "ACOMO.AS",
           "volume": 40381
         },
         {
-          "adjClose": 25.881973266601562,
+          "adjClose": 25.392608642578125,
           "date": "2026-02-19",
-          "price": 25.881973266601562,
+          "price": 26.850000381469727,
           "symbol": "ACOMO.AS",
           "volume": 13837
         },
         {
-          "adjClose": 26.219356536865234,
+          "adjClose": 25.723613739013672,
           "date": "2026-02-20",
-          "price": 26.219356536865234,
+          "price": 27.200000762939453,
           "symbol": "ACOMO.AS",
           "volume": 27371
         },
         {
-          "adjClose": 26.07476234436035,
+          "adjClose": 25.58175277709961,
           "date": "2026-02-23",
-          "price": 26.07476234436035,
+          "price": 27.049999237060547,
           "symbol": "ACOMO.AS",
           "volume": 23193
         },
         {
-          "adjClose": 26.026565551757812,
+          "adjClose": 25.534467697143555,
           "date": "2026-02-24",
-          "price": 26.026565551757812,
+          "price": 27.0,
           "symbol": "ACOMO.AS",
           "volume": 24791
         },
         {
-          "adjClose": 25.9301700592041,
+          "adjClose": 25.43989372253418,
           "date": "2026-02-25",
-          "price": 25.9301700592041,
+          "price": 26.899999618530273,
           "symbol": "ACOMO.AS",
           "volume": 22758
         },
         {
-          "adjClose": 25.785579681396484,
+          "adjClose": 25.298038482666016,
           "date": "2026-02-26",
-          "price": 25.785579681396484,
+          "price": 26.75,
           "symbol": "ACOMO.AS",
           "volume": 19050
         },
         {
-          "adjClose": 26.026565551757812,
+          "adjClose": 25.534467697143555,
           "date": "2026-02-27",
-          "price": 26.026565551757812,
+          "price": 27.0,
           "symbol": "ACOMO.AS",
           "volume": 30465
         },
         {
-          "adjClose": 25.978368759155273,
+          "adjClose": 25.487180709838867,
           "date": "2026-03-02",
-          "price": 25.978368759155273,
+          "price": 26.950000762939453,
           "symbol": "ACOMO.AS",
           "volume": 39720
         },
         {
-          "adjClose": 25.833776473999023,
+          "adjClose": 25.34532356262207,
           "date": "2026-03-03",
-          "price": 25.833776473999023,
+          "price": 26.799999237060547,
           "symbol": "ACOMO.AS",
           "volume": 48302
         },
         {
-          "adjClose": 25.785579681396484,
+          "adjClose": 25.298038482666016,
           "date": "2026-03-04",
-          "price": 25.785579681396484,
+          "price": 26.75,
           "symbol": "ACOMO.AS",
           "volume": 53326
         },
         {
-          "adjClose": 24.773435592651367,
+          "adjClose": 24.305030822753906,
           "date": "2026-03-05",
-          "price": 24.773435592651367,
+          "price": 25.700000762939453,
           "symbol": "ACOMO.AS",
           "volume": 190056
         },
         {
-          "adjClose": 24.821632385253906,
+          "adjClose": 24.35231590270996,
           "date": "2026-03-06",
-          "price": 24.821632385253906,
+          "price": 25.75,
           "symbol": "ACOMO.AS",
           "volume": 51194
         },
         {
-          "adjClose": 24.918027877807617,
+          "adjClose": 24.446889877319336,
           "date": "2026-03-09",
-          "price": 24.918027877807617,
+          "price": 25.850000381469727,
           "symbol": "ACOMO.AS",
           "volume": 29552
         },
         {
-          "adjClose": 25.159013748168945,
+          "adjClose": 24.683319091796875,
           "date": "2026-03-10",
-          "price": 25.159013748168945,
+          "price": 26.100000381469727,
           "symbol": "ACOMO.AS",
           "volume": 29849
         },
         {
-          "adjClose": 25.110815048217773,
+          "adjClose": 24.636030197143555,
           "date": "2026-03-11",
-          "price": 25.110815048217773,
+          "price": 26.049999237060547,
           "symbol": "ACOMO.AS",
           "volume": 24674
         },
         {
-          "adjClose": 24.53244972229004,
+          "adjClose": 24.068601608276367,
           "date": "2026-03-12",
-          "price": 24.53244972229004,
+          "price": 25.450000762939453,
           "symbol": "ACOMO.AS",
           "volume": 46345
         },
         {
-          "adjClose": 25.062618255615234,
+          "adjClose": 24.5887451171875,
           "date": "2026-03-13",
-          "price": 25.062618255615234,
+          "price": 26.0,
           "symbol": "ACOMO.AS",
           "volume": 28857
         },
         {
-          "adjClose": 25.062618255615234,
+          "adjClose": 24.5887451171875,
           "date": "2026-03-16",
-          "price": 25.062618255615234,
+          "price": 26.0,
           "symbol": "ACOMO.AS",
           "volume": 21373
         },
         {
-          "adjClose": 25.014421463012695,
+          "adjClose": 24.541460037231445,
           "date": "2026-03-17",
-          "price": 25.014421463012695,
+          "price": 25.950000762939453,
           "symbol": "ACOMO.AS",
           "volume": 28171
         },
         {
-          "adjClose": 25.351802825927734,
+          "adjClose": 24.87246322631836,
           "date": "2026-03-18",
-          "price": 25.351802825927734,
+          "price": 26.299999237060547,
           "symbol": "ACOMO.AS",
           "volume": 20076
         },
         {
-          "adjClose": 24.821632385253906,
+          "adjClose": 24.35231590270996,
           "date": "2026-03-19",
-          "price": 24.821632385253906,
+          "price": 25.75,
           "symbol": "ACOMO.AS",
           "volume": 25802
         },
         {
-          "adjClose": 24.725236892700195,
+          "adjClose": 24.25774383544922,
           "date": "2026-03-20",
-          "price": 24.725236892700195,
+          "price": 25.649999618530273,
           "symbol": "ACOMO.AS",
           "volume": 24686
         },
         {
-          "adjClose": 24.725236892700195,
+          "adjClose": 24.25774383544922,
           "date": "2026-03-23",
-          "price": 24.725236892700195,
+          "price": 25.649999618530273,
           "symbol": "ACOMO.AS",
           "volume": 35319
         },
         {
-          "adjClose": 24.821632385253906,
+          "adjClose": 24.35231590270996,
           "date": "2026-03-24",
-          "price": 24.821632385253906,
+          "price": 25.75,
           "symbol": "ACOMO.AS",
           "volume": 18073
         },
         {
-          "adjClose": 25.255409240722656,
+          "adjClose": 24.777891159057617,
           "date": "2026-03-25",
-          "price": 25.255409240722656,
+          "price": 26.200000762939453,
           "symbol": "ACOMO.AS",
           "volume": 25201
         },
         {
-          "adjClose": 25.400001525878906,
+          "adjClose": 24.919750213623047,
           "date": "2026-03-26",
-          "price": 25.400001525878906,
+          "price": 26.350000381469727,
           "symbol": "ACOMO.AS",
           "volume": 22935
         },
         {
-          "adjClose": 25.207210540771484,
+          "adjClose": 24.73060417175293,
           "date": "2026-03-27",
-          "price": 25.207210540771484,
+          "price": 26.149999618530273,
           "symbol": "ACOMO.AS",
           "volume": 14921
         },
         {
-          "adjClose": 25.689184188842773,
+          "adjClose": 25.20346450805664,
           "date": "2026-03-30",
-          "price": 25.689184188842773,
+          "price": 26.649999618530273,
           "symbol": "ACOMO.AS",
           "volume": 28239
         },
         {
-          "adjClose": 25.640987396240234,
+          "adjClose": 25.156179428100586,
           "date": "2026-03-31",
-          "price": 25.640987396240234,
+          "price": 26.600000381469727,
           "symbol": "ACOMO.AS",
           "volume": 76558
         },
         {
-          "adjClose": 26.026565551757812,
+          "adjClose": 25.534467697143555,
           "date": "2026-04-01",
-          "price": 26.026565551757812,
+          "price": 27.0,
           "symbol": "ACOMO.AS",
           "volume": 59172
         },
         {
-          "adjClose": 26.267553329467773,
+          "adjClose": 25.770898818969727,
           "date": "2026-04-02",
-          "price": 26.267553329467773,
+          "price": 27.25,
           "symbol": "ACOMO.AS",
           "volume": 28389
         },
         {
-          "adjClose": 25.689184188842773,
+          "adjClose": 25.20346450805664,
           "date": "2026-04-07",
-          "price": 25.689184188842773,
+          "price": 26.649999618530273,
           "symbol": "ACOMO.AS",
           "volume": 30238
         },
         {
-          "adjClose": 26.122961044311523,
+          "adjClose": 25.629039764404297,
           "date": "2026-04-08",
-          "price": 26.122961044311523,
+          "price": 27.100000381469727,
           "symbol": "ACOMO.AS",
           "volume": 22823
         },
         {
-          "adjClose": 26.171157836914062,
+          "adjClose": 25.67632484436035,
           "date": "2026-04-09",
-          "price": 26.171157836914062,
+          "price": 27.149999618530273,
           "symbol": "ACOMO.AS",
           "volume": 28609
         },
         {
-          "adjClose": 26.604934692382812,
+          "adjClose": 26.101900100708008,
           "date": "2026-04-10",
-          "price": 26.604934692382812,
+          "price": 27.600000381469727,
           "symbol": "ACOMO.AS",
           "volume": 95017
         },
         {
-          "adjClose": 25.833776473999023,
+          "adjClose": 25.34532356262207,
           "date": "2026-04-13",
-          "price": 25.833776473999023,
+          "price": 26.799999237060547,
           "symbol": "ACOMO.AS",
           "volume": 22132
         },
         {
-          "adjClose": 25.833776473999023,
+          "adjClose": 25.34532356262207,
           "date": "2026-04-14",
-          "price": 25.833776473999023,
+          "price": 26.799999237060547,
           "symbol": "ACOMO.AS",
           "volume": 22547
         },
         {
-          "adjClose": 25.303606033325195,
+          "adjClose": 24.825176239013672,
           "date": "2026-04-15",
-          "price": 25.303606033325195,
+          "price": 26.25,
           "symbol": "ACOMO.AS",
           "volume": 33965
         },
         {
-          "adjClose": 25.062618255615234,
+          "adjClose": 24.5887451171875,
           "date": "2026-04-16",
-          "price": 25.062618255615234,
+          "price": 26.0,
           "symbol": "ACOMO.AS",
           "volume": 19775
         },
         {
-          "adjClose": 25.014421463012695,
+          "adjClose": 24.541460037231445,
           "date": "2026-04-17",
-          "price": 25.014421463012695,
+          "price": 25.950000762939453,
           "symbol": "ACOMO.AS",
           "volume": 34971
         },
         {
-          "adjClose": 25.496395111083984,
+          "adjClose": 25.014320373535156,
           "date": "2026-04-20",
-          "price": 25.496395111083984,
+          "price": 26.450000762939453,
           "symbol": "ACOMO.AS",
           "volume": 28021
         },
         {
-          "adjClose": 25.448196411132812,
+          "adjClose": 24.96703338623047,
           "date": "2026-04-21",
-          "price": 25.448196411132812,
+          "price": 26.399999618530273,
           "symbol": "ACOMO.AS",
           "volume": 19594
         },
         {
-          "adjClose": 25.303606033325195,
+          "adjClose": 24.825176239013672,
           "date": "2026-04-22",
-          "price": 25.303606033325195,
+          "price": 26.25,
           "symbol": "ACOMO.AS",
           "volume": 16904
         },
         {
-          "adjClose": 25.159013748168945,
+          "adjClose": 24.683319091796875,
           "date": "2026-04-23",
-          "price": 25.159013748168945,
+          "price": 26.100000381469727,
           "symbol": "ACOMO.AS",
           "volume": 21478
         },
         {
-          "adjClose": 25.351802825927734,
+          "adjClose": 24.87246322631836,
           "date": "2026-04-24",
-          "price": 25.351802825927734,
+          "price": 26.299999237060547,
           "symbol": "ACOMO.AS",
           "volume": 99489
         },
         {
-          "adjClose": 25.400001525878906,
+          "adjClose": 24.919750213623047,
           "date": "2026-04-27",
-          "price": 25.400001525878906,
+          "price": 26.350000381469727,
           "symbol": "ACOMO.AS",
           "volume": 95324
         },
         {
-          "adjClose": 25.399999618530273,
+          "adjClose": 24.919748306274414,
           "date": "2026-04-28",
           "price": 25.399999618530273,
           "symbol": "ACOMO.AS",
           "volume": 98521
         },
         {
-          "adjClose": 25.899999618530273,
+          "adjClose": 25.410293579101562,
           "date": "2026-04-29",
           "price": 25.899999618530273,
           "symbol": "ACOMO.AS",
           "volume": 29076
         },
         {
-          "adjClose": 25.899999618530273,
+          "adjClose": 25.410293579101562,
           "date": "2026-04-30",
           "price": 25.899999618530273,
           "symbol": "ACOMO.AS",
           "volume": 25893
         },
         {
-          "adjClose": 25.899999618530273,
+          "adjClose": 25.410293579101562,
           "date": "2026-05-04",
           "price": 25.899999618530273,
           "symbol": "ACOMO.AS",
           "volume": 22204
         },
         {
-          "adjClose": 26.299999237060547,
+          "adjClose": 25.802730560302734,
           "date": "2026-05-05",
           "price": 26.299999237060547,
           "symbol": "ACOMO.AS",
           "volume": 23000
         },
         {
-          "adjClose": 26.0,
+          "adjClose": 25.508403778076172,
           "date": "2026-05-06",
           "price": 26.0,
           "symbol": "ACOMO.AS",
           "volume": 42340
         },
         {
-          "adjClose": 26.100000381469727,
+          "adjClose": 25.60651397705078,
           "date": "2026-05-07",
           "price": 26.100000381469727,
           "symbol": "ACOMO.AS",
           "volume": 16137
         },
         {
-          "adjClose": 26.0,
+          "adjClose": 25.508403778076172,
           "date": "2026-05-08",
           "price": 26.0,
           "symbol": "ACOMO.AS",
           "volume": 24241
         },
         {
-          "adjClose": 25.850000381469727,
+          "adjClose": 25.36124038696289,
           "date": "2026-05-11",
           "price": 25.850000381469727,
           "symbol": "ACOMO.AS",
           "volume": 26909
         },
         {
-          "adjClose": 25.850000381469727,
+          "adjClose": 25.36124038696289,
           "date": "2026-05-12",
           "price": 25.850000381469727,
           "symbol": "ACOMO.AS",
           "volume": 27105
         },
         {
-          "adjClose": 26.299999237060547,
+          "adjClose": 25.802730560302734,
           "date": "2026-05-13",
           "price": 26.299999237060547,
           "symbol": "ACOMO.AS",
           "volume": 21818
         },
         {
-          "adjClose": 26.399999618530273,
+          "adjClose": 25.900840759277344,
           "date": "2026-05-14",
           "price": 26.399999618530273,
           "symbol": "ACOMO.AS",
           "volume": 18399
         },
         {
-          "adjClose": 25.899999618530273,
+          "adjClose": 25.410293579101562,
           "date": "2026-05-15",
           "price": 25.899999618530273,
           "symbol": "ACOMO.AS",
           "volume": 27501
         },
         {
-          "adjClose": 25.700000762939453,
+          "adjClose": 25.21407699584961,
           "date": "2026-05-18",
           "price": 25.700000762939453,
           "symbol": "ACOMO.AS",
           "volume": 23362
         },
         {
-          "adjClose": 25.450000762939453,
+          "adjClose": 24.96880340576172,
           "date": "2026-05-19",
           "price": 25.450000762939453,
           "symbol": "ACOMO.AS",
           "volume": 15587
         },
         {
-          "adjClose": 25.649999618530273,
+          "adjClose": 25.165021896362305,
           "date": "2026-05-20",
           "price": 25.649999618530273,
           "symbol": "ACOMO.AS",
           "volume": 25116
         },
         {
-          "adjClose": 25.799999237060547,
+          "adjClose": 25.312185287475586,
           "date": "2026-05-21",
           "price": 25.799999237060547,
           "symbol": "ACOMO.AS",
           "volume": 35834
         },
         {
-          "adjClose": 25.75,
+          "adjClose": 25.26313018798828,
           "date": "2026-05-22",
           "price": 25.75,
           "symbol": "ACOMO.AS",
           "volume": 34980
         },
         {
-          "adjClose": 25.75,
+          "adjClose": 25.26313018798828,
           "date": "2026-05-25",
           "price": 25.75,
           "symbol": "ACOMO.AS",
           "volume": 20646
         },
         {
-          "adjClose": 25.5,
+          "adjClose": 25.01785659790039,
           "date": "2026-05-26",
           "price": 25.5,
           "symbol": "ACOMO.AS",
           "volume": 22554
         },
         {
-          "adjClose": 25.549999237060547,
+          "adjClose": 25.066911697387695,
           "date": "2026-05-27",
           "price": 25.549999237060547,
           "symbol": "ACOMO.AS",
           "volume": 28019
         },
         {
-          "adjClose": 25.700000762939453,
+          "adjClose": 25.21407699584961,
           "date": "2026-05-28",
           "price": 25.700000762939453,
           "symbol": "ACOMO.AS",
           "volume": 23436
         },
         {
-          "adjClose": 23.75,
+          "adjClose": 23.300945281982422,
           "date": "2026-05-29",
           "price": 23.75,
           "symbol": "ACOMO.AS",
           "volume": 740603
         },
         {
-          "adjClose": 22.75,
+          "adjClose": 22.319852828979492,
           "date": "2026-06-01",
           "price": 22.75,
           "symbol": "ACOMO.AS",
           "volume": 222116
         },
         {
-          "adjClose": 22.549999237060547,
+          "adjClose": 22.123634338378906,
           "date": "2026-06-02",
           "price": 22.549999237060547,
           "symbol": "ACOMO.AS",
           "volume": 90727
         },
         {
-          "adjClose": 22.600000381469727,
+          "adjClose": 22.17268943786621,
           "date": "2026-06-03",
           "price": 22.600000381469727,
           "symbol": "ACOMO.AS",
           "volume": 67690
         },
         {
-          "adjClose": 22.350000381469727,
+          "adjClose": 21.92741584777832,
           "date": "2026-06-04",
           "price": 22.350000381469727,
           "symbol": "ACOMO.AS",
           "volume": 53666
         },
         {
-          "adjClose": 22.149999618530273,
+          "adjClose": 21.731197357177734,
           "date": "2026-06-05",
           "price": 22.149999618530273,
           "symbol": "ACOMO.AS",
           "volume": 54154
         },
         {
-          "adjClose": 22.149999618530273,
+          "adjClose": 21.731197357177734,
           "date": "2026-06-08",
           "price": 22.149999618530273,
           "symbol": "ACOMO.AS",
           "volume": 66401
         },
         {
-          "adjClose": 22.100000381469727,
+          "adjClose": 21.682144165039062,
           "date": "2026-06-09",
           "price": 22.100000381469727,
           "symbol": "ACOMO.AS",
           "volume": 35524
         },
         {
-          "adjClose": 22.450000762939453,
+          "adjClose": 22.02552604675293,
           "date": "2026-06-10",
           "price": 22.450000762939453,
           "symbol": "ACOMO.AS",
           "volume": 51434
         },
         {
-          "adjClose": 22.350000381469727,
+          "adjClose": 21.92741584777832,
           "date": "2026-06-11",
           "price": 22.350000381469727,
           "symbol": "ACOMO.AS",
           "volume": 41028
         },
         {
-          "adjClose": 22.700000762939453,
+          "adjClose": 22.27079963684082,
           "date": "2026-06-12",
           "price": 22.700000762939453,
           "symbol": "ACOMO.AS",
           "volume": 43395
         },
         {
-          "adjClose": 22.5,
+          "adjClose": 22.074581146240234,
           "date": "2026-06-15",
           "price": 22.5,
           "symbol": "ACOMO.AS",
           "volume": 31081
         },
         {
-          "adjClose": 22.549999237060547,
+          "adjClose": 22.123634338378906,
           "date": "2026-06-16",
           "price": 22.549999237060547,
           "symbol": "ACOMO.AS",
           "volume": 28142
         },
         {
-          "adjClose": 22.700000762939453,
+          "adjClose": 22.27079963684082,
           "date": "2026-06-17",
           "price": 22.700000762939453,
           "symbol": "ACOMO.AS",
           "volume": 38335
         },
         {
-          "adjClose": 22.549999237060547,
+          "adjClose": 22.123634338378906,
           "date": "2026-06-18",
           "price": 22.549999237060547,
           "symbol": "ACOMO.AS",
           "volume": 30837
         },
         {
-          "adjClose": 22.5,
+          "adjClose": 22.074581146240234,
           "date": "2026-06-19",
           "price": 22.5,
           "symbol": "ACOMO.AS",
           "volume": 21593
         },
         {
-          "adjClose": 22.600000381469727,
+          "adjClose": 22.17268943786621,
           "date": "2026-06-22",
           "price": 22.600000381469727,
           "symbol": "ACOMO.AS",
           "volume": 19835
         },
         {
-          "adjClose": 22.700000762939453,
+          "adjClose": 22.27079963684082,
           "date": "2026-06-23",
           "price": 22.700000762939453,
           "symbol": "ACOMO.AS",
           "volume": 36326
         },
         {
-          "adjClose": 22.850000381469727,
+          "adjClose": 22.4179630279541,
           "date": "2026-06-24",
           "price": 22.850000381469727,
           "symbol": "ACOMO.AS",
           "volume": 33095
         },
         {
-          "adjClose": 22.450000762939453,
+          "adjClose": 22.02552604675293,
           "date": "2026-06-25",
           "price": 22.450000762939453,
           "symbol": "ACOMO.AS",
           "volume": 36858
         },
         {
-          "adjClose": 22.600000381469727,
+          "adjClose": 22.17268943786621,
           "date": "2026-06-26",
           "price": 22.600000381469727,
           "symbol": "ACOMO.AS",
           "volume": 26869
         },
         {
-          "adjClose": 22.75,
+          "adjClose": 22.319852828979492,
           "date": "2026-06-29",
           "price": 22.75,
           "symbol": "ACOMO.AS",
           "volume": 25545
         },
         {
-          "adjClose": 22.549999237060547,
+          "adjClose": 22.123634338378906,
           "date": "2026-06-30",
           "price": 22.549999237060547,
           "symbol": "ACOMO.AS",
           "volume": 55698
         },
         {
-          "adjClose": 22.299999237060547,
+          "adjClose": 21.878360748291016,
           "date": "2026-07-01",
           "price": 22.299999237060547,
           "symbol": "ACOMO.AS",
           "volume": 40882
         },
         {
-          "adjClose": 22.350000381469727,
+          "adjClose": 21.92741584777832,
           "date": "2026-07-02",
           "price": 22.350000381469727,
           "symbol": "ACOMO.AS",
           "volume": 33498
         },
         {
-          "adjClose": 22.75,
+          "adjClose": 22.319852828979492,
           "date": "2026-07-03",
           "price": 22.75,
           "symbol": "ACOMO.AS",
           "volume": 26052
         },
         {
-          "adjClose": 22.649999618530273,
+          "adjClose": 22.221744537353516,
           "date": "2026-07-06",
           "price": 22.649999618530273,
           "symbol": "ACOMO.AS",
           "volume": 35265
         },
         {
-          "adjClose": 22.799999237060547,
+          "adjClose": 22.368907928466797,
           "date": "2026-07-07",
           "price": 22.799999237060547,
           "symbol": "ACOMO.AS",
           "volume": 30757
         },
         {
-          "adjClose": 22.950000762939453,
+          "adjClose": 22.51607322692871,
           "date": "2026-07-08",
           "price": 22.950000762939453,
           "symbol": "ACOMO.AS",
           "volume": 32264
         },
         {
-          "adjClose": 22.850000381469727,
+          "adjClose": 22.4179630279541,
           "date": "2026-07-09",
           "price": 22.850000381469727,
           "symbol": "ACOMO.AS",
           "volume": 18722
         },
         {
-          "adjClose": 22.899999618530273,
+          "adjClose": 22.467016220092773,
           "date": "2026-07-10",
           "price": 22.899999618530273,
           "symbol": "ACOMO.AS",
           "volume": 25150
         },
         {
-          "adjClose": 22.950000762939453,
+          "adjClose": 22.51607322692871,
           "date": "2026-07-13",
           "price": 22.950000762939453,
           "symbol": "ACOMO.AS",
           "volume": 18544
         },
         {
-          "adjClose": 22.899999618530273,
+          "adjClose": 22.467016220092773,
           "date": "2026-07-14",
           "price": 22.899999618530273,
           "symbol": "ACOMO.AS",
           "volume": 22620
         },
         {
-          "adjClose": 23.450000762939453,
+          "adjClose": 23.00661849975586,
           "date": "2026-07-15",
           "price": 23.450000762939453,
           "symbol": "ACOMO.AS",
           "volume": 41020
         },
         {
-          "adjClose": 23.350000381469727,
+          "adjClose": 22.90850830078125,
           "date": "2026-07-16",
           "price": 23.350000381469727,
           "symbol": "ACOMO.AS",
           "volume": 39896
         },
         {
-          "adjClose": 23.049999237060547,
+          "adjClose": 22.614179611206055,
           "date": "2026-07-17",
           "price": 23.049999237060547,
           "symbol": "ACOMO.AS",
           "volume": 29122
         },
         {
-          "adjClose": 23.049999237060547,
+          "adjClose": 22.614179611206055,
           "date": "2026-07-20",
           "price": 23.049999237060547,
           "symbol": "ACOMO.AS",
           "volume": 33165
         },
         {
-          "adjClose": 22.799999237060547,
+          "adjClose": 22.368907928466797,
           "date": "2026-07-21",
           "price": 22.799999237060547,
           "symbol": "ACOMO.AS",
           "volume": 34926
         },
         {
-          "adjClose": 22.950000762939453,
+          "adjClose": 22.51607322692871,
           "date": "2026-07-22",
           "price": 22.950000762939453,
           "symbol": "ACOMO.AS",
           "volume": 18801
         },
         {
-          "adjClose": 22.700000762939453,
+          "adjClose": 22.27079963684082,
           "date": "2026-07-23",
           "price": 22.700000762939453,
           "symbol": "ACOMO.AS",
           "volume": 30158
         },
         {
-          "adjClose": 22.75,
+          "adjClose": 22.319852828979492,
           "date": "2026-07-24",
           "price": 22.75,
           "symbol": "ACOMO.AS",
           "volume": 27459
         },
         {
-          "adjClose": 23.049999237060547,
+          "adjClose": 22.614179611206055,
           "date": "2026-07-27",
           "price": 23.049999237060547,
           "symbol": "ACOMO.AS",
           "volume": 46274
         },
         {
-          "adjClose": 23.75,
+          "adjClose": 23.300945281982422,
           "date": "2026-07-28",
           "price": 23.75,
           "symbol": "ACOMO.AS",
           "volume": 58652
         },
         {
-          "adjClose": 24.100000381469727,
+          "adjClose": 23.644329071044922,
           "date": "2026-07-29",
           "price": 24.100000381469727,
           "symbol": "ACOMO.AS",
           "volume": 48993
         },
         {
-          "adjClose": 23.899999618530273,
+          "adjClose": 23.448108673095703,
           "date": "2026-07-30",
           "price": 23.899999618530273,
           "symbol": "ACOMO.AS",
           "volume": 42061
+        },
+        {
+          "adjClose": 23.350000381469727,
+          "date": "2026-07-31",
+          "price": 23.799999237060547,
+          "symbol": "ACOMO.AS",
+          "volume": 37182
         },
         {
           "adjClose": 23.100000381469727,
@@ -2869,7 +2876,7 @@
           "date": "2026-08-11",
           "price": 263.71,
           "symbol": "ADBE",
-          "volume": 4675172
+          "volume": 4675200
         },
         {
           "date": "2026-08-10",
@@ -4659,7 +4666,7 @@
           "date": "2026-08-11",
           "price": 2.12,
           "symbol": "ALLO",
-          "volume": 4967298
+          "volume": 4967300
         },
         {
           "date": "2026-08-10",
@@ -7344,7 +7351,7 @@
           "date": "2026-08-11",
           "price": 516.38,
           "symbol": "BRK-B",
-          "volume": 4718562
+          "volume": 4718600
         },
         {
           "date": "2026-08-10",
@@ -9283,6 +9290,13 @@
           "price": 62.220001220703125,
           "symbol": "CIBR.L",
           "volume": 26319
+        },
+        {
+          "adjClose": 61.95000076293945,
+          "date": "2026-08-11",
+          "price": 61.95000076293945,
+          "symbol": "CIBR.L",
+          "volume": 49954
         }
       ],
       "symbol": "CIBR",
@@ -11980,7 +11994,7 @@
           "date": "2026-08-11",
           "price": 54.07,
           "symbol": "CRSP",
-          "volume": 1066370
+          "volume": 1066400
         },
         {
           "date": "2026-08-10",
@@ -13906,6 +13920,13 @@
           "price": 7.508500099182129,
           "symbol": "DEFS.L",
           "volume": 37578
+        },
+        {
+          "adjClose": 7.48799991607666,
+          "date": "2026-08-11",
+          "price": 7.48799991607666,
+          "symbol": "DEFS.L",
+          "volume": 68238
         }
       ],
       "symbol": "DEFS",
@@ -14900,6 +14921,13 @@
           "price": 7.839000225067139,
           "symbol": "DFND.L",
           "volume": 139708
+        },
+        {
+          "adjClose": 7.796000003814697,
+          "date": "2026-08-11",
+          "price": 7.796000003814697,
+          "symbol": "DFND.L",
+          "volume": 142309
         }
       ],
       "symbol": "DFND",
@@ -15807,7 +15835,7 @@
           "date": "2026-08-11",
           "price": 120.86,
           "symbol": "DOCN",
-          "volume": 2380353
+          "volume": 2380400
         },
         {
           "date": "2026-08-10",
@@ -21177,7 +21205,7 @@
           "date": "2026-08-11",
           "price": 343,
           "symbol": "GOOG",
-          "volume": 18390185
+          "volume": 18390200
         },
         {
           "date": "2026-08-10",
@@ -22072,7 +22100,7 @@
           "date": "2026-08-11",
           "price": 187.42,
           "symbol": "GRID",
-          "volume": 408252
+          "volume": 408300
         },
         {
           "date": "2026-08-10",
@@ -24900,6 +24928,13 @@
           "price": 41.689998626708984,
           "symbol": "IAUP.L",
           "volume": 122384
+        },
+        {
+          "adjClose": 41.619998931884766,
+          "date": "2026-08-11",
+          "price": 41.619998931884766,
+          "symbol": "IAUP.L",
+          "volume": 53351
         }
       ],
       "symbol": "IAUP",
@@ -25956,6 +25991,13 @@
           "price": 9.97249984741211,
           "symbol": "ICOM.L",
           "volume": 1027999
+        },
+        {
+          "adjClose": 9.994999885559082,
+          "date": "2026-08-11",
+          "price": 9.994999885559082,
+          "symbol": "ICOM.L",
+          "volume": 140067
         }
       ],
       "symbol": "ICOM",
@@ -27006,6 +27048,13 @@
           "price": 11.053000450134277,
           "symbol": "IDFN.L",
           "volume": 11398
+        },
+        {
+          "adjClose": 11.045999526977539,
+          "date": "2026-08-11",
+          "price": 11.045999526977539,
+          "symbol": "IDFN.L",
+          "volume": 68369
         }
       ],
       "symbol": "IDFN",
@@ -28957,6 +29006,13 @@
           "price": 61.47249984741211,
           "symbol": "ISLN.L",
           "volume": 55852
+        },
+        {
+          "adjClose": 61.557498931884766,
+          "date": "2026-08-11",
+          "price": 61.557498931884766,
+          "symbol": "ISLN.L",
+          "volume": 57484
         }
       ],
       "symbol": "ISLN",
@@ -30019,6 +30075,13 @@
           "price": 51.5,
           "symbol": "IUIT.L",
           "volume": 329591
+        },
+        {
+          "adjClose": 51.22999954223633,
+          "date": "2026-08-11",
+          "price": 51.22999954223633,
+          "symbol": "IUIT.L",
+          "volume": 168805
         }
       ],
       "symbol": "IUIT",
@@ -30031,7 +30094,7 @@
           "date": "2026-08-11",
           "price": 362.04,
           "symbol": "JPM",
-          "volume": 4576473
+          "volume": 4576500
         },
         {
           "date": "2026-08-10",
@@ -30932,7 +30995,7 @@
           "date": "2026-08-11",
           "price": 17.54,
           "symbol": "LYFT",
-          "volume": 11321452
+          "volume": 11321500
         },
         {
           "date": "2026-08-10",
@@ -31827,7 +31890,7 @@
           "date": "2026-08-11",
           "price": 561.44,
           "symbol": "MA",
-          "volume": 2464999
+          "volume": 2465000
         },
         {
           "date": "2026-08-10",
@@ -33617,7 +33680,7 @@
           "date": "2026-08-11",
           "price": 599.12,
           "symbol": "META",
-          "volume": 13146894
+          "volume": 13146900
         },
         {
           "date": "2026-08-10",
@@ -37197,7 +37260,7 @@
           "date": "2026-08-11",
           "price": 47.17,
           "symbol": "NVO",
-          "volume": 7834671
+          "volume": 7834700
         },
         {
           "date": "2026-08-10",
@@ -38092,7 +38155,7 @@
           "date": "2026-08-11",
           "price": 383.8,
           "symbol": "PANW",
-          "volume": 6039681
+          "volume": 6039700
         },
         {
           "date": "2026-08-10",
@@ -38987,7 +39050,7 @@
           "date": "2026-08-11",
           "price": 59,
           "symbol": "PYPL",
-          "volume": 9752277
+          "volume": 9752300
         },
         {
           "date": "2026-08-10",
@@ -42362,6 +42425,13 @@
           "price": 14.61400032043457,
           "symbol": "SEMI.L",
           "volume": 406460
+        },
+        {
+          "adjClose": 14.645999908447266,
+          "date": "2026-08-11",
+          "price": 14.645999908447266,
+          "symbol": "SEMI.L",
+          "volume": 332225
         }
       ],
       "symbol": "SEMI",
@@ -43412,6 +43482,13 @@
           "price": 418.4100036621094,
           "symbol": "SGLD.L",
           "volume": 28138
+        },
+        {
+          "adjClose": 421.17999267578125,
+          "date": "2026-08-11",
+          "price": 421.17999267578125,
+          "symbol": "SGLD.L",
+          "volume": 37952
         }
       ],
       "symbol": "SGLD",
@@ -43424,7 +43501,7 @@
           "date": "2026-08-11",
           "price": 133.29,
           "symbol": "SPCX",
-          "volume": 108900589
+          "volume": 108900600
         },
         {
           "date": "2026-08-10",
@@ -44569,544 +44646,634 @@
       "from": "2025-12-01",
       "rows": [
         {
-          "date": "2026-04-10",
-          "price": 679.46,
+          "adjClose": 674.69,
+          "date": "2025-12-01",
+          "price": 680.27,
           "symbol": "SPY",
-          "volume": 42253500
+          "volume": 61201200
         },
         {
-          "date": "2026-04-09",
-          "price": 679.91,
-          "symbol": "SPY",
-          "volume": 57134445
-        },
-        {
-          "date": "2026-04-08",
-          "price": 676.01,
-          "symbol": "SPY",
-          "volume": 93606114
-        },
-        {
-          "date": "2026-04-07",
-          "price": 659.22,
-          "symbol": "SPY",
-          "volume": 69980400
-        },
-        {
-          "date": "2026-04-06",
-          "price": 658.93,
-          "symbol": "SPY",
-          "volume": 39105800
-        },
-        {
-          "date": "2026-04-02",
-          "price": 655.83,
-          "symbol": "SPY",
-          "volume": 68358713
-        },
-        {
-          "date": "2026-04-01",
-          "price": 655.24,
-          "symbol": "SPY",
-          "volume": 97841500
-        },
-        {
-          "date": "2026-03-31",
-          "price": 650.34,
-          "symbol": "SPY",
-          "volume": 152534103
-        },
-        {
-          "date": "2026-03-30",
-          "price": 631.97,
-          "symbol": "SPY",
-          "volume": 99275900
-        },
-        {
-          "date": "2026-03-27",
-          "price": 634.09,
-          "symbol": "SPY",
-          "volume": 103649400
-        },
-        {
-          "date": "2026-03-26",
-          "price": 645.09,
-          "symbol": "SPY",
-          "volume": 96494400
-        },
-        {
-          "date": "2026-03-25",
-          "price": 656.82,
-          "symbol": "SPY",
-          "volume": 90653800
-        },
-        {
-          "date": "2026-03-24",
-          "price": 653.18,
-          "symbol": "SPY",
-          "volume": 96457500
-        },
-        {
-          "date": "2026-03-23",
-          "price": 655.38,
-          "symbol": "SPY",
-          "volume": 134802732
-        },
-        {
-          "date": "2026-03-20",
-          "price": 648.57,
-          "symbol": "SPY",
-          "volume": 163617523
-        },
-        {
-          "date": "2026-03-19",
-          "price": 659.8,
-          "symbol": "SPY",
-          "volume": 111272539
-        },
-        {
-          "date": "2026-03-18",
-          "price": 661.43,
-          "symbol": "SPY",
-          "volume": 82062600
-        },
-        {
-          "date": "2026-03-17",
-          "price": 670.79,
-          "symbol": "SPY",
-          "volume": 87128044
-        },
-        {
-          "date": "2026-03-16",
-          "price": 669.03,
-          "symbol": "SPY",
-          "volume": 82023130
-        },
-        {
-          "date": "2026-03-13",
-          "price": 662.29,
-          "symbol": "SPY",
-          "volume": 97200242
-        },
-        {
-          "date": "2026-03-12",
-          "price": 666.06,
-          "symbol": "SPY",
-          "volume": 108882246
-        },
-        {
-          "date": "2026-03-11",
-          "price": 676.33,
-          "symbol": "SPY",
-          "volume": 68441700
-        },
-        {
-          "date": "2026-03-10",
-          "price": 677.18,
-          "symbol": "SPY",
-          "volume": 81505315
-        },
-        {
-          "date": "2026-03-09",
-          "price": 678.27,
-          "symbol": "SPY",
-          "volume": 102667711
-        },
-        {
-          "date": "2026-03-06",
-          "price": 672.38,
-          "symbol": "SPY",
-          "volume": 100687000
-        },
-        {
-          "date": "2026-03-05",
-          "price": 681.31,
-          "symbol": "SPY",
-          "volume": 106606500
-        },
-        {
-          "date": "2026-03-04",
-          "price": 685.13,
-          "symbol": "SPY",
-          "volume": 79182244
-        },
-        {
-          "date": "2026-03-03",
-          "price": 680.33,
-          "symbol": "SPY",
-          "volume": 105003113
-        },
-        {
-          "date": "2026-03-02",
-          "price": 686.38,
-          "symbol": "SPY",
-          "volume": 87477200
-        },
-        {
-          "date": "2026-02-27",
-          "price": 685.99,
-          "symbol": "SPY",
-          "volume": 83308900
-        },
-        {
-          "date": "2026-02-26",
-          "price": 689.3,
-          "symbol": "SPY",
-          "volume": 71671000
-        },
-        {
-          "date": "2026-02-25",
-          "price": 693.15,
-          "symbol": "SPY",
-          "volume": 56369500
-        },
-        {
-          "date": "2026-02-24",
-          "price": 687.35,
-          "symbol": "SPY",
-          "volume": 73798727
-        },
-        {
-          "date": "2026-02-23",
-          "price": 682.39,
-          "symbol": "SPY",
-          "volume": 90558100
-        },
-        {
-          "date": "2026-02-20",
-          "price": 689.43,
-          "symbol": "SPY",
-          "volume": 100034000
-        },
-        {
-          "date": "2026-02-19",
-          "price": 684.48,
-          "symbol": "SPY",
-          "volume": 58649400
-        },
-        {
-          "date": "2026-02-18",
-          "price": 686.29,
-          "symbol": "SPY",
-          "volume": 73570341
-        },
-        {
-          "date": "2026-02-17",
-          "price": 682.85,
-          "symbol": "SPY",
-          "volume": 81354700
-        },
-        {
-          "date": "2026-02-13",
-          "price": 681.75,
-          "symbol": "SPY",
-          "volume": 96267500
-        },
-        {
-          "date": "2026-02-12",
-          "price": 681.27,
-          "symbol": "SPY",
-          "volume": 118829000
-        },
-        {
-          "date": "2026-02-11",
-          "price": 691.96,
-          "symbol": "SPY",
-          "volume": 76353900
-        },
-        {
-          "date": "2026-02-10",
-          "price": 692.12,
-          "symbol": "SPY",
-          "volume": 65185725
-        },
-        {
-          "date": "2026-02-09",
-          "price": 693.95,
-          "symbol": "SPY",
-          "volume": 73885200
-        },
-        {
-          "date": "2026-02-06",
-          "price": 690.62,
-          "symbol": "SPY",
-          "volume": 89127600
-        },
-        {
-          "date": "2026-02-05",
-          "price": 677.62,
-          "symbol": "SPY",
-          "volume": 113610812
-        },
-        {
-          "date": "2026-02-04",
-          "price": 686.19,
-          "symbol": "SPY",
-          "volume": 105204600
-        },
-        {
-          "date": "2026-02-03",
-          "price": 689.53,
-          "symbol": "SPY",
-          "volume": 107904611
-        },
-        {
-          "date": "2026-02-02",
-          "price": 695.41,
-          "symbol": "SPY",
-          "volume": 79286521
-        },
-        {
-          "date": "2026-01-30",
-          "price": 691.97,
-          "symbol": "SPY",
-          "volume": 101835131
-        },
-        {
-          "date": "2026-01-29",
-          "price": 694.04,
-          "symbol": "SPY",
-          "volume": 97486200
-        },
-        {
-          "date": "2026-01-28",
-          "price": 695.42,
-          "symbol": "SPY",
-          "volume": 61172200
-        },
-        {
-          "date": "2026-01-27",
-          "price": 695.49,
-          "symbol": "SPY",
-          "volume": 55506147
-        },
-        {
-          "date": "2026-01-26",
-          "price": 692.73,
-          "symbol": "SPY",
-          "volume": 60473813
-        },
-        {
-          "date": "2026-01-23",
-          "price": 689.23,
-          "symbol": "SPY",
-          "volume": 63059600
-        },
-        {
-          "date": "2026-01-22",
-          "price": 688.98,
-          "symbol": "SPY",
-          "volume": 77112243
-        },
-        {
-          "date": "2026-01-21",
-          "price": 685.4,
-          "symbol": "SPY",
-          "volume": 127844500
-        },
-        {
-          "date": "2026-01-20",
-          "price": 677.58,
-          "symbol": "SPY",
-          "volume": 111623300
-        },
-        {
-          "date": "2026-01-16",
-          "price": 691.66,
-          "symbol": "SPY",
-          "volume": 79289200
-        },
-        {
-          "date": "2026-01-15",
-          "price": 692.24,
-          "symbol": "SPY",
-          "volume": 77862000
-        },
-        {
-          "date": "2026-01-14",
-          "price": 690.36,
-          "symbol": "SPY",
-          "volume": 94676700
-        },
-        {
-          "date": "2026-01-13",
-          "price": 693.77,
-          "symbol": "SPY",
-          "volume": 78309726
-        },
-        {
-          "date": "2026-01-12",
-          "price": 695.16,
-          "symbol": "SPY",
-          "volume": 63976002
-        },
-        {
-          "date": "2026-01-09",
-          "price": 694.07,
-          "symbol": "SPY",
-          "volume": 80125500
-        },
-        {
-          "date": "2026-01-08",
-          "price": 689.51,
-          "symbol": "SPY",
-          "volume": 64019200
-        },
-        {
-          "date": "2026-01-07",
-          "price": 689.58,
-          "symbol": "SPY",
-          "volume": 75588337
-        },
-        {
-          "date": "2026-01-06",
-          "price": 691.81,
-          "symbol": "SPY",
-          "volume": 69273827
-        },
-        {
-          "date": "2026-01-05",
-          "price": 687.72,
-          "symbol": "SPY",
-          "volume": 71927200
-        },
-        {
-          "date": "2026-01-02",
-          "price": 683.17,
-          "symbol": "SPY",
-          "volume": 89377203
-        },
-        {
-          "date": "2025-12-31",
-          "price": 681.92,
-          "symbol": "SPY",
-          "volume": 74144801
-        },
-        {
-          "date": "2025-12-30",
-          "price": 687.01,
-          "symbol": "SPY",
-          "volume": 47160700
-        },
-        {
-          "date": "2025-12-29",
-          "price": 687.85,
-          "symbol": "SPY",
-          "volume": 62559503
-        },
-        {
-          "date": "2025-12-26",
-          "price": 690.31,
-          "symbol": "SPY",
-          "volume": 41613347
-        },
-        {
-          "date": "2025-12-24",
-          "price": 690.38,
-          "symbol": "SPY",
-          "volume": 39445600
-        },
-        {
-          "date": "2025-12-23",
-          "price": 687.96,
-          "symbol": "SPY",
-          "volume": 64840000
-        },
-        {
-          "date": "2025-12-22",
-          "price": 684.83,
-          "symbol": "SPY",
-          "volume": 69556733
-        },
-        {
-          "date": "2025-12-19",
-          "price": 680.59,
-          "symbol": "SPY",
-          "volume": 103599543
-        },
-        {
-          "date": "2025-12-18",
-          "price": 676.47,
-          "symbol": "SPY",
-          "volume": 108650128
-        },
-        {
-          "date": "2025-12-17",
-          "price": 671.4,
-          "symbol": "SPY",
-          "volume": 110625200
-        },
-        {
-          "date": "2025-12-16",
-          "price": 678.87,
-          "symbol": "SPY",
-          "volume": 122030631
-        },
-        {
-          "date": "2025-12-15",
-          "price": 680.73,
-          "symbol": "SPY",
-          "volume": 90811000
-        },
-        {
-          "date": "2025-12-12",
-          "price": 681.76,
-          "symbol": "SPY",
-          "volume": 113160347
-        },
-        {
-          "date": "2025-12-11",
-          "price": 689.17,
-          "symbol": "SPY",
-          "volume": 86173700
-        },
-        {
-          "date": "2025-12-10",
-          "price": 687.57,
-          "symbol": "SPY",
-          "volume": 85671334
-        },
-        {
-          "date": "2025-12-09",
-          "price": 683.04,
-          "symbol": "SPY",
-          "volume": 58310100
-        },
-        {
-          "date": "2025-12-08",
-          "price": 683.63,
-          "symbol": "SPY",
-          "volume": 55231500
-        },
-        {
-          "date": "2025-12-05",
-          "price": 685.69,
-          "symbol": "SPY",
-          "volume": 79241045
-        },
-        {
-          "date": "2025-12-04",
-          "price": 684.39,
-          "symbol": "SPY",
-          "volume": 61970336
-        },
-        {
-          "date": "2025-12-03",
-          "price": 683.89,
-          "symbol": "SPY",
-          "volume": 57238500
-        },
-        {
+          "adjClose": 675.94,
           "date": "2025-12-02",
           "price": 681.53,
           "symbol": "SPY",
           "volume": 62953844
         },
         {
-          "date": "2025-12-01",
-          "price": 680.27,
+          "adjClose": 678.28,
+          "date": "2025-12-03",
+          "price": 683.89,
           "symbol": "SPY",
-          "volume": 61201200
+          "volume": 57238500
+        },
+        {
+          "adjClose": 678.78,
+          "date": "2025-12-04",
+          "price": 684.39,
+          "symbol": "SPY",
+          "volume": 61970336
+        },
+        {
+          "adjClose": 680.07,
+          "date": "2025-12-05",
+          "price": 685.69,
+          "symbol": "SPY",
+          "volume": 79241045
+        },
+        {
+          "adjClose": 678.02,
+          "date": "2025-12-08",
+          "price": 683.63,
+          "symbol": "SPY",
+          "volume": 55231500
+        },
+        {
+          "adjClose": 677.44,
+          "date": "2025-12-09",
+          "price": 683.04,
+          "symbol": "SPY",
+          "volume": 58310100
+        },
+        {
+          "adjClose": 681.93,
+          "date": "2025-12-10",
+          "price": 687.57,
+          "symbol": "SPY",
+          "volume": 85671334
+        },
+        {
+          "adjClose": 683.52,
+          "date": "2025-12-11",
+          "price": 689.17,
+          "symbol": "SPY",
+          "volume": 86173700
+        },
+        {
+          "adjClose": 676.17,
+          "date": "2025-12-12",
+          "price": 681.76,
+          "symbol": "SPY",
+          "volume": 113160347
+        },
+        {
+          "adjClose": 675.15,
+          "date": "2025-12-15",
+          "price": 680.73,
+          "symbol": "SPY",
+          "volume": 90811000
+        },
+        {
+          "adjClose": 673.3,
+          "date": "2025-12-16",
+          "price": 678.87,
+          "symbol": "SPY",
+          "volume": 122030631
+        },
+        {
+          "adjClose": 665.89,
+          "date": "2025-12-17",
+          "price": 671.4,
+          "symbol": "SPY",
+          "volume": 110625200
+        },
+        {
+          "adjClose": 670.92,
+          "date": "2025-12-18",
+          "price": 676.47,
+          "symbol": "SPY",
+          "volume": 108650128
+        },
+        {
+          "adjClose": 677.0,
+          "date": "2025-12-19",
+          "price": 680.59,
+          "symbol": "SPY",
+          "volume": 103599543
+        },
+        {
+          "adjClose": 681.22,
+          "date": "2025-12-22",
+          "price": 684.83,
+          "symbol": "SPY",
+          "volume": 69556733
+        },
+        {
+          "adjClose": 684.33,
+          "date": "2025-12-23",
+          "price": 687.96,
+          "symbol": "SPY",
+          "volume": 64840000
+        },
+        {
+          "adjClose": 686.74,
+          "date": "2025-12-24",
+          "price": 690.38,
+          "symbol": "SPY",
+          "volume": 39445600
+        },
+        {
+          "adjClose": 686.67,
+          "date": "2025-12-26",
+          "price": 690.31,
+          "symbol": "SPY",
+          "volume": 41613347
+        },
+        {
+          "adjClose": 684.23,
+          "date": "2025-12-29",
+          "price": 687.85,
+          "symbol": "SPY",
+          "volume": 62559503
+        },
+        {
+          "adjClose": 683.39,
+          "date": "2025-12-30",
+          "price": 687.01,
+          "symbol": "SPY",
+          "volume": 47160700
+        },
+        {
+          "adjClose": 678.33,
+          "date": "2025-12-31",
+          "price": 681.92,
+          "symbol": "SPY",
+          "volume": 74144801
+        },
+        {
+          "adjClose": 679.57,
+          "date": "2026-01-02",
+          "price": 683.17,
+          "symbol": "SPY",
+          "volume": 89377203
+        },
+        {
+          "adjClose": 684.1,
+          "date": "2026-01-05",
+          "price": 687.72,
+          "symbol": "SPY",
+          "volume": 71927200
+        },
+        {
+          "adjClose": 688.16,
+          "date": "2026-01-06",
+          "price": 691.81,
+          "symbol": "SPY",
+          "volume": 69273827
+        },
+        {
+          "adjClose": 685.95,
+          "date": "2026-01-07",
+          "price": 689.58,
+          "symbol": "SPY",
+          "volume": 75588337
+        },
+        {
+          "adjClose": 685.88,
+          "date": "2026-01-08",
+          "price": 689.51,
+          "symbol": "SPY",
+          "volume": 64019200
+        },
+        {
+          "adjClose": 690.41,
+          "date": "2026-01-09",
+          "price": 694.07,
+          "symbol": "SPY",
+          "volume": 80125500
+        },
+        {
+          "adjClose": 691.5,
+          "date": "2026-01-12",
+          "price": 695.16,
+          "symbol": "SPY",
+          "volume": 63976002
+        },
+        {
+          "adjClose": 690.11,
+          "date": "2026-01-13",
+          "price": 693.77,
+          "symbol": "SPY",
+          "volume": 78309726
+        },
+        {
+          "adjClose": 686.72,
+          "date": "2026-01-14",
+          "price": 690.36,
+          "symbol": "SPY",
+          "volume": 94676700
+        },
+        {
+          "adjClose": 688.59,
+          "date": "2026-01-15",
+          "price": 692.24,
+          "symbol": "SPY",
+          "volume": 77862000
+        },
+        {
+          "adjClose": 688.01,
+          "date": "2026-01-16",
+          "price": 691.66,
+          "symbol": "SPY",
+          "volume": 79289200
+        },
+        {
+          "adjClose": 674.01,
+          "date": "2026-01-20",
+          "price": 677.58,
+          "symbol": "SPY",
+          "volume": 111623300
+        },
+        {
+          "adjClose": 681.79,
+          "date": "2026-01-21",
+          "price": 685.4,
+          "symbol": "SPY",
+          "volume": 127844500
+        },
+        {
+          "adjClose": 685.35,
+          "date": "2026-01-22",
+          "price": 688.98,
+          "symbol": "SPY",
+          "volume": 77112243
+        },
+        {
+          "adjClose": 685.6,
+          "date": "2026-01-23",
+          "price": 689.23,
+          "symbol": "SPY",
+          "volume": 63059600
+        },
+        {
+          "adjClose": 689.08,
+          "date": "2026-01-26",
+          "price": 692.73,
+          "symbol": "SPY",
+          "volume": 60473813
+        },
+        {
+          "adjClose": 691.82,
+          "date": "2026-01-27",
+          "price": 695.49,
+          "symbol": "SPY",
+          "volume": 55506147
+        },
+        {
+          "adjClose": 691.76,
+          "date": "2026-01-28",
+          "price": 695.42,
+          "symbol": "SPY",
+          "volume": 61172200
+        },
+        {
+          "adjClose": 690.38,
+          "date": "2026-01-29",
+          "price": 694.04,
+          "symbol": "SPY",
+          "volume": 97486200
+        },
+        {
+          "adjClose": 688.32,
+          "date": "2026-01-30",
+          "price": 691.97,
+          "symbol": "SPY",
+          "volume": 101835131
+        },
+        {
+          "adjClose": 691.75,
+          "date": "2026-02-02",
+          "price": 695.41,
+          "symbol": "SPY",
+          "volume": 79286521
+        },
+        {
+          "adjClose": 685.9,
+          "date": "2026-02-03",
+          "price": 689.53,
+          "symbol": "SPY",
+          "volume": 107904611
+        },
+        {
+          "adjClose": 682.57,
+          "date": "2026-02-04",
+          "price": 686.19,
+          "symbol": "SPY",
+          "volume": 105204600
+        },
+        {
+          "adjClose": 674.05,
+          "date": "2026-02-05",
+          "price": 677.62,
+          "symbol": "SPY",
+          "volume": 113610812
+        },
+        {
+          "adjClose": 686.98,
+          "date": "2026-02-06",
+          "price": 690.62,
+          "symbol": "SPY",
+          "volume": 89127600
+        },
+        {
+          "adjClose": 690.29,
+          "date": "2026-02-09",
+          "price": 693.95,
+          "symbol": "SPY",
+          "volume": 73885200
+        },
+        {
+          "adjClose": 688.47,
+          "date": "2026-02-10",
+          "price": 692.12,
+          "symbol": "SPY",
+          "volume": 65185725
+        },
+        {
+          "adjClose": 688.31,
+          "date": "2026-02-11",
+          "price": 691.96,
+          "symbol": "SPY",
+          "volume": 76353900
+        },
+        {
+          "adjClose": 677.68,
+          "date": "2026-02-12",
+          "price": 681.27,
+          "symbol": "SPY",
+          "volume": 118829000
+        },
+        {
+          "adjClose": 678.16,
+          "date": "2026-02-13",
+          "price": 681.75,
+          "symbol": "SPY",
+          "volume": 96267500
+        },
+        {
+          "adjClose": 679.25,
+          "date": "2026-02-17",
+          "price": 682.85,
+          "symbol": "SPY",
+          "volume": 81354700
+        },
+        {
+          "adjClose": 682.67,
+          "date": "2026-02-18",
+          "price": 686.29,
+          "symbol": "SPY",
+          "volume": 73570341
+        },
+        {
+          "adjClose": 680.87,
+          "date": "2026-02-19",
+          "price": 684.48,
+          "symbol": "SPY",
+          "volume": 58649400
+        },
+        {
+          "adjClose": 685.8,
+          "date": "2026-02-20",
+          "price": 689.43,
+          "symbol": "SPY",
+          "volume": 100034000
+        },
+        {
+          "adjClose": 678.79,
+          "date": "2026-02-23",
+          "price": 682.39,
+          "symbol": "SPY",
+          "volume": 90558100
+        },
+        {
+          "adjClose": 683.73,
+          "date": "2026-02-24",
+          "price": 687.35,
+          "symbol": "SPY",
+          "volume": 73798727
+        },
+        {
+          "adjClose": 689.5,
+          "date": "2026-02-25",
+          "price": 693.15,
+          "symbol": "SPY",
+          "volume": 56369500
+        },
+        {
+          "adjClose": 685.67,
+          "date": "2026-02-26",
+          "price": 689.3,
+          "symbol": "SPY",
+          "volume": 71671000
+        },
+        {
+          "adjClose": 682.37,
+          "date": "2026-02-27",
+          "price": 685.99,
+          "symbol": "SPY",
+          "volume": 83308900
+        },
+        {
+          "adjClose": 682.76,
+          "date": "2026-03-02",
+          "price": 686.38,
+          "symbol": "SPY",
+          "volume": 87477200
+        },
+        {
+          "adjClose": 676.74,
+          "date": "2026-03-03",
+          "price": 680.33,
+          "symbol": "SPY",
+          "volume": 105003113
+        },
+        {
+          "adjClose": 681.52,
+          "date": "2026-03-04",
+          "price": 685.13,
+          "symbol": "SPY",
+          "volume": 79182244
+        },
+        {
+          "adjClose": 677.72,
+          "date": "2026-03-05",
+          "price": 681.31,
+          "symbol": "SPY",
+          "volume": 106606500
+        },
+        {
+          "adjClose": 668.84,
+          "date": "2026-03-06",
+          "price": 672.38,
+          "symbol": "SPY",
+          "volume": 100687000
+        },
+        {
+          "adjClose": 674.7,
+          "date": "2026-03-09",
+          "price": 678.27,
+          "symbol": "SPY",
+          "volume": 102667711
+        },
+        {
+          "adjClose": 673.61,
+          "date": "2026-03-10",
+          "price": 677.18,
+          "symbol": "SPY",
+          "volume": 81505315
+        },
+        {
+          "adjClose": 672.77,
+          "date": "2026-03-11",
+          "price": 676.33,
+          "symbol": "SPY",
+          "volume": 68441700
+        },
+        {
+          "adjClose": 662.55,
+          "date": "2026-03-12",
+          "price": 666.06,
+          "symbol": "SPY",
+          "volume": 108882246
+        },
+        {
+          "adjClose": 658.8,
+          "date": "2026-03-13",
+          "price": 662.29,
+          "symbol": "SPY",
+          "volume": 97200242
+        },
+        {
+          "adjClose": 665.5,
+          "date": "2026-03-16",
+          "price": 669.03,
+          "symbol": "SPY",
+          "volume": 82023130
+        },
+        {
+          "adjClose": 667.25,
+          "date": "2026-03-17",
+          "price": 670.79,
+          "symbol": "SPY",
+          "volume": 87128044
+        },
+        {
+          "adjClose": 657.94,
+          "date": "2026-03-18",
+          "price": 661.43,
+          "symbol": "SPY",
+          "volume": 82062600
+        },
+        {
+          "adjClose": 656.32,
+          "date": "2026-03-19",
+          "price": 659.8,
+          "symbol": "SPY",
+          "volume": 111272539
+        },
+        {
+          "adjClose": 646.91,
+          "date": "2026-03-20",
+          "price": 648.57,
+          "symbol": "SPY",
+          "volume": 163617523
+        },
+        {
+          "adjClose": 653.7,
+          "date": "2026-03-23",
+          "price": 655.38,
+          "symbol": "SPY",
+          "volume": 134802732
+        },
+        {
+          "adjClose": 651.51,
+          "date": "2026-03-24",
+          "price": 653.18,
+          "symbol": "SPY",
+          "volume": 96457500
+        },
+        {
+          "adjClose": 655.14,
+          "date": "2026-03-25",
+          "price": 656.82,
+          "symbol": "SPY",
+          "volume": 90653800
+        },
+        {
+          "adjClose": 643.44,
+          "date": "2026-03-26",
+          "price": 645.09,
+          "symbol": "SPY",
+          "volume": 96494400
+        },
+        {
+          "adjClose": 632.47,
+          "date": "2026-03-27",
+          "price": 634.09,
+          "symbol": "SPY",
+          "volume": 103649400
+        },
+        {
+          "adjClose": 630.35,
+          "date": "2026-03-30",
+          "price": 631.97,
+          "symbol": "SPY",
+          "volume": 99275900
+        },
+        {
+          "adjClose": 648.68,
+          "date": "2026-03-31",
+          "price": 650.34,
+          "symbol": "SPY",
+          "volume": 152534103
+        },
+        {
+          "adjClose": 653.56,
+          "date": "2026-04-01",
+          "price": 655.24,
+          "symbol": "SPY",
+          "volume": 97841500
+        },
+        {
+          "adjClose": 654.15,
+          "date": "2026-04-02",
+          "price": 655.83,
+          "symbol": "SPY",
+          "volume": 68358713
+        },
+        {
+          "adjClose": 657.24,
+          "date": "2026-04-06",
+          "price": 658.93,
+          "symbol": "SPY",
+          "volume": 39105800
+        },
+        {
+          "adjClose": 657.53,
+          "date": "2026-04-07",
+          "price": 659.22,
+          "symbol": "SPY",
+          "volume": 69980400
+        },
+        {
+          "adjClose": 674.28,
+          "date": "2026-04-08",
+          "price": 676.01,
+          "symbol": "SPY",
+          "volume": 93606114
+        },
+        {
+          "adjClose": 678.17,
+          "date": "2026-04-09",
+          "price": 679.91,
+          "symbol": "SPY",
+          "volume": 57134445
+        },
+        {
+          "adjClose": 677.72,
+          "date": "2026-04-10",
+          "price": 679.46,
+          "symbol": "SPY",
+          "volume": 42253500
         }
       ],
       "symbol": "SPY",
@@ -45116,892 +45283,1040 @@
       "from": "2026-01-08",
       "rows": [
         {
-          "date": "2026-08-11",
-          "price": 770.56,
+          "adjClose": 685.88,
+          "date": "2026-01-08",
+          "price": 689.51,
           "symbol": "SPY",
-          "volume": 36740555
+          "volume": 64019200
         },
         {
-          "date": "2026-08-10",
-          "price": 773.03,
-          "symbol": "SPY",
-          "volume": 39249500
-        },
-        {
-          "date": "2026-08-07",
-          "price": 773.26,
-          "symbol": "SPY",
-          "volume": 43586333
-        },
-        {
-          "date": "2026-08-06",
-          "price": 768.56,
-          "symbol": "SPY",
-          "volume": 38416900
-        },
-        {
-          "date": "2026-08-05",
-          "price": 769.79,
-          "symbol": "SPY",
-          "volume": 44689100
-        },
-        {
-          "date": "2026-08-04",
-          "price": 771.33,
-          "symbol": "SPY",
-          "volume": 69154800
-        },
-        {
-          "date": "2026-08-03",
-          "price": 757.67,
-          "symbol": "SPY",
-          "volume": 59927538
-        },
-        {
-          "date": "2026-07-31",
-          "price": 747.03,
-          "symbol": "SPY",
-          "volume": 62445900
-        },
-        {
-          "date": "2026-07-30",
-          "price": 741.69,
-          "symbol": "SPY",
-          "volume": 66811300
-        },
-        {
-          "date": "2026-07-29",
-          "price": 729.46,
-          "symbol": "SPY",
-          "volume": 70697215
-        },
-        {
-          "date": "2026-07-28",
-          "price": 740.86,
-          "symbol": "SPY",
-          "volume": 47322247
-        },
-        {
-          "date": "2026-07-27",
-          "price": 739.09,
-          "symbol": "SPY",
-          "volume": 41461200
-        },
-        {
-          "date": "2026-07-24",
-          "price": 738.93,
-          "symbol": "SPY",
-          "volume": 44782000
-        },
-        {
-          "date": "2026-07-23",
-          "price": 738.18,
-          "symbol": "SPY",
-          "volume": 55437332
-        },
-        {
-          "date": "2026-07-22",
-          "price": 747.41,
-          "symbol": "SPY",
-          "volume": 32836200
-        },
-        {
-          "date": "2026-07-21",
-          "price": 748.28,
-          "symbol": "SPY",
-          "volume": 34324300
-        },
-        {
-          "date": "2026-07-20",
-          "price": 742.09,
-          "symbol": "SPY",
-          "volume": 50422324
-        },
-        {
-          "date": "2026-07-17",
-          "price": 743.29,
-          "symbol": "SPY",
-          "volume": 62651000
-        },
-        {
-          "date": "2026-07-16",
-          "price": 750.72,
-          "symbol": "SPY",
-          "volume": 46409814
-        },
-        {
-          "date": "2026-07-15",
-          "price": 754.81,
-          "symbol": "SPY",
-          "volume": 43844800
-        },
-        {
-          "date": "2026-07-14",
-          "price": 751.83,
-          "symbol": "SPY",
-          "volume": 35143138
-        },
-        {
-          "date": "2026-07-13",
-          "price": 749.17,
-          "symbol": "SPY",
-          "volume": 44013628
-        },
-        {
-          "date": "2026-07-10",
-          "price": 754.95,
-          "symbol": "SPY",
-          "volume": 42191313
-        },
-        {
-          "date": "2026-07-09",
-          "price": 751.71,
-          "symbol": "SPY",
-          "volume": 41441718
-        },
-        {
-          "date": "2026-07-08",
-          "price": 745.4,
-          "symbol": "SPY",
-          "volume": 43767400
-        },
-        {
-          "date": "2026-07-07",
-          "price": 747.71,
-          "symbol": "SPY",
-          "volume": 43721500
-        },
-        {
-          "date": "2026-07-06",
-          "price": 751.28,
-          "symbol": "SPY",
-          "volume": 50673310
-        },
-        {
-          "date": "2026-07-02",
-          "price": 744.78,
-          "symbol": "SPY",
-          "volume": 57505953
-        },
-        {
-          "date": "2026-07-01",
-          "price": 745.76,
-          "symbol": "SPY",
-          "volume": 47100900
-        },
-        {
-          "date": "2026-06-30",
-          "price": 746.77,
-          "symbol": "SPY",
-          "volume": 55626035
-        },
-        {
-          "date": "2026-06-29",
-          "price": 741,
-          "symbol": "SPY",
-          "volume": 58035228
-        },
-        {
-          "date": "2026-06-26",
-          "price": 728.99,
-          "symbol": "SPY",
-          "volume": 71034000
-        },
-        {
-          "date": "2026-06-25",
-          "price": 734.3,
-          "symbol": "SPY",
-          "volume": 54128100
-        },
-        {
-          "date": "2026-06-24",
-          "price": 733.24,
-          "symbol": "SPY",
-          "volume": 57439507
-        },
-        {
-          "date": "2026-06-23",
-          "price": 733.58,
-          "symbol": "SPY",
-          "volume": 66846800
-        },
-        {
-          "date": "2026-06-22",
-          "price": 744.39,
-          "symbol": "SPY",
-          "volume": 46628100
-        },
-        {
-          "date": "2026-06-18",
-          "price": 746.74,
-          "symbol": "SPY",
-          "volume": 80875700
-        },
-        {
-          "date": "2026-06-17",
-          "price": 740.96,
-          "symbol": "SPY",
-          "volume": 85945227
-        },
-        {
-          "date": "2026-06-16",
-          "price": 750.33,
-          "symbol": "SPY",
-          "volume": 67093142
-        },
-        {
-          "date": "2026-06-15",
-          "price": 754.83,
-          "symbol": "SPY",
-          "volume": 60176425
-        },
-        {
-          "date": "2026-06-12",
-          "price": 741.75,
-          "symbol": "SPY",
-          "volume": 57079533
-        },
-        {
-          "date": "2026-06-11",
-          "price": 737.76,
-          "symbol": "SPY",
-          "volume": 86330522
-        },
-        {
-          "date": "2026-06-10",
-          "price": 725.43,
-          "symbol": "SPY",
-          "volume": 60341349
-        },
-        {
-          "date": "2026-06-09",
-          "price": 737.05,
-          "symbol": "SPY",
-          "volume": 87683517
-        },
-        {
-          "date": "2026-06-08",
-          "price": 739.22,
-          "symbol": "SPY",
-          "volume": 49319144
-        },
-        {
-          "date": "2026-06-05",
-          "price": 737.55,
-          "symbol": "SPY",
-          "volume": 93989416
-        },
-        {
-          "date": "2026-06-04",
-          "price": 757.09,
-          "symbol": "SPY",
-          "volume": 49923036
-        },
-        {
-          "date": "2026-06-03",
-          "price": 754.24,
-          "symbol": "SPY",
-          "volume": 51402518
-        },
-        {
-          "date": "2026-06-02",
-          "price": 759.57,
-          "symbol": "SPY",
-          "volume": 31581900
-        },
-        {
-          "date": "2026-06-01",
-          "price": 758.54,
-          "symbol": "SPY",
-          "volume": 43634933
-        },
-        {
-          "date": "2026-05-29",
-          "price": 756.48,
-          "symbol": "SPY",
-          "volume": 55075739
-        },
-        {
-          "date": "2026-05-28",
-          "price": 754.6,
-          "symbol": "SPY",
-          "volume": 41562600
-        },
-        {
-          "date": "2026-05-27",
-          "price": 750.46,
-          "symbol": "SPY",
-          "volume": 42106300
-        },
-        {
-          "date": "2026-05-26",
-          "price": 750.59,
-          "symbol": "SPY",
-          "volume": 41123621
-        },
-        {
-          "date": "2026-05-22",
-          "price": 745.64,
-          "symbol": "SPY",
-          "volume": 41762006
-        },
-        {
-          "date": "2026-05-21",
-          "price": 742.72,
-          "symbol": "SPY",
-          "volume": 43332225
-        },
-        {
-          "date": "2026-05-20",
-          "price": 741.25,
-          "symbol": "SPY",
-          "volume": 45768035
-        },
-        {
-          "date": "2026-05-19",
-          "price": 733.73,
-          "symbol": "SPY",
-          "volume": 54255913
-        },
-        {
-          "date": "2026-05-18",
-          "price": 738.65,
-          "symbol": "SPY",
-          "volume": 47843900
-        },
-        {
-          "date": "2026-05-15",
-          "price": 739.17,
-          "symbol": "SPY",
-          "volume": 60410800
-        },
-        {
-          "date": "2026-05-14",
-          "price": 748.17,
-          "symbol": "SPY",
-          "volume": 45307603
-        },
-        {
-          "date": "2026-05-13",
-          "price": 742.31,
-          "symbol": "SPY",
-          "volume": 44200203
-        },
-        {
-          "date": "2026-05-12",
-          "price": 738.18,
-          "symbol": "SPY",
-          "volume": 54185300
-        },
-        {
-          "date": "2026-05-11",
-          "price": 739.3,
-          "symbol": "SPY",
-          "volume": 44024000
-        },
-        {
-          "date": "2026-05-08",
-          "price": 737.62,
-          "symbol": "SPY",
-          "volume": 47227100
-        },
-        {
-          "date": "2026-05-07",
-          "price": 731.58,
-          "symbol": "SPY",
-          "volume": 51724642
-        },
-        {
-          "date": "2026-05-06",
-          "price": 733.83,
-          "symbol": "SPY",
-          "volume": 53288940
-        },
-        {
-          "date": "2026-05-05",
-          "price": 723.77,
-          "symbol": "SPY",
-          "volume": 36933226
-        },
-        {
-          "date": "2026-05-04",
-          "price": 718.01,
-          "symbol": "SPY",
-          "volume": 51950600
-        },
-        {
-          "date": "2026-05-01",
-          "price": 720.65,
-          "symbol": "SPY",
-          "volume": 43049849
-        },
-        {
-          "date": "2026-04-30",
-          "price": 718.66,
-          "symbol": "SPY",
-          "volume": 67240949
-        },
-        {
-          "date": "2026-04-29",
-          "price": 711.58,
-          "symbol": "SPY",
-          "volume": 41859227
-        },
-        {
-          "date": "2026-04-28",
-          "price": 711.69,
-          "symbol": "SPY",
-          "volume": 43117436
-        },
-        {
-          "date": "2026-04-27",
-          "price": 715.17,
-          "symbol": "SPY",
-          "volume": 33135943
-        },
-        {
-          "date": "2026-04-24",
-          "price": 713.94,
-          "symbol": "SPY",
-          "volume": 45182000
-        },
-        {
-          "date": "2026-04-23",
-          "price": 708.45,
-          "symbol": "SPY",
-          "volume": 56174000
-        },
-        {
-          "date": "2026-04-22",
-          "price": 711.21,
-          "symbol": "SPY",
-          "volume": 42518500
-        },
-        {
-          "date": "2026-04-21",
-          "price": 704.08,
-          "symbol": "SPY",
-          "volume": 58941400
-        },
-        {
-          "date": "2026-04-20",
-          "price": 708.72,
-          "symbol": "SPY",
-          "volume": 43546812
-        },
-        {
-          "date": "2026-04-17",
-          "price": 710.14,
-          "symbol": "SPY",
-          "volume": 70661926
-        },
-        {
-          "date": "2026-04-16",
-          "price": 701.66,
-          "symbol": "SPY",
-          "volume": 49972400
-        },
-        {
-          "date": "2026-04-15",
-          "price": 699.94,
-          "symbol": "SPY",
-          "volume": 58240400
-        },
-        {
-          "date": "2026-04-14",
-          "price": 694.46,
-          "symbol": "SPY",
-          "volume": 63480529
-        },
-        {
-          "date": "2026-04-13",
-          "price": 686.1,
-          "symbol": "SPY",
-          "volume": 54185819
-        },
-        {
-          "date": "2026-04-10",
-          "price": 679.46,
-          "symbol": "SPY",
-          "volume": 42253500
-        },
-        {
-          "date": "2026-04-09",
-          "price": 679.91,
-          "symbol": "SPY",
-          "volume": 57134445
-        },
-        {
-          "date": "2026-04-08",
-          "price": 676.01,
-          "symbol": "SPY",
-          "volume": 93606114
-        },
-        {
-          "date": "2026-04-07",
-          "price": 659.22,
-          "symbol": "SPY",
-          "volume": 69980400
-        },
-        {
-          "date": "2026-04-06",
-          "price": 658.93,
-          "symbol": "SPY",
-          "volume": 39105800
-        },
-        {
-          "date": "2026-04-02",
-          "price": 655.83,
-          "symbol": "SPY",
-          "volume": 68358713
-        },
-        {
-          "date": "2026-04-01",
-          "price": 655.24,
-          "symbol": "SPY",
-          "volume": 97841500
-        },
-        {
-          "date": "2026-03-31",
-          "price": 650.34,
-          "symbol": "SPY",
-          "volume": 152534103
-        },
-        {
-          "date": "2026-03-30",
-          "price": 631.97,
-          "symbol": "SPY",
-          "volume": 99275900
-        },
-        {
-          "date": "2026-03-27",
-          "price": 634.09,
-          "symbol": "SPY",
-          "volume": 103649400
-        },
-        {
-          "date": "2026-03-26",
-          "price": 645.09,
-          "symbol": "SPY",
-          "volume": 96494400
-        },
-        {
-          "date": "2026-03-25",
-          "price": 656.82,
-          "symbol": "SPY",
-          "volume": 90653800
-        },
-        {
-          "date": "2026-03-24",
-          "price": 653.18,
-          "symbol": "SPY",
-          "volume": 96457500
-        },
-        {
-          "date": "2026-03-23",
-          "price": 655.38,
-          "symbol": "SPY",
-          "volume": 134802732
-        },
-        {
-          "date": "2026-03-20",
-          "price": 648.57,
-          "symbol": "SPY",
-          "volume": 163617523
-        },
-        {
-          "date": "2026-03-19",
-          "price": 659.8,
-          "symbol": "SPY",
-          "volume": 111272539
-        },
-        {
-          "date": "2026-03-18",
-          "price": 661.43,
-          "symbol": "SPY",
-          "volume": 82062600
-        },
-        {
-          "date": "2026-03-17",
-          "price": 670.79,
-          "symbol": "SPY",
-          "volume": 87128044
-        },
-        {
-          "date": "2026-03-16",
-          "price": 669.03,
-          "symbol": "SPY",
-          "volume": 82023130
-        },
-        {
-          "date": "2026-03-13",
-          "price": 662.29,
-          "symbol": "SPY",
-          "volume": 97200242
-        },
-        {
-          "date": "2026-03-12",
-          "price": 666.06,
-          "symbol": "SPY",
-          "volume": 108882246
-        },
-        {
-          "date": "2026-03-11",
-          "price": 676.33,
-          "symbol": "SPY",
-          "volume": 68441700
-        },
-        {
-          "date": "2026-03-10",
-          "price": 677.18,
-          "symbol": "SPY",
-          "volume": 81505315
-        },
-        {
-          "date": "2026-03-09",
-          "price": 678.27,
-          "symbol": "SPY",
-          "volume": 102667711
-        },
-        {
-          "date": "2026-03-06",
-          "price": 672.38,
-          "symbol": "SPY",
-          "volume": 100687000
-        },
-        {
-          "date": "2026-03-05",
-          "price": 681.31,
-          "symbol": "SPY",
-          "volume": 106606500
-        },
-        {
-          "date": "2026-03-04",
-          "price": 685.13,
-          "symbol": "SPY",
-          "volume": 79182244
-        },
-        {
-          "date": "2026-03-03",
-          "price": 680.33,
-          "symbol": "SPY",
-          "volume": 105003113
-        },
-        {
-          "date": "2026-03-02",
-          "price": 686.38,
-          "symbol": "SPY",
-          "volume": 87477200
-        },
-        {
-          "date": "2026-02-27",
-          "price": 685.99,
-          "symbol": "SPY",
-          "volume": 83308900
-        },
-        {
-          "date": "2026-02-26",
-          "price": 689.3,
-          "symbol": "SPY",
-          "volume": 71671000
-        },
-        {
-          "date": "2026-02-25",
-          "price": 693.15,
-          "symbol": "SPY",
-          "volume": 56369500
-        },
-        {
-          "date": "2026-02-24",
-          "price": 687.35,
-          "symbol": "SPY",
-          "volume": 73798727
-        },
-        {
-          "date": "2026-02-23",
-          "price": 682.39,
-          "symbol": "SPY",
-          "volume": 90558100
-        },
-        {
-          "date": "2026-02-20",
-          "price": 689.43,
-          "symbol": "SPY",
-          "volume": 100034000
-        },
-        {
-          "date": "2026-02-19",
-          "price": 684.48,
-          "symbol": "SPY",
-          "volume": 58649400
-        },
-        {
-          "date": "2026-02-18",
-          "price": 686.29,
-          "symbol": "SPY",
-          "volume": 73570341
-        },
-        {
-          "date": "2026-02-17",
-          "price": 682.85,
-          "symbol": "SPY",
-          "volume": 81354700
-        },
-        {
-          "date": "2026-02-13",
-          "price": 681.75,
-          "symbol": "SPY",
-          "volume": 96267500
-        },
-        {
-          "date": "2026-02-12",
-          "price": 681.27,
-          "symbol": "SPY",
-          "volume": 118829000
-        },
-        {
-          "date": "2026-02-11",
-          "price": 691.96,
-          "symbol": "SPY",
-          "volume": 76353900
-        },
-        {
-          "date": "2026-02-10",
-          "price": 692.12,
-          "symbol": "SPY",
-          "volume": 65185725
-        },
-        {
-          "date": "2026-02-09",
-          "price": 693.95,
-          "symbol": "SPY",
-          "volume": 73885200
-        },
-        {
-          "date": "2026-02-06",
-          "price": 690.62,
-          "symbol": "SPY",
-          "volume": 89127600
-        },
-        {
-          "date": "2026-02-05",
-          "price": 677.62,
-          "symbol": "SPY",
-          "volume": 113610812
-        },
-        {
-          "date": "2026-02-04",
-          "price": 686.19,
-          "symbol": "SPY",
-          "volume": 105204600
-        },
-        {
-          "date": "2026-02-03",
-          "price": 689.53,
-          "symbol": "SPY",
-          "volume": 107904611
-        },
-        {
-          "date": "2026-02-02",
-          "price": 695.41,
-          "symbol": "SPY",
-          "volume": 79286521
-        },
-        {
-          "date": "2026-01-30",
-          "price": 691.97,
-          "symbol": "SPY",
-          "volume": 101835131
-        },
-        {
-          "date": "2026-01-29",
-          "price": 694.04,
-          "symbol": "SPY",
-          "volume": 97486200
-        },
-        {
-          "date": "2026-01-28",
-          "price": 695.42,
-          "symbol": "SPY",
-          "volume": 61172200
-        },
-        {
-          "date": "2026-01-27",
-          "price": 695.49,
-          "symbol": "SPY",
-          "volume": 55506147
-        },
-        {
-          "date": "2026-01-26",
-          "price": 692.73,
-          "symbol": "SPY",
-          "volume": 60473813
-        },
-        {
-          "date": "2026-01-23",
-          "price": 689.23,
-          "symbol": "SPY",
-          "volume": 63059600
-        },
-        {
-          "date": "2026-01-22",
-          "price": 688.98,
-          "symbol": "SPY",
-          "volume": 77112243
-        },
-        {
-          "date": "2026-01-21",
-          "price": 685.4,
-          "symbol": "SPY",
-          "volume": 127844500
-        },
-        {
-          "date": "2026-01-20",
-          "price": 677.58,
-          "symbol": "SPY",
-          "volume": 111623300
-        },
-        {
-          "date": "2026-01-16",
-          "price": 691.66,
-          "symbol": "SPY",
-          "volume": 79289200
-        },
-        {
-          "date": "2026-01-15",
-          "price": 692.24,
-          "symbol": "SPY",
-          "volume": 77862000
-        },
-        {
-          "date": "2026-01-14",
-          "price": 690.36,
-          "symbol": "SPY",
-          "volume": 94676700
-        },
-        {
-          "date": "2026-01-13",
-          "price": 693.77,
-          "symbol": "SPY",
-          "volume": 78309726
-        },
-        {
-          "date": "2026-01-12",
-          "price": 695.16,
-          "symbol": "SPY",
-          "volume": 63976002
-        },
-        {
+          "adjClose": 690.41,
           "date": "2026-01-09",
           "price": 694.07,
           "symbol": "SPY",
           "volume": 80125500
         },
         {
-          "date": "2026-01-08",
-          "price": 689.51,
+          "adjClose": 691.5,
+          "date": "2026-01-12",
+          "price": 695.16,
           "symbol": "SPY",
-          "volume": 64019200
+          "volume": 63976002
+        },
+        {
+          "adjClose": 690.11,
+          "date": "2026-01-13",
+          "price": 693.77,
+          "symbol": "SPY",
+          "volume": 78309726
+        },
+        {
+          "adjClose": 686.72,
+          "date": "2026-01-14",
+          "price": 690.36,
+          "symbol": "SPY",
+          "volume": 94676700
+        },
+        {
+          "adjClose": 688.59,
+          "date": "2026-01-15",
+          "price": 692.24,
+          "symbol": "SPY",
+          "volume": 77862000
+        },
+        {
+          "adjClose": 688.01,
+          "date": "2026-01-16",
+          "price": 691.66,
+          "symbol": "SPY",
+          "volume": 79289200
+        },
+        {
+          "adjClose": 674.01,
+          "date": "2026-01-20",
+          "price": 677.58,
+          "symbol": "SPY",
+          "volume": 111623300
+        },
+        {
+          "adjClose": 681.79,
+          "date": "2026-01-21",
+          "price": 685.4,
+          "symbol": "SPY",
+          "volume": 127844500
+        },
+        {
+          "adjClose": 685.35,
+          "date": "2026-01-22",
+          "price": 688.98,
+          "symbol": "SPY",
+          "volume": 77112243
+        },
+        {
+          "adjClose": 685.6,
+          "date": "2026-01-23",
+          "price": 689.23,
+          "symbol": "SPY",
+          "volume": 63059600
+        },
+        {
+          "adjClose": 689.08,
+          "date": "2026-01-26",
+          "price": 692.73,
+          "symbol": "SPY",
+          "volume": 60473813
+        },
+        {
+          "adjClose": 691.82,
+          "date": "2026-01-27",
+          "price": 695.49,
+          "symbol": "SPY",
+          "volume": 55506147
+        },
+        {
+          "adjClose": 691.76,
+          "date": "2026-01-28",
+          "price": 695.42,
+          "symbol": "SPY",
+          "volume": 61172200
+        },
+        {
+          "adjClose": 690.38,
+          "date": "2026-01-29",
+          "price": 694.04,
+          "symbol": "SPY",
+          "volume": 97486200
+        },
+        {
+          "adjClose": 688.32,
+          "date": "2026-01-30",
+          "price": 691.97,
+          "symbol": "SPY",
+          "volume": 101835131
+        },
+        {
+          "adjClose": 691.75,
+          "date": "2026-02-02",
+          "price": 695.41,
+          "symbol": "SPY",
+          "volume": 79286521
+        },
+        {
+          "adjClose": 685.9,
+          "date": "2026-02-03",
+          "price": 689.53,
+          "symbol": "SPY",
+          "volume": 107904611
+        },
+        {
+          "adjClose": 682.57,
+          "date": "2026-02-04",
+          "price": 686.19,
+          "symbol": "SPY",
+          "volume": 105204600
+        },
+        {
+          "adjClose": 674.05,
+          "date": "2026-02-05",
+          "price": 677.62,
+          "symbol": "SPY",
+          "volume": 113610812
+        },
+        {
+          "adjClose": 686.98,
+          "date": "2026-02-06",
+          "price": 690.62,
+          "symbol": "SPY",
+          "volume": 89127600
+        },
+        {
+          "adjClose": 690.29,
+          "date": "2026-02-09",
+          "price": 693.95,
+          "symbol": "SPY",
+          "volume": 73885200
+        },
+        {
+          "adjClose": 688.47,
+          "date": "2026-02-10",
+          "price": 692.12,
+          "symbol": "SPY",
+          "volume": 65185725
+        },
+        {
+          "adjClose": 688.31,
+          "date": "2026-02-11",
+          "price": 691.96,
+          "symbol": "SPY",
+          "volume": 76353900
+        },
+        {
+          "adjClose": 677.68,
+          "date": "2026-02-12",
+          "price": 681.27,
+          "symbol": "SPY",
+          "volume": 118829000
+        },
+        {
+          "adjClose": 678.16,
+          "date": "2026-02-13",
+          "price": 681.75,
+          "symbol": "SPY",
+          "volume": 96267500
+        },
+        {
+          "adjClose": 679.25,
+          "date": "2026-02-17",
+          "price": 682.85,
+          "symbol": "SPY",
+          "volume": 81354700
+        },
+        {
+          "adjClose": 682.67,
+          "date": "2026-02-18",
+          "price": 686.29,
+          "symbol": "SPY",
+          "volume": 73570341
+        },
+        {
+          "adjClose": 680.87,
+          "date": "2026-02-19",
+          "price": 684.48,
+          "symbol": "SPY",
+          "volume": 58649400
+        },
+        {
+          "adjClose": 685.8,
+          "date": "2026-02-20",
+          "price": 689.43,
+          "symbol": "SPY",
+          "volume": 100034000
+        },
+        {
+          "adjClose": 678.79,
+          "date": "2026-02-23",
+          "price": 682.39,
+          "symbol": "SPY",
+          "volume": 90558100
+        },
+        {
+          "adjClose": 683.73,
+          "date": "2026-02-24",
+          "price": 687.35,
+          "symbol": "SPY",
+          "volume": 73798727
+        },
+        {
+          "adjClose": 689.5,
+          "date": "2026-02-25",
+          "price": 693.15,
+          "symbol": "SPY",
+          "volume": 56369500
+        },
+        {
+          "adjClose": 685.67,
+          "date": "2026-02-26",
+          "price": 689.3,
+          "symbol": "SPY",
+          "volume": 71671000
+        },
+        {
+          "adjClose": 682.37,
+          "date": "2026-02-27",
+          "price": 685.99,
+          "symbol": "SPY",
+          "volume": 83308900
+        },
+        {
+          "adjClose": 682.76,
+          "date": "2026-03-02",
+          "price": 686.38,
+          "symbol": "SPY",
+          "volume": 87477200
+        },
+        {
+          "adjClose": 676.74,
+          "date": "2026-03-03",
+          "price": 680.33,
+          "symbol": "SPY",
+          "volume": 105003113
+        },
+        {
+          "adjClose": 681.52,
+          "date": "2026-03-04",
+          "price": 685.13,
+          "symbol": "SPY",
+          "volume": 79182244
+        },
+        {
+          "adjClose": 677.72,
+          "date": "2026-03-05",
+          "price": 681.31,
+          "symbol": "SPY",
+          "volume": 106606500
+        },
+        {
+          "adjClose": 668.84,
+          "date": "2026-03-06",
+          "price": 672.38,
+          "symbol": "SPY",
+          "volume": 100687000
+        },
+        {
+          "adjClose": 674.7,
+          "date": "2026-03-09",
+          "price": 678.27,
+          "symbol": "SPY",
+          "volume": 102667711
+        },
+        {
+          "adjClose": 673.61,
+          "date": "2026-03-10",
+          "price": 677.18,
+          "symbol": "SPY",
+          "volume": 81505315
+        },
+        {
+          "adjClose": 672.77,
+          "date": "2026-03-11",
+          "price": 676.33,
+          "symbol": "SPY",
+          "volume": 68441700
+        },
+        {
+          "adjClose": 662.55,
+          "date": "2026-03-12",
+          "price": 666.06,
+          "symbol": "SPY",
+          "volume": 108882246
+        },
+        {
+          "adjClose": 658.8,
+          "date": "2026-03-13",
+          "price": 662.29,
+          "symbol": "SPY",
+          "volume": 97200242
+        },
+        {
+          "adjClose": 665.5,
+          "date": "2026-03-16",
+          "price": 669.03,
+          "symbol": "SPY",
+          "volume": 82023130
+        },
+        {
+          "adjClose": 667.25,
+          "date": "2026-03-17",
+          "price": 670.79,
+          "symbol": "SPY",
+          "volume": 87128044
+        },
+        {
+          "adjClose": 657.94,
+          "date": "2026-03-18",
+          "price": 661.43,
+          "symbol": "SPY",
+          "volume": 82062600
+        },
+        {
+          "adjClose": 656.32,
+          "date": "2026-03-19",
+          "price": 659.8,
+          "symbol": "SPY",
+          "volume": 111272539
+        },
+        {
+          "adjClose": 646.91,
+          "date": "2026-03-20",
+          "price": 648.57,
+          "symbol": "SPY",
+          "volume": 163617523
+        },
+        {
+          "adjClose": 653.7,
+          "date": "2026-03-23",
+          "price": 655.38,
+          "symbol": "SPY",
+          "volume": 134802732
+        },
+        {
+          "adjClose": 651.51,
+          "date": "2026-03-24",
+          "price": 653.18,
+          "symbol": "SPY",
+          "volume": 96457500
+        },
+        {
+          "adjClose": 655.14,
+          "date": "2026-03-25",
+          "price": 656.82,
+          "symbol": "SPY",
+          "volume": 90653800
+        },
+        {
+          "adjClose": 643.44,
+          "date": "2026-03-26",
+          "price": 645.09,
+          "symbol": "SPY",
+          "volume": 96494400
+        },
+        {
+          "adjClose": 632.47,
+          "date": "2026-03-27",
+          "price": 634.09,
+          "symbol": "SPY",
+          "volume": 103649400
+        },
+        {
+          "adjClose": 630.35,
+          "date": "2026-03-30",
+          "price": 631.97,
+          "symbol": "SPY",
+          "volume": 99275900
+        },
+        {
+          "adjClose": 648.68,
+          "date": "2026-03-31",
+          "price": 650.34,
+          "symbol": "SPY",
+          "volume": 152534103
+        },
+        {
+          "adjClose": 653.56,
+          "date": "2026-04-01",
+          "price": 655.24,
+          "symbol": "SPY",
+          "volume": 97841500
+        },
+        {
+          "adjClose": 654.15,
+          "date": "2026-04-02",
+          "price": 655.83,
+          "symbol": "SPY",
+          "volume": 68358713
+        },
+        {
+          "adjClose": 657.24,
+          "date": "2026-04-06",
+          "price": 658.93,
+          "symbol": "SPY",
+          "volume": 39105800
+        },
+        {
+          "adjClose": 657.53,
+          "date": "2026-04-07",
+          "price": 659.22,
+          "symbol": "SPY",
+          "volume": 69980400
+        },
+        {
+          "adjClose": 674.28,
+          "date": "2026-04-08",
+          "price": 676.01,
+          "symbol": "SPY",
+          "volume": 93606114
+        },
+        {
+          "adjClose": 678.17,
+          "date": "2026-04-09",
+          "price": 679.91,
+          "symbol": "SPY",
+          "volume": 57134445
+        },
+        {
+          "adjClose": 677.72,
+          "date": "2026-04-10",
+          "price": 679.46,
+          "symbol": "SPY",
+          "volume": 42253500
+        },
+        {
+          "adjClose": 684.34,
+          "date": "2026-04-13",
+          "price": 686.1,
+          "symbol": "SPY",
+          "volume": 54185819
+        },
+        {
+          "adjClose": 692.68,
+          "date": "2026-04-14",
+          "price": 694.46,
+          "symbol": "SPY",
+          "volume": 63480529
+        },
+        {
+          "adjClose": 698.15,
+          "date": "2026-04-15",
+          "price": 699.94,
+          "symbol": "SPY",
+          "volume": 58240400
+        },
+        {
+          "adjClose": 699.86,
+          "date": "2026-04-16",
+          "price": 701.66,
+          "symbol": "SPY",
+          "volume": 49972400
+        },
+        {
+          "adjClose": 708.32,
+          "date": "2026-04-17",
+          "price": 710.14,
+          "symbol": "SPY",
+          "volume": 70661926
+        },
+        {
+          "adjClose": 706.91,
+          "date": "2026-04-20",
+          "price": 708.72,
+          "symbol": "SPY",
+          "volume": 43546812
+        },
+        {
+          "adjClose": 702.28,
+          "date": "2026-04-21",
+          "price": 704.08,
+          "symbol": "SPY",
+          "volume": 58941400
+        },
+        {
+          "adjClose": 709.39,
+          "date": "2026-04-22",
+          "price": 711.21,
+          "symbol": "SPY",
+          "volume": 42518500
+        },
+        {
+          "adjClose": 706.64,
+          "date": "2026-04-23",
+          "price": 708.45,
+          "symbol": "SPY",
+          "volume": 56174000
+        },
+        {
+          "adjClose": 712.11,
+          "date": "2026-04-24",
+          "price": 713.94,
+          "symbol": "SPY",
+          "volume": 45182000
+        },
+        {
+          "adjClose": 713.34,
+          "date": "2026-04-27",
+          "price": 715.17,
+          "symbol": "SPY",
+          "volume": 33135943
+        },
+        {
+          "adjClose": 709.87,
+          "date": "2026-04-28",
+          "price": 711.69,
+          "symbol": "SPY",
+          "volume": 43117436
+        },
+        {
+          "adjClose": 709.76,
+          "date": "2026-04-29",
+          "price": 711.58,
+          "symbol": "SPY",
+          "volume": 41859227
+        },
+        {
+          "adjClose": 716.82,
+          "date": "2026-04-30",
+          "price": 718.66,
+          "symbol": "SPY",
+          "volume": 67240949
+        },
+        {
+          "adjClose": 718.81,
+          "date": "2026-05-01",
+          "price": 720.65,
+          "symbol": "SPY",
+          "volume": 43049849
+        },
+        {
+          "adjClose": 716.17,
+          "date": "2026-05-04",
+          "price": 718.01,
+          "symbol": "SPY",
+          "volume": 51950600
+        },
+        {
+          "adjClose": 721.92,
+          "date": "2026-05-05",
+          "price": 723.77,
+          "symbol": "SPY",
+          "volume": 36933226
+        },
+        {
+          "adjClose": 731.95,
+          "date": "2026-05-06",
+          "price": 733.83,
+          "symbol": "SPY",
+          "volume": 53288940
+        },
+        {
+          "adjClose": 729.71,
+          "date": "2026-05-07",
+          "price": 731.58,
+          "symbol": "SPY",
+          "volume": 51724642
+        },
+        {
+          "adjClose": 735.73,
+          "date": "2026-05-08",
+          "price": 737.62,
+          "symbol": "SPY",
+          "volume": 47227100
+        },
+        {
+          "adjClose": 737.41,
+          "date": "2026-05-11",
+          "price": 739.3,
+          "symbol": "SPY",
+          "volume": 44024000
+        },
+        {
+          "adjClose": 736.29,
+          "date": "2026-05-12",
+          "price": 738.18,
+          "symbol": "SPY",
+          "volume": 54185300
+        },
+        {
+          "adjClose": 740.41,
+          "date": "2026-05-13",
+          "price": 742.31,
+          "symbol": "SPY",
+          "volume": 44200203
+        },
+        {
+          "adjClose": 746.25,
+          "date": "2026-05-14",
+          "price": 748.17,
+          "symbol": "SPY",
+          "volume": 45307603
+        },
+        {
+          "adjClose": 737.28,
+          "date": "2026-05-15",
+          "price": 739.17,
+          "symbol": "SPY",
+          "volume": 60410800
+        },
+        {
+          "adjClose": 736.76,
+          "date": "2026-05-18",
+          "price": 738.65,
+          "symbol": "SPY",
+          "volume": 47843900
+        },
+        {
+          "adjClose": 731.85,
+          "date": "2026-05-19",
+          "price": 733.73,
+          "symbol": "SPY",
+          "volume": 54255913
+        },
+        {
+          "adjClose": 739.35,
+          "date": "2026-05-20",
+          "price": 741.25,
+          "symbol": "SPY",
+          "volume": 45768035
+        },
+        {
+          "adjClose": 740.81,
+          "date": "2026-05-21",
+          "price": 742.72,
+          "symbol": "SPY",
+          "volume": 43332225
+        },
+        {
+          "adjClose": 743.72,
+          "date": "2026-05-22",
+          "price": 745.64,
+          "symbol": "SPY",
+          "volume": 41762006
+        },
+        {
+          "adjClose": 748.66,
+          "date": "2026-05-26",
+          "price": 750.59,
+          "symbol": "SPY",
+          "volume": 41123621
+        },
+        {
+          "adjClose": 748.53,
+          "date": "2026-05-27",
+          "price": 750.46,
+          "symbol": "SPY",
+          "volume": 42106300
+        },
+        {
+          "adjClose": 752.66,
+          "date": "2026-05-28",
+          "price": 754.6,
+          "symbol": "SPY",
+          "volume": 41562600
+        },
+        {
+          "adjClose": 754.54,
+          "date": "2026-05-29",
+          "price": 756.48,
+          "symbol": "SPY",
+          "volume": 55075739
+        },
+        {
+          "adjClose": 756.59,
+          "date": "2026-06-01",
+          "price": 758.54,
+          "symbol": "SPY",
+          "volume": 43634933
+        },
+        {
+          "adjClose": 757.62,
+          "date": "2026-06-02",
+          "price": 759.57,
+          "symbol": "SPY",
+          "volume": 31581900
+        },
+        {
+          "adjClose": 752.3,
+          "date": "2026-06-03",
+          "price": 754.24,
+          "symbol": "SPY",
+          "volume": 51402518
+        },
+        {
+          "adjClose": 755.15,
+          "date": "2026-06-04",
+          "price": 757.09,
+          "symbol": "SPY",
+          "volume": 49923036
+        },
+        {
+          "adjClose": 735.66,
+          "date": "2026-06-05",
+          "price": 737.55,
+          "symbol": "SPY",
+          "volume": 93989416
+        },
+        {
+          "adjClose": 737.32,
+          "date": "2026-06-08",
+          "price": 739.22,
+          "symbol": "SPY",
+          "volume": 49319144
+        },
+        {
+          "adjClose": 735.16,
+          "date": "2026-06-09",
+          "price": 737.05,
+          "symbol": "SPY",
+          "volume": 87683517
+        },
+        {
+          "adjClose": 723.57,
+          "date": "2026-06-10",
+          "price": 725.43,
+          "symbol": "SPY",
+          "volume": 60341349
+        },
+        {
+          "adjClose": 735.86,
+          "date": "2026-06-11",
+          "price": 737.76,
+          "symbol": "SPY",
+          "volume": 86330522
+        },
+        {
+          "adjClose": 739.84,
+          "date": "2026-06-12",
+          "price": 741.75,
+          "symbol": "SPY",
+          "volume": 57079533
+        },
+        {
+          "adjClose": 752.89,
+          "date": "2026-06-15",
+          "price": 754.83,
+          "symbol": "SPY",
+          "volume": 60176425
+        },
+        {
+          "adjClose": 748.4,
+          "date": "2026-06-16",
+          "price": 750.33,
+          "symbol": "SPY",
+          "volume": 67093142
+        },
+        {
+          "adjClose": 739.06,
+          "date": "2026-06-17",
+          "price": 740.96,
+          "symbol": "SPY",
+          "volume": 85945227
+        },
+        {
+          "adjClose": 746.74,
+          "date": "2026-06-18",
+          "price": 746.74,
+          "symbol": "SPY",
+          "volume": 80875700
+        },
+        {
+          "adjClose": 744.39,
+          "date": "2026-06-22",
+          "price": 744.39,
+          "symbol": "SPY",
+          "volume": 46628100
+        },
+        {
+          "adjClose": 733.58,
+          "date": "2026-06-23",
+          "price": 733.58,
+          "symbol": "SPY",
+          "volume": 66846800
+        },
+        {
+          "adjClose": 733.24,
+          "date": "2026-06-24",
+          "price": 733.24,
+          "symbol": "SPY",
+          "volume": 57439507
+        },
+        {
+          "adjClose": 734.3,
+          "date": "2026-06-25",
+          "price": 734.3,
+          "symbol": "SPY",
+          "volume": 54128100
+        },
+        {
+          "adjClose": 728.99,
+          "date": "2026-06-26",
+          "price": 728.99,
+          "symbol": "SPY",
+          "volume": 71034000
+        },
+        {
+          "adjClose": 741.0,
+          "date": "2026-06-29",
+          "price": 741.0,
+          "symbol": "SPY",
+          "volume": 58035228
+        },
+        {
+          "adjClose": 746.77,
+          "date": "2026-06-30",
+          "price": 746.77,
+          "symbol": "SPY",
+          "volume": 55626035
+        },
+        {
+          "adjClose": 745.76,
+          "date": "2026-07-01",
+          "price": 745.76,
+          "symbol": "SPY",
+          "volume": 47100900
+        },
+        {
+          "adjClose": 744.78,
+          "date": "2026-07-02",
+          "price": 744.78,
+          "symbol": "SPY",
+          "volume": 57505953
+        },
+        {
+          "adjClose": 751.28,
+          "date": "2026-07-06",
+          "price": 751.28,
+          "symbol": "SPY",
+          "volume": 50673310
+        },
+        {
+          "adjClose": 747.71,
+          "date": "2026-07-07",
+          "price": 747.71,
+          "symbol": "SPY",
+          "volume": 43721500
+        },
+        {
+          "adjClose": 745.4,
+          "date": "2026-07-08",
+          "price": 745.4,
+          "symbol": "SPY",
+          "volume": 43767400
+        },
+        {
+          "adjClose": 751.71,
+          "date": "2026-07-09",
+          "price": 751.71,
+          "symbol": "SPY",
+          "volume": 41441718
+        },
+        {
+          "adjClose": 754.95,
+          "date": "2026-07-10",
+          "price": 754.95,
+          "symbol": "SPY",
+          "volume": 42191313
+        },
+        {
+          "adjClose": 749.17,
+          "date": "2026-07-13",
+          "price": 749.17,
+          "symbol": "SPY",
+          "volume": 44013628
+        },
+        {
+          "adjClose": 751.83,
+          "date": "2026-07-14",
+          "price": 751.83,
+          "symbol": "SPY",
+          "volume": 35143138
+        },
+        {
+          "adjClose": 754.81,
+          "date": "2026-07-15",
+          "price": 754.81,
+          "symbol": "SPY",
+          "volume": 43844800
+        },
+        {
+          "adjClose": 750.72,
+          "date": "2026-07-16",
+          "price": 750.72,
+          "symbol": "SPY",
+          "volume": 46409814
+        },
+        {
+          "adjClose": 743.29,
+          "date": "2026-07-17",
+          "price": 743.29,
+          "symbol": "SPY",
+          "volume": 62651000
+        },
+        {
+          "adjClose": 742.09,
+          "date": "2026-07-20",
+          "price": 742.09,
+          "symbol": "SPY",
+          "volume": 50422324
+        },
+        {
+          "adjClose": 748.28,
+          "date": "2026-07-21",
+          "price": 748.28,
+          "symbol": "SPY",
+          "volume": 34324300
+        },
+        {
+          "adjClose": 747.41,
+          "date": "2026-07-22",
+          "price": 747.41,
+          "symbol": "SPY",
+          "volume": 32836200
+        },
+        {
+          "adjClose": 738.18,
+          "date": "2026-07-23",
+          "price": 738.18,
+          "symbol": "SPY",
+          "volume": 55437332
+        },
+        {
+          "adjClose": 738.93,
+          "date": "2026-07-24",
+          "price": 738.93,
+          "symbol": "SPY",
+          "volume": 44782000
+        },
+        {
+          "adjClose": 739.09,
+          "date": "2026-07-27",
+          "price": 739.09,
+          "symbol": "SPY",
+          "volume": 41461200
+        },
+        {
+          "adjClose": 740.86,
+          "date": "2026-07-28",
+          "price": 740.86,
+          "symbol": "SPY",
+          "volume": 47322247
+        },
+        {
+          "adjClose": 729.46,
+          "date": "2026-07-29",
+          "price": 729.46,
+          "symbol": "SPY",
+          "volume": 70697215
+        },
+        {
+          "adjClose": 741.69,
+          "date": "2026-07-30",
+          "price": 741.69,
+          "symbol": "SPY",
+          "volume": 66811300
+        },
+        {
+          "adjClose": 747.03,
+          "date": "2026-07-31",
+          "price": 747.03,
+          "symbol": "SPY",
+          "volume": 62445900
+        },
+        {
+          "adjClose": 757.67,
+          "date": "2026-08-03",
+          "price": 757.67,
+          "symbol": "SPY",
+          "volume": 59927538
+        },
+        {
+          "adjClose": 771.33,
+          "date": "2026-08-04",
+          "price": 771.33,
+          "symbol": "SPY",
+          "volume": 69154800
+        },
+        {
+          "adjClose": 769.79,
+          "date": "2026-08-05",
+          "price": 769.79,
+          "symbol": "SPY",
+          "volume": 44689100
+        },
+        {
+          "adjClose": 768.56,
+          "date": "2026-08-06",
+          "price": 768.56,
+          "symbol": "SPY",
+          "volume": 38416900
+        },
+        {
+          "adjClose": 773.26,
+          "date": "2026-08-07",
+          "price": 773.26,
+          "symbol": "SPY",
+          "volume": 43586333
+        },
+        {
+          "adjClose": 773.03,
+          "date": "2026-08-10",
+          "price": 773.03,
+          "symbol": "SPY",
+          "volume": 39249500
+        },
+        {
+          "adjClose": 770.56,
+          "date": "2026-08-11",
+          "price": 770.56,
+          "symbol": "SPY",
+          "volume": 36740600
         }
       ],
       "symbol": "SPY",
@@ -47059,6 +47374,13 @@
           "price": 1475.0,
           "symbol": "SXRV.DE",
           "volume": 7747
+        },
+        {
+          "adjClose": 1471.5999755859375,
+          "date": "2026-08-11",
+          "price": 1471.5999755859375,
+          "symbol": "SXRV.DE",
+          "volume": 15520
         }
       ],
       "symbol": "SXRV",
@@ -54380,6 +54702,13 @@
           "price": 59.39149856567383,
           "symbol": "VDST.L",
           "volume": 79115
+        },
+        {
+          "adjClose": 59.40399932861328,
+          "date": "2026-08-11",
+          "price": 59.40399932861328,
+          "symbol": "VDST.L",
+          "volume": 62189
         }
       ],
       "symbol": "VDST",
@@ -56872,6 +57201,13 @@
           "price": 149.86000061035156,
           "symbol": "VUAA.L",
           "volume": 143886
+        },
+        {
+          "adjClose": 149.55999755859375,
+          "date": "2026-08-11",
+          "price": 149.55999755859375,
+          "symbol": "VUAA.L",
+          "volume": 96508
         }
       ],
       "symbol": "VUAA",

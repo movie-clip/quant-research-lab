@@ -45,44 +45,46 @@ withholds a number the product already computed correctly.**
 | US-34.6 | Stop the money-weighted return and investment gain from publishing the reconciliation adjustment | Done |
 | US-34.7 | Correct the drawdown price-basis claim, and disclose where it is real | Done |
 | US-34.8 | Publish the terminal day's return, corrected rather than withheld | Done |
-| US-34.9 | Source adjusted closes so the verified benchmark rung can fire | In progress — code landed, awaiting owner re-capture |
+| US-34.9 | Source adjusted closes so the verified benchmark rung can fire | Done |
 
 Recommended order: US-34.2, US-34.6, US-34.3, US-34.4, US-34.8, US-34.7 and
-US-34.5 (done); US-34.9's code has landed and its last ticket is the owner's
-FMP re-capture.
+US-34.5 and US-34.9 (done). Epic 34's story list is complete.
 
 ### Slice log
 
-- **US-34.9 (2026-08-17, code)** — **a rung that could not fire, and the blind
-  spot that hid it.** F-9: the verified benchmark required every row to carry
-  `adjClose` **and** the fetch to come from `historical-price-eod/light` — an
-  endpoint that returns none. Mutually unsatisfiable, so the rung was
-  unreachable by construction, and its tests passed only because every fixture
-  supplied hand-written adjusted rows. The fix points the benchmark-only fetch
-  seam at FMP's `historical-price-eod/dividend-adjusted`, which returns `close`
-  beside `adjClose`. **The scope is structural, not intentional:**
-  `get_direct_verified_benchmark_history` is the adjusted method's only caller,
-  so position and FX valuation cannot reach it — a dividend-adjusted series is a
-  *return* series, and valuing holdings with it would put `total_market_value` at
-  odds with the broker's statement. A test asserts the two runs produce identical
-  valuations across differing benchmark bases. **The response is mapped, not
-  passed through:** the endpoint has no `price` key and
-  `_sanitize_price_rows` drops every row lacking one, so an unmapped swap would
-  have blanked the benchmark silently — a fail-closed path reached for an
-  accidental reason. **Two gaps closed that F-9 depended on:** the
-  endpoint-mismatch disqualifier had *no test at all* (every fixture supplied the
-  matching endpoint, so the constant could change and nothing would fail), and
-  nothing connected the validator to the shipped data — now
-  `test_golden_market_data_basis.py` pins the committed capture's real `adjClose`
-  coverage next to the basis the engine derives from it, and fails deliberately
-  on re-capture. **Publishes nothing new yet:** SPY still carries no `adjClose`
-  in the frozen capture, so the basis stays `price_return_only` and
-  `dashboardGoldens.ts` is byte-identical. The last ticket (T-34.9.6) is the
-  owner's re-capture, which needs an `FMP_API_KEY`. Also recorded **F-13** — the
-  `fmp-data` skill told every future agent that the light endpoint returns
-  `adjClose` for US-listed equities, the exact inverse of the capture, where all
-  2,079 adjusted rows belong to non-US listings served by the yfinance fallback.
-  738 backend (+8) + 331 frontend (+2) green; tsc + dead-code gate clean.
+- **US-34.9 (2026-08-17)** — **a rung that could not fire, and two more
+  reasons it could not that nobody had named.** F-9: the verified benchmark
+  required every row to carry `adjClose` **and** the fetch to come from
+  `historical-price-eod/light`, an endpoint that returns none. Unreachable by
+  construction; its tests passed only because every fixture hand-wrote adjusted
+  rows. The benchmark-only fetch seam now joins FMP's `full` (traded `close`)
+  and `dividend-adjusted` (`adjClose`) responses — **neither carries both**, a
+  fact that only surfaced against the live API after the first implementation
+  mapped `price` from a `close` key the adjusted response does not have,
+  emptied all 148 SPY rows and degraded the capture from 73 series to 21.
+  **Then F-14:** FMP returns rows newest-first and the validator demands
+  ascending order, so the rung *still* would not fire — and it failed silently
+  and regressively, dropping the basis to `unverified_adjusted_proxy`, which
+  publishes nothing, so the Dashboard briefly went from a labelled +11.75% to no
+  figure at all. Fixed by normalising order in the join rather than relaxing a
+  check that exists to catch scrambled series. **And F-15:** the yfinance
+  fallback put the ADJUSTED close in `price`, valuing the 14 non-US holdings on
+  a different basis from every FMP-served one — the same defect this story was
+  fixing on the FMP side, so it was fixed in the same pass. **Result:** SPY
+  publishes **+12.35%** on `verified_total_return` against the +11.75% price
+  return, the excess moves to **−11.92pp**, and the dividend caveat is gone from
+  the card because it stopped being true (the measured gap was 0.59pp, across
+  111 of 148 dates). **The re-capture also improved valuation accuracy on its
+  own:** the 14 European listings had no 2026-08-11 quote and were carried
+  forward from 08-10; with the real terminal-day close — the date the statement
+  is drawn on — VUAA went **+$24.00 → $0.00** and SEMI **−$6.40 → $0.00**
+  against the broker's stated values, and the terminal reconciliation residual
+  fell from **−$58.11 to −$19.98**. Replay pins were updated to the values that
+  now agree with the statement. Also recorded **F-13**: the `fmp-data` skill
+  told every agent the light endpoint returns `adjClose` for US-listed
+  equities — the exact inverse of the capture, where every adjusted row belonged
+  to a non-US listing served by yfinance. 740 backend (+10) + 331 frontend (+2)
+  green; tsc + dead-code gate clean.
 
 - **US-34.5 (2026-08-17)** — **the withheld figure was already derivable; the
   rule was removing the label, not the information.** Parked on 2026-08-13

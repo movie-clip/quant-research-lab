@@ -41,24 +41,51 @@ def _coerce_finite_float(value: Any) -> float | None:
     return number if math.isfinite(number) else None
 
 
-def _map_dividend_adjusted_rows(symbol: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Map a dividend-adjusted EOD response into this project's row shape (US-34.9).
+def _join_close_and_adjusted_rows(
+    symbol: str,
+    full_rows: list[dict[str, Any]],
+    adjusted_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Join FMP's two EOD responses into this project's row shape (US-34.9).
 
-    Output rows carry `symbol`, `date`, `price` (the unadjusted close),
-    `adjClose` and `volume`. Anything without a date, a usable close or a usable
-    adjusted close is dropped — a partially adjusted series must stay partially
-    adjusted so `detect_history_return_basis` can see that it is, rather than
-    being silently completed here.
+    Neither endpoint alone carries both figures — verified against the live API:
+
+      historical-price-eod/full              -> open high low close volume ...   (no adjClose)
+      historical-price-eod/dividend-adjusted -> adjOpen adjHigh adjLow adjClose  (no close)
+
+    So they are joined on `date`. `price` stays the REAL traded close and
+    `adjClose` carries the dividend-adjusted figure.
+
+    Mapping `price` from `adjClose` instead would have been one call cheaper and
+    is what the yfinance client does — which is precisely why it is avoided here.
+    That provider makes `price` mean "adjusted close", so holdings it serves are
+    valued on a different basis from FMP-served ones; repeating it would spread
+    the inconsistency rather than contain it.
+
+    A date present in only one response is dropped, fail-closed: half a row is
+    not a row, and completing one side from the other would fabricate an
+    adjustment. That also keeps a partially adjusted series visibly partial, so
+    `detect_history_return_basis` can refuse it.
     """
-    mapped: list[dict[str, Any]] = []
-    for row in rows or []:
+    adjusted_by_date: dict[str, float] = {}
+    for row in adjusted_rows or []:
+        if not isinstance(row, dict):
+            continue
+        date = row.get("date")
+        adj_close = _coerce_finite_float(row.get("adjClose"))
+        if isinstance(date, str) and date and adj_close is not None:
+            adjusted_by_date[date[:10]] = adj_close
+
+    joined: list[dict[str, Any]] = []
+    for row in full_rows or []:
         if not isinstance(row, dict):
             continue
         date = row.get("date")
         if not isinstance(date, str) or not date:
             continue
+        date = date[:10]
         close = _coerce_finite_float(row.get("close"))
-        adj_close = _coerce_finite_float(row.get("adjClose"))
+        adj_close = adjusted_by_date.get(date)
         if close is None or adj_close is None:
             continue
         volume_raw = row.get("volume")
@@ -66,14 +93,26 @@ def _map_dividend_adjusted_rows(symbol: str, rows: list[dict[str, Any]]) -> list
             volume = int(volume_raw) if volume_raw is not None else None
         except (TypeError, ValueError):
             volume = None
-        mapped.append({
+        joined.append({
             "symbol": row.get("symbol") or symbol,
-            "date": date[:10],
+            "date": date,
             "price": close,
             "adjClose": adj_close,
             "volume": volume,
         })
-    return mapped
+    # US-34.9: ASCENDING by date. FMP returns newest-first, and
+    # `_validate_verified_benchmark_slice` requires `ordered_dates ==
+    # sorted(ordered_dates)` — so vendor order alone was a SECOND structural
+    # disqualifier on the verified rung, independent of the adjClose one F-9
+    # named. With both live, the rung stayed unreachable even after the endpoint
+    # move, and it failed silently: the basis simply fell to
+    # `unverified_adjusted_proxy`, which publishes nothing.
+    #
+    # Normalising here rather than relaxing the validator keeps the check doing
+    # its real job — catching a scrambled or duplicated series — instead of
+    # encoding one vendor's sort order as a trust condition.
+    joined.sort(key=lambda row: row["date"])
+    return joined
 
 class FmpClient:
     def __init__(self) -> None:
@@ -196,37 +235,40 @@ class FmpClient:
         come from the endpoint named in `VERIFIED_BENCHMARK_ENDPOINT`, and no
         single endpoint could do both.
 
-        `historical-price-eod/dividend-adjusted` returns `close` (split-adjusted
-        only) alongside `adjClose` (split and dividend adjusted), so both
+        `historical-price-eod/dividend-adjusted` supplies `adjClose`, so both
         conditions can hold at once.
 
-        The response is mapped into this project's row shape rather than passed
-        through, for two reasons:
+        It takes TWO calls. Checked against the live API, neither response
+        carries both figures: `dividend-adjusted` returns
+        `adjOpen/adjHigh/adjLow/adjClose` and **no `close`**, while `full`
+        returns `close` and no adjusted figure. They are joined on `date` by
+        `_join_close_and_adjusted_rows`, which keeps `price` as the real traded
+        close and puts the adjustment in `adjClose`.
 
-        - it has no `price` key, and `MarketDataService._sanitize_price_rows`
-          drops every row whose `price` is absent — an unmapped response would
-          blank the benchmark silently, reaching a fail-closed path for an
-          accidental reason;
-        - `price` is deliberately the UNADJUSTED close, so existing consumers
-          (valuation, the chart's raw series) see exactly what they saw before.
-          `adjClose` carries the adjusted figure, and the shared price selector
-          in `analytics/risk.py` prefers it for RETURNS.
+        Both calls share the `history` namespace and TTL, so the second is a
+        cache hit on every subsequent window.
 
-        A row missing `date`, `close` or a finite `adjClose` is dropped here,
-        fail-closed — never back-filled from the unadjusted close, which would
-        fabricate a dividend adjustment that does not exist.
+        Mapping is not optional: the adjusted response has no `price` key and
+        `MarketDataService._sanitize_price_rows` drops every row whose `price` is
+        absent, so passing it through would silently blank the benchmark —
+        reaching a fail-closed path for an entirely accidental reason. (That is
+        not hypothetical: it is what the first version of this method did, and it
+        emptied SPY's 148 rows.)
         """
-        rows = self._get(
+        params = {"symbol": symbol, "from": from_date, "to": to_date}
+        full_rows = self._get(
             "history",
-            "historical-price-eod/dividend-adjusted",
-            {
-                "symbol": symbol,
-                "from": from_date,
-                "to": to_date,
-            },
+            "historical-price-eod/full",
+            params,
             ttl_seconds=self.history_ttl_seconds,
         )
-        return _map_dividend_adjusted_rows(symbol, rows)
+        adjusted_rows = self._get(
+            "history",
+            "historical-price-eod/dividend-adjusted",
+            params,
+            ttl_seconds=self.history_ttl_seconds,
+        )
+        return _join_close_and_adjusted_rows(symbol, full_rows, adjusted_rows)
 
     def get_profile(self, symbol: str) -> list[dict[str, Any]]:
         return self._get("profile", "profile", {"symbol": symbol}, ttl_seconds=self.quote_ttl_seconds)

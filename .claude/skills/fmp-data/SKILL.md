@@ -88,12 +88,20 @@ pinned by `app/tests/test_golden_market_data_basis.py`):
 | Source | Endpoint / path | `adjClose`? | Which symbols |
 |---|---|---|---|
 | FMP | `historical-price-eod/light` | **no** | every symbol FMP serves — all US names, incl. SPY |
-| FMP | `historical-price-eod/dividend-adjusted` | **yes** | benchmark only, see below |
+| FMP | `historical-price-eod/full` | no (`close` only) | benchmark only — joined with the row below |
+| FMP | `historical-price-eod/dividend-adjusted` | **yes** (no `close`) | benchmark only, see below |
 | yfinance fallback | `Ticker.history(auto_adjust=False)` | **yes** | non-US listings FMP cannot serve (SXRV, VUAA, IUIT, SGLD…) |
 
-So before US-34.9 the only adjusted closes in this repo came from the **yfinance
-fallback**, for **non-US** listings — 2,079 of 9,288 frozen rows, across 14 of
-65 series, and none of them US.
+Before US-34.9 the only adjusted closes in this repo came from the **yfinance
+fallback**, for **non-US** listings — 2,079 of 9,288 frozen rows, and none of
+them US. Since the 2026-08-17 re-capture SPY carries them too, from the
+dividend-adjusted endpoint. Ordinary US positions still do not, deliberately.
+
+**Two calls, joined.** Neither endpoint carries both figures: `full` returns
+`close` and no `adjClose`; `dividend-adjusted` returns `adjClose` and **no
+`close`**. `get_historical_price_dividend_adjusted` joins them on date and sorts
+**ascending** — FMP returns newest-first, and the verified-slice validator
+requires ascending order (F-14).
 
 The presence of `adjClose` is what classifies a history as
 `verified_adjusted_close`; absence means `unverified_close_only`. But note the

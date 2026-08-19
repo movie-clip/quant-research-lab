@@ -12,11 +12,11 @@ export const ib2026DashboardGolden = {
   "monthlyStatusLabel": "Monthly-return status: Live market history",
   "portfolioValue": "$65429.98",
   "startValue": "$64258.38",
-  "timeWeightedReturn": "1.61%",
+  "timeWeightedReturn": "1.56%",
   "netContributions": "$0.00",
-  "moneyWeightedReturn": "1.91%",
-  "benchmarkReturn": "4.22%",
-  "excessReturn": "-2.61%",
+  "moneyWeightedReturn": "1.85%",
+  "benchmarkReturn": "4.50%",
+  "excessReturn": "-2.94%",
   "drawdown": "n/a",
   "loadedFiles": [
     "IB2026.csv"
@@ -4581,454 +4581,454 @@ export const ib2026ImportedDashboardGoldenFixture = {
   },
   "benchmark": {
     "symbol": "SPY",
-    "start_price": 689.51,
+    "start_price": 685.88,
     "end_price": 770.56,
-    "return_pct": 11.75,
-    "return_basis_contract": "price_return_only",
+    "return_pct": 12.35,
+    "return_basis_contract": "verified_total_return",
     "points": [
       {
         "date": "2026-01-08",
-        "price": 689.51
+        "price": 685.88
       },
       {
         "date": "2026-01-09",
-        "price": 694.07
+        "price": 690.41
       },
       {
         "date": "2026-01-12",
-        "price": 695.16
+        "price": 691.5
       },
       {
         "date": "2026-01-13",
-        "price": 693.77
+        "price": 690.11
       },
       {
         "date": "2026-01-14",
-        "price": 690.36
+        "price": 686.72
       },
       {
         "date": "2026-01-15",
-        "price": 692.24
+        "price": 688.59
       },
       {
         "date": "2026-01-16",
-        "price": 691.66
+        "price": 688.01
       },
       {
         "date": "2026-01-20",
-        "price": 677.58
+        "price": 674.01
       },
       {
         "date": "2026-01-21",
-        "price": 685.4
+        "price": 681.79
       },
       {
         "date": "2026-01-22",
-        "price": 688.98
+        "price": 685.35
       },
       {
         "date": "2026-01-23",
-        "price": 689.23
+        "price": 685.6
       },
       {
         "date": "2026-01-26",
-        "price": 692.73
+        "price": 689.08
       },
       {
         "date": "2026-01-27",
-        "price": 695.49
+        "price": 691.82
       },
       {
         "date": "2026-01-28",
-        "price": 695.42
+        "price": 691.76
       },
       {
         "date": "2026-01-29",
-        "price": 694.04
+        "price": 690.38
       },
       {
         "date": "2026-01-30",
-        "price": 691.97
+        "price": 688.32
       },
       {
         "date": "2026-02-02",
-        "price": 695.41
+        "price": 691.75
       },
       {
         "date": "2026-02-03",
-        "price": 689.53
+        "price": 685.9
       },
       {
         "date": "2026-02-04",
-        "price": 686.19
+        "price": 682.57
       },
       {
         "date": "2026-02-05",
-        "price": 677.62
+        "price": 674.05
       },
       {
         "date": "2026-02-06",
-        "price": 690.62
+        "price": 686.98
       },
       {
         "date": "2026-02-09",
-        "price": 693.95
+        "price": 690.29
       },
       {
         "date": "2026-02-10",
-        "price": 692.12
+        "price": 688.47
       },
       {
         "date": "2026-02-11",
-        "price": 691.96
+        "price": 688.31
       },
       {
         "date": "2026-02-12",
-        "price": 681.27
+        "price": 677.68
       },
       {
         "date": "2026-02-13",
-        "price": 681.75
+        "price": 678.16
       },
       {
         "date": "2026-02-17",
-        "price": 682.85
+        "price": 679.25
       },
       {
         "date": "2026-02-18",
-        "price": 686.29
+        "price": 682.67
       },
       {
         "date": "2026-02-19",
-        "price": 684.48
+        "price": 680.87
       },
       {
         "date": "2026-02-20",
-        "price": 689.43
+        "price": 685.8
       },
       {
         "date": "2026-02-23",
-        "price": 682.39
+        "price": 678.79
       },
       {
         "date": "2026-02-24",
-        "price": 687.35
+        "price": 683.73
       },
       {
         "date": "2026-02-25",
-        "price": 693.15
+        "price": 689.5
       },
       {
         "date": "2026-02-26",
-        "price": 689.3
+        "price": 685.67
       },
       {
         "date": "2026-02-27",
-        "price": 685.99
+        "price": 682.37
       },
       {
         "date": "2026-03-02",
-        "price": 686.38
+        "price": 682.76
       },
       {
         "date": "2026-03-03",
-        "price": 680.33
+        "price": 676.74
       },
       {
         "date": "2026-03-04",
-        "price": 685.13
+        "price": 681.52
       },
       {
         "date": "2026-03-05",
-        "price": 681.31
+        "price": 677.72
       },
       {
         "date": "2026-03-06",
-        "price": 672.38
+        "price": 668.84
       },
       {
         "date": "2026-03-09",
-        "price": 678.27
+        "price": 674.7
       },
       {
         "date": "2026-03-10",
-        "price": 677.18
+        "price": 673.61
       },
       {
         "date": "2026-03-11",
-        "price": 676.33
+        "price": 672.77
       },
       {
         "date": "2026-03-12",
-        "price": 666.06
+        "price": 662.55
       },
       {
         "date": "2026-03-13",
-        "price": 662.29
+        "price": 658.8
       },
       {
         "date": "2026-03-16",
-        "price": 669.03
+        "price": 665.5
       },
       {
         "date": "2026-03-17",
-        "price": 670.79
+        "price": 667.25
       },
       {
         "date": "2026-03-18",
-        "price": 661.43
+        "price": 657.94
       },
       {
         "date": "2026-03-19",
-        "price": 659.8
+        "price": 656.32
       },
       {
         "date": "2026-03-20",
-        "price": 648.57
+        "price": 646.91
       },
       {
         "date": "2026-03-23",
-        "price": 655.38
+        "price": 653.7
       },
       {
         "date": "2026-03-24",
-        "price": 653.18
+        "price": 651.51
       },
       {
         "date": "2026-03-25",
-        "price": 656.82
+        "price": 655.14
       },
       {
         "date": "2026-03-26",
-        "price": 645.09
+        "price": 643.44
       },
       {
         "date": "2026-03-27",
-        "price": 634.09
+        "price": 632.47
       },
       {
         "date": "2026-03-30",
-        "price": 631.97
+        "price": 630.35
       },
       {
         "date": "2026-03-31",
-        "price": 650.34
+        "price": 648.68
       },
       {
         "date": "2026-04-01",
-        "price": 655.24
+        "price": 653.56
       },
       {
         "date": "2026-04-02",
-        "price": 655.83
+        "price": 654.15
       },
       {
         "date": "2026-04-06",
-        "price": 658.93
+        "price": 657.24
       },
       {
         "date": "2026-04-07",
-        "price": 659.22
+        "price": 657.53
       },
       {
         "date": "2026-04-08",
-        "price": 676.01
+        "price": 674.28
       },
       {
         "date": "2026-04-09",
-        "price": 679.91
+        "price": 678.17
       },
       {
         "date": "2026-04-10",
-        "price": 679.46
+        "price": 677.72
       },
       {
         "date": "2026-04-13",
-        "price": 686.1
+        "price": 684.34
       },
       {
         "date": "2026-04-14",
-        "price": 694.46
+        "price": 692.68
       },
       {
         "date": "2026-04-15",
-        "price": 699.94
+        "price": 698.15
       },
       {
         "date": "2026-04-16",
-        "price": 701.66
+        "price": 699.86
       },
       {
         "date": "2026-04-17",
-        "price": 710.14
+        "price": 708.32
       },
       {
         "date": "2026-04-20",
-        "price": 708.72
+        "price": 706.91
       },
       {
         "date": "2026-04-21",
-        "price": 704.08
+        "price": 702.28
       },
       {
         "date": "2026-04-22",
-        "price": 711.21
+        "price": 709.39
       },
       {
         "date": "2026-04-23",
-        "price": 708.45
+        "price": 706.64
       },
       {
         "date": "2026-04-24",
-        "price": 713.94
+        "price": 712.11
       },
       {
         "date": "2026-04-27",
-        "price": 715.17
+        "price": 713.34
       },
       {
         "date": "2026-04-28",
-        "price": 711.69
+        "price": 709.87
       },
       {
         "date": "2026-04-29",
-        "price": 711.58
+        "price": 709.76
       },
       {
         "date": "2026-04-30",
-        "price": 718.66
+        "price": 716.82
       },
       {
         "date": "2026-05-01",
-        "price": 720.65
+        "price": 718.81
       },
       {
         "date": "2026-05-04",
-        "price": 718.01
+        "price": 716.17
       },
       {
         "date": "2026-05-05",
-        "price": 723.77
+        "price": 721.92
       },
       {
         "date": "2026-05-06",
-        "price": 733.83
+        "price": 731.95
       },
       {
         "date": "2026-05-07",
-        "price": 731.58
+        "price": 729.71
       },
       {
         "date": "2026-05-08",
-        "price": 737.62
+        "price": 735.73
       },
       {
         "date": "2026-05-11",
-        "price": 739.3
+        "price": 737.41
       },
       {
         "date": "2026-05-12",
-        "price": 738.18
+        "price": 736.29
       },
       {
         "date": "2026-05-13",
-        "price": 742.31
+        "price": 740.41
       },
       {
         "date": "2026-05-14",
-        "price": 748.17
+        "price": 746.25
       },
       {
         "date": "2026-05-15",
-        "price": 739.17
+        "price": 737.28
       },
       {
         "date": "2026-05-18",
-        "price": 738.65
+        "price": 736.76
       },
       {
         "date": "2026-05-19",
-        "price": 733.73
+        "price": 731.85
       },
       {
         "date": "2026-05-20",
-        "price": 741.25
+        "price": 739.35
       },
       {
         "date": "2026-05-21",
-        "price": 742.72
+        "price": 740.81
       },
       {
         "date": "2026-05-22",
-        "price": 745.64
+        "price": 743.72
       },
       {
         "date": "2026-05-26",
-        "price": 750.59
+        "price": 748.66
       },
       {
         "date": "2026-05-27",
-        "price": 750.46
+        "price": 748.53
       },
       {
         "date": "2026-05-28",
-        "price": 754.6
+        "price": 752.66
       },
       {
         "date": "2026-05-29",
-        "price": 756.48
+        "price": 754.54
       },
       {
         "date": "2026-06-01",
-        "price": 758.54
+        "price": 756.59
       },
       {
         "date": "2026-06-02",
-        "price": 759.57
+        "price": 757.62
       },
       {
         "date": "2026-06-03",
-        "price": 754.24
+        "price": 752.3
       },
       {
         "date": "2026-06-04",
-        "price": 757.09
+        "price": 755.15
       },
       {
         "date": "2026-06-05",
-        "price": 737.55
+        "price": 735.66
       },
       {
         "date": "2026-06-08",
-        "price": 739.22
+        "price": 737.32
       },
       {
         "date": "2026-06-09",
-        "price": 737.05
+        "price": 735.16
       },
       {
         "date": "2026-06-10",
-        "price": 725.43
+        "price": 723.57
       },
       {
         "date": "2026-06-11",
-        "price": 737.76
+        "price": 735.86
       },
       {
         "date": "2026-06-12",
-        "price": 741.75
+        "price": 739.84
       },
       {
         "date": "2026-06-15",
-        "price": 754.83
+        "price": 752.89
       },
       {
         "date": "2026-06-16",
-        "price": 750.33
+        "price": 748.4
       },
       {
         "date": "2026-06-17",
-        "price": 740.96
+        "price": 739.06
       },
       {
         "date": "2026-06-18",
@@ -5202,8 +5202,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 23.61669921875,
-          "market_value": 817.82
+          "market_price": 24.5,
+          "market_value": 848.41
         },
         {
           "symbol": "ADBE",
@@ -5416,8 +5416,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 428.25
         }
       ],
-      "total_market_value": 49133.36,
-      "total_portfolio_value": 53810.38,
+      "total_market_value": 49163.95,
+      "total_portfolio_value": 53840.97,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -5444,8 +5444,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 23.857685089111328,
-          "market_value": 826.17
+          "market_price": 24.75,
+          "market_value": 857.07
         },
         {
           "symbol": "ADBE",
@@ -5658,8 +5658,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 425.9
         }
       ],
-      "total_market_value": 49607.96,
-      "total_portfolio_value": 54284.98,
+      "total_market_value": 49638.86,
+      "total_portfolio_value": 54315.88,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -5686,8 +5686,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 23.80948829650879,
-          "market_value": 824.5
+          "market_price": 24.700000762939453,
+          "market_value": 855.34
         },
         {
           "symbol": "ADBE",
@@ -5900,8 +5900,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 433.75
         }
       ],
-      "total_market_value": 49695.37,
-      "total_portfolio_value": 54372.39,
+      "total_market_value": 49726.21,
+      "total_portfolio_value": 54403.23,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -5928,8 +5928,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 23.905881881713867,
-          "market_value": 827.84
+          "market_price": 24.799999237060547,
+          "market_value": 858.8
         },
         {
           "symbol": "ADBE",
@@ -6142,8 +6142,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 415.95
         }
       ],
-      "total_market_value": 49293.07,
-      "total_portfolio_value": 53969.89,
+      "total_market_value": 49324.03,
+      "total_portfolio_value": 54000.85,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -6170,8 +6170,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 23.95408058166504,
-          "market_value": 829.51
+          "market_price": 24.850000381469727,
+          "market_value": 860.53
         },
         {
           "symbol": "ADBE",
@@ -6384,8 +6384,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 413.8
         }
       ],
-      "total_market_value": 49212.9,
-      "total_portfolio_value": 53900.99,
+      "total_market_value": 49243.92,
+      "total_portfolio_value": 53932.01,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -6412,8 +6412,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 24.146867752075195,
-          "market_value": 836.18
+          "market_price": 25.049999237060547,
+          "market_value": 867.46
         },
         {
           "symbol": "ADBE",
@@ -6626,8 +6626,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 407.6
         }
       ],
-      "total_market_value": 49783.19,
-      "total_portfolio_value": 54023.59,
+      "total_market_value": 49814.47,
+      "total_portfolio_value": 54054.87,
       "external_cash_flow": 0.0,
       "trade_flow": 447.69,
       "reconciliation_adjustment": null,
@@ -6654,8 +6654,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 24.339658737182617,
-          "market_value": 842.86
+          "market_price": 25.25,
+          "market_value": 874.38
         },
         {
           "symbol": "ADBE",
@@ -6868,8 +6868,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 404.8
         }
       ],
-      "total_market_value": 49725.85,
-      "total_portfolio_value": 53969.96,
+      "total_market_value": 49757.37,
+      "total_portfolio_value": 54001.48,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -6896,8 +6896,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 24.146867752075195,
-          "market_value": 836.18
+          "market_price": 25.049999237060547,
+          "market_value": 867.46
         },
         {
           "symbol": "ADBE",
@@ -7116,8 +7116,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 406.6
         }
       ],
-      "total_market_value": 49147.75,
-      "total_portfolio_value": 52943.58,
+      "total_market_value": 49179.03,
+      "total_portfolio_value": 52974.86,
       "external_cash_flow": 0.0,
       "trade_flow": 448.28,
       "reconciliation_adjustment": null,
@@ -7144,8 +7144,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 23.905881881713867,
-          "market_value": 827.84
+          "market_price": 24.799999237060547,
+          "market_value": 858.8
         },
         {
           "symbol": "ADBE",
@@ -7364,8 +7364,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 405.9
         }
       ],
-      "total_market_value": 49971.0,
-      "total_portfolio_value": 53515.44,
+      "total_market_value": 50001.96,
+      "total_portfolio_value": 53546.4,
       "external_cash_flow": 0.0,
       "trade_flow": 251.39,
       "reconciliation_adjustment": null,
@@ -7392,8 +7392,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 24.436054229736328,
-          "market_value": 846.2
+          "market_price": 25.350000381469727,
+          "market_value": 877.85
         },
         {
           "symbol": "ADBE",
@@ -7612,8 +7612,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 423.25
         }
       ],
-      "total_market_value": 50595.67,
-      "total_portfolio_value": 54140.11,
+      "total_market_value": 50627.32,
+      "total_portfolio_value": 54171.76,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -7640,8 +7640,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 24.484251022338867,
-          "market_value": 847.87
+          "market_price": 25.399999618530273,
+          "market_value": 879.58
         },
         {
           "symbol": "ADBE",
@@ -7860,8 +7860,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 428.9
         }
       ],
-      "total_market_value": 50628.0,
-      "total_portfolio_value": 54172.44,
+      "total_market_value": 50659.71,
+      "total_portfolio_value": 54204.15,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -7888,8 +7888,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 24.53244972229004,
-          "market_value": 849.53
+          "market_price": 25.450000762939453,
+          "market_value": 881.31
         },
         {
           "symbol": "ADBE",
@@ -8108,8 +8108,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 477.3
         }
       ],
-      "total_market_value": 51090.1,
-      "total_portfolio_value": 54634.54,
+      "total_market_value": 51121.88,
+      "total_portfolio_value": 54666.32,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -8136,8 +8136,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 24.146867752075195,
-          "market_value": 836.18
+          "market_price": 25.049999237060547,
+          "market_value": 867.46
         },
         {
           "symbol": "ADBE",
@@ -8356,8 +8356,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 472.2
         }
       ],
-      "total_market_value": 51077.22,
-      "total_portfolio_value": 54621.66,
+      "total_market_value": 51108.5,
+      "total_portfolio_value": 54652.94,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -8384,8 +8384,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 24.05047607421875,
-          "market_value": 832.84
+          "market_price": 24.950000762939453,
+          "market_value": 863.99
         },
         {
           "symbol": "ADBE",
@@ -8604,8 +8604,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 481.1
         }
       ],
-      "total_market_value": 50964.96,
-      "total_portfolio_value": 54509.47,
+      "total_market_value": 50996.11,
+      "total_portfolio_value": 54540.62,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -8626,8 +8626,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 24.09867286682129,
-          "market_value": 834.51
+          "market_price": 25.0,
+          "market_value": 865.72
         },
         {
           "symbol": "ADBE",
@@ -8816,8 +8816,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 462.9
         }
       ],
-      "total_market_value": 46533.73,
-      "total_portfolio_value": 54497.04,
+      "total_market_value": 46564.94,
+      "total_portfolio_value": 54528.25,
       "external_cash_flow": 0.0,
       "trade_flow": -4418.8,
       "reconciliation_adjustment": null,
@@ -8838,8 +8838,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 23.95408058166504,
-          "market_value": 829.51
+          "market_price": 24.850000381469727,
+          "market_value": 860.53
         },
         {
           "symbol": "ADBE",
@@ -9022,8 +9022,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 460.5
         }
       ],
-      "total_market_value": 45362.09,
-      "total_portfolio_value": 53795.3,
+      "total_market_value": 45393.11,
+      "total_portfolio_value": 53826.32,
       "external_cash_flow": 0.0,
       "trade_flow": -469.9,
       "reconciliation_adjustment": null,
@@ -9044,8 +9044,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 24.53244972229004,
-          "market_value": 849.53
+          "market_price": 25.450000762939453,
+          "market_value": 881.31
         },
         {
           "symbol": "ADBE",
@@ -9228,8 +9228,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 464.35
         }
       ],
-      "total_market_value": 45585.15,
-      "total_portfolio_value": 54018.36,
+      "total_market_value": 45616.93,
+      "total_portfolio_value": 54050.14,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -9250,8 +9250,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 24.677040100097656,
-          "market_value": 854.54
+          "market_price": 25.600000381469727,
+          "market_value": 886.5
         },
         {
           "symbol": "ADBE",
@@ -9440,8 +9440,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 443.65
         }
       ],
-      "total_market_value": 45025.85,
-      "total_portfolio_value": 52749.41,
+      "total_market_value": 45057.81,
+      "total_portfolio_value": 52781.37,
       "external_cash_flow": 0.0,
       "trade_flow": 709.64,
       "reconciliation_adjustment": null,
@@ -9462,8 +9462,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 24.725236892700195,
-          "market_value": 856.21
+          "market_price": 25.649999618530273,
+          "market_value": 888.23
         },
         {
           "symbol": "ADBE",
@@ -9652,8 +9652,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 454.15
         }
       ],
-      "total_market_value": 44629.86,
-      "total_portfolio_value": 52353.42,
+      "total_market_value": 44661.88,
+      "total_portfolio_value": 52385.44,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -9674,8 +9674,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 24.966224670410156,
-          "market_value": 864.56
+          "market_price": 25.899999618530273,
+          "market_value": 896.89
         },
         {
           "symbol": "ADBE",
@@ -9870,8 +9870,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 445.4
         }
       ],
-      "total_market_value": 45597.21,
-      "total_portfolio_value": 51740.24,
+      "total_market_value": 45629.54,
+      "total_portfolio_value": 51772.57,
       "external_cash_flow": 0.0,
       "trade_flow": 1580.53,
       "reconciliation_adjustment": null,
@@ -9892,8 +9892,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 25.207210540771484,
-          "market_value": 872.9
+          "market_price": 26.149999618530273,
+          "market_value": 905.55
         },
         {
           "symbol": "ADBE",
@@ -10088,8 +10088,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 461.0
         }
       ],
-      "total_market_value": 45817.07,
-      "total_portfolio_value": 51960.1,
+      "total_market_value": 45849.72,
+      "total_portfolio_value": 51992.75,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -10110,8 +10110,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 25.255409240722656,
-          "market_value": 874.57
+          "market_price": 26.200000762939453,
+          "market_value": 907.28
         },
         {
           "symbol": "ADBE",
@@ -10306,8 +10306,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 476.95
         }
       ],
-      "total_market_value": 46018.11,
-      "total_portfolio_value": 52165.58,
+      "total_market_value": 46050.82,
+      "total_portfolio_value": 52198.29,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -10328,8 +10328,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 25.448196411132812,
-          "market_value": 881.25
+          "market_price": 26.399999618530273,
+          "market_value": 914.21
         },
         {
           "symbol": "ADBE",
@@ -10524,8 +10524,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 474.95
         }
       ],
-      "total_market_value": 45976.0,
-      "total_portfolio_value": 51719.29,
+      "total_market_value": 46008.96,
+      "total_portfolio_value": 51752.25,
       "external_cash_flow": 0.0,
       "trade_flow": 404.18,
       "reconciliation_adjustment": null,
@@ -10546,8 +10546,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 25.159013748168945,
-          "market_value": 871.23
+          "market_price": 26.100000381469727,
+          "market_value": 903.82
         },
         {
           "symbol": "ADBE",
@@ -10742,8 +10742,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 460.75
         }
       ],
-      "total_market_value": 45463.68,
-      "total_portfolio_value": 51206.97,
+      "total_market_value": 45496.27,
+      "total_portfolio_value": 51239.56,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -10764,8 +10764,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 24.966224670410156,
-          "market_value": 864.56
+          "market_price": 25.899999618530273,
+          "market_value": 896.89
         },
         {
           "symbol": "ADBE",
@@ -10960,8 +10960,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 461.2
         }
       ],
-      "total_market_value": 45411.47,
-      "total_portfolio_value": 50488.81,
+      "total_market_value": 45443.8,
+      "total_portfolio_value": 50521.14,
       "external_cash_flow": 0.0,
       "trade_flow": 666.61,
       "reconciliation_adjustment": null,
@@ -10982,8 +10982,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 25.207210540771484,
-          "market_value": 872.9
+          "market_price": 26.149999618530273,
+          "market_value": 905.55
         },
         {
           "symbol": "ADBE",
@@ -11178,8 +11178,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 463.0
         }
       ],
-      "total_market_value": 45536.42,
-      "total_portfolio_value": 50617.43,
+      "total_market_value": 45569.07,
+      "total_portfolio_value": 50650.08,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -11200,8 +11200,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 25.592788696289062,
-          "market_value": 886.25
+          "market_price": 26.549999237060547,
+          "market_value": 919.4
         },
         {
           "symbol": "ADBE",
@@ -11396,8 +11396,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 443.25
         }
       ],
-      "total_market_value": 45895.64,
-      "total_portfolio_value": 50450.79,
+      "total_market_value": 45928.79,
+      "total_portfolio_value": 50483.94,
       "external_cash_flow": 0.0,
       "trade_flow": 525.86,
       "reconciliation_adjustment": null,
@@ -11418,8 +11418,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 25.978368759155273,
-          "market_value": 899.6
+          "market_price": 26.950000762939453,
+          "market_value": 933.25
         },
         {
           "symbol": "ADBE",
@@ -11614,8 +11614,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 455.6
         }
       ],
-      "total_market_value": 46562.57,
-      "total_portfolio_value": 51122.58,
+      "total_market_value": 46596.22,
+      "total_portfolio_value": 51156.23,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -11636,8 +11636,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 25.881973266601562,
-          "market_value": 896.27
+          "market_price": 26.850000381469727,
+          "market_value": 929.79
         },
         {
           "symbol": "ADBE",
@@ -11832,8 +11832,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 454.8
         }
       ],
-      "total_market_value": 46471.81,
-      "total_portfolio_value": 51031.82,
+      "total_market_value": 46505.33,
+      "total_portfolio_value": 51065.34,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -11854,8 +11854,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 26.219356536865234,
-          "market_value": 907.95
+          "market_price": 27.200000762939453,
+          "market_value": 941.91
         },
         {
           "symbol": "ADBE",
@@ -12050,8 +12050,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 451.45
         }
       ],
-      "total_market_value": 47016.33,
-      "total_portfolio_value": 51576.34,
+      "total_market_value": 47050.29,
+      "total_portfolio_value": 51610.3,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -12072,8 +12072,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 26.07476234436035,
-          "market_value": 902.94
+          "market_price": 27.049999237060547,
+          "market_value": 936.71
         },
         {
           "symbol": "ADBE",
@@ -12268,8 +12268,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 430.3
         }
       ],
-      "total_market_value": 46290.87,
-      "total_portfolio_value": 50850.88,
+      "total_market_value": 46324.64,
+      "total_portfolio_value": 50884.65,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -12290,8 +12290,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 26.026565551757812,
-          "market_value": 901.27
+          "market_price": 27.0,
+          "market_value": 934.98
         },
         {
           "symbol": "ADBE",
@@ -12486,8 +12486,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 437.55
         }
       ],
-      "total_market_value": 46800.85,
-      "total_portfolio_value": 51360.86,
+      "total_market_value": 46834.56,
+      "total_portfolio_value": 51394.57,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -12508,8 +12508,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 25.9301700592041,
-          "market_value": 897.94
+          "market_price": 26.899999618530273,
+          "market_value": 931.52
         },
         {
           "symbol": "ADBE",
@@ -12704,8 +12704,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 427.15
         }
       ],
-      "total_market_value": 47487.93,
-      "total_portfolio_value": 52047.94,
+      "total_market_value": 47521.51,
+      "total_portfolio_value": 52081.52,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -12726,8 +12726,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 25.785579681396484,
-          "market_value": 892.93
+          "market_price": 26.75,
+          "market_value": 926.33
         },
         {
           "symbol": "ADBE",
@@ -12916,8 +12916,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 377.7
         }
       ],
-      "total_market_value": 47186.28,
-      "total_portfolio_value": 52193.61,
+      "total_market_value": 47219.68,
+      "total_portfolio_value": 52227.01,
       "external_cash_flow": 0.0,
       "trade_flow": -449.15,
       "reconciliation_adjustment": null,
@@ -12938,8 +12938,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 26.026565551757812,
-          "market_value": 901.27
+          "market_price": 27.0,
+          "market_value": 934.98
         },
         {
           "symbol": "ADBE",
@@ -13128,8 +13128,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 369.7
         }
       ],
-      "total_market_value": 47416.76,
-      "total_portfolio_value": 52429.54,
+      "total_market_value": 47450.47,
+      "total_portfolio_value": 52463.25,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -13150,8 +13150,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 25.978368759155273,
-          "market_value": 899.6
+          "market_price": 26.950000762939453,
+          "market_value": 933.25
         },
         {
           "symbol": "ADBE",
@@ -13340,8 +13340,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 363.6
         }
       ],
-      "total_market_value": 47240.01,
-      "total_portfolio_value": 52252.79,
+      "total_market_value": 47273.66,
+      "total_portfolio_value": 52286.44,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -13362,8 +13362,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 25.833776473999023,
-          "market_value": 894.6
+          "market_price": 26.799999237060547,
+          "market_value": 928.06
         },
         {
           "symbol": "ADBE",
@@ -13552,8 +13552,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 367.5
         }
       ],
-      "total_market_value": 48130.46,
-      "total_portfolio_value": 51829.92,
+      "total_market_value": 48163.92,
+      "total_portfolio_value": 51863.38,
       "external_cash_flow": 0.0,
       "trade_flow": 1313.32,
       "reconciliation_adjustment": null,
@@ -13574,8 +13574,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 25.785579681396484,
-          "market_value": 892.93
+          "market_price": 26.75,
+          "market_value": 926.33
         },
         {
           "symbol": "ADBE",
@@ -13764,8 +13764,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 390.1
         }
       ],
-      "total_market_value": 48604.16,
-      "total_portfolio_value": 52303.62,
+      "total_market_value": 48637.56,
+      "total_portfolio_value": 52337.02,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -13786,8 +13786,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 24.773435592651367,
-          "market_value": 857.88
+          "market_price": 25.700000762939453,
+          "market_value": 889.97
         },
         {
           "symbol": "ADBE",
@@ -13970,8 +13970,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 386.65
         }
       ],
-      "total_market_value": 47829.02,
-      "total_portfolio_value": 52166.43,
+      "total_market_value": 47861.11,
+      "total_portfolio_value": 52198.52,
       "external_cash_flow": 0.0,
       "trade_flow": -637.95,
       "reconciliation_adjustment": null,
@@ -13992,8 +13992,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 24.821632385253906,
-          "market_value": 859.55
+          "market_price": 25.75,
+          "market_value": 891.7
         },
         {
           "symbol": "ADBE",
@@ -14176,8 +14176,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 387.5
         }
       ],
-      "total_market_value": 47394.72,
-      "total_portfolio_value": 51732.13,
+      "total_market_value": 47426.87,
+      "total_portfolio_value": 51764.28,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -14198,8 +14198,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 24.918027877807617,
-          "market_value": 862.89
+          "market_price": 25.850000381469727,
+          "market_value": 895.16
         },
         {
           "symbol": "ADBE",
@@ -14382,8 +14382,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 385.3
         }
       ],
-      "total_market_value": 47583.39,
-      "total_portfolio_value": 51920.8,
+      "total_market_value": 47615.66,
+      "total_portfolio_value": 51953.07,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -14404,8 +14404,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 25.159013748168945,
-          "market_value": 871.23
+          "market_price": 26.100000381469727,
+          "market_value": 903.82
         },
         {
           "symbol": "ADBE",
@@ -14588,8 +14588,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 381.9
         }
       ],
-      "total_market_value": 47362.53,
-      "total_portfolio_value": 51707.01,
+      "total_market_value": 47395.12,
+      "total_portfolio_value": 51739.6,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -14610,8 +14610,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 25.110815048217773,
-          "market_value": 869.56
+          "market_price": 26.049999237060547,
+          "market_value": 902.09
         },
         {
           "symbol": "ADBE",
@@ -14794,8 +14794,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 380.25
         }
       ],
-      "total_market_value": 47051.14,
-      "total_portfolio_value": 51421.03,
+      "total_market_value": 47083.67,
+      "total_portfolio_value": 51453.56,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -14816,8 +14816,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 24.53244972229004,
-          "market_value": 849.53
+          "market_price": 25.450000762939453,
+          "market_value": 881.31
         },
         {
           "symbol": "ADBE",
@@ -15000,8 +15000,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 374.7
         }
       ],
-      "total_market_value": 46263.03,
-      "total_portfolio_value": 50632.92,
+      "total_market_value": 46294.81,
+      "total_portfolio_value": 50664.7,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -15022,8 +15022,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 25.062618255615234,
-          "market_value": 867.89
+          "market_price": 26.0,
+          "market_value": 900.35
         },
         {
           "symbol": "ADBE",
@@ -15206,8 +15206,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 370.5
         }
       ],
-      "total_market_value": 46019.3,
-      "total_portfolio_value": 50390.94,
+      "total_market_value": 46051.76,
+      "total_portfolio_value": 50423.4,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -15228,8 +15228,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 25.062618255615234,
-          "market_value": 867.89
+          "market_price": 26.0,
+          "market_value": 900.35
         },
         {
           "symbol": "ADBE",
@@ -15412,8 +15412,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 374.8
         }
       ],
-      "total_market_value": 46493.01,
-      "total_portfolio_value": 50867.51,
+      "total_market_value": 46525.47,
+      "total_portfolio_value": 50899.97,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -15434,8 +15434,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 25.014421463012695,
-          "market_value": 866.22
+          "market_price": 25.950000762939453,
+          "market_value": 898.62
         },
         {
           "symbol": "ADBE",
@@ -15618,8 +15618,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 379.95
         }
       ],
-      "total_market_value": 46561.78,
-      "total_portfolio_value": 51281.49,
+      "total_market_value": 46594.18,
+      "total_portfolio_value": 51313.89,
       "external_cash_flow": 0.0,
       "trade_flow": -341.88,
       "reconciliation_adjustment": null,
@@ -15640,8 +15640,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 25.351802825927734,
-          "market_value": 877.91
+          "market_price": 26.299999237060547,
+          "market_value": 910.74
         },
         {
           "symbol": "ADBE",
@@ -15824,8 +15824,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 382.15
         }
       ],
-      "total_market_value": 45794.27,
-      "total_portfolio_value": 50513.98,
+      "total_market_value": 45827.1,
+      "total_portfolio_value": 50546.81,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -15846,8 +15846,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 24.821632385253906,
-          "market_value": 859.55
+          "market_price": 25.75,
+          "market_value": 891.7
         },
         {
           "symbol": "ADBE",
@@ -16030,8 +16030,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 383.7
         }
       ],
-      "total_market_value": 45361.05,
-      "total_portfolio_value": 50080.76,
+      "total_market_value": 45393.2,
+      "total_portfolio_value": 50112.91,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -16052,8 +16052,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 24.725236892700195,
-          "market_value": 856.21
+          "market_price": 25.649999618530273,
+          "market_value": 888.23
         },
         {
           "symbol": "ADBE",
@@ -16236,8 +16236,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 383.05
         }
       ],
-      "total_market_value": 44864.1,
-      "total_portfolio_value": 49583.81,
+      "total_market_value": 44896.12,
+      "total_portfolio_value": 49615.83,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -16258,8 +16258,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 24.725236892700195,
-          "market_value": 856.21
+          "market_price": 25.649999618530273,
+          "market_value": 888.23
         },
         {
           "symbol": "ADBE",
@@ -16442,8 +16442,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 389.75
         }
       ],
-      "total_market_value": 45155.22,
-      "total_portfolio_value": 49874.93,
+      "total_market_value": 45187.24,
+      "total_portfolio_value": 49906.95,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -16464,8 +16464,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 24.821632385253906,
-          "market_value": 859.55
+          "market_price": 25.75,
+          "market_value": 891.7
         },
         {
           "symbol": "ADBE",
@@ -16648,8 +16648,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 379.9
         }
       ],
-      "total_market_value": 44583.6,
-      "total_portfolio_value": 49303.31,
+      "total_market_value": 44615.75,
+      "total_portfolio_value": 49335.46,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -16670,8 +16670,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 25.255409240722656,
-          "market_value": 874.57
+          "market_price": 26.200000762939453,
+          "market_value": 907.28
         },
         {
           "symbol": "ADBE",
@@ -16854,8 +16854,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 390.55
         }
       ],
-      "total_market_value": 45935.51,
-      "total_portfolio_value": 49647.33,
+      "total_market_value": 45968.22,
+      "total_portfolio_value": 49680.04,
       "external_cash_flow": 0.0,
       "trade_flow": 1009.44,
       "reconciliation_adjustment": null,
@@ -16876,8 +16876,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 25.400001525878906,
-          "market_value": 879.58
+          "market_price": 26.350000381469727,
+          "market_value": 912.47
         },
         {
           "symbol": "ADBE",
@@ -17054,8 +17054,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 396.6
         }
       ],
-      "total_market_value": 44261.97,
-      "total_portfolio_value": 48849.3,
+      "total_market_value": 44294.86,
+      "total_portfolio_value": 48882.19,
       "external_cash_flow": 0.0,
       "trade_flow": -873.27,
       "reconciliation_adjustment": null,
@@ -17076,8 +17076,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 25.207210540771484,
-          "market_value": 872.9
+          "market_price": 26.149999618530273,
+          "market_value": 905.55
         },
         {
           "symbol": "ADBE",
@@ -17254,8 +17254,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 388.55
         }
       ],
-      "total_market_value": 43462.61,
-      "total_portfolio_value": 48049.94,
+      "total_market_value": 43495.26,
+      "total_portfolio_value": 48082.59,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -17276,8 +17276,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 25.689184188842773,
-          "market_value": 889.59
+          "market_price": 26.649999618530273,
+          "market_value": 922.86
         },
         {
           "symbol": "ADBE",
@@ -17454,8 +17454,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 393.4
         }
       ],
-      "total_market_value": 43715.09,
-      "total_portfolio_value": 48309.05,
+      "total_market_value": 43748.36,
+      "total_portfolio_value": 48342.32,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -17476,8 +17476,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 25.640987396240234,
-          "market_value": 887.92
+          "market_price": 26.600000381469727,
+          "market_value": 921.13
         },
         {
           "symbol": "ADBE",
@@ -17654,8 +17654,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 401.95
         }
       ],
-      "total_market_value": 46749.87,
-      "total_portfolio_value": 49603.88,
+      "total_market_value": 46783.08,
+      "total_portfolio_value": 49637.09,
       "external_cash_flow": 0.0,
       "trade_flow": 1743.77,
       "reconciliation_adjustment": null,
@@ -17676,8 +17676,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 26.026565551757812,
-          "market_value": 901.27
+          "market_price": 27.0,
+          "market_value": 934.98
         },
         {
           "symbol": "ADBE",
@@ -17860,8 +17860,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 403.5
         }
       ],
-      "total_market_value": 47879.53,
-      "total_portfolio_value": 50014.23,
+      "total_market_value": 47913.24,
+      "total_portfolio_value": 50047.94,
       "external_cash_flow": 0.0,
       "trade_flow": 719.3,
       "reconciliation_adjustment": null,
@@ -17882,8 +17882,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 26.267553329467773,
-          "market_value": 909.62
+          "market_price": 27.25,
+          "market_value": 943.64
         },
         {
           "symbol": "ADBE",
@@ -18066,8 +18066,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 411.8
         }
       ],
-      "total_market_value": 47851.97,
-      "total_portfolio_value": 49986.67,
+      "total_market_value": 47885.99,
+      "total_portfolio_value": 50020.69,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -18088,8 +18088,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "ACOMO",
           "quantity": 30.0,
-          "market_price": 26.267553329467773,
-          "market_value": 909.62
+          "market_price": 27.25,
+          "market_value": 943.64
         },
         {
           "symbol": "ADBE",
@@ -18272,8 +18272,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "market_value": 413.4
         }
       ],
-      "total_market_value": 48024.97,
-      "total_portfolio_value": 50159.67,
+      "total_market_value": 48058.99,
+      "total_portfolio_value": 50193.69,
       "external_cash_flow": 0.0,
       "trade_flow": 0.0,
       "reconciliation_adjustment": null,
@@ -30294,8 +30294,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "CIBR",
           "quantity": 40.0,
-          "market_price": 62.220001220703125,
-          "market_value": 2488.8
+          "market_price": 61.95000076293945,
+          "market_value": 2478.0
         },
         {
           "symbol": "CRSP",
@@ -30306,8 +30306,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "DEFS",
           "quantity": 500.0,
-          "market_price": 7.508500099182129,
-          "market_value": 3754.25
+          "market_price": 7.48799991607666,
+          "market_value": 3744.0
         },
         {
           "symbol": "DUOL",
@@ -30324,20 +30324,20 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "IAUP",
           "quantity": 80.0,
-          "market_price": 41.689998626708984,
-          "market_value": 3335.2
+          "market_price": 41.619998931884766,
+          "market_value": 3329.6
         },
         {
           "symbol": "ICOM",
           "quantity": 300.0,
-          "market_price": 9.97249984741211,
-          "market_value": 2991.75
+          "market_price": 9.994999885559082,
+          "market_value": 2998.5
         },
         {
           "symbol": "IDFN",
           "quantity": 300.0,
-          "market_price": 11.053000450134277,
-          "market_value": 3315.9
+          "market_price": 11.045999526977539,
+          "market_value": 3313.8
         },
         {
           "symbol": "LYFT",
@@ -30360,951 +30360,951 @@ export const ib2026ImportedDashboardGoldenFixture = {
         {
           "symbol": "SEMI",
           "quantity": 200.0,
-          "market_price": 14.61400032043457,
-          "market_value": 3948.12
+          "market_price": 14.645999908447266,
+          "market_value": 3956.76
         },
         {
           "symbol": "SGLD",
           "quantity": 7.0,
-          "market_price": 418.4100036621094,
-          "market_value": 2928.87
+          "market_price": 421.17999267578125,
+          "market_value": 2948.26
         },
         {
           "symbol": "SXRV",
           "quantity": 6.0,
-          "market_price": 1475.0,
-          "market_value": 10215.55
+          "market_price": 1471.5999755859375,
+          "market_value": 10192.01
         },
         {
           "symbol": "VDST",
           "quantity": 270.0,
-          "market_price": 59.39149856567383,
-          "market_value": 16035.7
+          "market_price": 59.40399932861328,
+          "market_value": 16039.08
         },
         {
           "symbol": "VUAA",
           "quantity": 80.0,
-          "market_price": 149.86000061035156,
-          "market_value": 11988.8
+          "market_price": 149.55999755859375,
+          "market_value": 11964.8
         }
       ],
-      "total_market_value": 64934.4,
+      "total_market_value": 64896.27,
       "total_portfolio_value": 65429.98,
       "external_cash_flow": 0.0,
       "trade_flow": -448.95,
-      "reconciliation_adjustment": -58.11,
+      "reconciliation_adjustment": -19.98,
       "unbacked_cash_flow": 0.0
     }
   ],
   "performance_series": [
     {
       "date": "2026-01-08",
-      "portfolio_value": 53810.38,
-      "benchmark_price": 689.51,
+      "portfolio_value": 53840.97,
+      "benchmark_price": 685.88,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-09",
-      "portfolio_value": 54284.98,
-      "benchmark_price": 694.07,
+      "portfolio_value": 54315.88,
+      "benchmark_price": 690.41,
       "portfolio_return_pct": 0.88,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-12",
-      "portfolio_value": 54372.39,
-      "benchmark_price": 695.16,
+      "portfolio_value": 54403.23,
+      "benchmark_price": 691.5,
       "portfolio_return_pct": 1.04,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-13",
-      "portfolio_value": 53969.89,
-      "benchmark_price": 693.77,
+      "portfolio_value": 54000.85,
+      "benchmark_price": 690.11,
       "portfolio_return_pct": 0.3,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-14",
-      "portfolio_value": 53900.99,
-      "benchmark_price": 690.36,
+      "portfolio_value": 53932.01,
+      "benchmark_price": 686.72,
       "portfolio_return_pct": 0.17,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-15",
-      "portfolio_value": 54023.59,
-      "benchmark_price": 692.24,
+      "portfolio_value": 54054.87,
+      "benchmark_price": 688.59,
       "portfolio_return_pct": 0.4,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-16",
-      "portfolio_value": 53969.96,
-      "benchmark_price": 691.66,
+      "portfolio_value": 54001.48,
+      "benchmark_price": 688.01,
       "portfolio_return_pct": 0.3,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-20",
-      "portfolio_value": 52943.58,
-      "benchmark_price": 677.58,
+      "portfolio_value": 52974.86,
+      "benchmark_price": 674.01,
       "portfolio_return_pct": -1.61,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-21",
-      "portfolio_value": 53515.44,
-      "benchmark_price": 685.4,
+      "portfolio_value": 53546.4,
+      "benchmark_price": 681.79,
       "portfolio_return_pct": -0.55,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-22",
-      "portfolio_value": 54140.11,
-      "benchmark_price": 688.98,
+      "portfolio_value": 54171.76,
+      "benchmark_price": 685.35,
       "portfolio_return_pct": 0.61,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-23",
-      "portfolio_value": 54172.44,
-      "benchmark_price": 689.23,
+      "portfolio_value": 54204.15,
+      "benchmark_price": 685.6,
       "portfolio_return_pct": 0.67,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-26",
-      "portfolio_value": 54634.54,
-      "benchmark_price": 692.73,
+      "portfolio_value": 54666.32,
+      "benchmark_price": 689.08,
       "portfolio_return_pct": 1.53,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-27",
-      "portfolio_value": 54621.66,
-      "benchmark_price": 695.49,
+      "portfolio_value": 54652.94,
+      "benchmark_price": 691.82,
       "portfolio_return_pct": 1.51,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-28",
-      "portfolio_value": 54509.47,
-      "benchmark_price": 695.42,
+      "portfolio_value": 54540.62,
+      "benchmark_price": 691.76,
       "portfolio_return_pct": 1.3,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-29",
-      "portfolio_value": 54497.04,
-      "benchmark_price": 694.04,
+      "portfolio_value": 54528.25,
+      "benchmark_price": 690.38,
       "portfolio_return_pct": 1.28,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-30",
-      "portfolio_value": 53795.3,
-      "benchmark_price": 691.97,
+      "portfolio_value": 53826.32,
+      "benchmark_price": 688.32,
       "portfolio_return_pct": -0.03,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-02",
-      "portfolio_value": 54018.36,
-      "benchmark_price": 695.41,
+      "portfolio_value": 54050.14,
+      "benchmark_price": 691.75,
       "portfolio_return_pct": 0.39,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-03",
-      "portfolio_value": 52749.41,
-      "benchmark_price": 689.53,
+      "portfolio_value": 52781.37,
+      "benchmark_price": 685.9,
       "portfolio_return_pct": -1.97,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-04",
-      "portfolio_value": 52353.42,
-      "benchmark_price": 686.19,
-      "portfolio_return_pct": -2.71,
+      "portfolio_value": 52385.44,
+      "benchmark_price": 682.57,
+      "portfolio_return_pct": -2.7,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-05",
-      "portfolio_value": 51740.24,
-      "benchmark_price": 677.62,
-      "portfolio_return_pct": -3.85,
+      "portfolio_value": 51772.57,
+      "benchmark_price": 674.05,
+      "portfolio_return_pct": -3.84,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-06",
-      "portfolio_value": 51960.1,
-      "benchmark_price": 690.62,
-      "portfolio_return_pct": -3.44,
+      "portfolio_value": 51992.75,
+      "benchmark_price": 686.98,
+      "portfolio_return_pct": -3.43,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-09",
-      "portfolio_value": 52165.58,
-      "benchmark_price": 693.95,
-      "portfolio_return_pct": -3.06,
+      "portfolio_value": 52198.29,
+      "benchmark_price": 690.29,
+      "portfolio_return_pct": -3.05,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-10",
-      "portfolio_value": 51719.29,
-      "benchmark_price": 692.12,
-      "portfolio_return_pct": -3.89,
+      "portfolio_value": 51752.25,
+      "benchmark_price": 688.47,
+      "portfolio_return_pct": -3.88,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-11",
-      "portfolio_value": 51206.97,
-      "benchmark_price": 691.96,
-      "portfolio_return_pct": -4.84,
+      "portfolio_value": 51239.56,
+      "benchmark_price": 688.31,
+      "portfolio_return_pct": -4.83,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-12",
-      "portfolio_value": 50488.81,
-      "benchmark_price": 681.27,
+      "portfolio_value": 50521.14,
+      "benchmark_price": 677.68,
       "portfolio_return_pct": -6.17,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-13",
-      "portfolio_value": 50617.43,
-      "benchmark_price": 681.75,
+      "portfolio_value": 50650.08,
+      "benchmark_price": 678.16,
       "portfolio_return_pct": -5.93,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-17",
-      "portfolio_value": 50450.79,
-      "benchmark_price": 682.85,
+      "portfolio_value": 50483.94,
+      "benchmark_price": 679.25,
       "portfolio_return_pct": -6.24,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-18",
-      "portfolio_value": 51122.58,
-      "benchmark_price": 686.29,
+      "portfolio_value": 51156.23,
+      "benchmark_price": 682.67,
       "portfolio_return_pct": -4.99,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-19",
-      "portfolio_value": 51031.82,
-      "benchmark_price": 684.48,
+      "portfolio_value": 51065.34,
+      "benchmark_price": 680.87,
       "portfolio_return_pct": -5.16,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-20",
-      "portfolio_value": 51576.34,
-      "benchmark_price": 689.43,
-      "portfolio_return_pct": -4.15,
+      "portfolio_value": 51610.3,
+      "benchmark_price": 685.8,
+      "portfolio_return_pct": -4.14,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-23",
-      "portfolio_value": 50850.88,
-      "benchmark_price": 682.39,
-      "portfolio_return_pct": -5.5,
+      "portfolio_value": 50884.65,
+      "benchmark_price": 678.79,
+      "portfolio_return_pct": -5.49,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-24",
-      "portfolio_value": 51360.86,
-      "benchmark_price": 687.35,
-      "portfolio_return_pct": -4.55,
+      "portfolio_value": 51394.57,
+      "benchmark_price": 683.73,
+      "portfolio_return_pct": -4.54,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-25",
-      "portfolio_value": 52047.94,
-      "benchmark_price": 693.15,
-      "portfolio_return_pct": -3.28,
+      "portfolio_value": 52081.52,
+      "benchmark_price": 689.5,
+      "portfolio_return_pct": -3.27,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-26",
-      "portfolio_value": 52193.61,
-      "benchmark_price": 689.3,
+      "portfolio_value": 52227.01,
+      "benchmark_price": 685.67,
       "portfolio_return_pct": -3.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-27",
-      "portfolio_value": 52429.54,
-      "benchmark_price": 685.99,
-      "portfolio_return_pct": -2.57,
+      "portfolio_value": 52463.25,
+      "benchmark_price": 682.37,
+      "portfolio_return_pct": -2.56,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-02",
-      "portfolio_value": 52252.79,
-      "benchmark_price": 686.38,
+      "portfolio_value": 52286.44,
+      "benchmark_price": 682.76,
       "portfolio_return_pct": -2.89,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-03",
-      "portfolio_value": 51829.92,
-      "benchmark_price": 680.33,
-      "portfolio_return_pct": -3.68,
+      "portfolio_value": 51863.38,
+      "benchmark_price": 676.74,
+      "portfolio_return_pct": -3.67,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-04",
-      "portfolio_value": 52303.62,
-      "benchmark_price": 685.13,
-      "portfolio_return_pct": -2.8,
+      "portfolio_value": 52337.02,
+      "benchmark_price": 681.52,
+      "portfolio_return_pct": -2.79,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-05",
-      "portfolio_value": 52166.43,
-      "benchmark_price": 681.31,
-      "portfolio_return_pct": -3.06,
+      "portfolio_value": 52198.52,
+      "benchmark_price": 677.72,
+      "portfolio_return_pct": -3.05,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-06",
-      "portfolio_value": 51732.13,
-      "benchmark_price": 672.38,
+      "portfolio_value": 51764.28,
+      "benchmark_price": 668.84,
       "portfolio_return_pct": -3.86,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-09",
-      "portfolio_value": 51920.8,
-      "benchmark_price": 678.27,
+      "portfolio_value": 51953.07,
+      "benchmark_price": 674.7,
       "portfolio_return_pct": -3.51,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-10",
-      "portfolio_value": 51707.01,
-      "benchmark_price": 677.18,
-      "portfolio_return_pct": -3.91,
+      "portfolio_value": 51739.6,
+      "benchmark_price": 673.61,
+      "portfolio_return_pct": -3.9,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-11",
-      "portfolio_value": 51421.03,
-      "benchmark_price": 676.33,
-      "portfolio_return_pct": -4.44,
+      "portfolio_value": 51453.56,
+      "benchmark_price": 672.77,
+      "portfolio_return_pct": -4.43,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-12",
-      "portfolio_value": 50632.92,
-      "benchmark_price": 666.06,
+      "portfolio_value": 50664.7,
+      "benchmark_price": 662.55,
       "portfolio_return_pct": -5.9,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-13",
-      "portfolio_value": 50390.94,
-      "benchmark_price": 662.29,
+      "portfolio_value": 50423.4,
+      "benchmark_price": 658.8,
       "portfolio_return_pct": -6.35,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-16",
-      "portfolio_value": 50867.51,
-      "benchmark_price": 669.03,
-      "portfolio_return_pct": -5.47,
+      "portfolio_value": 50899.97,
+      "benchmark_price": 665.5,
+      "portfolio_return_pct": -5.46,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-17",
-      "portfolio_value": 51281.49,
-      "benchmark_price": 670.79,
-      "portfolio_return_pct": -4.7,
+      "portfolio_value": 51313.89,
+      "benchmark_price": 667.25,
+      "portfolio_return_pct": -4.69,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-18",
-      "portfolio_value": 50513.98,
-      "benchmark_price": 661.43,
-      "portfolio_return_pct": -6.13,
+      "portfolio_value": 50546.81,
+      "benchmark_price": 657.94,
+      "portfolio_return_pct": -6.12,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-19",
-      "portfolio_value": 50080.76,
-      "benchmark_price": 659.8,
-      "portfolio_return_pct": -6.93,
+      "portfolio_value": 50112.91,
+      "benchmark_price": 656.32,
+      "portfolio_return_pct": -6.92,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-20",
-      "portfolio_value": 49583.81,
-      "benchmark_price": 648.57,
+      "portfolio_value": 49615.83,
+      "benchmark_price": 646.91,
       "portfolio_return_pct": -7.85,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-23",
-      "portfolio_value": 49874.93,
-      "benchmark_price": 655.38,
+      "portfolio_value": 49906.95,
+      "benchmark_price": 653.7,
       "portfolio_return_pct": -7.31,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-24",
-      "portfolio_value": 49303.31,
-      "benchmark_price": 653.18,
-      "portfolio_return_pct": -8.38,
+      "portfolio_value": 49335.46,
+      "benchmark_price": 651.51,
+      "portfolio_return_pct": -8.37,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-25",
-      "portfolio_value": 49647.33,
-      "benchmark_price": 656.82,
-      "portfolio_return_pct": -7.74,
+      "portfolio_value": 49680.04,
+      "benchmark_price": 655.14,
+      "portfolio_return_pct": -7.73,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-26",
-      "portfolio_value": 48849.3,
-      "benchmark_price": 645.09,
-      "portfolio_return_pct": -9.22,
+      "portfolio_value": 48882.19,
+      "benchmark_price": 643.44,
+      "portfolio_return_pct": -9.21,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-27",
-      "portfolio_value": 48049.94,
-      "benchmark_price": 634.09,
-      "portfolio_return_pct": -10.71,
+      "portfolio_value": 48082.59,
+      "benchmark_price": 632.47,
+      "portfolio_return_pct": -10.7,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-30",
-      "portfolio_value": 48309.05,
-      "benchmark_price": 631.97,
-      "portfolio_return_pct": -10.22,
+      "portfolio_value": 48342.32,
+      "benchmark_price": 630.35,
+      "portfolio_return_pct": -10.21,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-31",
-      "portfolio_value": 49603.88,
-      "benchmark_price": 650.34,
-      "portfolio_return_pct": -7.82,
+      "portfolio_value": 49637.09,
+      "benchmark_price": 648.68,
+      "portfolio_return_pct": -7.81,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-01",
-      "portfolio_value": 50014.23,
-      "benchmark_price": 655.24,
-      "portfolio_return_pct": -7.05,
+      "portfolio_value": 50047.94,
+      "benchmark_price": 653.56,
+      "portfolio_return_pct": -7.04,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-02",
-      "portfolio_value": 49986.67,
-      "benchmark_price": 655.83,
-      "portfolio_return_pct": -7.11,
+      "portfolio_value": 50020.69,
+      "benchmark_price": 654.15,
+      "portfolio_return_pct": -7.1,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-06",
-      "portfolio_value": 50159.67,
-      "benchmark_price": 658.93,
-      "portfolio_return_pct": -6.78,
+      "portfolio_value": 50193.69,
+      "benchmark_price": 657.24,
+      "portfolio_return_pct": -6.77,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-07",
       "portfolio_value": 50167.54,
-      "benchmark_price": 659.22,
-      "portfolio_return_pct": -6.77,
+      "benchmark_price": 657.53,
+      "portfolio_return_pct": -6.82,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-08",
       "portfolio_value": 51407.9,
-      "benchmark_price": 676.01,
-      "portfolio_return_pct": -4.46,
+      "benchmark_price": 674.28,
+      "portfolio_return_pct": -4.52,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-09",
       "portfolio_value": 51780.26,
-      "benchmark_price": 679.91,
-      "portfolio_return_pct": -3.77,
+      "benchmark_price": 678.17,
+      "portfolio_return_pct": -3.83,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-10",
       "portfolio_value": 61628.55,
-      "benchmark_price": 679.46,
-      "portfolio_return_pct": -3.99,
+      "benchmark_price": 677.72,
+      "portfolio_return_pct": -4.04,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-13",
       "portfolio_value": 61993.47,
-      "benchmark_price": 686.1,
-      "portfolio_return_pct": -3.42,
+      "benchmark_price": 684.34,
+      "portfolio_return_pct": -3.47,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-14",
       "portfolio_value": 60892.91,
-      "benchmark_price": 694.46,
+      "benchmark_price": 692.68,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-15",
       "portfolio_value": 61288.76,
-      "benchmark_price": 699.94,
-      "portfolio_return_pct": -2.79,
+      "benchmark_price": 698.15,
+      "portfolio_return_pct": -2.84,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-16",
       "portfolio_value": 61581.23,
-      "benchmark_price": 701.66,
-      "portfolio_return_pct": -2.33,
+      "benchmark_price": 699.86,
+      "portfolio_return_pct": -2.38,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-17",
       "portfolio_value": 63432.68,
-      "benchmark_price": 710.14,
+      "benchmark_price": 708.32,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-20",
       "portfolio_value": 63233.88,
-      "benchmark_price": 708.72,
-      "portfolio_return_pct": -2.63,
+      "benchmark_price": 706.91,
+      "portfolio_return_pct": -2.69,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-21",
       "portfolio_value": 62806.76,
-      "benchmark_price": 704.08,
-      "portfolio_return_pct": -3.29,
+      "benchmark_price": 702.28,
+      "portfolio_return_pct": -3.34,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-22",
       "portfolio_value": 62811.79,
-      "benchmark_price": 711.21,
-      "portfolio_return_pct": -3.28,
+      "benchmark_price": 709.39,
+      "portfolio_return_pct": -3.34,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-23",
       "portfolio_value": 62677.68,
-      "benchmark_price": 708.45,
-      "portfolio_return_pct": -3.49,
+      "benchmark_price": 706.64,
+      "portfolio_return_pct": -3.54,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-24",
       "portfolio_value": 62578.75,
-      "benchmark_price": 713.94,
-      "portfolio_return_pct": -3.64,
+      "benchmark_price": 712.11,
+      "portfolio_return_pct": -3.7,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-27",
       "portfolio_value": 62504.22,
-      "benchmark_price": 715.17,
-      "portfolio_return_pct": -3.76,
+      "benchmark_price": 713.34,
+      "portfolio_return_pct": -3.81,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-28",
       "portfolio_value": 62234.8,
-      "benchmark_price": 711.69,
-      "portfolio_return_pct": -4.17,
+      "benchmark_price": 709.87,
+      "portfolio_return_pct": -4.22,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-29",
       "portfolio_value": 62417.07,
-      "benchmark_price": 711.58,
-      "portfolio_return_pct": -3.89,
+      "benchmark_price": 709.76,
+      "portfolio_return_pct": -3.94,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-30",
       "portfolio_value": 62738.59,
-      "benchmark_price": 718.66,
-      "portfolio_return_pct": -3.39,
+      "benchmark_price": 716.82,
+      "portfolio_return_pct": -3.45,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-01",
       "portfolio_value": 63067.81,
-      "benchmark_price": 720.65,
-      "portfolio_return_pct": -2.89,
+      "benchmark_price": 718.81,
+      "portfolio_return_pct": -2.94,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-04",
       "portfolio_value": 63220.58,
-      "benchmark_price": 718.01,
-      "portfolio_return_pct": -2.65,
+      "benchmark_price": 716.17,
+      "portfolio_return_pct": -2.71,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-05",
       "portfolio_value": 63332.62,
-      "benchmark_price": 723.77,
-      "portfolio_return_pct": -2.48,
+      "benchmark_price": 721.92,
+      "portfolio_return_pct": -2.54,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-06",
       "portfolio_value": 63950.92,
-      "benchmark_price": 733.83,
-      "portfolio_return_pct": -1.53,
+      "benchmark_price": 731.95,
+      "portfolio_return_pct": -1.58,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-07",
       "portfolio_value": 64045.98,
-      "benchmark_price": 731.58,
-      "portfolio_return_pct": -1.38,
+      "benchmark_price": 729.71,
+      "portfolio_return_pct": -1.44,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-08",
       "portfolio_value": 63955.22,
-      "benchmark_price": 737.62,
-      "portfolio_return_pct": -1.52,
+      "benchmark_price": 735.73,
+      "portfolio_return_pct": -1.58,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-11",
       "portfolio_value": 64258.38,
-      "benchmark_price": 739.3,
-      "portfolio_return_pct": -1.05,
+      "benchmark_price": 737.41,
+      "portfolio_return_pct": -1.11,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-12",
       "portfolio_value": 63965.66,
-      "benchmark_price": 738.18,
-      "portfolio_return_pct": -1.5,
+      "benchmark_price": 736.29,
+      "portfolio_return_pct": -1.56,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-13",
       "portfolio_value": 64500.14,
-      "benchmark_price": 742.31,
-      "portfolio_return_pct": -0.68,
+      "benchmark_price": 740.41,
+      "portfolio_return_pct": -0.74,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-14",
       "portfolio_value": 64663.9,
-      "benchmark_price": 748.17,
-      "portfolio_return_pct": -0.43,
+      "benchmark_price": 746.25,
+      "portfolio_return_pct": -0.49,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-15",
       "portfolio_value": 63891.84,
-      "benchmark_price": 739.17,
-      "portfolio_return_pct": -1.62,
+      "benchmark_price": 737.28,
+      "portfolio_return_pct": -1.67,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-18",
       "portfolio_value": 63747.94,
-      "benchmark_price": 738.65,
-      "portfolio_return_pct": -1.84,
+      "benchmark_price": 736.76,
+      "portfolio_return_pct": -1.9,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-19",
       "portfolio_value": 63316.5,
-      "benchmark_price": 733.73,
-      "portfolio_return_pct": -2.5,
+      "benchmark_price": 731.85,
+      "portfolio_return_pct": -2.56,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-20",
       "portfolio_value": 64134.93,
-      "benchmark_price": 741.25,
-      "portfolio_return_pct": -1.24,
+      "benchmark_price": 739.35,
+      "portfolio_return_pct": -1.3,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-21",
       "portfolio_value": 64060.41,
-      "benchmark_price": 742.72,
-      "portfolio_return_pct": -1.36,
+      "benchmark_price": 740.81,
+      "portfolio_return_pct": -1.42,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-22",
       "portfolio_value": 64636.58,
-      "benchmark_price": 745.64,
-      "portfolio_return_pct": -0.47,
+      "benchmark_price": 743.72,
+      "portfolio_return_pct": -0.53,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-26",
       "portfolio_value": 65263.79,
-      "benchmark_price": 750.59,
-      "portfolio_return_pct": 0.49,
+      "benchmark_price": 748.66,
+      "portfolio_return_pct": 0.44,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-27",
       "portfolio_value": 65202.7,
-      "benchmark_price": 750.46,
-      "portfolio_return_pct": 0.4,
+      "benchmark_price": 748.53,
+      "portfolio_return_pct": 0.34,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-28",
       "portfolio_value": 65906.9,
-      "benchmark_price": 754.6,
-      "portfolio_return_pct": 1.48,
+      "benchmark_price": 752.66,
+      "portfolio_return_pct": 1.43,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-05-29",
       "portfolio_value": 66226.51,
-      "benchmark_price": 756.48,
-      "portfolio_return_pct": 1.98,
+      "benchmark_price": 754.54,
+      "portfolio_return_pct": 1.92,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-01",
       "portfolio_value": 66036.61,
-      "benchmark_price": 758.54,
-      "portfolio_return_pct": 1.68,
+      "benchmark_price": 756.59,
+      "portfolio_return_pct": 1.63,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-02",
       "portfolio_value": 66094.12,
-      "benchmark_price": 759.57,
-      "portfolio_return_pct": 1.77,
+      "benchmark_price": 757.62,
+      "portfolio_return_pct": 1.71,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-03",
       "portfolio_value": 65542.74,
-      "benchmark_price": 754.24,
-      "portfolio_return_pct": 0.92,
+      "benchmark_price": 752.3,
+      "portfolio_return_pct": 0.87,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-04",
       "portfolio_value": 65601.91,
-      "benchmark_price": 757.09,
-      "portfolio_return_pct": 1.01,
+      "benchmark_price": 755.15,
+      "portfolio_return_pct": 0.96,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-05",
       "portfolio_value": 64208.88,
-      "benchmark_price": 737.55,
-      "portfolio_return_pct": -1.13,
+      "benchmark_price": 735.66,
+      "portfolio_return_pct": -1.19,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-08",
       "portfolio_value": 64077.45,
-      "benchmark_price": 739.22,
-      "portfolio_return_pct": -1.33,
+      "benchmark_price": 737.32,
+      "portfolio_return_pct": -1.39,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-09",
       "portfolio_value": 63111.91,
-      "benchmark_price": 737.05,
-      "portfolio_return_pct": -2.82,
+      "benchmark_price": 735.16,
+      "portfolio_return_pct": -2.87,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-10",
       "portfolio_value": 62710.48,
-      "benchmark_price": 725.43,
-      "portfolio_return_pct": -3.44,
+      "benchmark_price": 723.57,
+      "portfolio_return_pct": -3.49,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-11",
       "portfolio_value": 62457.53,
-      "benchmark_price": 737.76,
-      "portfolio_return_pct": -3.83,
+      "benchmark_price": 735.86,
+      "portfolio_return_pct": -3.88,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-12",
       "portfolio_value": 61046.96,
-      "benchmark_price": 741.75,
+      "benchmark_price": 739.84,
       "portfolio_return_pct": null,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-15",
       "portfolio_value": 62097.66,
-      "benchmark_price": 754.83,
-      "portfolio_return_pct": -2.17,
+      "benchmark_price": 752.89,
+      "portfolio_return_pct": -2.23,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-16",
       "portfolio_value": 61808.88,
-      "benchmark_price": 750.33,
-      "portfolio_return_pct": -2.63,
+      "benchmark_price": 748.4,
+      "portfolio_return_pct": -2.68,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-17",
       "portfolio_value": 61753.75,
-      "benchmark_price": 740.96,
-      "portfolio_return_pct": -2.71,
+      "benchmark_price": 739.06,
+      "portfolio_return_pct": -2.77,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-18",
       "portfolio_value": 61532.4,
       "benchmark_price": 746.74,
-      "portfolio_return_pct": -3.06,
+      "portfolio_return_pct": -3.12,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-22",
       "portfolio_value": 61336.82,
       "benchmark_price": 744.39,
-      "portfolio_return_pct": -3.37,
+      "portfolio_return_pct": -3.43,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-23",
       "portfolio_value": 60608.49,
       "benchmark_price": 733.58,
-      "portfolio_return_pct": -4.52,
+      "portfolio_return_pct": -4.57,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-24",
       "portfolio_value": 60330.18,
       "benchmark_price": 733.24,
-      "portfolio_return_pct": -4.96,
+      "portfolio_return_pct": -5.01,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-25",
       "portfolio_value": 60093.6,
       "benchmark_price": 734.3,
-      "portfolio_return_pct": -5.33,
+      "portfolio_return_pct": -5.38,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-26",
       "portfolio_value": 60299.03,
       "benchmark_price": 728.99,
-      "portfolio_return_pct": -5.01,
+      "portfolio_return_pct": -5.06,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-29",
       "portfolio_value": 60469.65,
       "benchmark_price": 741.0,
-      "portfolio_return_pct": -4.74,
+      "portfolio_return_pct": -4.79,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-06-30",
       "portfolio_value": 61091.75,
       "benchmark_price": 746.77,
-      "portfolio_return_pct": -3.76,
+      "portfolio_return_pct": -3.81,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-01",
       "portfolio_value": 61471.83,
       "benchmark_price": 745.76,
-      "portfolio_return_pct": -3.16,
+      "portfolio_return_pct": -3.21,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-02",
       "portfolio_value": 61527.38,
       "benchmark_price": 744.78,
-      "portfolio_return_pct": -3.07,
+      "portfolio_return_pct": -3.13,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-06",
       "portfolio_value": 62119.73,
       "benchmark_price": 751.28,
-      "portfolio_return_pct": -2.14,
+      "portfolio_return_pct": -2.19,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-07",
       "portfolio_value": 61344.25,
       "benchmark_price": 747.71,
-      "portfolio_return_pct": -3.36,
+      "portfolio_return_pct": -3.41,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-08",
       "portfolio_value": 60723.13,
       "benchmark_price": 745.4,
-      "portfolio_return_pct": -4.34,
+      "portfolio_return_pct": -4.39,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-09",
       "portfolio_value": 61627.75,
       "benchmark_price": 751.71,
-      "portfolio_return_pct": -2.91,
+      "portfolio_return_pct": -2.97,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-10",
       "portfolio_value": 61513.78,
       "benchmark_price": 754.95,
-      "portfolio_return_pct": -3.09,
+      "portfolio_return_pct": -3.15,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-13",
       "portfolio_value": 61253.88,
       "benchmark_price": 749.17,
-      "portfolio_return_pct": -3.5,
+      "portfolio_return_pct": -3.56,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-14",
       "portfolio_value": 61546.84,
       "benchmark_price": 751.83,
-      "portfolio_return_pct": -3.04,
+      "portfolio_return_pct": -3.09,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-15",
       "portfolio_value": 61457.65,
       "benchmark_price": 754.81,
-      "portfolio_return_pct": -3.18,
+      "portfolio_return_pct": -3.24,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-16",
       "portfolio_value": 60923.09,
       "benchmark_price": 750.72,
-      "portfolio_return_pct": -4.02,
+      "portfolio_return_pct": -4.08,
       "benchmark_return_pct": null
     },
     {
@@ -31318,119 +31318,119 @@ export const ib2026ImportedDashboardGoldenFixture = {
       "date": "2026-07-20",
       "portfolio_value": 62745.41,
       "benchmark_price": 742.09,
-      "portfolio_return_pct": -3.67,
+      "portfolio_return_pct": -3.72,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-21",
       "portfolio_value": 63057.17,
       "benchmark_price": 748.28,
-      "portfolio_return_pct": -3.19,
+      "portfolio_return_pct": -3.24,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-22",
       "portfolio_value": 63207.57,
       "benchmark_price": 747.41,
-      "portfolio_return_pct": -2.96,
+      "portfolio_return_pct": -3.01,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-23",
       "portfolio_value": 63495.29,
       "benchmark_price": 738.18,
-      "portfolio_return_pct": -2.52,
+      "portfolio_return_pct": -2.57,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-24",
       "portfolio_value": 62492.17,
       "benchmark_price": 738.93,
-      "portfolio_return_pct": -4.06,
+      "portfolio_return_pct": -4.11,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-27",
       "portfolio_value": 62360.36,
       "benchmark_price": 739.09,
-      "portfolio_return_pct": -4.26,
+      "portfolio_return_pct": -4.31,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-28",
       "portfolio_value": 62483.62,
       "benchmark_price": 740.86,
-      "portfolio_return_pct": -4.07,
+      "portfolio_return_pct": -4.12,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-29",
       "portfolio_value": 62043.51,
       "benchmark_price": 729.46,
-      "portfolio_return_pct": -4.75,
+      "portfolio_return_pct": -4.8,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-30",
       "portfolio_value": 62365.3,
       "benchmark_price": 741.69,
-      "portfolio_return_pct": -4.25,
+      "portfolio_return_pct": -4.31,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-07-31",
       "portfolio_value": 62474.34,
       "benchmark_price": 747.03,
-      "portfolio_return_pct": -4.08,
+      "portfolio_return_pct": -4.14,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-08-03",
       "portfolio_value": 63171.91,
       "benchmark_price": 757.67,
-      "portfolio_return_pct": -3.01,
+      "portfolio_return_pct": -3.07,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-08-04",
       "portfolio_value": 64319.19,
       "benchmark_price": 771.33,
-      "portfolio_return_pct": -1.25,
+      "portfolio_return_pct": -1.31,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-08-05",
       "portfolio_value": 64821.35,
       "benchmark_price": 769.79,
-      "portfolio_return_pct": -0.48,
+      "portfolio_return_pct": -0.54,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-08-06",
       "portfolio_value": 64627.81,
       "benchmark_price": 768.56,
-      "portfolio_return_pct": -0.78,
+      "portfolio_return_pct": -0.83,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-08-07",
       "portfolio_value": 65277.08,
       "benchmark_price": 773.26,
-      "portfolio_return_pct": 0.22,
+      "portfolio_return_pct": 0.16,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-08-10",
       "portfolio_value": 65485.62,
       "benchmark_price": 773.03,
-      "portfolio_return_pct": 0.54,
+      "portfolio_return_pct": 0.48,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-08-11",
       "portfolio_value": 65429.98,
       "benchmark_price": 770.56,
-      "portfolio_return_pct": 0.54,
+      "portfolio_return_pct": 0.43,
       "benchmark_return_pct": null
     }
   ],
@@ -31444,11 +31444,11 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "start_value": 61253.88,
         "end_value": 65429.98,
         "net_contributions": 0.0,
-        "investment_gain": 4234.210000000006,
-        "time_weighted_return_pct": 4.19,
-        "money_weighted_return_pct": 6.912558028977115,
-        "benchmark_return_pct": 2.85,
-        "excess_return_pct": 1.34
+        "investment_gain": 4196.080000000009,
+        "time_weighted_return_pct": 4.14,
+        "money_weighted_return_pct": 6.850308911043691,
+        "benchmark_return_pct": 2.86,
+        "excess_return_pct": 1.28
       },
       "max_drawdown_pct": null,
       "monthly_returns": [
@@ -31469,11 +31469,11 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "start_value": 64258.38,
         "end_value": 65429.98,
         "net_contributions": 0.0,
-        "investment_gain": 1229.7100000000064,
-        "time_weighted_return_pct": 1.61,
-        "money_weighted_return_pct": 1.9136959257298525,
-        "benchmark_return_pct": 4.22,
-        "excess_return_pct": -2.61
+        "investment_gain": 1191.580000000009,
+        "time_weighted_return_pct": 1.56,
+        "money_weighted_return_pct": 1.854357361639072,
+        "benchmark_return_pct": 4.5,
+        "excess_return_pct": -2.94
       },
       "max_drawdown_pct": null,
       "monthly_returns": [
@@ -31499,32 +31499,32 @@ export const ib2026ImportedDashboardGoldenFixture = {
     },
     "YTD": {
       "summary": {
-        "start_value": 53810.38,
+        "start_value": 53840.97,
         "end_value": 65429.98,
         "net_contributions": 9963.0,
-        "investment_gain": 1714.7100000000064,
-        "time_weighted_return_pct": 0.54,
-        "money_weighted_return_pct": 2.881694927738503,
-        "benchmark_return_pct": 11.75,
-        "excess_return_pct": -11.21
+        "investment_gain": 1645.9900000000052,
+        "time_weighted_return_pct": 0.43,
+        "money_weighted_return_pct": 2.764784626840241,
+        "benchmark_return_pct": 12.35,
+        "excess_return_pct": -11.92
       },
       "max_drawdown_pct": null,
       "monthly_returns": [
         {
           "month": "2026-01",
-          "return_pct": -0.028024332851750433
+          "return_pct": -0.027209762379865055
         },
         {
           "month": "2026-02",
-          "return_pct": -2.538809152472421
+          "return_pct": -2.5323484867626256
         },
         {
           "month": "2026-03",
-          "return_pct": -5.389442669151768
+          "return_pct": -5.3869327576923425
         },
         {
           "month": "2026-04",
-          "return_pct": 6.032307587952301
+          "return_pct": 5.961366021172365
         },
         {
           "month": "2026-05",
@@ -31548,32 +31548,32 @@ export const ib2026ImportedDashboardGoldenFixture = {
     },
     "1Y": {
       "summary": {
-        "start_value": 53810.38,
+        "start_value": 53840.97,
         "end_value": 65429.98,
         "net_contributions": 9963.0,
-        "investment_gain": 1714.7100000000064,
-        "time_weighted_return_pct": 0.54,
-        "money_weighted_return_pct": 2.881694927738503,
-        "benchmark_return_pct": 11.75,
-        "excess_return_pct": -11.21
+        "investment_gain": 1645.9900000000052,
+        "time_weighted_return_pct": 0.43,
+        "money_weighted_return_pct": 2.764784626840241,
+        "benchmark_return_pct": 12.35,
+        "excess_return_pct": -11.92
       },
       "max_drawdown_pct": null,
       "monthly_returns": [
         {
           "month": "2026-01",
-          "return_pct": -0.028024332851750433
+          "return_pct": -0.027209762379865055
         },
         {
           "month": "2026-02",
-          "return_pct": -2.538809152472421
+          "return_pct": -2.5323484867626256
         },
         {
           "month": "2026-03",
-          "return_pct": -5.389442669151768
+          "return_pct": -5.3869327576923425
         },
         {
           "month": "2026-04",
-          "return_pct": 6.032307587952301
+          "return_pct": 5.961366021172365
         },
         {
           "month": "2026-05",
@@ -31597,32 +31597,32 @@ export const ib2026ImportedDashboardGoldenFixture = {
     },
     "All": {
       "summary": {
-        "start_value": 53810.38,
+        "start_value": 53840.97,
         "end_value": 65429.98,
         "net_contributions": 9963.0,
-        "investment_gain": 1714.7100000000064,
-        "time_weighted_return_pct": 0.54,
-        "money_weighted_return_pct": 2.881694927738503,
-        "benchmark_return_pct": 11.75,
-        "excess_return_pct": -11.21
+        "investment_gain": 1645.9900000000052,
+        "time_weighted_return_pct": 0.43,
+        "money_weighted_return_pct": 2.764784626840241,
+        "benchmark_return_pct": 12.35,
+        "excess_return_pct": -11.92
       },
       "max_drawdown_pct": null,
       "monthly_returns": [
         {
           "month": "2026-01",
-          "return_pct": -0.028024332851750433
+          "return_pct": -0.027209762379865055
         },
         {
           "month": "2026-02",
-          "return_pct": -2.538809152472421
+          "return_pct": -2.5323484867626256
         },
         {
           "month": "2026-03",
-          "return_pct": -5.389442669151768
+          "return_pct": -5.3869327576923425
         },
         {
           "month": "2026-04",
-          "return_pct": 6.032307587952301
+          "return_pct": 5.961366021172365
         },
         {
           "month": "2026-05",
@@ -31662,8 +31662,8 @@ export const ff2026DashboardGolden = {
   "timeWeightedReturn": "-1.20%",
   "netContributions": "$0.00",
   "moneyWeightedReturn": "-1.20%",
-  "benchmarkReturn": "-1.46%",
-  "excessReturn": "0.26%",
+  "benchmarkReturn": "-1.19%",
+  "excessReturn": "-0.01%",
   "drawdown": "n/a",
   "loadedFiles": [
     "FF2026.pdf"
@@ -31963,370 +31963,370 @@ export const ff2026ImportedDashboardGoldenFixture = {
   },
   "benchmark": {
     "symbol": "SPY",
-    "start_price": 680.27,
-    "end_price": 679.46,
-    "return_pct": -0.12,
-    "return_basis_contract": "price_return_only",
+    "start_price": 674.69,
+    "end_price": 677.72,
+    "return_pct": 0.45,
+    "return_basis_contract": "verified_total_return",
     "points": [
       {
         "date": "2025-12-01",
-        "price": 680.27
+        "price": 674.69
       },
       {
         "date": "2025-12-02",
-        "price": 681.53
+        "price": 675.94
       },
       {
         "date": "2025-12-03",
-        "price": 683.89
+        "price": 678.28
       },
       {
         "date": "2025-12-04",
-        "price": 684.39
+        "price": 678.78
       },
       {
         "date": "2025-12-05",
-        "price": 685.69
+        "price": 680.07
       },
       {
         "date": "2025-12-08",
-        "price": 683.63
+        "price": 678.02
       },
       {
         "date": "2025-12-09",
-        "price": 683.04
+        "price": 677.44
       },
       {
         "date": "2025-12-10",
-        "price": 687.57
+        "price": 681.93
       },
       {
         "date": "2025-12-11",
-        "price": 689.17
+        "price": 683.52
       },
       {
         "date": "2025-12-12",
-        "price": 681.76
+        "price": 676.17
       },
       {
         "date": "2025-12-15",
-        "price": 680.73
+        "price": 675.15
       },
       {
         "date": "2025-12-16",
-        "price": 678.87
+        "price": 673.3
       },
       {
         "date": "2025-12-17",
-        "price": 671.4
+        "price": 665.89
       },
       {
         "date": "2025-12-18",
-        "price": 676.47
+        "price": 670.92
       },
       {
         "date": "2025-12-19",
-        "price": 680.59
+        "price": 677.0
       },
       {
         "date": "2025-12-22",
-        "price": 684.83
+        "price": 681.22
       },
       {
         "date": "2025-12-23",
-        "price": 687.96
+        "price": 684.33
       },
       {
         "date": "2025-12-24",
-        "price": 690.38
+        "price": 686.74
       },
       {
         "date": "2025-12-26",
-        "price": 690.31
+        "price": 686.67
       },
       {
         "date": "2025-12-29",
-        "price": 687.85
+        "price": 684.23
       },
       {
         "date": "2025-12-30",
-        "price": 687.01
+        "price": 683.39
       },
       {
         "date": "2025-12-31",
-        "price": 681.92
+        "price": 678.33
       },
       {
         "date": "2026-01-02",
-        "price": 683.17
+        "price": 679.57
       },
       {
         "date": "2026-01-05",
-        "price": 687.72
+        "price": 684.1
       },
       {
         "date": "2026-01-06",
-        "price": 691.81
+        "price": 688.16
       },
       {
         "date": "2026-01-07",
-        "price": 689.58
+        "price": 685.95
       },
       {
         "date": "2026-01-08",
-        "price": 689.51
+        "price": 685.88
       },
       {
         "date": "2026-01-09",
-        "price": 694.07
+        "price": 690.41
       },
       {
         "date": "2026-01-12",
-        "price": 695.16
+        "price": 691.5
       },
       {
         "date": "2026-01-13",
-        "price": 693.77
+        "price": 690.11
       },
       {
         "date": "2026-01-14",
-        "price": 690.36
+        "price": 686.72
       },
       {
         "date": "2026-01-15",
-        "price": 692.24
+        "price": 688.59
       },
       {
         "date": "2026-01-16",
-        "price": 691.66
+        "price": 688.01
       },
       {
         "date": "2026-01-20",
-        "price": 677.58
+        "price": 674.01
       },
       {
         "date": "2026-01-21",
-        "price": 685.4
+        "price": 681.79
       },
       {
         "date": "2026-01-22",
-        "price": 688.98
+        "price": 685.35
       },
       {
         "date": "2026-01-23",
-        "price": 689.23
+        "price": 685.6
       },
       {
         "date": "2026-01-26",
-        "price": 692.73
+        "price": 689.08
       },
       {
         "date": "2026-01-27",
-        "price": 695.49
+        "price": 691.82
       },
       {
         "date": "2026-01-28",
-        "price": 695.42
+        "price": 691.76
       },
       {
         "date": "2026-01-29",
-        "price": 694.04
+        "price": 690.38
       },
       {
         "date": "2026-01-30",
-        "price": 691.97
+        "price": 688.32
       },
       {
         "date": "2026-02-02",
-        "price": 695.41
+        "price": 691.75
       },
       {
         "date": "2026-02-03",
-        "price": 689.53
+        "price": 685.9
       },
       {
         "date": "2026-02-04",
-        "price": 686.19
+        "price": 682.57
       },
       {
         "date": "2026-02-05",
-        "price": 677.62
+        "price": 674.05
       },
       {
         "date": "2026-02-06",
-        "price": 690.62
+        "price": 686.98
       },
       {
         "date": "2026-02-09",
-        "price": 693.95
+        "price": 690.29
       },
       {
         "date": "2026-02-10",
-        "price": 692.12
+        "price": 688.47
       },
       {
         "date": "2026-02-11",
-        "price": 691.96
+        "price": 688.31
       },
       {
         "date": "2026-02-12",
-        "price": 681.27
+        "price": 677.68
       },
       {
         "date": "2026-02-13",
-        "price": 681.75
+        "price": 678.16
       },
       {
         "date": "2026-02-17",
-        "price": 682.85
+        "price": 679.25
       },
       {
         "date": "2026-02-18",
-        "price": 686.29
+        "price": 682.67
       },
       {
         "date": "2026-02-19",
-        "price": 684.48
+        "price": 680.87
       },
       {
         "date": "2026-02-20",
-        "price": 689.43
+        "price": 685.8
       },
       {
         "date": "2026-02-23",
-        "price": 682.39
+        "price": 678.79
       },
       {
         "date": "2026-02-24",
-        "price": 687.35
+        "price": 683.73
       },
       {
         "date": "2026-02-25",
-        "price": 693.15
+        "price": 689.5
       },
       {
         "date": "2026-02-26",
-        "price": 689.3
+        "price": 685.67
       },
       {
         "date": "2026-02-27",
-        "price": 685.99
+        "price": 682.37
       },
       {
         "date": "2026-03-02",
-        "price": 686.38
+        "price": 682.76
       },
       {
         "date": "2026-03-03",
-        "price": 680.33
+        "price": 676.74
       },
       {
         "date": "2026-03-04",
-        "price": 685.13
+        "price": 681.52
       },
       {
         "date": "2026-03-05",
-        "price": 681.31
+        "price": 677.72
       },
       {
         "date": "2026-03-06",
-        "price": 672.38
+        "price": 668.84
       },
       {
         "date": "2026-03-09",
-        "price": 678.27
+        "price": 674.7
       },
       {
         "date": "2026-03-10",
-        "price": 677.18
+        "price": 673.61
       },
       {
         "date": "2026-03-11",
-        "price": 676.33
+        "price": 672.77
       },
       {
         "date": "2026-03-12",
-        "price": 666.06
+        "price": 662.55
       },
       {
         "date": "2026-03-13",
-        "price": 662.29
+        "price": 658.8
       },
       {
         "date": "2026-03-16",
-        "price": 669.03
+        "price": 665.5
       },
       {
         "date": "2026-03-17",
-        "price": 670.79
+        "price": 667.25
       },
       {
         "date": "2026-03-18",
-        "price": 661.43
+        "price": 657.94
       },
       {
         "date": "2026-03-19",
-        "price": 659.8
+        "price": 656.32
       },
       {
         "date": "2026-03-20",
-        "price": 648.57
+        "price": 646.91
       },
       {
         "date": "2026-03-23",
-        "price": 655.38
+        "price": 653.7
       },
       {
         "date": "2026-03-24",
-        "price": 653.18
+        "price": 651.51
       },
       {
         "date": "2026-03-25",
-        "price": 656.82
+        "price": 655.14
       },
       {
         "date": "2026-03-26",
-        "price": 645.09
+        "price": 643.44
       },
       {
         "date": "2026-03-27",
-        "price": 634.09
+        "price": 632.47
       },
       {
         "date": "2026-03-30",
-        "price": 631.97
+        "price": 630.35
       },
       {
         "date": "2026-03-31",
-        "price": 650.34
+        "price": 648.68
       },
       {
         "date": "2026-04-01",
-        "price": 655.24
+        "price": 653.56
       },
       {
         "date": "2026-04-02",
-        "price": 655.83
+        "price": 654.15
       },
       {
         "date": "2026-04-06",
-        "price": 658.93
+        "price": 657.24
       },
       {
         "date": "2026-04-07",
-        "price": 659.22
+        "price": 657.53
       },
       {
         "date": "2026-04-08",
-        "price": 676.01
+        "price": 674.28
       },
       {
         "date": "2026-04-09",
-        "price": 679.91
+        "price": 678.17
       },
       {
         "date": "2026-04-10",
-        "price": 679.46
+        "price": 677.72
       }
     ]
   },
@@ -34136,630 +34136,630 @@ export const ff2026ImportedDashboardGoldenFixture = {
     {
       "date": "2025-12-01",
       "portfolio_value": 3048.57,
-      "benchmark_price": 680.27,
+      "benchmark_price": 674.69,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-02",
       "portfolio_value": 3052.17,
-      "benchmark_price": 681.53,
+      "benchmark_price": 675.94,
       "portfolio_return_pct": 0.12,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-03",
       "portfolio_value": 3065.67,
-      "benchmark_price": 683.89,
+      "benchmark_price": 678.28,
       "portfolio_return_pct": 0.56,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-04",
       "portfolio_value": 3070.44,
-      "benchmark_price": 684.39,
+      "benchmark_price": 678.78,
       "portfolio_return_pct": 0.72,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-05",
       "portfolio_value": 3074.67,
-      "benchmark_price": 685.69,
+      "benchmark_price": 680.07,
       "portfolio_return_pct": 0.86,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-08",
       "portfolio_value": 3065.76,
-      "benchmark_price": 683.63,
+      "benchmark_price": 678.02,
       "portfolio_return_pct": 0.56,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-09",
       "portfolio_value": 3062.7,
-      "benchmark_price": 683.04,
+      "benchmark_price": 677.44,
       "portfolio_return_pct": 0.46,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-10",
       "portfolio_value": 3085.2,
-      "benchmark_price": 687.57,
+      "benchmark_price": 681.93,
       "portfolio_return_pct": 1.2,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-11",
       "portfolio_value": 3095.46,
-      "benchmark_price": 689.17,
+      "benchmark_price": 683.52,
       "portfolio_return_pct": 1.54,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-12",
       "portfolio_value": 3060.54,
-      "benchmark_price": 681.76,
+      "benchmark_price": 676.17,
       "portfolio_return_pct": 0.39,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-15",
       "portfolio_value": 3054.6,
-      "benchmark_price": 680.73,
+      "benchmark_price": 675.15,
       "portfolio_return_pct": 0.2,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-16",
       "portfolio_value": 3045.87,
-      "benchmark_price": 678.87,
+      "benchmark_price": 673.3,
       "portfolio_return_pct": -0.09,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-17",
       "portfolio_value": 3013.02,
-      "benchmark_price": 671.4,
+      "benchmark_price": 665.89,
       "portfolio_return_pct": -1.17,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-18",
       "portfolio_value": 3035.88,
-      "benchmark_price": 676.47,
+      "benchmark_price": 670.92,
       "portfolio_return_pct": -0.42,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-19",
       "portfolio_value": 3062.61,
-      "benchmark_price": 680.59,
+      "benchmark_price": 677.0,
       "portfolio_return_pct": 0.46,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-22",
       "portfolio_value": 3075.03,
-      "benchmark_price": 684.83,
+      "benchmark_price": 681.22,
       "portfolio_return_pct": 0.87,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-23",
       "portfolio_value": 3085.11,
-      "benchmark_price": 687.96,
+      "benchmark_price": 684.33,
       "portfolio_return_pct": 1.2,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-24",
       "portfolio_value": 3095.55,
-      "benchmark_price": 690.38,
+      "benchmark_price": 686.74,
       "portfolio_return_pct": 1.54,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-26",
       "portfolio_value": 3093.66,
-      "benchmark_price": 690.31,
+      "benchmark_price": 686.67,
       "portfolio_return_pct": 1.48,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-29",
       "portfolio_value": 3082.14,
-      "benchmark_price": 687.85,
+      "benchmark_price": 684.23,
       "portfolio_return_pct": 1.1,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-30",
       "portfolio_value": 3077.28,
-      "benchmark_price": 687.01,
+      "benchmark_price": 683.39,
       "portfolio_return_pct": 0.94,
       "benchmark_return_pct": null
     },
     {
       "date": "2025-12-31",
       "portfolio_value": 3054.06,
-      "benchmark_price": 681.92,
+      "benchmark_price": 678.33,
       "portfolio_return_pct": 0.18,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-02",
       "portfolio_value": 3063.42,
-      "benchmark_price": 683.17,
+      "benchmark_price": 679.57,
       "portfolio_return_pct": 0.49,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-05",
       "portfolio_value": 3086.19,
-      "benchmark_price": 687.72,
+      "benchmark_price": 684.1,
       "portfolio_return_pct": 1.23,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-06",
       "portfolio_value": 3107.52,
-      "benchmark_price": 691.81,
+      "benchmark_price": 688.16,
       "portfolio_return_pct": 1.93,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-07",
       "portfolio_value": 3097.08,
-      "benchmark_price": 689.58,
+      "benchmark_price": 685.95,
       "portfolio_return_pct": 1.59,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-08",
       "portfolio_value": 3097.89,
-      "benchmark_price": 689.51,
+      "benchmark_price": 685.88,
       "portfolio_return_pct": 1.62,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-09",
       "portfolio_value": 3118.23,
-      "benchmark_price": 694.07,
+      "benchmark_price": 690.41,
       "portfolio_return_pct": 2.29,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-12",
       "portfolio_value": 3123.9,
-      "benchmark_price": 695.16,
+      "benchmark_price": 691.5,
       "portfolio_return_pct": 2.47,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-13",
       "portfolio_value": 3117.69,
-      "benchmark_price": 693.77,
+      "benchmark_price": 690.11,
       "portfolio_return_pct": 2.27,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-14",
       "portfolio_value": 3105.63,
-      "benchmark_price": 690.36,
+      "benchmark_price": 686.72,
       "portfolio_return_pct": 1.87,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-15",
       "portfolio_value": 3115.08,
-      "benchmark_price": 692.24,
+      "benchmark_price": 688.59,
       "portfolio_return_pct": 2.18,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-16",
       "portfolio_value": 3113.28,
-      "benchmark_price": 691.66,
+      "benchmark_price": 688.01,
       "portfolio_return_pct": 2.12,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-20",
       "portfolio_value": 3052.62,
-      "benchmark_price": 677.58,
+      "benchmark_price": 674.01,
       "portfolio_return_pct": 0.13,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-21",
       "portfolio_value": 3088.35,
-      "benchmark_price": 685.4,
+      "benchmark_price": 681.79,
       "portfolio_return_pct": 1.3,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-22",
       "portfolio_value": 3104.46,
-      "benchmark_price": 688.98,
+      "benchmark_price": 685.35,
       "portfolio_return_pct": 1.83,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-23",
       "portfolio_value": 3101.67,
-      "benchmark_price": 689.23,
+      "benchmark_price": 685.6,
       "portfolio_return_pct": 1.74,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-26",
       "portfolio_value": 3114.9,
-      "benchmark_price": 692.73,
+      "benchmark_price": 689.08,
       "portfolio_return_pct": 2.18,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-27",
       "portfolio_value": 3126.06,
-      "benchmark_price": 695.49,
+      "benchmark_price": 691.82,
       "portfolio_return_pct": 2.54,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-28",
       "portfolio_value": 3124.35,
-      "benchmark_price": 695.42,
+      "benchmark_price": 691.76,
       "portfolio_return_pct": 2.49,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-29",
       "portfolio_value": 3117.24,
-      "benchmark_price": 694.04,
+      "benchmark_price": 690.38,
       "portfolio_return_pct": 2.25,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-01-30",
       "portfolio_value": 3101.76,
-      "benchmark_price": 691.97,
+      "benchmark_price": 688.32,
       "portfolio_return_pct": 1.74,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-02",
       "portfolio_value": 3118.95,
-      "benchmark_price": 695.41,
+      "benchmark_price": 691.75,
       "portfolio_return_pct": 2.31,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-03",
       "portfolio_value": 3095.28,
-      "benchmark_price": 689.53,
+      "benchmark_price": 685.9,
       "portfolio_return_pct": 1.53,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-04",
       "portfolio_value": 3080.88,
-      "benchmark_price": 686.19,
+      "benchmark_price": 682.57,
       "portfolio_return_pct": 1.06,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-05",
       "portfolio_value": 3041.73,
-      "benchmark_price": 677.62,
+      "benchmark_price": 674.05,
       "portfolio_return_pct": -0.22,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-06",
       "portfolio_value": 3105.27,
-      "benchmark_price": 690.62,
+      "benchmark_price": 686.98,
       "portfolio_return_pct": 1.86,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-09",
       "portfolio_value": 3120.39,
-      "benchmark_price": 693.95,
+      "benchmark_price": 690.29,
       "portfolio_return_pct": 2.36,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-10",
       "portfolio_value": 3112.83,
-      "benchmark_price": 692.12,
+      "benchmark_price": 688.47,
       "portfolio_return_pct": 2.11,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-11",
       "portfolio_value": 3109.86,
-      "benchmark_price": 691.96,
+      "benchmark_price": 688.31,
       "portfolio_return_pct": 2.01,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-12",
       "portfolio_value": 3060.72,
-      "benchmark_price": 681.27,
+      "benchmark_price": 677.68,
       "portfolio_return_pct": 0.4,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-13",
       "portfolio_value": 3066.48,
-      "benchmark_price": 681.75,
+      "benchmark_price": 678.16,
       "portfolio_return_pct": 0.59,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-17",
       "portfolio_value": 3070.26,
-      "benchmark_price": 682.85,
+      "benchmark_price": 679.25,
       "portfolio_return_pct": 0.71,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-18",
       "portfolio_value": 3086.1,
-      "benchmark_price": 686.29,
+      "benchmark_price": 682.67,
       "portfolio_return_pct": 1.23,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-19",
       "portfolio_value": 3080.34,
-      "benchmark_price": 684.48,
+      "benchmark_price": 680.87,
       "portfolio_return_pct": 1.04,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-20",
       "portfolio_value": 3099.06,
-      "benchmark_price": 689.43,
+      "benchmark_price": 685.8,
       "portfolio_return_pct": 1.66,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-23",
       "portfolio_value": 3064.77,
-      "benchmark_price": 682.39,
+      "benchmark_price": 678.79,
       "portfolio_return_pct": 0.53,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-24",
       "portfolio_value": 3089.52,
-      "benchmark_price": 687.35,
+      "benchmark_price": 683.73,
       "portfolio_return_pct": 1.34,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-25",
       "portfolio_value": 3113.1,
-      "benchmark_price": 693.15,
+      "benchmark_price": 689.5,
       "portfolio_return_pct": 2.12,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-26",
       "portfolio_value": 3101.04,
-      "benchmark_price": 689.3,
+      "benchmark_price": 685.67,
       "portfolio_return_pct": 1.72,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-02-27",
       "portfolio_value": 3085.56,
-      "benchmark_price": 685.99,
+      "benchmark_price": 682.37,
       "portfolio_return_pct": 1.21,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-02",
       "portfolio_value": 3088.71,
-      "benchmark_price": 686.38,
+      "benchmark_price": 682.76,
       "portfolio_return_pct": 1.32,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-03",
       "portfolio_value": 3058.2,
-      "benchmark_price": 680.33,
+      "benchmark_price": 676.74,
       "portfolio_return_pct": 0.32,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-04",
       "portfolio_value": 3080.34,
-      "benchmark_price": 685.13,
+      "benchmark_price": 681.52,
       "portfolio_return_pct": 1.04,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-05",
       "portfolio_value": 3060.63,
-      "benchmark_price": 681.31,
+      "benchmark_price": 677.72,
       "portfolio_return_pct": 0.4,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-06",
       "portfolio_value": 3019.32,
-      "benchmark_price": 672.38,
+      "benchmark_price": 668.84,
       "portfolio_return_pct": -0.96,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-09",
       "portfolio_value": 3045.15,
-      "benchmark_price": 678.27,
+      "benchmark_price": 674.7,
       "portfolio_return_pct": -0.11,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-10",
       "portfolio_value": 3038.22,
-      "benchmark_price": 677.18,
+      "benchmark_price": 673.61,
       "portfolio_return_pct": -0.34,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-11",
       "portfolio_value": 3035.79,
-      "benchmark_price": 676.33,
+      "benchmark_price": 672.77,
       "portfolio_return_pct": -0.42,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-12",
       "portfolio_value": 2987.91,
-      "benchmark_price": 666.06,
+      "benchmark_price": 662.55,
       "portfolio_return_pct": -1.99,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-13",
       "portfolio_value": 2971.8,
-      "benchmark_price": 662.29,
+      "benchmark_price": 658.8,
       "portfolio_return_pct": -2.52,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-16",
       "portfolio_value": 3001.77,
-      "benchmark_price": 669.03,
+      "benchmark_price": 665.5,
       "portfolio_return_pct": -1.54,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-17",
       "portfolio_value": 3011.76,
-      "benchmark_price": 670.79,
+      "benchmark_price": 667.25,
       "portfolio_return_pct": -1.21,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-18",
       "portfolio_value": 2970.81,
-      "benchmark_price": 661.43,
+      "benchmark_price": 657.94,
       "portfolio_return_pct": -2.55,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-19",
       "portfolio_value": 2965.59,
-      "benchmark_price": 659.8,
+      "benchmark_price": 656.32,
       "portfolio_return_pct": -2.72,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-20",
       "portfolio_value": 2919.69,
-      "benchmark_price": 648.57,
+      "benchmark_price": 646.91,
       "portfolio_return_pct": -4.23,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-23",
       "portfolio_value": 2954.34,
-      "benchmark_price": 655.38,
+      "benchmark_price": 653.7,
       "portfolio_return_pct": -3.09,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-24",
       "portfolio_value": 2945.25,
-      "benchmark_price": 653.18,
+      "benchmark_price": 651.51,
       "portfolio_return_pct": -3.39,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-25",
       "portfolio_value": 2962.98,
-      "benchmark_price": 656.82,
+      "benchmark_price": 655.14,
       "portfolio_return_pct": -2.81,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-26",
       "portfolio_value": 2912.58,
-      "benchmark_price": 645.09,
+      "benchmark_price": 643.44,
       "portfolio_return_pct": -4.46,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-27",
       "portfolio_value": 2854.44,
-      "benchmark_price": 634.09,
+      "benchmark_price": 632.47,
       "portfolio_return_pct": -6.37,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-30",
       "portfolio_value": 2841.75,
-      "benchmark_price": 631.97,
+      "benchmark_price": 630.35,
       "portfolio_return_pct": -6.78,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-03-31",
       "portfolio_value": 2930.03,
-      "benchmark_price": 650.34,
+      "benchmark_price": 648.68,
       "portfolio_return_pct": -3.89,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-01",
       "portfolio_value": 2954.44,
-      "benchmark_price": 655.24,
+      "benchmark_price": 653.56,
       "portfolio_return_pct": -3.09,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-02",
       "portfolio_value": 2959.12,
-      "benchmark_price": 655.83,
+      "benchmark_price": 654.15,
       "portfolio_return_pct": -2.93,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-06",
       "portfolio_value": 2972.17,
-      "benchmark_price": 658.93,
+      "benchmark_price": 657.24,
       "portfolio_return_pct": -2.51,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-07",
       "portfolio_value": 2974.15,
-      "benchmark_price": 659.22,
+      "benchmark_price": 657.53,
       "portfolio_return_pct": -2.44,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-08",
       "portfolio_value": 3048.58,
-      "benchmark_price": 676.01,
+      "benchmark_price": 674.28,
       "portfolio_return_pct": 0.0,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-09",
       "portfolio_value": 3064.33,
-      "benchmark_price": 679.91,
+      "benchmark_price": 678.17,
       "portfolio_return_pct": 0.52,
       "benchmark_return_pct": null
     },
     {
       "date": "2026-04-10",
       "portfolio_value": 3071.0,
-      "benchmark_price": 679.46,
+      "benchmark_price": 677.72,
       "portfolio_return_pct": 0.4,
       "benchmark_return_pct": null
     }
@@ -34777,8 +34777,8 @@ export const ff2026ImportedDashboardGoldenFixture = {
         "investment_gain": 24.940000000000055,
         "time_weighted_return_pct": 0.82,
         "money_weighted_return_pct": 0.8215324511906309,
-        "benchmark_return_pct": 0.46,
-        "excess_return_pct": 0.36
+        "benchmark_return_pct": 0.73,
+        "excess_return_pct": 0.09
       },
       "max_drawdown_pct": null,
       "monthly_returns": [
@@ -34802,8 +34802,8 @@ export const ff2026ImportedDashboardGoldenFixture = {
         "investment_gain": -37.159999999999854,
         "time_weighted_return_pct": -1.2,
         "money_weighted_return_pct": -1.1995261290749464,
-        "benchmark_return_pct": -1.46,
-        "excess_return_pct": 0.26
+        "benchmark_return_pct": -1.19,
+        "excess_return_pct": -0.01
       },
       "max_drawdown_pct": null,
       "monthly_returns": [
@@ -34835,8 +34835,8 @@ export const ff2026ImportedDashboardGoldenFixture = {
         "investment_gain": -2.6900000000000546,
         "time_weighted_return_pct": -0.09,
         "money_weighted_return_pct": -0.08781035574619395,
-        "benchmark_return_pct": -0.55,
-        "excess_return_pct": 0.46
+        "benchmark_return_pct": -0.27,
+        "excess_return_pct": 0.18
       },
       "max_drawdown_pct": null,
       "monthly_returns": [
@@ -34868,8 +34868,8 @@ export const ff2026ImportedDashboardGoldenFixture = {
         "investment_gain": 12.159999999999854,
         "time_weighted_return_pct": 0.4,
         "money_weighted_return_pct": 0.39887553836716405,
-        "benchmark_return_pct": -0.12,
-        "excess_return_pct": 0.52
+        "benchmark_return_pct": 0.45,
+        "excess_return_pct": -0.05
       },
       "max_drawdown_pct": null,
       "monthly_returns": [
@@ -34905,8 +34905,8 @@ export const ff2026ImportedDashboardGoldenFixture = {
         "investment_gain": 12.159999999999854,
         "time_weighted_return_pct": 0.4,
         "money_weighted_return_pct": 0.39887553836716405,
-        "benchmark_return_pct": -0.12,
-        "excess_return_pct": 0.52
+        "benchmark_return_pct": 0.45,
+        "excess_return_pct": -0.05
       },
       "max_drawdown_pct": null,
       "monthly_returns": [

@@ -735,23 +735,41 @@ benchmark leg is whatever its own data supports:
 
 On `price_return_only` the benchmark's dividends are omitted, so the benchmark
 is **understated** and the excess is **flattered** — always in the portfolio's
-favour, never against it. The magnitude is approximately the benchmark's
-dividend yield over the window: for a broad US equity index at a ~1.2% trailing
-yield, roughly **0.7pp over a seven-month window**. That is large enough to
-matter for a close comparison, so it is disclosed on the surface next to the
-figures rather than left for the reader to infer.
+favour, never against it. The bias is disclosed on the surface next to the
+figures whenever that basis is in force, rather than left for the reader to
+infer.
+
+**Measured, on the current window (US-34.9).** The two bases were compared
+directly against the provider over 2026-01-08 → 2026-08-11: the price return is
+**+11.7547%** and the dividend-adjusted total return **+12.3462%**, a gap of
+**0.59pp** — 111 of the 148 dates carry a non-zero adjustment. Since the
+re-capture the Dashboard runs on `verified_total_return`, so the caveat is no
+longer displayed: it is rendered only while the basis is actually
+`price_return_only`.
 
 Publishing on a stated basis is **not** a trust promotion:
 `run_metadata.return_basis_contract.benchmark_path` continues to name the basis
 and `investor_economics_status` continues to read `withheld`.
 
 **Where the adjusted series comes from (US-34.9).** `verified_total_return`
-requires an adjusted close on every in-window row *and* a fetch from the
-endpoint named in `VERIFIED_BENCHMARK_ENDPOINT`. Until US-34.9 that constant
-named `historical-price-eod/light`, which returns no adjusted close, so the two
-conditions were mutually unsatisfiable and the rung could never fire (F-9). It
-now names `historical-price-eod/dividend-adjusted`, whose response carries
-`close` (split-adjusted) beside `adjClose` (split **and** dividend adjusted).
+requires an adjusted close on every in-window row, a fetch from the endpoint
+named in `VERIFIED_BENCHMARK_ENDPOINT`, and an **ascending** date order. Until
+US-34.9 the constant named `historical-price-eod/light`, which returns no
+adjusted close, so the first two conditions were mutually unsatisfiable (F-9);
+the third was independently violated because FMP returns rows newest-first
+(F-14).
+
+The benchmark is now built from **two** responses, joined on date, because
+neither carries both figures:
+
+| Endpoint | Supplies | Missing |
+|---|---|---|
+| `historical-price-eod/full` | `close` (traded price) | no `adjClose` |
+| `historical-price-eod/dividend-adjusted` | `adjClose` (split + dividend adjusted) | no `close` |
+
+`price` is the traded close and `adjClose` the adjusted one, ordered ascending.
+The same split now holds on the yfinance fallback (F-15), so `price` means the
+same thing on every provider.
 
 The adjusted series is used for the benchmark **return only**. Position and FX
 history stay on the unadjusted endpoint: a dividend-adjusted series is a return
