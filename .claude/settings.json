@@ -38,5 +38,8 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "agentic-core@agentic": true
   }
 }
