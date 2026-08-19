@@ -21,19 +21,23 @@ Agent-Facing Doc Accuracy** (3 stories, closed 2026-08-19). Epics 13 and
   it), and the sharp edge is not negative caching in general but that a **401 is
   returned as data** rather than raised.
 
-**Active: Epic 35 — Market-Data Failure Honesty** (created 2026-08-19 from the
-cache hazard US-34.9 hit). Three findings, all verified empirically: a 401 comes
-back as empty data rather than an error and persists for 24h (F-1); the cache
-lists a namespace `--namespace` cannot clear (F-2); the golden capture cannot
-tell that it degraded, and overwrote 73 series with 21 while reporting success
-(F-3).
+**No epic is active.** Epic 35 — Market-Data Failure Honesty closed 2026-08-19
+(3 stories), the last of the backlog. It came out of the cache hazard US-34.9
+hit: a 401 came back as empty data rather than an error and persisted for 24h
+(F-1); the cache listed namespaces `--namespace` could not clear (F-2); and the
+golden capture could not tell that it had degraded, overwriting 73 series with
+21 while reporting success (F-3). All three are fixed.
+
+The next epic is unscoped. `main` now requires CI to pass before merge.
 
 ---
 
 
-## Active Epic: Epic 35 — Market-Data Failure Honesty
+## Completed Epic: Epic 35 — Market-Data Failure Honesty
 
 **PRD:** [`docs/product/prd/epic-35-market-data-cache-resilience.md`](product/prd/epic-35-market-data-cache-resilience.md)
+
+**Closed 2026-08-19. All 3 stories Done.**
 
 Created 2026-08-19 from the cache hazard US-34.9 hit while re-capturing the
 frozen market data. The guardrails about not fabricating financial numbers hold;
@@ -48,9 +52,33 @@ have reached them.
 |---|---|---|
 | US-35.1 | Stop returning an auth failure as if it were missing data | Done |
 | US-35.2 | Make every cache namespace clearable and inspectable | Done |
-| US-35.3 | Refuse to overwrite the golden capture with a degraded one | Backlog |
+| US-35.3 | Refuse to overwrite the golden capture with a degraded one | Done |
 
 ### Slice log
+
+- **US-35.3 (2026-08-19)** — **the fixture the whole network-free suite stands
+  on had nothing defending it.** F-3: `capture_golden_market_data` wrote whatever
+  it recorded and printed the count, asserting nothing. On 2026-08-19 it
+  overwrote a 73-series capture with a 21-series one and reported success; the
+  damage was caught only because a human compared the numbers, and recovery was
+  `git checkout` of a file already written. It now compares against the
+  committed fixture before writing and refuses with the reasons named.
+  **Replayed against the real incident** (the 20 surviving symbols, SPY present
+  with zero rows): all four checks fire — 72→20 series with the 52 missing
+  symbols listed, 9,302→2,774 rows (70.2% lost), the benchmark empty, and the
+  present-but-empty list. **The present-but-empty check is the one that
+  matters:** SPY *was* in the degraded payload, so any "is the benchmark there?"
+  test would have passed it — an empty benchmark is worse than a missing one
+  because the payload still looks structurally complete. The threshold is a
+  **share, not a count**, because the same refresh legitimately moved 9,288 →
+  9,302 rows; a guard that fired on healthy drift would train the operator to
+  reach for the override, which is also why the flag is
+  `--allow-smaller-capture` rather than `--force`. The baseline is the committed
+  file rather than a hardcoded floor — the hand-maintained-number class US-32.1
+  and US-35.2 both removed — and an unreadable baseline counts as *no* baseline,
+  so a corrupt fixture stays recoverable. 779 backend (+8) + 331 frontend green;
+  the capture and the goldens both untouched.
+
 
 - **US-35.2 (2026-08-19)** — **the CLI listed namespaces it could not clear.**
   F-2: `manage_cache.py list` printed `history`, `history_yf`, `holdings` and
