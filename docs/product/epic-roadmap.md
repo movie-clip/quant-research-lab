@@ -72,6 +72,15 @@ have reached them.
   401. Verified against the live API with a deliberately invalid key: raises with
   the cause named, writes no cache entry, and a corrected key works on the next
   call. **Count correction:** the story said eight broad catches; there are six.
+  **AC7 was wrong and shipped red, corrected the same day:** it made an
+  *unset* key raise too, reasoning that "no key" and "rejected key" are one
+  failure class. They are not — CI runs **deliberately keyless** because the
+  suite is network-free, so engines are meant to reach the client, get
+  nothing and degrade; raising there turned every route into a 400. Reverted,
+  with a test asserting an unset key is specifically *not* a
+  `MarketDataAuthError`. The lesson is procedural as much as technical: run
+  the suite the way CI runs it — keyless — before merging a market-data
+  change, and check the CI result before merging rather than after.
   Behaviour-neutral on a healthy run — goldens byte-identical. 760 backend (+9)
   + 331 frontend green.
 
