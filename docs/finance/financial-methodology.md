@@ -577,8 +577,17 @@ republished the entry the TWR refuses:
 
 | Figure | With the entry | Market-derived | On IB2026 |
 |---|---|---|---|
-| Money-weighted return | 5.30% | **2.95%** | 2.35pp of it was the entry |
-| Investment gain | $3,080.88 | **$1,714.71** | $1,366.17 of it was the entry |
+| Money-weighted return | 2.73% | **2.76%** | 0.03pp of it is the entry |
+| Investment gain | $1,626.01 | **$1,645.99** | $19.98 of it is the entry |
+
+*Measured on the 2026-08-17 capture.* When US-34.6 shipped, the same two rows
+read 5.30% → 2.95% and $3,080.88 → $1,714.71, because the terminal
+reconciliation was then **+$1,366.17**. US-34.3 anchored opening cash on the
+statement's own figure and US-34.9's re-capture supplied real terminal-day
+quotes, shrinking the adjustment to **−$19.98** — so the rule now removes a much
+smaller amount, and removes it in the opposite direction. The rule itself is
+unchanged: a performance figure must never contain an accounting entry,
+whatever that entry happens to be worth on a given run.
 
 **Performance figures** — Modified Dietz and the investment gain — therefore use
 `market_derived_terminal_value(states)`: the terminal `total_portfolio_value`
@@ -1911,6 +1920,11 @@ Opening cash anchor + reconciliation adjustments (US-31.3 / Epic 31 F-2, F-3):
   −$1,377.59 → **+$46.69**, and the terminal reconciliation +$1,366.17 →
   **−$58.11** — 96% of that adjustment was the anchor offset riding through the
   window. Market values are unchanged: this rule moves cash, not valuations.
+  *(On the 2026-08-17 capture the terminal reconciliation is **−$19.98**: US-34.9
+  supplied real terminal-day quotes for the 14 holdings that had been carried
+  forward a day, which shrank the residual further. The −$58.11 above is the
+  figure this rule produced when it shipped, kept because it is what the 96%
+  is measured against.)*
 
   The terminal reconciliation snaps the final state's `total_portfolio_value` to
   the statement's ending NAV — correct, since that is the broker's own number —
