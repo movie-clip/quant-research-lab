@@ -1,7 +1,22 @@
 ---
 name: build-story
-description: Use when implementing a ticketed user story from docs/product/stories/. Triggers when the user says "build US-X.Y", "pick up ticket T-...", "implement the next story", or points at a story file. Reads PRD + methodology context, works tickets in order, delegates test-writing to the write-tests skill, verifies via the verify-story skill, and closes out via the update-docs skill before committing.
+description: SUPERSEDED - do not use for implementation. Story implementation is owned by the .agentic network's orchestrate-feature skill, which dispatches isolated specialist lanes and runs three gates. Requests like "build US-X.Y", "pick up ticket T-...", or "implement the next story" belong to orchestrate-feature. Load this file only as a historical reference for the pre-network linear pipeline, or when .agentic is genuinely unavailable and running without it is a deliberate choice.
 ---
+
+> **SUPERSEDED — v0.3 of the `.agentic` network.**
+>
+> This skill runs the old linear pipeline: all tickets in one context,
+> self-invoked `write-tests` / `verify-story` / `update-docs`, and a commit at
+> the end. Every one of those now belongs to a lane or to the human.
+>
+> **Route implementation requests to `orchestrate-feature` instead.** A slice
+> built through this skill has no run ledger, no gate verdicts, no contract
+> notes, and ends with an agent commit — which is exactly what the commit gate
+> hook and the three-gate model exist to prevent.
+>
+> The content below is kept because its ticket-sequencing conventions are still
+> accurate and the network's capability packs were derived from them. It is
+> reference, not a workflow to execute.
 
 # Build Story
 
