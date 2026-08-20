@@ -249,6 +249,21 @@ Current API direction:
 
 Future normalized API groups should preserve, not hide, the current artifact seams around construction, optimizer handoff, and replay.
 
+**Accepted tradeoff — unauthenticated local file-read (import routes).**
+`services/quant-engine/app/api/routes/imports.py`'s
+`InteractiveBrokersImportRequest.statement_path` / `statement_paths` accept
+any filesystem path the caller supplies, and `_resolve_statement_paths` only
+checks that the path exists — it is not restricted to an app-owned directory.
+The FastAPI server itself has no authentication layer. This is a **deliberate,
+accepted tradeoff, not an unnoticed defect**: the product is local-first and
+single-user by design (see "What the product is" in the project profile), the
+engine never places trades or moves money (guardrail 5), and CORS is
+restricted to the app's own dev origins
+(`http://localhost:5173`, `http://127.0.0.1:5173` — not a wildcard, per
+`app/api/main.py`). Revisit this note if the engine is ever exposed beyond
+localhost or gains multi-user scope — at that point the tradeoff's premise no
+longer holds.
+
 ## Data Flow
 
 ### Portfolio import and analytics

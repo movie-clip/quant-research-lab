@@ -1,0 +1,35 @@
+#!/bin/sh
+# Git-level pre-commit hook (US-36.1 / T-36.1.1). Wired via
+# `git config core.hooksPath scripts/githooks` (bootstrapped idempotently by
+# `scripts/run_all_tests.py` on every run — see `ensure_git_hooks_wired()`).
+#
+# Fires on every `git commit`, regardless of which tool or terminal invoked
+# git. Delegates to the actual check in scripts/hooks/git_pre_commit.py so the
+# staleness rule lives in exactly one place (shared with the Claude Code
+# PreToolUse hook via scripts/hooks/_commit_gate.py).
+set -e
+
+ROOT="$(git rev-parse --show-toplevel)"
+
+# Interpreter discovery, in preference order, because neither name is portable:
+#
+#   - Many Linux distros ship no bare `python` at all, only `python3`. A hook
+#     hardcoding `python` there fails to exec, `sh` returns 127, and git blocks
+#     EVERY commit with no useful message.
+#   - On Windows, `python3` is frequently the Microsoft Store stub: it exists
+#     on PATH and resolves under `command -v`, but does nothing except open the
+#     Store. So existence is not enough — the candidate must actually execute.
+#
+# `"$PY" -c ""` is the cheapest possible proof the interpreter really runs.
+for PY in python python3; do
+    if command -v "$PY" >/dev/null 2>&1 && "$PY" -c "" >/dev/null 2>&1; then
+        exec "$PY" "$ROOT/scripts/hooks/git_pre_commit.py"
+    fi
+done
+
+# Fail closed. A gate that cannot run must block, never wave things through:
+# an unrunnable gate that allows commits is indistinguishable from no gate,
+# which is the exact failure class US-36.1 exists to close.
+echo "COMMIT BLOCKED: the commit gate could not find a working Python" >&2
+echo "interpreter (tried: python, python3). Install Python or fix PATH." >&2
+exit 1

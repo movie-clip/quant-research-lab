@@ -1,12 +1,12 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: **2026-08-19**.*
+*Living execution snapshot. Updated: **2026-08-20**.*
 
-**Every epic is complete.** Most recently shipped: **Epic 34 — An Answerable
-Dashboard** (9 stories, closed 2026-08-19), preceded by **Epic 33 — Corporate
-Actions & Replay Quantity Integrity** and **Epic 32 — Project Hygiene &
-Agent-Facing Doc Accuracy** (3 stories, closed 2026-08-19). Epics 13 and
-18–31 are complete; see each section below.
+**Every epic is complete.** Most recently shipped: **Epic 36 — Findings-First
+Doc & Gate Hygiene** (3 stories, closed 2026-08-20), preceded by **Epic 35 —
+Market-Data Failure Honesty** (3 stories, closed 2026-08-19) and **Epic 34 —
+An Answerable Dashboard** (9 stories, closed 2026-08-19). Epics 13 and 18–35
+are complete; see each section below.
 
 **Open items**, none of which block anything:
 
@@ -20,18 +20,182 @@ Agent-Facing Doc Accuracy** (3 stories, closed 2026-08-19). Epics 13 and
   the bare `clear` *does* remove `history_yf` (only `--namespace` cannot target
   it), and the sharp edge is not negative caching in general but that a **401 is
   returned as data** rather than raised.
+- **Epic 36 close-out carries** (3 `SHOULD_FIX` + 1 operational note from the
+  tech-lead integration gate, `14-integration.md` — none blocking, all
+  engineering-completeness notes, not acceptance-relevant): (1)
+  `audit_dependencies.py`'s `main()` cross-ecosystem priority rule
+  (`VULNERABILITIES_FOUND` beats `SCAN_UNAVAILABLE` when the two ecosystems
+  disagree) is untested — only `classify()` is; (2)
+  `_commit_gate.changed_files()`'s rename-entry parsing (`git status
+  --porcelain=v1 -z`'s two-field `R` entries) has no regression test; (3) the
+  npm-audit network-failure marker text in `audit_dependencies.py` /
+  `test_audit_dependencies.py` is written from documented npm/Node
+  conventions, not an observed real failure — worth diffing against
+  `dependency-audit.yml`'s first real scan-unavailable run, whenever one
+  occurs; (4) multiple lanes ran `run_all_tests.py` concurrently against the
+  same shared `.claude/.last-test-pass` marker during this run's dispatch —
+  every `PASS` claim was independently re-verified and nothing shipped
+  unverified, but the shared-marker race is a real footgun for future
+  concurrent-lane dispatches in this network, worth the orchestrator's
+  attention outside any one slice.
+- **Real dependency-vulnerability findings**, surfaced by US-36.2's
+  design-verification runs (live `pip-audit`/`npm audit`, not part of the
+  network-free gate, deliberately not acted on): advisories against
+  currently-pinned `starlette==0.48.0`, `pypdf==6.9.1`,
+  `python-multipart==0.0.20`, `pydantic-settings==2.13.1`,
+  `python-dotenv==1.1.1`, and one low-severity transitive frontend package,
+  `@babel/core`. Expected to reappear as real findings on
+  `dependency-audit.yml`'s first scheduled run; addressing them is a
+  follow-up, not part of Epic 36.
 
-**No epic is active.** Epic 35 — Market-Data Failure Honesty closed 2026-08-19
-(3 stories), the last of the backlog. It came out of the cache hazard US-34.9
-hit: a 401 came back as empty data rather than an error and persisted for 24h
-(F-1); the cache listed namespaces `--namespace` could not clear (F-2); and the
-golden capture could not tell that it had degraded, overwriting 73 series with
-21 while reporting success (F-3). All three are fixed.
+**No epic is active.** Epic 36 — Findings-First Doc & Gate Hygiene closed
+2026-08-20 (3 stories), seeded by a findings-first health review done
+between epics. It closed the commit gate's tool-dependence with a real
+git-level hook (F-R1), added a scheduled, network-permitted
+dependency-vulnerability scan (F-R3), and reconciled four doc-accuracy drifts
+(F-R5–F-R8) — the cache CLI doc, the route-module inventory (now backed by a
+mechanical test), a closed epic's stale PRD status header, and an
+undocumented-but-accepted security tradeoff. Epic 35 — Market-Data Failure
+Honesty closed 2026-08-19 (3 stories) before it, the last of the prior
+backlog: a 401 came back as empty data rather than an error and persisted for
+24h (F-1); the cache listed namespaces `--namespace` could not clear (F-2);
+and the golden capture could not tell that it had degraded, overwriting 73
+series with 21 while reporting success (F-3). All three are fixed.
 
 The next epic is unscoped. `main` now requires CI to pass before merge.
 
 ---
 
+
+## Completed Epic: Epic 36 — Findings-First Doc & Gate Hygiene
+
+**PRD:** [`docs/product/prd/epic-36-findings-first-doc-and-gate-hygiene.md`](product/prd/epic-36-findings-first-doc-and-gate-hygiene.md)
+
+**Closed 2026-08-20. All 3 stories Done.**
+
+Created 2026-08-20 from `docs/product/review-2026-08-20-findings.md`, an
+8-finding health review done between epics (Epic 35 closed 2026-08-19).
+Explicit sibling to **Epic 32 — Project Hygiene & Agent-Facing Doc
+Accuracy** — same class of doc-accuracy/gate-hygiene work, on findings Epic
+32 didn't touch. **F-R2** deduplicated against the already-tracked US-26.3;
+**F-R4** dropped as false-as-written (the field it claimed was missing —
+`portfolio_return_trust` — was already documented in `dashboard-fields.md`).
+The remaining six findings folded into three stories.
+
+**The review's own first pass claimed same-day fixes that never happened, and
+the false claim then had to be corrected twice.** Its original "Disposition"
+table said F-R1 was fixed; it wasn't, and the false claim ("commit gate —
+fixed 2026-08-20") had also been written directly into `CLAUDE.md`. This
+epic's own delivery run corrected both `CLAUDE.md` and
+`<agenticRoot>/projects/portfolio/project.md` first to an honest "open, not
+fixed" statement (before the epic was even ticketed), then a second time to
+describe the real mechanism once US-36.1 actually landed it. Full account in
+the PRD's "meta-finding" section — the same process lesson Epic 32 recorded
+about itself: a claimed fix is not a fix until something independent of the
+claim can verify it.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-36.1 | A blocked commit stays blocked, regardless of which tool issued it | Done |
+| US-36.2 | CI flags a newly-vulnerable pinned dependency instead of staying silent forever | Done |
+| US-36.3 | The docs an agent is told to trust for "what's shipped" actually match the repo | Done |
+
+### Slice log
+
+- **US-36.1 follow-up (2026-08-20)** — **a post-close review found the story's
+  own AC6 proved the wrong property, and fixed it before it could quietly
+  stand as "done."** AC6 read "fails if tool-coverage regresses," but its 10
+  tests all invoked the hook scripts directly — never a real `git commit` —
+  which proved the staleness *logic* couldn't regress while proving nothing
+  about whether the gate was *reachable*. That is precisely the axis F-R1
+  broke on, so the original AC6 tests, though genuinely passing and genuinely
+  real-entry-point (both original gates confirmed this correctly), never
+  actually closed the finding's own failure mode. AC6 was narrowed in place to
+  the claim its tests actually support; **AC7** (a real `subprocess.run(["git",
+  "commit", ...])` through a repo with `core.hooksPath` wired to a live copy
+  of the wrapper) and **AC8** (the wrapper is tracked in git at mode `100755`,
+  not just present on disk — closing the exact `core.filemode=false` footgun
+  US-36.1 itself had to work around) were added as the missing reachability
+  half, under new ticket **T-36.1.4**. The fix beyond the 4 new tests: the
+  wrapper's interpreter discovery now fails closed with a named two-line
+  stderr message instead of a theoretical silent no-op, and
+  `ensure_git_hooks_wired()` now refuses to point `core.hooksPath` at a hook
+  file that doesn't exist. Both gates re-ran against the corrected AC set and
+  passed — tech-lead INTEGRATION independently reproduced the
+  interpreter-discovery failure mode in a scratch repo outside the tracked
+  checkout, not just via the test's own assertion; reviewer acceptance
+  independently re-verified AC6/AC7/AC8 against the repo. Full detail in
+  US-36.1's own "Outcome" section, including two reviewer non-blocking notes
+  (a minor test-precision asymmetry in one AC7 test; nothing from this
+  follow-up was on `HEAD` yet at review time, expected under this project's
+  "no agent commits" convention). test_commit_gate.py: 10 → 14 tests.
+
+- **US-36.3 (2026-08-20)** — **the doc sweep, plus the check that stops it
+  drifting again.** F-R5/F-R6/F-R7/F-R8, mirroring Epic 32's US-32.1/US-32.3
+  bundling. `cache-fields.md` still described the pre-US-35.2 CLI two months
+  after it shipped; `current-product-state.md`'s route inventory undercounted
+  by 3 modules (`cache.py`, `currency_risk.py`, `provenance.py` — shipped
+  across three different epics, none of which updated the count); the Epic 24
+  PRD's status header still read "Active" though the roadmap had it
+  Completed; and the accepted, deliberate security tradeoff behind the import
+  route's unauthenticated local file-read (reasonable, given the local-first
+  single-user design and non-wildcard CORS) had never been written down.
+  **`CLAUDE.md`'s own route list was checked in the same pass and found
+  already correct** — no edit needed there, just confirmation. The real
+  deliverable, following Epic 32's `test_docs_paths.py` precedent, is
+  `test_route_inventory.py`: a count that has already drifted once, across
+  three separate epics, is exactly the class of doc-fact this project checks
+  mechanically rather than trusts. Closes with retiring
+  `docs/product/review-2026-08-20-findings.md` as explicitly superseded,
+  pointing at this epic's PRD — preserved, not deleted, including its own
+  second, self-authored error (a false claim that six findings were logged in
+  `docs/tech-debt-register.md`), which stays as part of the audit trail.
+  Documentation only; goldens byte-identical; +3 backend tests.
+
+
+- **US-36.2 (2026-08-20)** — **visibility without touching the gate that has
+  to stay network-free.** F-R3: nothing scanned the exact-pinned backend or
+  locked frontend dependency sets for known vulnerabilities. `pip-audit` and
+  `npm audit` both need live network access to a vulnerability database,
+  which would have silently reintroduced the network dependency
+  US-21.1/US-21.4 deliberately removed from `run_all_tests.py`/CI — so the
+  scan is a **separate**, scheduled (`schedule` + `workflow_dispatch` only)
+  GitHub Actions workflow, not folded into the existing gate. New
+  `scripts/audit_dependencies.py` exposes a pure `classify()` distinguishing
+  `CLEAN` / `VULNERABILITIES_FOUND` / `SCAN_UNAVAILABLE` so a network hiccup
+  during the scan itself can never read as a false pass or a false
+  vulnerability report. Design-verification runs (not part of the
+  network-free suite) found the scan tooling works against this repo's real
+  dependencies — and found real advisories in the process; recorded above
+  under "Open items" rather than acted on, since acting on a finding is
+  explicitly a follow-up. +10 backend tests.
+
+
+- **US-36.1 (2026-08-20)** — **the most severe finding in the source review,
+  and the one whose "fixed" claim was itself the bigger problem.** F-R1: the
+  `.claude/.last-test-pass` freshness gate was wired only to the Bash-matched
+  `PreToolUse` hook — a `git commit` issued through the PowerShell tool this
+  environment also exposes bypassed it silently, with no
+  `--no-verify`-style signal. **Built as a real git-level `pre-commit` hook**
+  (`scripts/githooks/pre-commit` → `scripts/hooks/git_pre_commit.py`, wired
+  via `core.hooksPath`), not a mirrored matcher — a matcher fix only ever
+  covers tools the harness enumerates *today*, and would have reopened
+  silently the moment a third tool arrived, the same failure class this
+  finding itself was. `run_all_tests.py` now idempotently self-wires
+  `core.hooksPath` on every run, so the residual gap (a fresh clone that has
+  never run the suite) heals itself rather than depending on a manual setup
+  step nobody remembers. The staleness check itself is now defined exactly
+  once (`scripts/hooks/_commit_gate.py`), imported by both the new git-level
+  entry point and the existing Bash-matched Claude Code hook, which keeps its
+  own contract (JSON-stdin, exit code 2) unchanged. **A Windows-specific
+  footgun surfaced while shipping it:** this checkout has
+  `core.filemode=false`, so a plain `git add` on the new executable hook
+  script would have silently recorded it as non-executable in the index —
+  now a standing gotcha in the backend capability pack. +10 backend tests.
+
+---
 
 ## Completed Epic: Epic 35 — Market-Data Failure Honesty
 

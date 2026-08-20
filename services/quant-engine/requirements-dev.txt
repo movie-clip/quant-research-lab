@@ -2,6 +2,11 @@
 #   pip install -r requirements-dev.txt
 # Dead-code detection (Epic 23): ruff catches unused imports/locals/redefinitions
 # (in-file); vulture catches whole-program unused functions/classes/attributes.
+# Dependency-vulnerability scan (Epic 36 / US-36.2): pip-audit checks the
+# pinned requirements.txt set against the PyPI Advisory DB / OSV. Invoked by
+# scripts/audit_dependencies.py — a separate, network-permitted, scheduled
+# check (T-36.2.2), never wired into the network-free run_all_tests.py gate.
 -r requirements.txt
 ruff==0.15.17
 vulture==2.16
+pip-audit==2.10.1

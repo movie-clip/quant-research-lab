@@ -18,6 +18,16 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
+### Epic 36 — Findings-First Doc & Gate Hygiene (complete)
+
+PRD: [`prd/epic-36-findings-first-doc-and-gate-hygiene.md`](../prd/epic-36-findings-first-doc-and-gate-hygiene.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-36.1](US-36.1-blocked-commit-stays-blocked.md) | A blocked commit stays blocked, regardless of which tool issued it | F-R1: the `.claude/.last-test-pass` freshness gate was wired only to the Bash-matched `PreToolUse` hook — a PowerShell-issued `git commit` bypassed it silently, while `CLAUDE.md`/`project.md` falsely claimed a git-level hook already closed the gap. Real git-level `pre-commit` hook via `core.hooksPath`, self-wired by `run_all_tests.py`, tool-independent by construction | Done |
+| [US-36.2](US-36.2-dependency-vulnerability-scan.md) | CI flags a newly-vulnerable pinned dependency instead of staying silent forever | F-R3: nothing scanned the pinned backend / locked frontend dependency sets for known vulnerabilities. New `pip-audit`/`npm audit` scan tooling plus a separate, scheduled, network-permitted GitHub Actions workflow — deliberately not folded into the network-free `run_all_tests.py`/CI gate | Done |
+| [US-36.3](US-36.3-docs-match-the-repo.md) | The docs an agent is told to trust for "what's shipped" actually match the repo | F-R5/F-R6/F-R7/F-R8 bundled: stale cache-CLI doc, undercounted route inventory (+ new mechanical check), stale Epic 24 PRD status header, undocumented accepted security tradeoff. Also retires `docs/product/review-2026-08-20-findings.md` as superseded | Done |
+
 ### Epic 35 — Market-Data Failure Honesty (active)
 
 PRD: [`prd/epic-35-market-data-cache-resilience.md`](../prd/epic-35-market-data-cache-resilience.md)

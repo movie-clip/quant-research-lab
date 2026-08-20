@@ -1,14 +1,14 @@
 """PreToolUse hook: block `git commit` unless the full test suite passed
 on the current working tree.
 
-`scripts/run_all_tests.py` writes a marker file (.claude/.last-test-pass) when
-the whole suite is green. This hook blocks any Bash `git commit` if the marker
-is missing or if any changed file has been modified after the marker was
-written — i.e. the tree the tests blessed is not the tree being committed.
-
-Markdown files are exempt (they cannot affect the suite), so the update-docs
-close-out flow can commit doc reconciliation without a full re-run. Statement
-PDFs under docs/ are NOT exempt — they feed golden generation.
+This is the Claude-Code-specific half of the commit-freshness gate — it fires
+only for the `Bash` tool (wired in `.claude/settings.json`), parses the tool's
+JSON-over-stdin payload, and sniffs the command text for `git commit`. It is a
+faster-feedback duplicate inside agent sessions; the actual, tool-independent
+enforcement boundary is the git-level hook (`scripts/githooks/pre-commit` ->
+`git_pre_commit.py`, wired via `core.hooksPath`). The staleness rule itself
+(marker existence, mtime comparison, the `.md` exemption) is shared with that
+hook via `_commit_gate.py` — do not re-derive it here.
 
 Exit codes (Claude Code hook contract):
   0 — allow the tool call
@@ -19,32 +19,11 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
 import sys
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-MARKER = ROOT / ".claude" / ".last-test-pass"
+from _commit_gate import check
 
 GIT_COMMIT_RE = re.compile(r"\bgit\b[^|;&]*\bcommit\b")
-
-
-def changed_files() -> list[Path]:
-    out = subprocess.run(
-        ["git", "status", "--porcelain=v1", "-z"],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-    paths: list[Path] = []
-    for entry in out.split("\0"):
-        if len(entry) < 4:
-            continue
-        # Rename entries ("R  new -> old" in -z: two NUL-separated fields) —
-        # the first field after the status code is the current path.
-        paths.append(ROOT / entry[3:])
-    return paths
 
 
 def block(message: str) -> None:
@@ -62,30 +41,9 @@ def main() -> None:
     if not GIT_COMMIT_RE.search(command):
         sys.exit(0)
 
-    if not MARKER.exists():
-        block(
-            "COMMIT BLOCKED: no test-pass marker found. Run "
-            "`python scripts/run_all_tests.py` (the full suite) and commit "
-            "only after it passes."
-        )
-
-    marker_mtime = MARKER.stat().st_mtime
-    stale = [
-        path
-        for path in changed_files()
-        if path.suffix.lower() != ".md"
-        and path.exists()
-        and path.stat().st_mtime > marker_mtime
-    ]
-    if stale:
-        listing = "\n".join(
-            f"  - {path.relative_to(ROOT)}" for path in stale[:10]
-        )
-        block(
-            "COMMIT BLOCKED: these files changed after the last green test "
-            f"run:\n{listing}\nRe-run `python scripts/run_all_tests.py` and "
-            "commit only after it passes."
-        )
+    message = check()
+    if message:
+        block(message)
 
     sys.exit(0)
 

@@ -93,7 +93,7 @@ The researcher imports statements via the Import flow:
 
 ## Backend
 
-12 route modules:
+15 route modules:
 - `exposure.py` — portfolio exposure analysis
 - `dashboard_history.py` — portfolio performance history
 - `diagnostics.py` — factor model and risk diagnostics (called internally by Exposure)
@@ -106,6 +106,9 @@ The researcher imports statements via the Import flow:
 - `imports.py` — broker statement import
 - `market_data.py` — historical prices and ETF holdings
 - `health.py` — health check
+- `cache.py` — market-data cache stats + clear (Epic 20 / US-20.1)
+- `currency_risk.py` — currency risk engine (Epic 26)
+- `provenance.py` — market-data provenance (FMP vs Yahoo Finance) engine (Epic 18)
 
 ~16 service files, all under `services/quant-engine/app/services/`, plus pure-analytics modules under `services/quant-engine/app/analytics/` (incl. `drawdown.py` and `distribution.py` added in Epic 13).
 

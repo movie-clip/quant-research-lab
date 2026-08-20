@@ -44,6 +44,50 @@ def check_environment() -> list[str]:
     return errors
 
 
+def ensure_git_hooks_wired() -> None:
+    """Idempotently point git at `scripts/githooks` (US-36.1 / T-36.1.1).
+
+    `core.hooksPath` is local git config, not committed — a fresh clone has it
+    unset until something sets it, which would leave `scripts/githooks/pre-commit`
+    present in the repo but inert (never invoked). Running this on every
+    `run_all_tests.py` invocation means any legitimate dev/agent session
+    self-heals the wiring instead of depending on a one-time manual setup step
+    nobody remembers. Safe to call repeatedly: `git config` simply overwrites
+    the same value each time. Best-effort — a missing `git` executable or a
+    non-git checkout should not fail the test run itself.
+
+    **Never set the config without verifying the target exists.** Git treats a
+    `core.hooksPath` pointing at a missing directory as "no hooks" — silently,
+    with no error and no exit code. Wiring the config while the hook file is
+    absent therefore produces the worst possible state: config that claims the
+    gate is installed, and no gate. That is the same class of failure US-36.1
+    was written to close, one layer up, so this function refuses to create it
+    and says so loudly instead.
+    """
+    hook = ROOT / "scripts" / "githooks" / "pre-commit"
+    if not hook.is_file():
+        print(
+            f"WARNING: {hook.relative_to(ROOT)} is missing - NOT setting "
+            "core.hooksPath.\n"
+            "         Git silently ignores a hooksPath that does not exist, so "
+            "wiring it now\n"
+            "         would advertise a commit gate that cannot fire.",
+            file=sys.stderr,
+        )
+        return
+
+    try:
+        subprocess.run(
+            ["git", "config", "core.hooksPath", "scripts/githooks"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        pass
+
+
 def run_step(label: str, command: list[str], cwd: Path) -> None:
     print(f"==> {label}")
     print(f"    cwd: {cwd}")
@@ -117,6 +161,8 @@ def main() -> int:
         for error in errors:
             print(f"ERROR: {error}")
         return 1
+
+    ensure_git_hooks_wired()
 
     print(f"Backend dir: {BACKEND_DIR}")
     print(f"Frontend dir: {FRONTEND_DIR}")

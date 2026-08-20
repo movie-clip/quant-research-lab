@@ -6,7 +6,7 @@
 **Routes:** `GET /api/cache/stats`, `POST /api/cache/clear`
 **Service:** `services/quant-engine/app/services/cache_admin.py`
 **Component:** `apps/desktop/src/features/portfolio/CacheControlCard.tsx`
-**Last updated:** 2026-06-05
+**Last updated:** 2026-08-20
 
 ---
 
@@ -54,7 +54,12 @@ Result:
 
 Clear semantics follow `JsonFileCache.clear`: `namespace=None` (or `"fmp"`)
 removes every file in the cache dir (including `history_yf`); a specific
-namespace removes only `<namespace>-*.json`.
+namespace removes only `<namespace>-*.json`. As of US-35.2, valid namespaces
+are enumerated **live from disk** via `JsonFileCache.namespaces()` — not a
+hardcoded list — so a namespace becomes clearable the moment its first cache
+file exists, with no code change required. A typo'd or nonexistent
+`--namespace` value is **rejected**, with the present namespaces listed in the
+error, rather than silently reporting "Removed 0 cache file(s)."
 
 ---
 
