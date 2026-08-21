@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     generic_ranking_artifacts_dir: str = Field(default=DEFAULT_GENERIC_RANKING_ARTIFACTS_DIR)
     fmp_quote_cache_ttl_seconds: int = Field(default=300)
     fmp_history_cache_ttl_seconds: int = Field(default=86400)
+    # Epic 37 / US-37.1 decision #4: company-profile data (sector, ISIN) is
+    # far less time-sensitive than a quote — widened off the 5-minute quote
+    # tier to 30 days so equity sector resolution doesn't re-fetch every run.
+    fmp_profile_cache_ttl_seconds: int = Field(default=2592000)
     fmp_max_requests_per_minute: int = Field(default=250)
     # HTTP transport timeout for every FMP request (US-24.6 — was a literal
     # 30.0 in the client, the one transport knob that was not configurable).

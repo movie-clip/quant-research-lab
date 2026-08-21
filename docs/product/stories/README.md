@@ -18,6 +18,19 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
+### Epic 37 — Dynamic Equity Sector Classification (complete)
+
+PRD: [`prd/epic-37-dynamic-equity-sector-classification.md`](../prd/epic-37-dynamic-equity-sector-classification.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-37.1](US-37.1-dynamic-equity-sector-classification.md) | Dynamic, identity-gated sector classification for equities outside the static registry | Backend — identity-gated FMP resolution (static registry → FMP + ISIN-match → no classification) for equities outside `INSTRUMENT_DEFINITIONS`, an 11-entry sector-taxonomy normalization table, fail-safe FMP-failure handling, and an honest, disclosed `"Unclassified"` bucket (never `"Other"`) for equities nothing resolves. ETF look-through constituent classification (F-B) explicitly out of scope | Done |
+| [US-37.2](US-37.2-sector-classification-followups.md) | Sector-classification follow-ups — taxonomy normalization, cache-flag accuracy, test-fixture consolidation | Backend — case/whitespace-insensitive taxonomy lookup in `resolve_equity_sector` (narrows only what counts as unmapped, never widens what counts as mapped); `MarketDataService.get_company_profile`'s `cached` diagnostic now reflects true per-symbol cache hit/miss instead of hardcoded `True`. Test — shared `FakeMarketData` fixture in `app/tests/fixtures.py` replacing three hand-duplicated local fakes. ETF look-through, both epic-24 tech-debt rows, and the same `cached: True` shape in other `MarketDataService` methods explicitly out of scope | Done |
+
+Two-story epic (US-37.2 is a follow-up story to US-37.1, filed under the same epic). No build-order constraints.
+
+---
+
 ### Epic 36 — Findings-First Doc & Gate Hygiene (complete)
 
 PRD: [`prd/epic-36-findings-first-doc-and-gate-hygiene.md`](../prd/epic-36-findings-first-doc-and-gate-hygiene.md)

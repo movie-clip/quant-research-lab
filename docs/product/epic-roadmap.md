@@ -1,11 +1,12 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: **2026-08-20**.*
+*Living execution snapshot. Updated: **2026-08-21**.*
 
-**Every epic is complete.** Most recently shipped: **Epic 36 — Findings-First
-Doc & Gate Hygiene** (3 stories, closed 2026-08-20), preceded by **Epic 35 —
+**Every epic is complete.** Most recently shipped: **Epic 37 — Dynamic Equity
+Sector Classification** (1 story, closed 2026-08-21), preceded by **Epic 36 —
+Findings-First Doc & Gate Hygiene** (3 stories, closed 2026-08-20), **Epic 35 —
 Market-Data Failure Honesty** (3 stories, closed 2026-08-19) and **Epic 34 —
-An Answerable Dashboard** (9 stories, closed 2026-08-19). Epics 13 and 18–35
+An Answerable Dashboard** (9 stories, closed 2026-08-19). Epics 13 and 18–36
 are complete; see each section below.
 
 **Open items**, none of which block anything:
@@ -66,6 +67,38 @@ The next epic is unscoped. `main` now requires CI to pass before merge.
 
 ---
 
+
+## Completed Epic: Epic 37 — Dynamic Equity Sector Classification
+
+**PRD:** [`docs/product/prd/epic-37-dynamic-equity-sector-classification.md`](product/prd/epic-37-dynamic-equity-sector-classification.md)
+
+**Closed 2026-08-21. All 2 stories Done.**
+
+Seeded by `docs/tech-debt-register.md`'s `instruments/registry.py:45-48,180-261`
+row (tagged `epic-24`): the equity branch of
+`InstrumentRegistry.classify_imported_instrument` unconditionally returned
+`sector="Other"` for any equity outside the static `INSTRUMENT_DEFINITIONS`
+dict — no keyword inference, no market-data lookup. Ships as its own new,
+dedicated single-story epic rather than a reopened Epic 24, per the human's
+placement decision.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-37.1 | Dynamic, identity-gated sector classification for equities outside the static registry | Done |
+| US-37.2 | Sector-classification follow-ups — taxonomy normalization, cache-flag accuracy, test-fixture consolidation | Done |
+
+Two-story epic (US-37.2 is a follow-up story to US-37.1, filed under the same epic). No build-order constraints.
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-08-21 | US-37.1 | Equities outside the static registry now get identity-gated FMP sector classification (ISIN-matched against the statement, 11-entry taxonomy map); an equity nothing resolves is disclosed under a distinct "Unclassified" bucket, never "Other", weight still counted in the total. CR-1 fixed a second hardcoded "Other" in the no-imported-instrument catch-all quant-audit found (registry.py:337-346). ETF look-through constituents (F-B) explicitly out of scope. 802 → 840 backend (+38), 331 frontend unchanged; tsc + dead-code gate clean; dashboardGoldens.ts untouched. |
+| 2026-08-21 | US-37.2 | Taxonomy lookup in resolve_equity_sector now normalizes case/whitespace before matching (strip+casefold on both sides; narrows only what counts as unmapped, never widens what counts as mapped). MarketDataService.get_company_profile's cached diagnostic now reflects true per-symbol cache hit/miss instead of hardcoded True (pre-checks the on-disk cache via the client's own build_key/get before fetch). Three hand-duplicated FMP-profile test fakes (_FakeMarketData x2, _SpyMarketData) consolidated into app/tests/fixtures.py's shared FakeMarketData. 840 -> 848 backend (+8: 5 casing/whitespace-variant params + 1 unmapped-sector regression + 2 cache hit/miss tests), 331 frontend unchanged; tsc + dead-code gate clean; dashboardGoldens.ts untouched. |
+
+---
 
 ## Completed Epic: Epic 36 — Findings-First Doc & Gate Hygiene
 

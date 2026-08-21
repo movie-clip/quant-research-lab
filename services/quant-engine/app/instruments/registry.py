@@ -1,11 +1,21 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from app.core.symbols import canonicalize_symbol
 from app.schemas.imports import ImportedInstrument, ImportedPortfolioSnapshot
-from app.schemas.instruments import AssetClass, FuturesContract, Instrument, InstrumentKind
+from app.schemas.instruments import AssetClass, ClassificationSource, FuturesContract, Instrument, InstrumentKind
+
+if TYPE_CHECKING:
+    # Type-hint only. NOT imported at module level: `MarketDataService` lives
+    # in app/services/market_data.py, which has no import of this module, so
+    # this specific import is safe eagerly too -- but `resolve_equity_sector`
+    # (below) is imported lazily inside classify_imported_instrument instead,
+    # to break a real cycle (registry -> equity_sector_resolution ->
+    # instrument_identity -> registry). Kept under TYPE_CHECKING here for
+    # consistency with that constraint.
+    from app.services.market_data import MarketDataService
 
 
 def _instrument(
@@ -13,7 +23,7 @@ def _instrument(
     symbol: str,
     name: str,
     asset_class: AssetClass,
-    sector: str,
+    sector: str | None,
     category: str,
     currency: str,
     *,
@@ -23,6 +33,7 @@ def _instrument(
     point_value: float | None = None,
     multiplier: float | None = None,
     isin: str | None = None,
+    classification_source: ClassificationSource | None = None,
 ) -> Instrument:
     return Instrument(
         instrument_id=instrument_id,
@@ -38,6 +49,7 @@ def _instrument(
         point_value=point_value,
         multiplier=multiplier,
         isin=isin,
+        classification_source=classification_source,
     )
 
 
@@ -187,7 +199,10 @@ class InstrumentRegistry:
         imported: ImportedInstrument | None,
         currency: str | None,
     ) -> Instrument:
-        updates: dict[str, str | None] = {}
+        # Static-dict-known hit (US-37.1): this instrument came from
+        # INSTRUMENT_DEFINITIONS, the curated registry — always "static",
+        # regardless of what else is merged in from the imported record.
+        updates: dict[str, str | None] = {"classification_source": "static"}
         if imported is not None:
             if imported.description:
                 updates["name"] = imported.description.strip()
@@ -195,9 +210,15 @@ class InstrumentRegistry:
                 updates["exchange"] = imported.listing_exchange
         if currency:
             updates["currency"] = currency
-        return instrument.model_copy(update=updates) if updates else instrument
+        return instrument.model_copy(update=updates)
 
-    def classify_imported_instrument(self, imported: ImportedInstrument, currency: str | None = None) -> Instrument:
+    def classify_imported_instrument(
+        self,
+        imported: ImportedInstrument,
+        currency: str | None = None,
+        *,
+        market_data: "MarketDataService | None" = None,
+    ) -> Instrument:
         symbol = self.normalize_symbol(imported.symbol)
         description = (imported.description or symbol).strip()
         description_upper = description.upper()
@@ -253,18 +274,38 @@ class InstrumentRegistry:
                 exchange=imported.listing_exchange,
             )
 
+        # Equity branch (US-37.1): opt-in FMP resolution, gated by `market_data`
+        # being supplied. Without it (the default), no lookup is attempted and
+        # this equity gets no classification — unchanged from pre-US-37.1
+        # behavior except that the sentinel is now `None`, not `"Other"` (the
+        # old literal fallback string is no longer written here at all).
+        sector: str | None = None
+        classification_source: ClassificationSource | None = None
+        if market_data is not None:
+            # Local import: breaks a real import cycle (registry ->
+            # equity_sector_resolution -> instrument_identity -> registry).
+            from app.instruments.equity_sector_resolution import resolve_equity_sector
+
+            sector, classification_source = resolve_equity_sector(imported, market_data)
+
         return _instrument(
             f"imported-equity-{symbol.lower()}",
             symbol,
             description,
             "equity",
-            "Other",
+            sector,
             "Equity",
             resolved_currency,
             exchange=imported.listing_exchange,
+            classification_source=classification_source,
         )
 
-    def attach_snapshot_metadata(self, snapshot: ImportedPortfolioSnapshot) -> dict[str, Instrument]:
+    def attach_snapshot_metadata(
+        self,
+        snapshot: ImportedPortfolioSnapshot,
+        *,
+        market_data: "MarketDataService | None" = None,
+    ) -> dict[str, Instrument]:
         metadata: dict[str, Instrument] = {}
         imported_by_symbol = {
             self.normalize_symbol(instrument.symbol): instrument
@@ -286,20 +327,26 @@ class InstrumentRegistry:
                 continue
 
             if imported_instrument is not None and (imported_type == "ETF" or imported_exchange == "LSEETF"):
-                metadata[position.symbol] = self.classify_imported_instrument(imported_instrument, currency=position.currency)
+                metadata[position.symbol] = self.classify_imported_instrument(imported_instrument, currency=position.currency, market_data=market_data)
                 continue
 
             if imported_instrument is not None:
-                metadata[position.symbol] = self.classify_imported_instrument(imported_instrument, currency=position.currency)
+                metadata[position.symbol] = self.classify_imported_instrument(imported_instrument, currency=position.currency, market_data=market_data)
                 continue
 
+            # No matching ImportedInstrument record at all (US-37.1 CR-1): this
+            # position's sector is unresolved, not a fourth outcome. Leave
+            # `sector` at its `None` default (classification_source likewise
+            # stays `None` — this branch never invoked a classification
+            # mechanism) so overview.py's `instrument.sector or
+            # UNCLASSIFIED_SECTOR_LABEL` routes it to "Unclassified" instead of
+            # a literal "Other" reaching the UI.
             metadata[position.symbol] = Instrument(
                 instrument_id=f"snapshot:{self.normalize_symbol(position.symbol)}",
                 symbol=position.symbol,
                 name=position.symbol,
                 asset_class="other",
                 kind="spot",
-                sector="Other",
                 category="Imported Position",
                 currency=position.currency,
             )

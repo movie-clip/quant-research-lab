@@ -37,7 +37,7 @@ def _significant_tokens(text: str) -> set[str]:
     }
 
 
-def _normalized_isin(value: str | None) -> str | None:
+def normalize_isin(value: str | None) -> str | None:
     """Uppercase, whitespace-stripped ISIN, or None when absent/blank."""
     if not value:
         return None
@@ -70,8 +70,8 @@ def detect_instrument_identity_mismatches(
         description = (instrument.description or "").strip()
 
         # ── ISIN evidence (definitive; ISO 6166 identifiers are exact) ──
-        statement_isin = _normalized_isin(instrument.isin)
-        expected_isin = _normalized_isin(entry.isin)
+        statement_isin = normalize_isin(instrument.isin)
+        expected_isin = normalize_isin(entry.isin)
         if statement_isin is not None and expected_isin is not None and statement_isin != expected_isin:
             mismatches.append(InstrumentIdentityMismatch(
                 symbol=instrument.symbol,

@@ -142,6 +142,9 @@ class FmpClient:
         self.legacy_base_url = settings.fmp_legacy_base_url.rstrip("/")
         self.quote_ttl_seconds = settings.fmp_quote_cache_ttl_seconds
         self.history_ttl_seconds = settings.fmp_history_cache_ttl_seconds
+        # US-37.1 decision #4: company-profile data is far less time-sensitive
+        # than a quote, so it gets its own, much wider TTL.
+        self.profile_ttl_seconds = settings.fmp_profile_cache_ttl_seconds
         self.max_requests_per_minute = settings.fmp_max_requests_per_minute
         self.client = httpx.Client(timeout=settings.fmp_request_timeout_seconds)
         self.cache = JsonFileCache(Path(settings.fmp_cache_dir)) if settings.fmp_cache_enabled else None
@@ -326,7 +329,7 @@ class FmpClient:
         return _join_close_and_adjusted_rows(symbol, full_rows, adjusted_rows)
 
     def get_profile(self, symbol: str) -> list[dict[str, Any]]:
-        return self._get("profile", "profile", {"symbol": symbol}, ttl_seconds=self.quote_ttl_seconds)
+        return self._get("profile", "profile", {"symbol": symbol}, ttl_seconds=self.profile_ttl_seconds)
 
     def get_income_statements(self, symbol: str, *, limit: int = 8, period: str = "quarter") -> list[dict[str, Any]]:
         return self._get(

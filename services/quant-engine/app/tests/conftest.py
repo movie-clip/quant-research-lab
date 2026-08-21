@@ -301,3 +301,28 @@ def _mock_risk_engines_market_data(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(f"{engine_module}.MarketDataService", _make_mock())
 
 
+@pytest.fixture(autouse=True)
+def _mock_overview_engine_market_data(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Mock MarketDataService in the portfolio-overview analytics module
+    (US-37.1) so that build_portfolio_overview's internal, opt-in equity
+    sector resolution (`get_company_profile`, via `resolve_equity_sector`)
+    never reaches live FMP data. Defaults to "no coverage" (None) for every
+    symbol — the conservative no-classification outcome — so existing tests
+    that don't care about sector resolution are unaffected.
+
+    Tests that patch app.analytics.overview.MarketDataService themselves via
+    mocker.patch take precedence over this monkeypatch.
+    """
+
+    def _make_overview_mock() -> MagicMock:
+        mock_svc = MagicMock()
+        inst = mock_svc.return_value
+        inst.get_company_profile.return_value = None
+        return mock_svc
+
+    monkeypatch.setattr(
+        "app.analytics.overview.MarketDataService",
+        _make_overview_mock(),
+    )
+
+

@@ -9,7 +9,13 @@ Single source of truth for:
 - `install_market_data_mock(...)` — patches an engine module's
   `MarketDataService` with a MagicMock serving given histories plus a real
   `last_fetch_meta` (every engine imports MarketDataService at module load, so
-  the mock must target the ENGINE module, not app.services.market_data).
+  the mock must target the ENGINE module, not app.services.market_data);
+- `FakeMarketData` (US-37.2, T-37.2.3) — a duck-typed `get_company_profile`
+  fake for tests that need per-symbol FMP-profile responses without mocking
+  the whole `MarketDataService`. Consolidates what were three
+  near-identical local classes (`_FakeMarketData` in
+  `test_instrument_enrichment.py` / `test_equity_sector_resolution.py`,
+  `_SpyMarketData` in `test_instrument_registry.py`).
 
 Policy: new engine tests import from here instead of re-implementing builders
 (see .claude/skills/write-tests/SKILL.md).
@@ -19,6 +25,18 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Any
 from unittest.mock import MagicMock
+
+# Default company profile a `FakeMarketData()` returns for a symbol with no
+# per-symbol `responses` entry, when the caller also supplies no `profile`.
+# Matches the old `_SpyMarketData`'s implicit default exactly — callers that
+# want that behaviour must pass it explicitly (`profile=DEFAULT_COMPANY_PROFILE`)
+# rather than relying on a bare `FakeMarketData()` to guess it, since a
+# `_FakeMarketData()`-style caller (per-symbol `responses`, no `profile`)
+# legitimately wants an unconfigured symbol to yield `None`, not this.
+DEFAULT_COMPANY_PROFILE: dict[str, Any] = {
+    "sector": "Financial Services",
+    "isin": "US0000000000",
+}
 
 
 def position(symbol: str, market_value: float = 1000.0, **overrides: Any) -> dict:
@@ -103,6 +121,42 @@ def price_rows_from_returns(
             row["symbol"] = symbol
         rows.append(row)
     return rows
+
+
+class FakeMarketData:
+    """Duck-typed `get_company_profile(symbol)` fake for tests that pass a
+    `market_data` argument directly (not via `install_market_data_mock`'s
+    engine-module patch).
+
+    - `responses`: symbol -> profile dict | None, returned for that symbol.
+    - `profile`: returned for any symbol NOT in `responses` (default: None —
+      an unconfigured symbol yields no profile, matching the original
+      `_FakeMarketData` behaviour). Pass `DEFAULT_COMPANY_PROFILE`, or any
+      other fixed dict, for a `_SpyMarketData`-style "same profile for every
+      symbol" fake.
+    - `raise_for`: symbols whose call raises `RuntimeError` instead of
+      returning, simulating an FMP failure.
+
+    Records every symbol looked up, in call order, in `.calls`.
+    """
+
+    def __init__(
+        self,
+        responses: dict[str, Any] | None = None,
+        *,
+        profile: dict[str, Any] | None = None,
+        raise_for: set[str] | None = None,
+    ) -> None:
+        self.responses = responses or {}
+        self.profile = profile
+        self.raise_for = raise_for or set()
+        self.calls: list[str] = []
+
+    def get_company_profile(self, symbol: str) -> dict[str, Any] | None:
+        self.calls.append(symbol)
+        if symbol in self.raise_for:
+            raise RuntimeError(f"FMP boom for {symbol}")
+        return self.responses.get(symbol, self.profile)
 
 
 def install_market_data_mock(

@@ -5,6 +5,7 @@ import pytest
 
 from app.analytics import risk as risk_module
 from app.analytics.activity import build_activity_series
+from app.analytics.overview import UNCLASSIFIED_SECTOR_LABEL
 from app.analytics.portfolio_imports import (
     build_performance_summary,
     build_portfolio_overview,
@@ -397,6 +398,82 @@ def test_build_portfolio_overview_returns_expected_totals() -> None:
     assert overview.total_unrealized_pnl == 200.0
     assert overview.positions_count == 1
     assert overview.cash_by_currency["USD"] == 200.0
+
+
+def test_build_portfolio_overview_discloses_unclassified_equity_bucket(mocker) -> None:
+    """US-37.1 AC9: an equity that resolves via neither the static registry
+    nor identity-confirmed FMP (here: no FMP coverage at all) is disclosed
+    under a distinct "Unclassified" bucket — never "Other", and its weight
+    is included in the same total as every other sector bucket, never
+    silently dropped. The classified position (AAPL, static-registry) shares
+    the same aggregate so the total-weight invariant is actually exercised,
+    not just a single-bucket sanity check."""
+    mocker.patch("app.analytics.overview.MarketDataService").return_value.get_company_profile.return_value = None
+
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers", imported_at=datetime(2026, 1, 1),
+            source_path="sample.pdf", detected_format="pdf",
+            account_id="U123", base_currency="USD", statement_period="2026", page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[ImportedInstrument(symbol="ZZZ9", description="Some Unknown Equity Corp")],
+        cash_balances=[],
+        positions=[
+            ImportedPosition(as_of_date=date(2026, 1, 1), symbol="AAPL", quantity=1.0, cost_basis=300.0, close_price=300.0, market_value=300.0, unrealized_pnl=0.0, currency="USD"),
+            ImportedPosition(as_of_date=date(2026, 1, 1), symbol="ZZZ9", quantity=1.0, cost_basis=100.0, close_price=100.0, market_value=100.0, unrealized_pnl=0.0, currency="USD"),
+        ],
+        ledger_entries=[],
+    )
+
+    overview = build_portfolio_overview(snapshot)
+
+    sectors = {item["sector"]: item for item in overview.sector_allocation}
+    assert "Unclassified" in sectors
+    assert "Other" not in sectors
+    assert sectors["Unclassified"]["weight"] == pytest.approx(0.25, abs=1e-4)
+    assert sectors["Unclassified"]["market_value"] == pytest.approx(100.0, abs=0.01)
+    assert any(item["symbol"] == "ZZZ9" for item in overview.sector_position_breakdown["Unclassified"])
+    # Never dropped from the total: every bucket's weight still sums to 1.0.
+    assert sum(item["weight"] for item in overview.sector_allocation) == pytest.approx(1.0, abs=1e-4)
+
+
+def test_build_portfolio_overview_no_instrument_record_is_unclassified_not_other(mocker) -> None:
+    """US-37.1 CR-1 regression: a position with ZERO matching ImportedInstrument
+    records (not merely an unresolved sector on a known instrument) falls
+    through attach_snapshot_metadata's catch-all (registry.py:337-346). Before
+    CR-1 that catch-all hardcoded sector="Other", a truthy string that skipped
+    overview.py's `instrument.sector or UNCLASSIFIED_SECTOR_LABEL` check
+    entirely and reached the UI as the literal "Other" AC9 exists to forbid.
+    Reproduces 10-quant-audit.md FINDING 1's exact repro shape (one position,
+    symbol GHOST1, snapshot.instruments == [])."""
+    mocker.patch("app.analytics.overview.MarketDataService").return_value.get_company_profile.return_value = None
+
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers", imported_at=datetime(2026, 1, 1),
+            source_path="sample.pdf", detected_format="pdf",
+            account_id="U123", base_currency="USD", statement_period="2026", page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[],
+        cash_balances=[],
+        positions=[
+            ImportedPosition(as_of_date=date(2026, 1, 1), symbol="GHOST1", quantity=1.0, cost_basis=100.0, close_price=100.0, market_value=100.0, unrealized_pnl=0.0, currency="USD"),
+        ],
+        ledger_entries=[],
+    )
+
+    overview = build_portfolio_overview(snapshot)
+
+    sectors = {item["sector"]: item for item in overview.sector_allocation}
+    assert UNCLASSIFIED_SECTOR_LABEL in sectors
+    assert "Other" not in sectors
+    assert sectors[UNCLASSIFIED_SECTOR_LABEL]["market_value"] == pytest.approx(100.0, abs=0.01)
+    assert sectors[UNCLASSIFIED_SECTOR_LABEL]["weight"] == pytest.approx(1.0, abs=1e-4)
+    assert any(item["symbol"] == "GHOST1" for item in overview.sector_position_breakdown[UNCLASSIFIED_SECTOR_LABEL])
 
 
 def test_build_exposure_result_populates_structured_run_metadata(mocker) -> None:

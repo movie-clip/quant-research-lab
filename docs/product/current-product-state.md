@@ -60,7 +60,21 @@ Shows current portfolio composition:
 - **Currency Exposure card** (Epic 26 / US-26.1): per-currency weight breakdown + a "not in base currency" total. Weights are computed on **base-currency-converted** market values (the same denominator as every other Exposure weight, pinned by test), grouped by the currency each position is denominated in. `non_base_weight` renders "—" (never 0) when the statement carries no base currency. Currencies carried unconverted for want of an FX rate are still counted and are flagged as the card's least reliable rows. Snapshot analytics — no market-data call, no Synthetic badge
 - **Currency Risk Contribution card** (Epic 26 / US-26.2): how much of return *variance* came from currency rather than from the securities — three component-covariance shares (securities / currency / interaction) that sum to exactly 1.0, plus standalone annualised vols and the securities-FX correlation, over a 60d/252d window. Local returns use each holding's **registry fund currency** (US-31.5), never the broker's listing currency. A share **may be negative** and is rendered as such — a leg moving against the rest of the portfolio genuinely reduces variance, and clamping would fabricate a floor. Holdings without fund-currency price or FX history are excluded and named with their weight. Self-fetching from `POST /engines/currency-risk/run`; fails closed below 20 overlapping days. **Synthetic-history Trust badge** (unlike the US-26.1 composition card)
 - **Rolling correlation & beta chart**: dual-axis (ρ left, β right), 20d/60d/252d window selector. Synthetic-history Trust badge.
-- Current state concentration (top positions, asset class split)
+- Current state concentration (top positions, asset class split), including
+  top-sector weights and sector HHI
+- **Dynamic equity sector classification (US-37.1)**: an equity held outside
+  the static, hand-curated instrument registry now receives a real sector
+  from FMP's company profile, gated on the statement's ISIN matching the FMP
+  profile's ISIN — never a bare-ticker guess. When no source (static registry
+  or identity-confirmed FMP) resolves a sector, the position appears in the
+  Exposure tab's sector breakdown (top sectors / sector concentration cards)
+  under a distinct, disclosed **"Unclassified"** bucket, with its weight
+  still counted in the sector total — never the string `"Other"`, and never
+  silently dropped. Snapshot analytics (a classification looked up at import
+  time), not broker truth. **Does not cover ETF look-through constituents**
+  (`analytics/risk.py`'s `build_lookthrough_sector_exposure`) — that path's
+  own hardcoded proxy-ticker sector inference is unchanged, a known,
+  separately-catalogued gap (`docs/tech-debt-register.md`).
 - **Factor return attribution card**: cumulative chart + period attribution table; 20d/60d/252d window. Synthetic-history Trust badge.
 - **Factor Drift Summary card** (Epic 16): ranked per-factor drift (`latest − reference` rolling loading) over a 20d/60d/252d window, rendered as divergent magnitude bars (positive right of baseline, negative left) with signed value + ▲/▼ direction marker. Reuses the engine's existing `rolling_loadings_<window>` series — no backend. Factors null at the window endpoints are excluded (never zero-imputed); fails closed to an EmptyState on insufficient history. Synthetic-history Trust badge.
 - **Multi-benchmark correlation table**: ρ / β / R² vs SPY, QQQ, GLD, IEF, VT; rows sorted by |ρ| desc, unavailable last. Synthetic-history Trust badge.

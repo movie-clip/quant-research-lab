@@ -6,8 +6,6 @@ so we pass a tiny mock object instead of a real `MarketDataService`.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
-
 
 from app.schemas.imports import (
     ImportedInstrument,
@@ -15,25 +13,10 @@ from app.schemas.imports import (
     ImportedStatement,
 )
 from app.services.instrument_enrichment import enrich_imported_instruments
+from app.tests.fixtures import FakeMarketData as _FakeMarketData
 
 
 # ── Fixture helpers ─────────────────────────────────────────────────────────
-
-
-class _FakeMarketData:
-    """Records every get_company_profile call + returns a configurable
-    response per symbol. `responses[symbol] = dict | None`."""
-
-    def __init__(self, responses: dict[str, Any] | None = None, raise_for: set[str] | None = None) -> None:
-        self.responses = responses or {}
-        self.raise_for = raise_for or set()
-        self.calls: list[str] = []
-
-    def get_company_profile(self, symbol: str) -> dict[str, Any] | None:
-        self.calls.append(symbol)
-        if symbol in self.raise_for:
-            raise RuntimeError(f"FMP boom for {symbol}")
-        return self.responses.get(symbol)
 
 
 def _make_snapshot(*instruments: ImportedInstrument) -> ImportedPortfolioSnapshot:

@@ -1254,6 +1254,212 @@ Consumer rule:
 - The factor loading describes return behaviour over the rolling window; the sector
   weight describes current composition. They answer different questions.
 
+## Sector/Industry Classification — Source and Resolution (US-37.1)
+
+Every "Sector exposure" number in this document (§ Sector exposure vs. factor
+loading, § Risk Contribution and Concentration's sector HHI) takes a
+per-holding sector **classification** as a given input. This section
+documents where that classification itself comes from — not a numeric
+formula, a categorical resolution order, since the underlying fact ("what
+sector is this equity in") is not computed, it is sourced.
+
+**Scope note, stated explicitly so this section is not misread as broader
+than it is: this section covers direct-holding equity classification only.**
+It does **not** cover ETF look-through constituent classification — the
+sector inference `risk.py`'s `build_lookthrough_sector_exposure(...)` /
+`_infer_sector_from_sources(...)` perform when unpacking an ETF's underlying
+constituents remains its own separate, hardcoded keyword/proxy-ticker
+mechanism, undocumented here, and unchanged by US-37.1
+(`docs/tech-debt-register.md`, `risk.py:1485-1499,1537-1549`, tracked as a
+distinct, still-open gap). Do not assume that mechanism follows the
+resolution order below.
+
+### Resolution order (equity branch only)
+
+```text
+classify_equity(imported_instrument) -> (sector: str | None, classification_source):
+
+  1. Static registry lookup (unchanged, pre-dates US-37.1):
+     if normalize_symbol(imported.symbol) is a curated INSTRUMENT_DEFINITIONS entry:
+         return (curated_sector, "static")
+
+  2. Identity-gated FMP lookup (US-37.1, opt-in — see "Opt-in wiring" below):
+     if a MarketDataService instance was supplied:
+         profile = MarketDataService.get_company_profile(imported.symbol)
+         if lookup raises, or profile is empty/has no `sector`:
+             return (None, "unavailable")
+         mapped_sector = SECTOR_TAXONOMY_MAP.get(profile["sector"])
+         if mapped_sector is None:              # FMP sector string not in the map
+             return (None, "unavailable")
+         if normalize_isin(imported.isin) == normalize_isin(profile.get("isin"))
+            and both are non-empty:
+             return (mapped_sector, "fmp_identity_confirmed")
+         return (None, "unavailable")            # ISIN mismatch OR no ISIN evidence
+     else:
+         return (None, None)                     # no lookup attempted at all
+
+  3. Nothing resolved a sector -> instrument.sector = None.
+```
+
+Implementation:
+- `services/quant-engine/app/instruments/equity_sector_resolution.py` ->
+  `resolve_equity_sector(...)`, `SECTOR_TAXONOMY_MAP`
+- `services/quant-engine/app/instruments/registry.py` ->
+  `InstrumentRegistry.classify_imported_instrument(...)` (equity branch),
+  `InstrumentRegistry._merge_known_instrument_metadata(...)` (static-hit case)
+
+**Opt-in wiring.** The FMP lookup is not unconditional. `classify_imported_instrument`
+and `attach_snapshot_metadata` take a keyword-only `market_data: MarketDataService | None`
+parameter, defaulting to `None`. Only `analytics/overview.py::build_portfolio_overview(...)`
+constructs a `MarketDataService()` and passes it in. `analytics/risk.py`'s two
+`attach_snapshot_metadata(...)` call sites (`build_lookthrough_exposure`,
+`build_etf_overlap_pairs`) do not pass `market_data`, so they never trigger an FMP
+call for this — both only read `.asset_class` from the returned metadata, never
+`.sector`. This is a deliberate blast-radius decision, not an oversight: it keeps
+Stress/Drawdown/VaR routes free of added FMP latency for a value nothing there
+consumes.
+
+### The identity gate, and why it is load-bearing
+
+A bare-ticker FMP profile lookup is **not** trusted on its own. The statement's
+own ISIN (captured by the importer, e.g. IB's `Security ID` column) must match
+the FMP profile's `isin` field before an FMP-sourced sector is used at all.
+This mirrors the evidence-gated ISIN-comparison pattern already used for
+registry-known holdings in `app/services/instrument_identity.py`
+(`normalize_isin`) — reused here rather than reimplemented.
+
+The gate exists because ticker collision across exchanges is a documented,
+recurring failure mode in this codebase, not a theoretical risk: a bare
+symbol can resolve to a different, unrelated security on FMP than the one the
+statement actually holds (see `app/core/symbols.py`'s `DFND`/`SEMI`/`CIBR`
+comments for three prior incidents this project has already had to guard
+against). Without the ISIN check, a collision would silently assign the wrong
+company's sector — a confident, wrong answer, not a visible failure. Missing
+ISIN evidence on either side is therefore treated the same as a mismatch:
+conservative by default, per guardrail 4 (never fabricate; never fill a
+plausible value from incomplete evidence).
+
+### Sector-taxonomy mapping table
+
+FMP's `sector` string values are not verbatim GICS sector names; they diverge
+from this project's canonical sector vocabulary on 5 of the 11 sectors below.
+Passing an FMP string through unmapped would silently fragment sector
+aggregates (e.g. "Healthcare" and "Health Care" as two separate buckets),
+corrupting `sector_hhi` and `top_sectors` without any visible error — so an
+FMP `sector` value not present in this table is treated as unresolved
+(never passed through raw as an ad hoc 12th bucket). This is the complete,
+current `SECTOR_TAXONOMY_MAP` (`equity_sector_resolution.py`):
+
+| FMP `sector` value | Project sector value |
+|---|---|
+| `Technology` | `Technology` |
+| `Energy` | `Energy` |
+| `Industrials` | `Industrials` |
+| `Real Estate` | `Real Estate` |
+| `Utilities` | `Utilities` |
+| `Communication Services` | `Communication Services` |
+| `Healthcare` | `Health Care` |
+| `Financial Services` | `Financials` |
+| `Consumer Cyclical` | `Consumer Discretionary` |
+| `Consumer Defensive` | `Consumer Staples` |
+| `Basic Materials` | `Materials` |
+
+An FMP `sector` string not in this table (a new or renamed FMP sector) falls
+through to unresolved, exactly like no-coverage — see below.
+
+### `classification_source` — provenance, not a trust-ladder rung
+
+`Instrument.classification_source: Literal["static", "fmp_identity_confirmed",
+"unavailable"] | None` (`app/schemas/instruments.py`) records which mechanism
+produced (or failed to produce) `Instrument.sector`. It is **backend-internal
+only** — see `docs/contracts/exposure-fields.md` for the explicit statement
+that it is not currently serialized to the client.
+
+- `"static"` — the curated `INSTRUMENT_DEFINITIONS` registry resolved it.
+- `"fmp_identity_confirmed"` — the FMP lookup resolved it, and the identity
+  gate above passed (statement ISIN and FMP profile ISIN both present and
+  equal). Deliberately **not** named `"verified"` or any `*verified*` value —
+  that word is reserved for `verified_total_return`'s distinct, narrower
+  meaning; reusing it here would be exactly the truth-class mixing
+  guardrail 3 forbids.
+- `"unavailable"` — an FMP resolution attempt was made and did not clear the
+  gate. This single value **collapses several distinct sub-cases** by design:
+  no FMP coverage for the symbol, an empty/missing `sector` field, an FMP
+  `sector` string absent from the taxonomy table, an ISIN mismatch (the
+  "wrong security" case), and missing ISIN evidence on either side. Nothing
+  downstream today consumes a finer-grained distinction (e.g. a `withheld`
+  state for "checked and distrusted" vs. `unavailable` for "never checked"),
+  and inventing an exposed 4th value nothing reads would itself be an
+  untraceable addition. The sub-case distinction survives only in code
+  structure (`resolve_equity_sector`'s separate `return` statements), not as
+  an exposed field.
+- `None` — the classification mechanism above was never invoked on this
+  instrument's path at all: the ETF branch (its own separate keyword
+  classifier, unaffected by this section), futures, the no-imported-instrument
+  catch-all in `attach_snapshot_metadata`, or a static-registry hit reached by
+  any path other than `_merge_known_instrument_metadata`. `None` is not a
+  claim that no provenance exists — only that this mechanism did not run on
+  that path.
+
+### The `"Unclassified"` sector bucket
+
+`Instrument.sector` is genuinely nullable at the domain layer once no source
+resolves it (`sector = None`, not the string `"Other"`). `sector_allocation`
+and `sector_position_breakdown` (`PortfolioOverview`, consumed by the
+Exposure tab's sector cards) are string-keyed aggregates that cannot carry
+`None`, so the conversion happens exactly once, at the aggregation seam in
+`analytics/overview.py`:
+
+```python
+sector = instrument.sector or UNCLASSIFIED_SECTOR_LABEL   # UNCLASSIFIED_SECTOR_LABEL = "Unclassified"
+```
+
+`"Unclassified"` is a new, distinct, honestly-labeled bucket — it is never
+merged into `"Other"` (the pre-existing literal `InstrumentRegistry.get_sector(...)`
+still returns for its own separate, out-of-scope fallback path — see "Residual
+`get_sector()` inconsistency" below) and it is never dropped from the sector
+weight total. It participates in `sector_hhi` / `top_sectors` /
+`top_sector_weight` (`exposure_engine.py::_build_current_state_concentration`)
+automatically, the same as any other bucket, because those already iterate
+the full `sector_allocation` list rather than a fixed enumeration.
+
+**Residual `get_sector()` inconsistency, named so it is not mistaken for a
+gap in the fix above.** `InstrumentRegistry.get_sector(symbol)` is a separate,
+independently-tested public method (its own `"Other"` contract is pinned by
+`test_instrument_registry.py::test_unknown_symbol_falls_back_to_other`) that
+still returns the literal `"Other"`. `overview.py`'s aggregation only calls it
+in the (currently unreachable in practice) case where `attach_snapshot_metadata`
+has no metadata entry at all for a position — every position is confirmed to
+get an entry today, so this branch is dead in practice, not touched or
+repurposed by US-37.1, and left as a named, accepted residual inconsistency.
+
+### Caching
+
+`get_company_profile(...)`'s underlying `FmpClient.get_profile()` call no
+longer shares the 300-second live-quote cache TTL. It uses a dedicated
+`Settings.fmp_profile_cache_ttl_seconds` (default `2592000`, 30 days), because
+a company's sector classification changes on a multi-year cadence, not a
+5-minute one. This is the existing namespace-separated `JsonFileCache`
+(`"profile"` cache namespace) doing the work — no new persistence layer, no
+classification-record table. A consequence worth knowing: a transient
+no-coverage FMP response (confirmed reproducible live for at least one
+symbol during this story's research pass) is now sticky for up to 30 days
+before the next natural re-attempt; `manage_cache.py clear` is the only
+forced-refresh path.
+
+Contract rule:
+- an equity's sector is either curated (`"static"`), FMP-sourced and
+  identity-confirmed (`"fmp_identity_confirmed"`), or unresolved — there is no
+  fourth outcome, and an unresolved equity is disclosed as `"Unclassified"`,
+  never silently folded into any named sector including `"Other"`
+- an FMP-sourced sector is never used without a matching, present ISIN on
+  both the statement and the FMP profile
+- an FMP `sector` string not present in `SECTOR_TAXONOMY_MAP` is never passed
+  through as a new, unmapped sector value
+- ETF look-through constituent classification is a separate, undocumented
+  mechanism — do not extend the guarantees above to it without a matching doc
+  update
+
 ## Risk Contribution and Concentration
 
 The project reports position and factor risk contribution metrics plus concentration diagnostics.

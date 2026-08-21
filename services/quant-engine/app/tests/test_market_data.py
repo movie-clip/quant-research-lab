@@ -647,6 +647,71 @@ def test_a_non_auth_failure_at_the_same_call_site_still_degrades(mocker) -> None
     assert service.get_historical_prices("AAPL", "2024-01-01", "2024-01-31") == []
 
 
+# ── US-37.2 (T-37.2.4): get_company_profile cache-status accuracy (AC3/AC4) ──
+#
+# `last_fetch_meta[...]["cached"]` used to be hardcoded True on every
+# successful profile call (services/market_data.py:474, pre-fix). These pin
+# the fix: a fresh call reports the true miss, a subsequent call for the same
+# symbol within the cache's TTL reports the true hit. Per the story's test
+# plan, this asserts the REPORTED value only — not FmpClient's internal call
+# count or sequence, which is an implementation detail of the fix.
+
+
+def test_get_company_profile_reports_true_miss_then_true_hit_within_ttl(mocker, tmp_path) -> None:
+    response_mock = mocker.Mock()
+    response_mock.json.return_value = [
+        {"symbol": "AAPL", "sector": "Technology", "isin": "US0378331005"},
+    ]
+    response_mock.raise_for_status.return_value = None
+    mocker.patch("app.clients.fmp.httpx.Client.get", return_value=response_mock)
+    _mock_fmp_settings(
+        mocker,
+        fmp_cache_enabled=True,
+        fmp_cache_dir=str(tmp_path),
+        fmp_profile_cache_ttl_seconds=86400,
+    )
+
+    service = MarketDataService()
+
+    first_profile = service.get_company_profile("AAPL")
+    first_meta = service.get_last_fetch_meta("AAPL")
+    second_profile = service.get_company_profile("AAPL")
+    second_meta = service.get_last_fetch_meta("AAPL")
+
+    assert first_profile == {"symbol": "AAPL", "sector": "Technology", "isin": "US0378331005"}
+    assert second_profile == first_profile
+    assert first_meta["cached"] is False
+    assert second_meta["cached"] is True
+
+
+def test_get_company_profile_reports_miss_for_different_symbols_independently(mocker, tmp_path) -> None:
+    """A hit for one symbol must not leak into another symbol's cache status —
+    the pre-check is keyed per-symbol, not a single shared flag."""
+    response_mock = mocker.Mock()
+    response_mock.json.side_effect = [
+        [{"symbol": "AAPL", "sector": "Technology", "isin": "US0378331005"}],
+        [{"symbol": "MSFT", "sector": "Technology", "isin": "US5949181045"}],
+    ]
+    response_mock.raise_for_status.return_value = None
+    mocker.patch("app.clients.fmp.httpx.Client.get", return_value=response_mock)
+    _mock_fmp_settings(
+        mocker,
+        fmp_cache_enabled=True,
+        fmp_cache_dir=str(tmp_path),
+        fmp_profile_cache_ttl_seconds=86400,
+    )
+
+    service = MarketDataService()
+
+    service.get_company_profile("AAPL")
+    aapl_meta = service.get_last_fetch_meta("AAPL")
+    service.get_company_profile("MSFT")
+    msft_meta = service.get_last_fetch_meta("MSFT")
+
+    assert aapl_meta["cached"] is False
+    assert msft_meta["cached"] is False
+
+
 def test_one_unresolvable_symbol_does_not_fail_the_whole_portfolio(mocker) -> None:
     """US-35.1 AC5 — a per-symbol failure must stay per-symbol."""
     client_mock = mocker.patch("app.services.market_data.FmpClient")

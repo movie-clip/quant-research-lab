@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
@@ -456,9 +457,35 @@ class MarketDataService:
     def get_fx_history(self, pair: str, from_date: str, to_date: str) -> list[dict]:
         return self.get_historical_prices(pair, from_date, to_date)
 
+    def _profile_will_be_served_from_cache(self, symbol: str) -> bool:
+        """Whether an FMP profile fetch for `symbol` is about to be answered
+        from the on-disk cache rather than a live request (US-37.2 / T-37.2.2).
+
+        `FmpClient.get_profile` -> `_get` has no return-side signal for cache
+        hit/miss (only a log line), and this ticket's scope is
+        `services/market_data.py` only -- adding one to `fmp.py` is out of
+        scope. This instead reuses the cache wrapper's own already-public
+        `build_key`/`get`, mirroring the exact namespace/path/params/TTL
+        `_get` uses for a profile call, to answer the same question
+        read-only and *before* the fetch (a post-fetch check cannot tell a
+        hit from a fetch that just populated the cache).
+
+        Narrow edge case, not resolvable without a signal from `fmp.py`: if
+        this reports a miss but the live request that follows then fails and
+        `_get` falls back to serving stale cached data, the response is in
+        fact cache-served even though this reported `False` -- see risks.
+        """
+        cache = self.client.cache
+        if cache is None:
+            return False
+        cache_identifier = json.dumps({"path": "profile", "params": {"symbol": symbol}}, sort_keys=True)
+        cache_key = cache.build_key("profile", cache_identifier)
+        return cache.get(cache_key, max_age_seconds=self.client.profile_ttl_seconds) is not None
+
     def get_company_profile(self, symbol: str, symbol_overrides: dict[str, list[str]] | None = None) -> dict | None:
         requested_symbol = canonicalize_symbol(symbol)
         for candidate in resolve_symbol_candidates(requested_symbol, symbol_overrides, kind="quote"):
+            was_cached = self._profile_will_be_served_from_cache(candidate)
             try:
                 rows = self.client.get_profile(candidate)
             except MarketDataAuthError:
@@ -471,7 +498,7 @@ class MarketDataService:
             except Exception:  # noqa: BLE001
                 continue
             if rows:
-                self.last_fetch_meta[requested_symbol] = {"type": "profile", "resolved_symbol": candidate, "cached": True}
+                self.last_fetch_meta[requested_symbol] = {"type": "profile", "resolved_symbol": candidate, "cached": was_cached}
                 return rows[0]
         return None
 

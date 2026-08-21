@@ -124,10 +124,12 @@ Implementation:
 
 - position concentration metrics must be computed over the full current holdings set, not only the displayed top-position subset
 - sector concentration metrics must be computed over the full sector allocation set, not only the displayed top-sector subset
+- an equity with no resolved sector classification (US-37.1) appears in that full set under a distinct `"Unclassified"` bucket — never `"Other"`, never dropped from the weight total; see `docs/finance/financial-methodology.md` § Sector/Industry Classification — Source and Resolution
 
 Implementation:
 
 - `services/quant-engine/app/services/exposure_engine.py` -> `_build_current_state_concentration(...)`
+- `services/quant-engine/app/analytics/overview.py` -> `build_portfolio_overview(...)` (`UNCLASSIFIED_SECTOR_LABEL`, the sector-aggregation seam)
 
 ### Base-currency weighting rule (US-30.5a / audit F-7)
 
@@ -211,11 +213,27 @@ Confidence semantics currently mean:
 | UI field | Current UI/provider source | App state source | Truth class | Unavailable rule | Notes |
 | --- | --- | --- | --- | --- | --- |
 | Top position weights | `result.current_state_concentration.top_positions` in `apps/desktop/src/features/portfolio/ExposurePanel.tsx` | `analysis.current_state_concentration.top_positions` | `current-state-truth` | if no positions, show empty state / `n/a` summary cards | sourced from snapshot holdings only, not historical diagnostics |
-| Top sector weights | `result.current_state_concentration.top_sectors` | `analysis.current_state_concentration.top_sectors` | `current-state-truth` | if no sectors, show empty state / `n/a` summary cards | sourced from overview sector allocation |
+| Top sector weights | `result.current_state_concentration.top_sectors` | `analysis.current_state_concentration.top_sectors` | `current-state-truth` | if no sectors, show empty state / `n/a` summary cards | sourced from overview sector allocation; may include an `"Unclassified"` bucket (US-37.1) — a real, disclosed sector value, not an error state |
 | Top 1 / 3 / 5 position weight | summary cards in `ExposurePanel.tsx` | `analysis.current_state_concentration.top_1_position_weight`, `top_3_position_weight`, `top_5_position_weight` | `current-state-truth` | if no positions, render `n/a` | direct holdings concentration, not risk contribution |
-| Top sector / top 3 sectors weight | summary cards in `ExposurePanel.tsx` | `analysis.current_state_concentration.top_sector_weight`, `top_3_sector_weight` | `current-state-truth` | if no sectors, render `n/a` | sector concentration from current holdings metadata |
-| Position HHI / sector HHI | summary cards in `ExposurePanel.tsx` | `analysis.current_state_concentration.position_hhi`, `sector_hhi` | `current-state-truth` | if no weights, render `n/a` | Herfindahl concentration from current holdings/sector weights |
+| Top sector / top 3 sectors weight | summary cards in `ExposurePanel.tsx` | `analysis.current_state_concentration.top_sector_weight`, `top_3_sector_weight` | `current-state-truth` | if no sectors, render `n/a` | sector concentration from current holdings metadata; `"Unclassified"` weight counts the same as any other sector here |
+| Position HHI / sector HHI | summary cards in `ExposurePanel.tsx` | `analysis.current_state_concentration.position_hhi`, `sector_hhi` | `current-state-truth` | if no weights, render `n/a` | Herfindahl concentration from current holdings/sector weights; `sector_hhi` includes the `"Unclassified"` bucket as one bucket among others |
 | Effective holdings | summary card in `ExposurePanel.tsx` | `analysis.current_state_concentration.effective_holdings` | `current-state-truth` | if HHI is `0` or unavailable, render `n/a` | computed as `1 / position_hhi` |
+
+### Sector classification provenance (`classification_source`) — backend-internal, not a contract row (US-37.1)
+
+`Instrument.classification_source` (`app/schemas/instruments.py`) records which
+mechanism resolved (or failed to resolve) an equity's `sector` — `"static"`,
+`"fmp_identity_confirmed"`, `"unavailable"`, or `None`. **This is a
+backend-internal field, not currently serialized to the client, and it is not
+listed as its own row in the tables above by design, not by oversight.**
+Confirmed: no `Instrument`-shaped type exists in
+`apps/desktop/src/features/portfolio/types.ts`; `ExposureResult.snapshot.instruments`
+is the separate, unrelated `ImportedInstrument` type (raw broker-parsed data,
+pre-classification). Do not add a `classification_source` row to this
+document as a "missing" contract field unless a future story actually
+serializes it to the client — see `docs/finance/financial-methodology.md` §
+Sector/Industry Classification — Source and Resolution for the full
+provenance semantics.
 
 ### Benchmark overlap section
 

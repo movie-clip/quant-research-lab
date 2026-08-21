@@ -5,12 +5,19 @@ from app.domain.ledger import snapshot_to_ledger
 from app.instruments import InstrumentRegistry
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.reconciliation import PortfolioOverview
+from app.services.market_data import MarketDataService
+
+# Epic 37 / US-37.1 (AC9): sector bucket for an equity that no source (static
+# registry, or identity-confirmed FMP) resolved a sector for. Distinct from,
+# and never coerced into, get_sector()'s own "Other" literal.
+UNCLASSIFIED_SECTOR_LABEL = "Unclassified"
 
 
 def build_portfolio_overview(snapshot: ImportedPortfolioSnapshot) -> PortfolioOverview:
     ledger = snapshot_to_ledger(snapshot)
     instrument_registry = InstrumentRegistry()
-    metadata = instrument_registry.attach_snapshot_metadata(snapshot)
+    market_data = MarketDataService()
+    metadata = instrument_registry.attach_snapshot_metadata(snapshot, market_data=market_data)
 
     # US-30.5a (audit F-7): every total and weight below is summed in the BASE
     # currency. Raw-summing `position.market_value` mixed EUR/GBP/USD numerals
@@ -47,7 +54,10 @@ def build_portfolio_overview(snapshot: ImportedPortfolioSnapshot) -> PortfolioOv
     sector_position_breakdown: defaultdict[str, list[dict[str, float | str]]] = defaultdict(list)
     for position, value in valued_positions:
         instrument = metadata.get(position.symbol)
-        sector = instrument.sector if instrument and instrument.sector else instrument_registry.get_sector(position.symbol)
+        if instrument is not None:
+            sector = instrument.sector or UNCLASSIFIED_SECTOR_LABEL
+        else:
+            sector = instrument_registry.get_sector(position.symbol)  # unchanged, defensive-only
         sector_totals[sector] += value
         sector_position_breakdown[sector].append(
             {
