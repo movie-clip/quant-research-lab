@@ -1272,7 +1272,10 @@ constituents remains its own separate, hardcoded keyword/proxy-ticker
 mechanism, undocumented here, and unchanged by US-37.1
 (`docs/tech-debt-register.md`, `risk.py:1485-1499,1537-1549`, tracked as a
 distinct, still-open gap). Do not assume that mechanism follows the
-resolution order below.
+resolution order below. It also does **not** cover direct-held ETF
+classification — a third, separate branch, covered by its own
+"### Direct-held ETF branch classification (US-39.1)" subsection below,
+after the look-through subsection.
 
 ### Resolution order (equity branch only)
 
@@ -1516,6 +1519,158 @@ Contract rule:
   via the static registry) or `"Unclassified"` — there is no dynamic,
   FMP-sourced tier for look-through constituents, because no identity evidence
   exists to gate one
+
+### Direct-held ETF branch classification (US-39.1)
+
+The scope note above excluded direct-held ETF classification. This subsection
+covers it — a third, separate branch from both the equity branch above and
+the look-through subsection immediately above this one.
+`InstrumentRegistry.classify_imported_instrument`'s ETF branch previously
+defaulted every non-curated, non-keyword-matched ETF's `sector` to the
+literal `"Broad Market"` — a claim about the fund's *intent* (index-tracking)
+asserted with no evidence behind it. US-39.1 removes that default and
+replaces it with an identity-gated, dominance-thresholded dynamic lookup,
+mirroring the equity branch's shape but reading a different FMP field: a
+direct-held ETF's `sector` field on FMP's general company-profile endpoint is
+confirmed unreliable (it returns the fund sponsor's own "Financial Services"
+/ "Asset Management" vehicle classification for every ETF tested, never a
+thematic answer) — the same finding US-38.1's Out-of-scope note already
+recorded for look-through constituents. Instead, this branch reads FMP's
+`/stable/etf/sector-weightings` endpoint, which returns the fund's actual
+sector composition as a weighted breakdown.
+
+#### Resolution order (direct-held ETF branch only)
+
+```text
+classify_etf(imported_instrument) -> (sector: str | None, classification_source):
+
+  1. Static registry lookup (unchanged, pre-dates US-39.1):
+     if normalize_symbol(imported.symbol) is a curated INSTRUMENT_DEFINITIONS entry:
+         return (curated_sector, "static")
+
+  2. Identity-gated FMP sector-weightings lookup (US-39.1, opt-in — same
+     opt-in mechanism as the equity branch's "Opt-in wiring" above):
+     if a MarketDataService instance was supplied:
+         profile = MarketDataService.get_company_profile(imported.symbol)
+         if lookup raises, or profile is empty/has no `isin`:
+             return (None, "unavailable")
+         if normalize_isin(imported.isin) != normalize_isin(profile.get("isin"))
+            or either side is empty:
+             return (None, "unavailable")          # ISIN mismatch OR no ISIN evidence
+         weights = MarketDataService.get_etf_sector_weightings(imported.symbol)
+         if lookup raises, or weights is empty, or total reported weight <= 0:
+             return (None, "unavailable")
+         top_sector, top_weight = the weight-vector row with the largest weight
+         if top_weight / total_weight < DOMINANCE_THRESHOLD (0.55):
+             return (None, "unavailable")           # genuinely mixed-theme, never "Broad Market"
+         mapped_sector = SECTOR_TAXONOMY_MAP.get(top_sector)
+         if mapped_sector is None:                  # top bucket's FMP string not in the map
+             return (None, "unavailable")
+         return (mapped_sector, "fmp_etf_sector_weighting_confirmed")
+     else:
+         return (None, None)                        # no lookup attempted at all
+
+  3. Nothing resolved -> instrument.sector = None.
+```
+
+Implementation:
+- `services/quant-engine/app/instruments/etf_sector_resolution.py` ->
+  `resolve_etf_sector(...)`, `DOMINANCE_THRESHOLD`
+- `services/quant-engine/app/instruments/registry.py` ->
+  `InstrumentRegistry.classify_imported_instrument(...)` (ETF branch)
+
+Note the ordering difference from the pseudocode above's identity gate: the
+implementation checks the ISIN match **before** fetching sector-weightings
+(not after), so a wrong-security candidate never triggers the second FMP
+call at all — the pseudocode groups both FMP reads under one "if a
+MarketDataService instance was supplied" block for readability, but the
+identity gate is a hard short-circuit ahead of the weightings fetch.
+
+**Opt-in wiring.** Identical mechanism to the equity branch — see "Opt-in
+wiring" above. The ETF branch reads the same `market_data:
+MarketDataService | None` keyword-only parameter already threaded through
+`classify_imported_instrument` for the equity branch; no new parameter, no
+new call-site wiring.
+
+**The identity gate, and why it is load-bearing.** Reuses the equity
+branch's own mechanism and rationale verbatim — see "The identity gate, and
+why it is load-bearing" above rather than re-deriving it here. The
+`SBIO`/`SBIO.L` case is this branch's own live-confirmed collision instance:
+the bare ticker `"SBIO"` resolves to a *different* security on FMP (a
+US-listed fund, ISIN `US00162Q5936`) than the statement's actual holding
+(Invesco NASDAQ Biotech UCITS ETF, LSE, ISIN `IE00BQ70R696`) — the identity
+gate is what prevents that wrong security's sector-weightings from ever
+being read.
+
+**Sector-taxonomy mapping.** This branch reuses the exact same
+`SECTOR_TAXONOMY_MAP` the equity branch uses (see "Sector-taxonomy mapping
+table" above) — there is no separate ETF taxonomy table. The map is applied
+to the top-weighted sector bucket's FMP string, not to a `sector` field, but
+the mapping table itself, its values and its "unmapped string is never
+passed through raw" rule are identical and shared, imported directly from
+`equity_sector_resolution.py` rather than duplicated.
+
+**The `DOMINANCE_THRESHOLD = 55%` rule.** A dynamically-resolved sector is
+accepted only when the top-weighted sector bucket's share of the fund's
+*total reported weight* is at least `0.55` (a fraction, not a percentage —
+scale-invariant to whether FMP reports weights on a 0-100 or 0-1 basis,
+since only the ratio top/total is used). Human-confirmed 2026-08-24 against
+a live evidence table spanning eight ETFs: it captures QQQ (60.3%) and GRID
+(58.4%) with margin, and cleanly excludes ICLN (41.4%) and SPY (37.4%) with
+margin, while every unambiguous single-sector fund tested (SBIO, XLV, IBB,
+XLF, 98-100% top share) stays unambiguous on either side of the line. Below
+threshold, the fund is treated as genuinely mixed-theme and resolves to no
+classification — **never** a fallback to `"Broad Market"`, even though that
+literal is tempting by analogy for a diversified-looking weight vector.
+`"Broad Market"` is a claim about a fund's *intent* that a weight vector
+alone cannot establish: GRID (58% Industrials) and ICLN (41%/30%/22% across
+three sectors) are both numerically diversified in the same sense as SPY but
+are thematic funds, not broad-market ones. The honest answer below threshold
+is `"Unclassified"`, the same "never redistribute, never guess" discipline
+already documented above for the equity branch and the look-through path.
+
+Implementation detail: the raw per-row weight field is defensively coerced
+(`etf_sector_resolution.py::_coerce_weight`) to tolerate either a plain
+numeric value or a `"NN.NN%"`-style string, since the live evidence
+gathered for this story rendered plain numbers but FMP's legacy v3 surface
+is known to return percentage strings on some routes; a row whose weight
+cannot be coerced is excluded from the weight vector rather than treated as
+zero or crashing the import.
+
+**`classification_source` — the new literal.** This branch adds one new
+value to `Instrument.classification_source` (see "`classification_source` —
+provenance, not a trust-ladder rung" above for the full field semantics,
+unchanged here):
+
+- `"fmp_etf_sector_weighting_confirmed"` — the dynamic sector-weightings
+  lookup resolved it: the identity gate passed AND the top sector bucket's
+  share of total weight cleared `DOMINANCE_THRESHOLD`. Deliberately
+  **distinct** from `"fmp_identity_confirmed"` even though both require the
+  same ISIN-match gate — the equity tier resolves via a direct string
+  mapping of `profile["sector"]`, this tier via a structurally different
+  mechanism, a weight-vector dominance rule over a different endpoint's
+  response. Collapsing the two into one literal would lose the traceability
+  distinction guardrail 2 exists to preserve.
+
+Contract rule:
+- a direct-held ETF's sector is either curated (`"static"`), FMP-sourced and
+  identity-confirmed via the dominance-threshold rule
+  (`"fmp_etf_sector_weighting_confirmed"`), or unresolved — there is no
+  fourth outcome, and an unresolved ETF is disclosed as `"Unclassified"`,
+  never silently defaulted to `"Broad Market"` or folded into any other
+  named sector
+- a dynamically-resolved sector is never used without a matching, present
+  ISIN on both the statement and the FMP profile, checked before the
+  sector-weightings endpoint is ever called
+- a top-weighted sector bucket below `DOMINANCE_THRESHOLD` (55%) never
+  resolves to a sector, regardless of how plausible a "Broad Market" guess
+  might look
+- an FMP sector-weightings string not present in `SECTOR_TAXONOMY_MAP` is
+  never passed through as a new, unmapped sector value
+- `category` (Sector/Thematic/Broad Market/Bond/Commodity ETF) is a
+  completely separate field, still derived from the pre-existing
+  keyword-substring matcher on the broker's free-text description — US-39.1
+  resolves `sector` only and leaves `category` derivation untouched
 
 ## Risk Contribution and Concentration
 

@@ -13,10 +13,18 @@ from app.services.market_data import MarketDataService
 UNCLASSIFIED_SECTOR_LABEL = "Unclassified"
 
 
-def build_portfolio_overview(snapshot: ImportedPortfolioSnapshot) -> PortfolioOverview:
+def build_portfolio_overview(
+    snapshot: ImportedPortfolioSnapshot, *, market_data: object | None = None
+) -> PortfolioOverview:
+    # `market_data` is an injection seam for the dashboard golden pipeline
+    # (US-21.4/US-39.1.7): the generator passes a deterministic frozen provider
+    # so goldens don't depend on the live FMP cache. Production callers leave
+    # it None and get a live MarketDataService — mirrors
+    # run_imported_dashboard_history's exact seam shape.
     ledger = snapshot_to_ledger(snapshot)
     instrument_registry = InstrumentRegistry()
-    market_data = MarketDataService()
+    if market_data is None:
+        market_data = MarketDataService()
     metadata = instrument_registry.attach_snapshot_metadata(snapshot, market_data=market_data)
 
     # US-30.5a (audit F-7): every total and weight below is summed in the BASE

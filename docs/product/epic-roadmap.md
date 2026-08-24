@@ -2,13 +2,14 @@
 
 *Living execution snapshot. Updated: **2026-08-24**.*
 
-**Every epic is complete.** Most recently shipped: **Epic 38 —
-Sector-Classification Follow-Through: ETF Look-Through & Diagnostic
-Integrity** (2 stories, closed 2026-08-24), preceded by **Epic 37 — Dynamic
+**Every epic is complete.** Most recently shipped: **Epic 39 — Direct-Held
+ETF Sector Classification** (1 story, closed 2026-08-24), preceded by
+**Epic 38 — Sector-Classification Follow-Through: ETF Look-Through &
+Diagnostic Integrity** (2 stories, closed 2026-08-24), **Epic 37 — Dynamic
 Equity Sector Classification** (1 story, closed 2026-08-21), **Epic 36 —
 Findings-First Doc & Gate Hygiene** (3 stories, closed 2026-08-20), **Epic 35 —
 Market-Data Failure Honesty** (3 stories, closed 2026-08-19) and **Epic 34 —
-An Answerable Dashboard** (9 stories, closed 2026-08-19). Epics 13 and 18–37
+An Answerable Dashboard** (9 stories, closed 2026-08-19). Epics 13 and 18–38
 are complete; see each section below.
 
 **Open items**, none of which block anything:
@@ -69,6 +70,43 @@ The next epic is unscoped. `main` now requires CI to pass before merge.
 
 ---
 
+
+## Completed Epic: Epic 39 — Direct-Held ETF Sector Classification
+
+**PRD:** [`docs/product/prd/epic-39-direct-held-etf-sector-classification.md`](product/prd/epic-39-direct-held-etf-sector-classification.md)
+
+**Closed 2026-08-24. All 1 story Done.**
+
+Seeded by `docs/tech-debt-register.md:186`'s keyword-classifier clause
+(tagged `epic-24`), surfaced via a fresh user request rather than a
+health-review pass — same lineage as Epic 37 (the row's equity-branch
+clause) and Epic 38 (the row's companion `risk.py` look-through finding,
+row 177). Closes the third and final code path off that lineage: the
+direct-held ETF branch of `InstrumentRegistry.classify_imported_instrument`,
+the one sector-classification path neither Epic 37 nor Epic 38 touched.
+Ships as its own new, dedicated single-story epic rather than reopening
+Epic 38 (closed the same day), per the same placement precedent Epic 37 and
+Epic 38 both used.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-39.1 | Direct-held ETF sector classification stops relying on keyword-substring matching | Done |
+
+Single-story epic. No build-order constraints.
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-08-24 | US-39.1 | `instruments/registry.py`'s ETF branch: every keyword-driven `sector = ...` assignment (the `"Broad Market"` default and all 9 elif branches) removed, replaced by identity-gated dynamic classification (new `instruments/etf_sector_resolution.py`, mirrors `equity_sector_resolution.py`'s shape) — ISIN identity gate → `DOMINANCE_THRESHOLD = 55%` dominance check on `/stable/etf/sector-weightings` → shared sector-taxonomy map, else no classification, never `"Broad Market"`; `category` derivation left byte-identical. New `SymbolResolutionRule` for SBIO (`SBIO.L` only, no bare `"SBIO"`) prevents a proven live ticker-collision (bare `"SBIO"` resolves to a different, US-listed security on FMP) at the candidate-list level. New `ClassificationSource` literal `"fmp_etf_sector_weighting_confirmed"`, kept distinct from the equity tier's `"fmp_identity_confirmed"`. All 12 ACs SATISFIED per tech-lead INTEGRATION's trace and the acceptance reviewer's independent AC-by-AC trace; independently re-derived by quant-analyst AUDIT against real on-disk FMP cache data (no mocks), matching the story's SBIO claim exactly. 878 → 905 backend (+27), 331 frontend unchanged; tsc + dead-code gate clean. Docs: `financial-methodology.md` gains "Direct-held ETF branch classification (US-39.1)"; `exposure-fields.md`'s enumeration prose lists the new literal; `tech-debt-register.md:186` narrowed (keyword-classifier clause RESOLVED, futures-reference-data clause untouched); `current-product-state.md` extended. **Unplanned T-39.1.7** fixed a pre-existing golden-export pipeline determinism defect (latent since US-37.1, first exposed by this story's SBIO dynamic lookup): `build_portfolio_overview` always constructed a real, unmocked `MarketDataService()` with no injection seam, so the bare-script golden export and pytest's autouse-mocked in-process render disagreed on SBIO's sector. Fixed with a keyword-only `market_data` parameter defaulting to prior behavior for every existing caller; `dashboardGoldens.ts` regenerated (SBIO → its own "Unclassified" bucket, weight preserved, no other symbol changed). Both gates judged the fix methodologically sound and narrowly scoped. Two small, non-blocking carries recorded in the PRD's Notes section: the golden fixture no longer exercises SBIO's positive resolution path end-to-end (covered instead by 17 unit tests + quant-audit's own out-of-band recomputation), and `RecordingMarketData`'s docstring overclaims full delegation (pre-existing, untouched). Both gates (quant-audit, integration) and the acceptance reviewer returned PASS — all 12 ACs verified SATISFIED, no GAP/DRIFTED. |
+
+Final state (per 14-review.md's independently re-run verification): backend
+905 passed, frontend 331 tests / 37 files passed, `tsc --noEmit` clean,
+dead-code gate (ruff + vulture + knip) clean.
+
+---
 
 ## Completed Epic: Epic 38 — Sector-Classification Follow-Through: ETF Look-Through & Diagnostic Integrity
 

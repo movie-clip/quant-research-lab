@@ -439,6 +439,45 @@ def test_build_portfolio_overview_discloses_unclassified_equity_bucket(mocker) -
     assert sum(item["weight"] for item in overview.sector_allocation) == pytest.approx(1.0, abs=1e-4)
 
 
+def test_build_portfolio_overview_discloses_unclassified_direct_held_etf_bucket(mocker) -> None:
+    """US-39.1 AC11: a direct-held ETF with no static-registry hit and a
+    failed dynamic lookup (no FMP coverage at all) is disclosed under the
+    same distinct "Unclassified" bucket as the equity branch — never
+    "Broad Market" (the removed keyword-fallthrough default) and never
+    dropped from the sector weight total. Mirrors
+    test_build_portfolio_overview_discloses_unclassified_equity_bucket's
+    shape, ETF instead of equity input."""
+    mocker.patch("app.analytics.overview.MarketDataService").return_value.get_company_profile.return_value = None
+
+    snapshot = ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers", imported_at=datetime(2026, 1, 1),
+            source_path="sample.pdf", detected_format="pdf",
+            account_id="U123", base_currency="USD", statement_period="2026", page_count=1,
+        ),
+        statements=[],
+        statement_totals=None,
+        instruments=[ImportedInstrument(symbol="ZZZ10", description="Some New Unclassified UCITS ETF", instrument_type="ETF")],
+        cash_balances=[],
+        positions=[
+            ImportedPosition(as_of_date=date(2026, 1, 1), symbol="AAPL", quantity=1.0, cost_basis=300.0, close_price=300.0, market_value=300.0, unrealized_pnl=0.0, currency="USD"),
+            ImportedPosition(as_of_date=date(2026, 1, 1), symbol="ZZZ10", quantity=1.0, cost_basis=100.0, close_price=100.0, market_value=100.0, unrealized_pnl=0.0, currency="USD"),
+        ],
+        ledger_entries=[],
+    )
+
+    overview = build_portfolio_overview(snapshot)
+
+    sectors = {item["sector"]: item for item in overview.sector_allocation}
+    assert "Unclassified" in sectors
+    assert "Broad Market" not in sectors
+    assert sectors["Unclassified"]["weight"] == pytest.approx(0.25, abs=1e-4)
+    assert sectors["Unclassified"]["market_value"] == pytest.approx(100.0, abs=0.01)
+    assert any(item["symbol"] == "ZZZ10" for item in overview.sector_position_breakdown["Unclassified"])
+    # Never dropped from the total: every bucket's weight still sums to 1.0.
+    assert sum(item["weight"] for item in overview.sector_allocation) == pytest.approx(1.0, abs=1e-4)
+
+
 def test_build_portfolio_overview_no_instrument_record_is_unclassified_not_other(mocker) -> None:
     """US-37.1 CR-1 regression: a position with ZERO matching ImportedInstrument
     records (not merely an unresolved sector on a known instrument) falls

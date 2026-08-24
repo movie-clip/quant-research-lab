@@ -45,10 +45,11 @@ export const ib2026DashboardGolden = {
     "Broad Market": "19.3%",
     "Commodities": "15.0%",
     "Defense": "10.6%",
-    "Health Care": "1.6%",
     "Communication Services": "1.5%",
     "Financials": "1.2%",
-    "Consumer Discretionary": "1.1%"
+    "Consumer Discretionary": "1.1%",
+    "Health Care": "1.1%",
+    "Unclassified": "0.6%"
   },
   "draftCapitalCheck": "$0.00",
   "draftCapitalHelper": "Remaining capital after edits \u00b7 Leverage 1.00x",
@@ -4422,11 +4423,6 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "weight": 0.1088
       },
       {
-        "sector": "Health Care",
-        "market_value": 1008.91,
-        "weight": 0.0155
-      },
-      {
         "sector": "Communication Services",
         "market_value": 948.08,
         "weight": 0.0146
@@ -4440,6 +4436,16 @@ export const ib2026ImportedDashboardGoldenFixture = {
         "sector": "Consumer Discretionary",
         "market_value": 701.6,
         "weight": 0.0108
+      },
+      {
+        "sector": "Health Care",
+        "market_value": 651.86,
+        "weight": 0.01
+      },
+      {
+        "sector": "Unclassified",
+        "market_value": 357.05,
+        "weight": 0.0055
       }
     ],
     "sector_position_breakdown": {
@@ -4482,11 +4488,6 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "symbol": "CRSP",
           "market_value": 432.56,
           "weight": 0.0067
-        },
-        {
-          "symbol": "SBIO",
-          "market_value": 357.05,
-          "weight": 0.0055
         },
         {
           "symbol": "EDIT",
@@ -4535,6 +4536,13 @@ export const ib2026ImportedDashboardGoldenFixture = {
           "symbol": "PYPL",
           "market_value": 767.0,
           "weight": 0.0118
+        }
+      ],
+      "Unclassified": [
+        {
+          "symbol": "SBIO",
+          "market_value": 357.05,
+          "weight": 0.0055
         }
       ],
       "Fixed Income": [

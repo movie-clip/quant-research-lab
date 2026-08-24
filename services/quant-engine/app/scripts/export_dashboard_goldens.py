@@ -194,7 +194,7 @@ def _build_expected_values(snapshot: dict[str, Any], overview: dict[str, Any], h
 
 
 def _build_fixture(snapshot_model: Any, *, range_key: str, market_data: object) -> tuple[dict[str, Any], dict[str, Any]]:
-    overview_model = build_portfolio_overview(snapshot_model)
+    overview_model = build_portfolio_overview(snapshot_model, market_data=market_data)
     history_model = run_imported_dashboard_history(snapshot_model, "SPY", market_data=market_data)
 
     snapshot = _normalize_snapshot(_serialize(snapshot_model))

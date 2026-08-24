@@ -10,12 +10,13 @@ Single source of truth for:
   `MarketDataService` with a MagicMock serving given histories plus a real
   `last_fetch_meta` (every engine imports MarketDataService at module load, so
   the mock must target the ENGINE module, not app.services.market_data);
-- `FakeMarketData` (US-37.2, T-37.2.3) — a duck-typed `get_company_profile`
-  fake for tests that need per-symbol FMP-profile responses without mocking
-  the whole `MarketDataService`. Consolidates what were three
-  near-identical local classes (`_FakeMarketData` in
-  `test_instrument_enrichment.py` / `test_equity_sector_resolution.py`,
-  `_SpyMarketData` in `test_instrument_registry.py`).
+- `FakeMarketData` (US-37.2, T-37.2.3; extended US-39.1, T-39.1.6) — a
+  duck-typed `get_company_profile` (+ `get_etf_sector_weightings`) fake for
+  tests that need per-symbol FMP responses without mocking the whole
+  `MarketDataService`. Consolidates what were three near-identical local
+  classes (`_FakeMarketData` in `test_instrument_enrichment.py` /
+  `test_equity_sector_resolution.py`, `_SpyMarketData` in
+  `test_instrument_registry.py`).
 
 Policy: new engine tests import from here instead of re-implementing builders
 (see .claude/skills/write-tests/SKILL.md).
@@ -136,8 +137,17 @@ class FakeMarketData:
       symbol" fake.
     - `raise_for`: symbols whose call raises `RuntimeError` instead of
       returning, simulating an FMP failure.
+    - `sector_weightings` (US-39.1, T-39.1.6): symbol -> list[dict] rows
+      returned by `get_etf_sector_weightings`. An unconfigured symbol yields
+      `[]` (no coverage), matching `MarketDataService.get_etf_sector_weightings`'s
+      own empty-list-on-no-coverage contract.
+    - `raise_for_weightings`: symbols whose `get_etf_sector_weightings` call
+      raises `RuntimeError` instead of returning — a second, distinct
+      exception surface from `raise_for` (`resolve_etf_sector` makes two
+      separate network calls, each independently fail-safe).
 
-    Records every symbol looked up, in call order, in `.calls`.
+    Records every symbol looked up, in call order, in `.calls`
+    (`get_company_profile`) and `.weightings_calls` (`get_etf_sector_weightings`).
     """
 
     def __init__(
@@ -146,17 +156,28 @@ class FakeMarketData:
         *,
         profile: dict[str, Any] | None = None,
         raise_for: set[str] | None = None,
+        sector_weightings: dict[str, list[dict]] | None = None,
+        raise_for_weightings: set[str] | None = None,
     ) -> None:
         self.responses = responses or {}
         self.profile = profile
         self.raise_for = raise_for or set()
         self.calls: list[str] = []
+        self.sector_weightings = sector_weightings or {}
+        self.raise_for_weightings = raise_for_weightings or set()
+        self.weightings_calls: list[str] = []
 
     def get_company_profile(self, symbol: str) -> dict[str, Any] | None:
         self.calls.append(symbol)
         if symbol in self.raise_for:
             raise RuntimeError(f"FMP boom for {symbol}")
         return self.responses.get(symbol, self.profile)
+
+    def get_etf_sector_weightings(self, symbol: str) -> list[dict[str, Any]]:
+        self.weightings_calls.append(symbol)
+        if symbol in self.raise_for_weightings:
+            raise RuntimeError(f"FMP boom for {symbol}")
+        return self.sector_weightings.get(symbol, [])
 
 
 def install_market_data_mock(

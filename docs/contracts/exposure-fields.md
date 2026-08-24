@@ -219,11 +219,12 @@ Confidence semantics currently mean:
 | Position HHI / sector HHI | summary cards in `ExposurePanel.tsx` | `analysis.current_state_concentration.position_hhi`, `sector_hhi` | `current-state-truth` | if no weights, render `n/a` | Herfindahl concentration from current holdings/sector weights; `sector_hhi` includes the `"Unclassified"` bucket as one bucket among others |
 | Effective holdings | summary card in `ExposurePanel.tsx` | `analysis.current_state_concentration.effective_holdings` | `current-state-truth` | if HHI is `0` or unavailable, render `n/a` | computed as `1 / position_hhi` |
 
-### Sector classification provenance (`classification_source`) — backend-internal, not a contract row (US-37.1)
+### Sector classification provenance (`classification_source`) — backend-internal, not a contract row (US-37.1, US-39.1)
 
 `Instrument.classification_source` (`app/schemas/instruments.py`) records which
-mechanism resolved (or failed to resolve) an equity's `sector` — `"static"`,
-`"fmp_identity_confirmed"`, `"unavailable"`, or `None`. **This is a
+mechanism resolved (or failed to resolve) an equity's or direct-held ETF's
+`sector` — `"static"`, `"fmp_identity_confirmed"`,
+`"fmp_etf_sector_weighting_confirmed"`, `"unavailable"`, or `None`. **This is a
 backend-internal field, not currently serialized to the client, and it is not
 listed as its own row in the tables above by design, not by oversight.**
 Confirmed: no `Instrument`-shaped type exists in

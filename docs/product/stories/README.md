@@ -18,6 +18,18 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
+### Epic 39 — Direct-Held ETF Sector Classification (complete)
+
+PRD: [`prd/epic-39-direct-held-etf-sector-classification.md`](../prd/epic-39-direct-held-etf-sector-classification.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-39.1](US-39.1-direct-held-etf-sector-classification.md) | Direct-held ETF sector classification stops relying on keyword-substring matching | Backend — deletes the keyword-substring `sector` matcher (and its silent `"Broad Market"` default) from `instruments/registry.py`'s direct-held ETF branch; replaces with identity-gated dynamic classification (new `etf_sector_resolution.py`: ISIN gate → 55% dominance threshold on `/stable/etf/sector-weightings` → shared taxonomy map, else "Unclassified"); new SBIO `SymbolResolutionRule` prevents a proven live ticker-collision; `category` derivation unaffected | Done |
+
+Single-story epic. No build-order constraints.
+
+---
+
 ### Epic 38 — Sector-Classification Follow-Through: ETF Look-Through & Diagnostic Integrity (complete)
 
 PRD: [`prd/epic-38-sector-classification-follow-through.md`](../prd/epic-38-sector-classification-follow-through.md)

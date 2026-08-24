@@ -14,12 +14,19 @@ InstrumentKind = Literal["spot", "continuous_future", "future_contract"]
 # 3: truth-class separation). "static" = curated INSTRUMENT_DEFINITIONS hit.
 # "fmp_identity_confirmed" = resolved via FMP company profile, accepted only
 # because the statement's ISIN and the FMP profile's ISIN were both present
-# and matched. "unavailable" = an FMP resolution attempt was made and did not
-# clear the identity gate (mismatch, missing evidence either side, no/empty
-# profile, unmapped sector string, or lookup failure) — collapsed to one value
-# by design (see 05-technical-plan.md § Decisions #3); the distinction between
+# and matched. "fmp_etf_sector_weighting_confirmed" = resolved via FMP's ETF
+# sector-weightings endpoint for a direct-held ETF, accepted only because the
+# statement ISIN and the FMP profile ISIN matched AND the top sector bucket's
+# share of total weight cleared DOMINANCE_THRESHOLD. Deliberately distinct
+# from "fmp_identity_confirmed": the equity tier resolves via a direct string
+# mapping, this tier via a weight-vector dominance rule — collapsing them
+# loses the traceability distinction guardrail 2 exists to preserve (US-39.1).
+# "unavailable" = an FMP resolution attempt was made and did not clear the
+# identity gate (mismatch, missing evidence either side, no/empty profile,
+# unmapped sector string, or lookup failure) — collapsed to one value by
+# design (see 05-technical-plan.md § Decisions #3); the distinction between
 # these sub-cases is preserved only in code structure, not exposed.
-ClassificationSource = Literal["static", "fmp_identity_confirmed", "unavailable"]
+ClassificationSource = Literal["static", "fmp_identity_confirmed", "fmp_etf_sector_weighting_confirmed", "unavailable"]
 
 
 class Instrument(BaseModel):

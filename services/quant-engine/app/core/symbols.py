@@ -59,6 +59,14 @@ DEFAULT_SYMBOL_RULES: tuple[SymbolResolutionRule, ...] = (
     # security — the DFND wrong-fund lesson). The US fund is available only as
     # the explicit, labeled proxy (allow_proxy_fallback=True).
     SymbolResolutionRule(canonical_symbol="CIBR", quote_candidates=("CIBR.L",), history_candidates=("CIBR.L",), holdings_candidates=("CIBR.L",), proxy_candidates=("CIBR",), aliases=("CIBR.L",)),
+    # SBIO (statement: Invesco NASDAQ Biotech UCITS ETF, LSE, ISIN
+    # IE00BQ70R696) -> SBIO.L on FMP/Yahoo. Deliberately NO bare "SBIO"
+    # candidate: on FMP that symbol is a DIFFERENT US-listed security (ALPS
+    # Medical Breakthroughs ETF, isin US00162Q5936 -- confirmed live,
+    # 03-quant-research.md Live evidence log item 3). Same wrong-fund trap as
+    # SEMI/CIBR/DFND. No US proxy is defined -- none was requested by this
+    # story and none is needed for the identity gate to fail closed.
+    SymbolResolutionRule(canonical_symbol="SBIO", quote_candidates=("SBIO.L",), history_candidates=("SBIO.L",), holdings_candidates=("SBIO.L",), aliases=("SBIO.L",)),
 )
 
 

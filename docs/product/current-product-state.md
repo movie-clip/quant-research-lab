@@ -85,6 +85,20 @@ Shows current portfolio composition:
   fund sponsor's own "Financial Services" classification), so this story
   deliberately did not re-derive ETF-level sector from FMP directly — tracked
   as the open remainder of `docs/tech-debt-register.md`'s F-B row.
+  **Direct-held ETFs now resolve the same way too (US-39.1)**: a direct-held
+  ETF (e.g. SBIO) outside the static registry no longer silently defaults to
+  `"Broad Market"` on a keyword-substring match (or lack of one) against the
+  broker's free-text description. It instead reads FMP's
+  `/stable/etf/sector-weightings` endpoint — a different endpoint from the
+  general company-profile `sector` field the paragraph above already flagged
+  as unreliable for ETFs — gated on the same statement-ISIN-vs-FMP-profile-ISIN
+  identity check, and accepted as a single sector only when the top-weighted
+  bucket clears a 55% dominance threshold of the fund's total reported
+  weight. Below threshold, or on any lookup failure, the ETF resolves to the
+  same disclosed **"Unclassified"** bucket, never `"Broad Market"` as a
+  guess. `category` (Sector/Thematic/Broad Market/Bond/Commodity ETF) is
+  unaffected — still the pre-existing keyword-substring derivation, resolved
+  independently of `sector`.
 - **Factor return attribution card**: cumulative chart + period attribution table; 20d/60d/252d window. Synthetic-history Trust badge.
 - **Factor Drift Summary card** (Epic 16): ranked per-factor drift (`latest − reference` rolling loading) over a 20d/60d/252d window, rendered as divergent magnitude bars (positive right of baseline, negative left) with signed value + ▲/▼ direction marker. Reuses the engine's existing `rolling_loadings_<window>` series — no backend. Factors null at the window endpoints are excluded (never zero-imputed); fails closed to an EmptyState on insufficient history. Synthetic-history Trust badge.
 - **Multi-benchmark correlation table**: ρ / β / R² vs SPY, QQQ, GLD, IEF, VT; rows sorted by |ρ| desc, unavailable last. Synthetic-history Trust badge.

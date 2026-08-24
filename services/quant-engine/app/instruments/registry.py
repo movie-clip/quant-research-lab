@@ -244,41 +244,45 @@ class InstrumentRegistry:
         resolved_currency = currency or imported.currency or "USD"
 
         if instrument_type == "ETF" or listing_exchange == "LSEETF" or "UCITS" in description_upper or "ETF" in description_upper or "ETC" in description_upper:
-            sector = "Broad Market"
             category = "ETF"
 
             if listing_exchange == "LSEETF" or "UCITS" in description_upper:
                 category = "UCITS ETF"
             if "COMMOD" in description_upper or "GOLD" in description_upper or "SILVER" in description_upper or "PRECIOUS" in description_upper:
-                sector = "Commodities"
                 category = "Commodity UCITS ETF" if category == "UCITS ETF" else "Commodity ETF"
             elif "AEROSPACE" in description_upper or "DEF" in description_upper:
-                sector = "Defense"
                 category = "Thematic UCITS ETF" if category == "UCITS ETF" else "Thematic ETF"
             elif "INFORMATION TECHNOLOGY" in description_upper or "INFO TECH" in description_upper or " IT SECTOR" in description_upper:
-                sector = "Technology"
                 category = "Sector UCITS ETF" if category == "UCITS ETF" else "Sector ETF"
             elif "SEMIC" in description_upper or "SEMICONDUCT" in description_upper:
-                sector = "Technology"
                 category = "Thematic UCITS ETF" if category == "UCITS ETF" else "Thematic ETF"
             elif "FINANCIAL" in description_upper:
-                sector = "Financials"
                 category = "Sector UCITS ETF" if category == "UCITS ETF" else "Sector ETF"
             elif "HEALTH CARE" in description_upper or "HEALTHCARE" in description_upper:
-                sector = "Health Care"
                 category = "Sector UCITS ETF" if category == "UCITS ETF" else "Sector ETF"
             elif "BIOTECH" in description_upper:
-                sector = "Health Care"
                 category = "Sector UCITS ETF" if category == "UCITS ETF" else "Sector ETF"
             elif "TREAS" in description_upper or "TRBD" in description_upper or "BOND" in description_upper:
-                sector = "Fixed Income"
                 category = "Bond UCITS ETF" if category == "UCITS ETF" else "Bond ETF"
             elif ("NASDAQ" in description_upper and "100" in description_upper) or "QQQ" in description_upper:
-                sector = "Technology"
                 category = "Thematic UCITS ETF" if category == "UCITS ETF" else "Thematic ETF"
             elif "S&P500" in description_upper or "S&P 500" in description_upper:
-                sector = "Broad Market"
                 category = "Broad Market UCITS ETF" if category == "UCITS ETF" else "Broad Market ETF"
+
+            # ETF branch (US-39.1): opt-in FMP resolution, gated by `market_data`
+            # being supplied -- same shape as the equity branch below. Without
+            # it, no lookup is attempted and this ETF gets no classification.
+            # The pre-US-39.1 "Broad Market" keyword-fallthrough default is
+            # gone: it asserted a fund's *intent* (index-tracking) with no
+            # evidence behind it.
+            sector: str | None = None
+            classification_source: ClassificationSource | None = None
+            if market_data is not None:
+                # Local import: breaks a real import cycle (registry ->
+                # etf_sector_resolution -> instrument_identity -> registry).
+                from app.instruments.etf_sector_resolution import resolve_etf_sector
+
+                sector, classification_source = resolve_etf_sector(imported, market_data)
 
             return _instrument(
                 f"imported-etf-{symbol.lower()}",
@@ -289,6 +293,7 @@ class InstrumentRegistry:
                 category,
                 resolved_currency,
                 exchange=imported.listing_exchange,
+                classification_source=classification_source,
             )
 
         # Equity branch (US-37.1): opt-in FMP resolution, gated by `market_data`

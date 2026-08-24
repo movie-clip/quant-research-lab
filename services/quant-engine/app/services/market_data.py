@@ -522,6 +522,23 @@ class MarketDataService:
                 return rows[0]
         return None
 
+    def get_etf_sector_weightings(self, symbol: str, symbol_overrides: dict[str, list[str]] | None = None) -> list[dict]:
+        requested_symbol = canonicalize_symbol(symbol)
+        for candidate in resolve_symbol_candidates(requested_symbol, symbol_overrides, kind="quote"):
+            was_cached = self._will_be_served_from_cache(
+                "etf-sector-weightings", "etf/sector-weightings", {"symbol": candidate}, self.client.profile_ttl_seconds
+            )
+            try:
+                rows = self.client.get_etf_sector_weightings(candidate)
+            except MarketDataAuthError:
+                raise
+            except Exception:  # noqa: BLE001
+                continue
+            if rows:
+                self.last_fetch_meta[requested_symbol] = {"type": "etf-sector-weightings", "resolved_symbol": candidate, "cached": was_cached}
+                return rows
+        return []
+
     def get_etf_holdings(self, symbol: str, symbol_overrides: dict[str, list[str]] | None = None) -> tuple[str | None, list[dict]]:
         requested_symbol = canonicalize_symbol(symbol)
         for candidate in resolve_etf_holdings_candidates(requested_symbol, symbol_overrides):

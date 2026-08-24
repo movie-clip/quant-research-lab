@@ -349,6 +349,14 @@ class FmpClient:
     def get_profile(self, symbol: str) -> list[dict[str, Any]]:
         return self._get("profile", "profile", {"symbol": symbol}, ttl_seconds=self.profile_ttl_seconds)
 
+    def get_etf_sector_weightings(self, symbol: str) -> list[dict[str, Any]]:
+        return self._get(
+            "etf-sector-weightings",
+            "etf/sector-weightings",
+            {"symbol": symbol},
+            ttl_seconds=self.profile_ttl_seconds,
+        )
+
     def get_income_statements(self, symbol: str, *, limit: int = 8, period: str = "quarter") -> list[dict[str, Any]]:
         return self._get(
             "fundamentals",
