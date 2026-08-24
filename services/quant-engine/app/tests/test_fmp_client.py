@@ -255,6 +255,44 @@ def test_an_unset_key_is_not_treated_as_a_rejected_one(tmp_path) -> None:
     assert "not configured" in str(excinfo.value)
 
 
+# -- US-38.2 (T-38.2.3): the cache-key formula has exactly one home ----------
+
+
+def test_get_and_is_cached_derive_the_cache_key_from_the_same_formula(mocker, tmp_path) -> None:
+    """AC7 — `_get` (the actual lookup) and `is_cached` (`MarketDataService`'s
+    pre-check) must derive their cache key from the SAME
+    `build_cache_identifier` call, not independently-matching literals — or a
+    future change to the formula (a new param, a renamed one) could silently
+    make the pre-check disagree with what `_get` actually looks up, with
+    nothing to catch it. Proven structurally: spying on the bound method
+    itself and asserting both call sites hand it identical arguments, then
+    confirming a real cache entry populated by `_get` is what `is_cached`
+    reports as a hit.
+    """
+    client = FmpClient()
+    client.api_key = "test-key"
+    client.cache = JsonFileCache(tmp_path)
+    build_spy = mocker.spy(client, "build_cache_identifier")
+
+    response = httpx.Response(
+        200,
+        json=[{"symbol": "AAPL", "date": "2026-08-11", "price": 100.0}],
+        request=httpx.Request("GET", "https://example.invalid/x"),
+    )
+    mocker.patch.object(client.client, "get", return_value=response)
+
+    params = {"symbol": "AAPL", "from": "2026-08-01", "to": "2026-08-11"}
+    client._get("history", "historical-price-eod/light", params, ttl_seconds=client.history_ttl_seconds)  # noqa: SLF001
+    fetch_call_args = build_spy.call_args.args
+
+    is_hit = client.is_cached("history", "historical-price-eod/light", params, client.history_ttl_seconds)
+    precheck_call_args = build_spy.call_args.args
+
+    assert is_hit is True, "the entry _get just wrote must be reported as a hit"
+    assert build_spy.call_count == 2
+    assert fetch_call_args == precheck_call_args == ("historical-price-eod/light", params)
+
+
 def test_a_plan_entitlement_response_keeps_its_negative_cache(tmp_path, monkeypatch) -> None:
     """US-35.1 AC8 — 402 is deliberately unchanged, and that is pinned here.
 

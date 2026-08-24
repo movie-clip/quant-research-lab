@@ -38,16 +38,38 @@ class YFinanceClient:
         self.history_ttl_seconds = settings.fmp_history_cache_ttl_seconds
         self.cache = JsonFileCache(Path(settings.fmp_cache_dir)) if settings.fmp_cache_enabled else None
 
+    @staticmethod
+    def _build_cache_identifier(symbol: str, from_date: str, to_date: str) -> str:
+        """The one formula that decides cache-key identity for a yfinance
+        history call (US-38.2 / T-38.2.2). A narrow, independent twin of
+        `FmpClient.build_cache_identifier` — yfinance is a different
+        provider on a different cache line, so it is not shared with FMP's
+        formula, but `get_historical_price_light` and `is_cached` below both
+        derive their key from this single place rather than each keeping
+        their own copy.
+        """
+        return json.dumps(
+            {"path": "yfinance/history", "params": {"symbol": symbol, "from": from_date, "to": to_date}},
+            sort_keys=True,
+        )
+
+    def is_cached(self, symbol: str, from_date: str, to_date: str) -> bool:
+        """Read-only pre-check: would a call with this exact (symbol, from,
+        to) be served from cache right now, with no live request (US-38.2 /
+        T-38.2.2). Never mutates cache state.
+        """
+        if self.cache is None:
+            return False
+        cache_key = self.cache.build_key(_CACHE_NAMESPACE, self._build_cache_identifier(symbol, from_date, to_date))
+        return self.cache.get(cache_key, max_age_seconds=self.history_ttl_seconds) is not None
+
     def get_historical_price_light(self, symbol: str, from_date: str, to_date: str) -> list[dict[str, Any]]:
         """Daily history for `symbol` between `from_date` and `to_date` (inclusive
         of the range yfinance returns), as FMP-shaped row dicts. Returns `[]` when
         Yahoo has no data or any error occurs."""
         cache_key = None
         if self.cache is not None:
-            cache_identifier = json.dumps(
-                {"path": "yfinance/history", "params": {"symbol": symbol, "from": from_date, "to": to_date}},
-                sort_keys=True,
-            )
+            cache_identifier = self._build_cache_identifier(symbol, from_date, to_date)
             cache_key = self.cache.build_key(_CACHE_NAMESPACE, cache_identifier)
             cached = self.cache.get(cache_key, max_age_seconds=self.history_ttl_seconds)
             if cached is not None:

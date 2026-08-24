@@ -155,6 +155,9 @@ def test_exposure_engine_builds_expected_shape_for_ib2026(mocker) -> None:
     assert len(result.lookthrough.top_constituents) > 0
     assert len(result.lookthrough_sector_exposure) > 0
     assert "SPY" in stub.holdings_calls
+    # US-38.1 regression: deleting the two hardcoded keyword-guess fallbacks
+    # never surfaces the literal "Other" label on real statement data.
+    assert "Other" not in {item.sector for item in result.lookthrough_sector_exposure}
 
 
 def test_exposure_engine_builds_expected_shape_for_freedom24_2026(mocker) -> None:

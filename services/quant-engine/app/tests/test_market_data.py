@@ -4,6 +4,7 @@ import pytest
 
 from app.services.market_data import MarketDataService, detect_histories_return_basis, detect_history_return_basis
 from app.services.holdings_history import HoldingsHistoryStore
+from app.clients.yfinance_client import YFinanceClient
 from app.core.symbols import canonicalize_symbol, resolve_proxy_candidates, resolve_symbol_candidates
 
 
@@ -79,6 +80,7 @@ def test_icom_and_vdst_resolve_to_lse_lines() -> None:
 def test_get_historical_prices_uses_etf_holdings_proxy_fallback(mocker) -> None:
     client_mock = mocker.patch("app.services.market_data.FmpClient")
     instance = client_mock.return_value
+    instance.is_cached.return_value = True
     instance.get_historical_price_light.side_effect = [[], [], [{"date": "2024-01-02", "price": 100.0}]]
 
     service = MarketDataService()
@@ -108,6 +110,7 @@ def test_get_historical_prices_does_not_use_proxy_fallback_by_default(mocker) ->
 def test_get_historical_prices_uses_gld_proxy_fallback_for_sgld(mocker) -> None:
     client_mock = mocker.patch("app.services.market_data.FmpClient")
     instance = client_mock.return_value
+    instance.is_cached.return_value = True
     instance.get_historical_price_light.side_effect = [[], [], [{"date": "2024-01-02", "price": 200.0}]]
 
     service = MarketDataService()
@@ -121,6 +124,7 @@ def test_get_historical_prices_uses_gld_proxy_fallback_for_sgld(mocker) -> None:
 def test_get_historical_prices_uses_dbc_proxy_fallback_for_icom(mocker) -> None:
     client_mock = mocker.patch("app.services.market_data.FmpClient")
     instance = client_mock.return_value
+    instance.is_cached.return_value = True
     instance.get_historical_price_light.side_effect = [[], [], [{"date": "2024-01-02", "price": 25.0}]]
 
     service = MarketDataService()
@@ -134,6 +138,7 @@ def test_get_historical_prices_uses_dbc_proxy_fallback_for_icom(mocker) -> None:
 def test_get_historical_prices_uses_slv_proxy_fallback_for_isln(mocker) -> None:
     client_mock = mocker.patch("app.services.market_data.FmpClient")
     instance = client_mock.return_value
+    instance.is_cached.return_value = True
     instance.get_historical_price_light.side_effect = [[], [], [{"date": "2024-01-02", "price": 21.0}]]
 
     service = MarketDataService()
@@ -147,6 +152,7 @@ def test_get_historical_prices_uses_slv_proxy_fallback_for_isln(mocker) -> None:
 def test_get_historical_prices_uses_proxy_for_continuous_future_roots(mocker) -> None:
     client_mock = mocker.patch("app.services.market_data.FmpClient")
     instance = client_mock.return_value
+    instance.is_cached.return_value = True
     instance.get_historical_price_light.side_effect = [[{"date": "2024-01-02", "price": 500.0}]]
 
     service = MarketDataService()
@@ -233,6 +239,7 @@ def test_detect_histories_return_basis_requires_all_populated_histories_to_be_ve
 def test_get_direct_spy_benchmark_history_records_direct_vendor_scope_metadata(mocker) -> None:
     client_mock = mocker.patch("app.services.market_data.FmpClient")
     instance = client_mock.return_value
+    instance.is_cached.return_value = True
     instance.get_historical_price_dividend_adjusted.return_value = [{"date": "2024-01-02", "price": 100.0, "adjClose": 99.5}]
 
     service = MarketDataService()
@@ -263,6 +270,7 @@ def test_get_direct_spy_benchmark_history_records_direct_vendor_scope_metadata(m
 def test_get_direct_verified_benchmark_history_records_direct_vendor_scope_metadata_for_qqq(mocker) -> None:
     client_mock = mocker.patch("app.services.market_data.FmpClient")
     instance = client_mock.return_value
+    instance.is_cached.return_value = True
     instance.get_historical_price_dividend_adjusted.return_value = [{"date": "2024-01-02", "price": 400.0, "adjClose": 399.0}]
 
     service = MarketDataService()
@@ -409,6 +417,7 @@ def test_yfinance_fallback_rows_are_normalized_and_sliced(mocker) -> None:
 def test_verified_benchmark_overlapping_windows_share_canonical_call(mocker) -> None:
     client_mock = mocker.patch("app.services.market_data.FmpClient")
     instance = client_mock.return_value
+    instance.is_cached.return_value = True
     instance.get_historical_price_dividend_adjusted.return_value = [
         {"date": "2024-03-10", "price": 500.0, "adjClose": 499.0},
         {"date": "2024-09-30", "price": 510.0, "adjClose": 509.0},
@@ -731,3 +740,233 @@ def test_one_unresolvable_symbol_does_not_fail_the_whole_portfolio(mocker) -> No
     assert result.get("AAPL"), "a good symbol must still return rows"
     assert result.get("MSFT"), "a good symbol must still return rows"
     assert not result.get("NOPE"), "the unresolvable one degrades on its own"
+
+
+# ── US-38.2 (T-38.2.3): cache-flag accuracy for the five remaining methods ──
+#
+# Mirrors the get_company_profile AC3/AC4 shape directly above: real
+# JsonFileCache + real FmpClient, only the HTTP transport is stubbed. A fresh
+# call reports the true miss; a second call for the same inputs within TTL
+# reports the true hit. A fully-mocked FmpClient (as the fixed 8 tests above
+# do) can't tell these apart from the pre-existing bug's hardcoded `True` —
+# that is why these use the real client/cache instead.
+
+
+def test_get_latest_quotes_reports_true_miss_then_true_hit_within_ttl(mocker, tmp_path) -> None:
+    """AC1/AC6."""
+    response_mock = mocker.Mock()
+    response_mock.json.return_value = [{"symbol": "AAPL", "price": 150.0}]
+    response_mock.raise_for_status.return_value = None
+    mocker.patch("app.clients.fmp.httpx.Client.get", return_value=response_mock)
+    _mock_fmp_settings(
+        mocker, fmp_cache_enabled=True, fmp_cache_dir=str(tmp_path), fmp_quote_cache_ttl_seconds=86400
+    )
+
+    service = MarketDataService()
+
+    service.get_latest_quotes(["AAPL"])
+    first_meta = service.get_last_fetch_meta("AAPL")
+    service.get_latest_quotes(["AAPL"])
+    second_meta = service.get_last_fetch_meta("AAPL")
+
+    assert first_meta["cached"] is False
+    assert second_meta["cached"] is True
+
+
+def test_get_historical_prices_fmp_branch_reports_true_miss_then_true_hit_within_ttl(mocker, tmp_path) -> None:
+    """AC2/AC6 — the primary (FMP) success path."""
+    response_mock = mocker.Mock()
+    response_mock.json.return_value = [{"symbol": "AAPL", "date": "2024-01-02", "price": 100.0}]
+    response_mock.raise_for_status.return_value = None
+    mocker.patch("app.clients.fmp.httpx.Client.get", return_value=response_mock)
+    _mock_fmp_settings(
+        mocker, fmp_cache_enabled=True, fmp_cache_dir=str(tmp_path), fmp_history_cache_ttl_seconds=86400
+    )
+
+    service = MarketDataService()
+
+    service.get_historical_prices("AAPL", "2024-01-01", "2024-01-31")
+    first_meta = service.get_last_fetch_meta("AAPL")
+    service.get_historical_prices("AAPL", "2024-01-01", "2024-01-31")
+    second_meta = service.get_last_fetch_meta("AAPL")
+
+    assert first_meta["cached"] is False
+    assert first_meta["vendor"] == "fmp"
+    assert second_meta["cached"] is True
+
+
+def test_get_historical_prices_yfinance_branch_reports_true_miss_then_true_hit_within_ttl(
+    mocker, monkeypatch, tmp_path
+) -> None:
+    """AC2/AC6 — the yfinance-fallback success path (a distinct call site).
+
+    FMP returns empty for every candidate (the 402/no-listing case), so the
+    fallback is reached. This overrides the autouse `_disable_yfinance_fallback`
+    fixture (test-body patch wins, per that fixture's own docstring) so the
+    REAL YFinanceClient + its real cache are exercised — only yfinance's own
+    `Ticker` is stubbed.
+    """
+    response_mock = mocker.Mock()
+    response_mock.json.return_value = []
+    response_mock.raise_for_status.return_value = None
+    mocker.patch("app.clients.fmp.httpx.Client.get", return_value=response_mock)
+    _mock_fmp_settings(mocker, fmp_cache_enabled=True, fmp_cache_dir=str(tmp_path / "fmp"))
+
+    monkeypatch.setattr("app.services.market_data.YFinanceClient", YFinanceClient)
+    yf_settings = mocker.patch("app.clients.yfinance_client.get_settings")
+    yf_settings.return_value.fmp_history_cache_ttl_seconds = 86400
+    yf_settings.return_value.fmp_cache_enabled = True
+    yf_settings.return_value.fmp_cache_dir = str(tmp_path / "yf")
+
+    import pandas as pd
+
+    frame = pd.DataFrame(
+        {"Open": [1.0], "High": [1.0], "Low": [1.0], "Close": [10.0], "Adj Close": [9.0], "Volume": [100]},
+        index=pd.to_datetime(["2024-01-02"]),
+    )
+
+    class FakeTicker:
+        def __init__(self, symbol) -> None:  # noqa: ANN001
+            pass
+
+        def history(self, start, end, auto_adjust=False):  # noqa: ANN001
+            return frame
+
+    monkeypatch.setattr("yfinance.Ticker", FakeTicker)
+
+    service = MarketDataService()
+
+    service.get_historical_prices("VUAA", "2024-01-01", "2024-01-31")
+    first_meta = service.get_last_fetch_meta("VUAA")
+    service.get_historical_prices("VUAA", "2024-01-01", "2024-01-31")
+    second_meta = service.get_last_fetch_meta("VUAA")
+
+    assert first_meta["cached"] is False
+    assert first_meta["vendor"] == "yfinance"
+    assert second_meta["cached"] is True
+
+
+def test_get_direct_verified_benchmark_history_reports_true_miss_then_true_hit_within_ttl(mocker, tmp_path) -> None:
+    """AC3/AC6."""
+    response_mock = mocker.Mock()
+    response_mock.json.side_effect = [
+        [{"symbol": "SPY", "date": "2024-01-02", "close": 100.0}],
+        [{"symbol": "SPY", "date": "2024-01-02", "adjClose": 99.5}],
+    ]
+    response_mock.raise_for_status.return_value = None
+    mocker.patch("app.clients.fmp.httpx.Client.get", return_value=response_mock)
+    _mock_fmp_settings(
+        mocker, fmp_cache_enabled=True, fmp_cache_dir=str(tmp_path), fmp_history_cache_ttl_seconds=86400
+    )
+
+    service = MarketDataService()
+
+    service.get_direct_verified_benchmark_history("SPY", "2024-01-01", "2024-01-31")
+    first_meta = service.get_last_fetch_meta("SPY")
+    service.get_direct_verified_benchmark_history("SPY", "2024-01-01", "2024-01-31")
+    second_meta = service.get_last_fetch_meta("SPY")
+
+    assert first_meta["cached"] is False
+    assert second_meta["cached"] is True
+
+
+def test_get_direct_verified_benchmark_history_requires_both_underlying_paths_cached(mocker, tmp_path) -> None:
+    """AC3 — `get_historical_price_dividend_adjusted` issues TWO underlying FMP
+    calls (full, dividend-adjusted) per fetch. A hit on only ONE of them must
+    still report `cached: False`, since a live request still happens for the
+    other — proving this is an AND, not an OR or a single-call check."""
+    from app.services.market_data import _canonical_history_range
+
+    response_mock = mocker.Mock()
+    response_mock.json.side_effect = [
+        [{"symbol": "SPY", "date": "2024-01-02", "close": 100.0}],  # pre-warms "full" only
+        [{"symbol": "SPY", "date": "2024-01-02", "adjClose": 99.5}],  # the benchmark call's own live "dividend-adjusted" fetch
+    ]
+    response_mock.raise_for_status.return_value = None
+    mocker.patch("app.clients.fmp.httpx.Client.get", return_value=response_mock)
+    _mock_fmp_settings(
+        mocker, fmp_cache_enabled=True, fmp_cache_dir=str(tmp_path), fmp_history_cache_ttl_seconds=86400
+    )
+
+    service = MarketDataService()
+    canonical_from, canonical_to = _canonical_history_range("2024-01-01", "2024-01-31")
+    params = {"symbol": "SPY", "from": canonical_from, "to": canonical_to}
+    # Pre-warm ONLY the "full" endpoint's cache entry — the dividend-adjusted
+    # one stays a miss.
+    service.client._get(  # noqa: SLF001 — deliberately reaching in to prime one of the two cache entries
+        "history", "historical-price-eod/full", params, ttl_seconds=service.client.history_ttl_seconds
+    )
+
+    service.get_direct_verified_benchmark_history("SPY", "2024-01-01", "2024-01-31")
+    meta = service.get_last_fetch_meta("SPY")
+
+    assert meta["cached"] is False
+
+
+def test_get_etf_holdings_reports_true_miss_then_true_hit_within_ttl(mocker, tmp_path) -> None:
+    """AC4/AC6."""
+    response_mock = mocker.Mock()
+    response_mock.json.return_value = [
+        {"asset": "AAPL", "name": "Apple Inc.", "weightPercentage": 7.0, "updated": "2026-04-09 11:04:21"},
+    ]
+    response_mock.raise_for_status.return_value = None
+    mocker.patch("app.clients.fmp.httpx.Client.get", return_value=response_mock)
+    _mock_fmp_settings(
+        mocker, fmp_cache_enabled=True, fmp_cache_dir=str(tmp_path), fmp_history_cache_ttl_seconds=86400
+    )
+    mocked_settings = mocker.patch("app.services.holdings_history.get_settings")
+    mocked_settings.return_value.fmp_holdings_snapshot_dir = str(tmp_path / "holdings")
+
+    service = MarketDataService()
+    service.holdings_history = HoldingsHistoryStore(str(tmp_path / "holdings"))
+
+    service.get_etf_holdings("XLK")
+    first_meta = service.get_last_fetch_meta("XLK")
+    service.get_etf_holdings("XLK")
+    second_meta = service.get_last_fetch_meta("XLK")
+
+    assert first_meta["cached"] is False
+    assert second_meta["cached"] is True
+
+
+def test_get_etf_holdings_for_date_inherits_cache_flag_via_delegation(mocker, tmp_path) -> None:
+    """AC5 — the non-history-cache branch has no separate cache-flag
+    implementation of its own; it delegates to `get_etf_holdings`, which
+    already writes the right `last_fetch_meta`. Proven by spying on
+    `get_etf_holdings` itself, not just matching its output."""
+    client_mock = mocker.patch("app.services.market_data.FmpClient")
+    instance = client_mock.return_value
+    instance.is_cached.return_value = True
+    instance.get_etf_holders.return_value = [{"asset": "AAPL", "weightPercentage": 7.0}]
+
+    mocked_settings = mocker.patch("app.services.holdings_history.get_settings")
+    mocked_settings.return_value.fmp_holdings_snapshot_dir = str(tmp_path)
+
+    service = MarketDataService()
+    service.holdings_history = HoldingsHistoryStore(str(tmp_path))
+    spy = mocker.spy(service, "get_etf_holdings")
+
+    resolved_symbol, rows = service.get_etf_holdings_for_date("XLK", "2099-01-01")
+
+    spy.assert_called_once_with("XLK", None)
+    assert resolved_symbol == "XLK"
+    assert rows == [{"asset": "AAPL", "weightPercentage": 7.0}]
+    assert service.get_last_fetch_meta("XLK")["cached"] is True
+
+
+def test_will_be_served_from_cache_delegates_to_fmp_client_is_cached(mocker) -> None:
+    """AC7 — `MarketDataService._will_be_served_from_cache` must be a pure
+    passthrough to `FmpClient.is_cached`, not a re-derivation of the cache-key
+    formula. Proven structurally: the exact args passed through unchanged,
+    and the return value passed straight back, not recomputed."""
+    client_mock = mocker.patch("app.services.market_data.FmpClient")
+    instance = client_mock.return_value
+    instance.is_cached.return_value = True
+
+    service = MarketDataService()
+    result = service._will_be_served_from_cache(  # noqa: SLF001
+        "quote", "quote-short", {"symbol": "AAPL"}, 300
+    )
+
+    assert result is True
+    instance.is_cached.assert_called_once_with("quote", "quote-short", {"symbol": "AAPL"}, 300)

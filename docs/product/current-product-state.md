@@ -71,10 +71,20 @@ Shows current portfolio composition:
   under a distinct, disclosed **"Unclassified"** bucket, with its weight
   still counted in the sector total — never the string `"Other"`, and never
   silently dropped. Snapshot analytics (a classification looked up at import
-  time), not broker truth. **Does not cover ETF look-through constituents**
-  (`analytics/risk.py`'s `build_lookthrough_sector_exposure`) — that path's
-  own hardcoded proxy-ticker sector inference is unchanged, a known,
-  separately-catalogued gap (`docs/tech-debt-register.md`).
+  time), not broker truth. **ETF look-through constituents now use the same
+  pattern (US-38.1)**: `analytics/risk.py`'s `build_lookthrough_sector_exposure`
+  and `_build_shared_sector_overlap` (the ETF-overlap-pair card) resolve a
+  constituent's sector from the static registry or a curated fund-category
+  override only — never a hardcoded ETF-ticker-keyword guess, and never an
+  ungated live FMP profile call — and a constituent slice with no resolvable
+  sector lands in its own **"Unclassified"** bucket, exempt from the
+  `MIN_SECTOR_WEIGHT` display-suppression filter every other bucket is
+  subject to, so it is always itemized however small its weight. The
+  look-through path's remaining known gap is narrower: FMP's `sector` field
+  is unreliable as an ETF-level thematic proxy (both SPY and GRID return the
+  fund sponsor's own "Financial Services" classification), so this story
+  deliberately did not re-derive ETF-level sector from FMP directly — tracked
+  as the open remainder of `docs/tech-debt-register.md`'s F-B row.
 - **Factor return attribution card**: cumulative chart + period attribution table; 20d/60d/252d window. Synthetic-history Trust badge.
 - **Factor Drift Summary card** (Epic 16): ranked per-factor drift (`latest − reference` rolling loading) over a 20d/60d/252d window, rendered as divergent magnitude bars (positive right of baseline, negative left) with signed value + ▲/▼ direction marker. Reuses the engine's existing `rolling_loadings_<window>` series — no backend. Factors null at the window endpoints are excluded (never zero-imputed); fails closed to an EmptyState on insufficient history. Synthetic-history Trust badge.
 - **Multi-benchmark correlation table**: ρ / β / R² vs SPY, QQQ, GLD, IEF, VT; rows sorted by |ρ| desc, unavailable last. Synthetic-history Trust badge.

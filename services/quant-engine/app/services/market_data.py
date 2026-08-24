@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import math
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
@@ -277,6 +276,9 @@ class MarketDataService:
         for symbol in sorted({symbol for symbol in symbols if symbol}):
             requested_symbol = canonicalize_symbol(symbol)
             for candidate in resolve_symbol_candidates(requested_symbol, symbol_overrides, kind="quote"):
+                was_cached = self._will_be_served_from_cache(
+                    "quote", "quote-short", {"symbol": candidate}, self.client.quote_ttl_seconds
+                )
                 try:
                     rows = self.client.get_quote_short(candidate)
                 except MarketDataAuthError:
@@ -290,7 +292,7 @@ class MarketDataService:
                     continue
                 if rows:
                     quotes[requested_symbol] = rows[0] | {"requested_symbol": requested_symbol, "resolved_symbol": candidate}
-                    self.last_fetch_meta[requested_symbol] = {"type": "quote", "resolved_symbol": candidate, "cached": True}
+                    self.last_fetch_meta[requested_symbol] = {"type": "quote", "resolved_symbol": candidate, "cached": was_cached}
                     break
         return quotes
 
@@ -332,6 +334,12 @@ class MarketDataService:
         # falls through to the next candidate/provider.
         canonical_from, canonical_to = _canonical_history_range(from_date, to_date)
         for candidate in ordered_candidates:
+            was_cached = self._will_be_served_from_cache(
+                "fx" if candidate.endswith("USD") else "history",
+                "historical-price-eod/light",
+                {"symbol": candidate, "from": canonical_from, "to": canonical_to},
+                self.client.history_ttl_seconds,
+            )
             try:
                 rows = self._sanitize_price_rows(
                     self.client.get_historical_price_light(candidate, canonical_from, canonical_to)
@@ -347,12 +355,13 @@ class MarketDataService:
                 continue
             rows = _slice_price_rows(rows, from_date, to_date)
             if rows:
-                self.last_fetch_meta[requested_symbol] = {"type": "history", "resolved_symbol": candidate, "cached": True, "vendor": "fmp"}
+                self.last_fetch_meta[requested_symbol] = {"type": "history", "resolved_symbol": candidate, "cached": was_cached, "vendor": "fmp"}
                 return rows
 
         # Secondary provider (Yahoo Finance) fallback — only when FMP has nothing.
         # Uses the same real-symbol candidates (e.g. VUAA.L), never proxy substitutes.
         for candidate in symbol_candidates:
+            was_cached = self._yfinance().is_cached(candidate, canonical_from, canonical_to)
             try:
                 rows = self._sanitize_price_rows(
                     self._yfinance().get_historical_price_light(candidate, canonical_from, canonical_to)
@@ -368,7 +377,7 @@ class MarketDataService:
                 continue
             rows = _slice_price_rows(rows, from_date, to_date)
             if rows:
-                self.last_fetch_meta[requested_symbol] = {"type": "history", "resolved_symbol": candidate, "cached": True, "vendor": "yfinance"}
+                self.last_fetch_meta[requested_symbol] = {"type": "history", "resolved_symbol": candidate, "cached": was_cached, "vendor": "yfinance"}
                 return rows
 
         return []
@@ -390,6 +399,19 @@ class MarketDataService:
         # it to value holdings would make `total_market_value` disagree with the
         # broker's own statement. This method has no other callers, which is what
         # makes that scope enforceable rather than merely intended.
+        # US-38.2: get_historical_price_dividend_adjusted issues TWO underlying
+        # _get calls (full + dividend-adjusted, same params). A live request
+        # happens if EITHER misses, so this only reports a hit if BOTH pre-checks
+        # hit -- a single-call check would under-report misses.
+        benchmark_params = {"symbol": requested_symbol, "from": canonical_from, "to": canonical_to}
+        was_cached = (
+            self._will_be_served_from_cache(
+                "history", "historical-price-eod/full", benchmark_params, self.client.history_ttl_seconds
+            )
+            and self._will_be_served_from_cache(
+                "history", "historical-price-eod/dividend-adjusted", benchmark_params, self.client.history_ttl_seconds
+            )
+        )
         try:
             rows = self._sanitize_price_rows(
                 self.client.get_historical_price_dividend_adjusted(requested_symbol, canonical_from, canonical_to)
@@ -409,7 +431,7 @@ class MarketDataService:
                 "type": "history",
                 "requested_symbol": requested_symbol,
                 "resolved_symbol": requested_symbol,
-                "cached": True,
+                "cached": was_cached,
                 "vendor": VERIFIED_BENCHMARK_VENDOR,
                 "endpoint": VERIFIED_BENCHMARK_ENDPOINT,
                 "direct_path_only": True,
@@ -457,35 +479,33 @@ class MarketDataService:
     def get_fx_history(self, pair: str, from_date: str, to_date: str) -> list[dict]:
         return self.get_historical_prices(pair, from_date, to_date)
 
-    def _profile_will_be_served_from_cache(self, symbol: str) -> bool:
-        """Whether an FMP profile fetch for `symbol` is about to be answered
-        from the on-disk cache rather than a live request (US-37.2 / T-37.2.2).
+    def _will_be_served_from_cache(
+        self, namespace: str, path: str, params: dict[str, object], ttl_seconds: int
+    ) -> bool:
+        """Whether an FMP fetch matching (namespace, path, params, ttl) is
+        about to be answered from the on-disk cache rather than a live
+        request (US-37.2 / T-37.2.2, generalized in US-38.2 / T-38.2.2).
 
-        `FmpClient.get_profile` -> `_get` has no return-side signal for cache
-        hit/miss (only a log line), and this ticket's scope is
-        `services/market_data.py` only -- adding one to `fmp.py` is out of
-        scope. This instead reuses the cache wrapper's own already-public
-        `build_key`/`get`, mirroring the exact namespace/path/params/TTL
-        `_get` uses for a profile call, to answer the same question
-        read-only and *before* the fetch (a post-fetch check cannot tell a
-        hit from a fetch that just populated the cache).
+        Delegates to `FmpClient.is_cached`, which is the one place the
+        cache-key-identity formula lives (`FmpClient.build_cache_identifier`)
+        -- this helper no longer re-derives its own copy of that formula, so
+        it cannot silently drift from what `_get` actually looks up. Answers
+        the question read-only and *before* the fetch (a post-fetch check
+        cannot tell a hit from a fetch that just populated the cache).
 
         Narrow edge case, not resolvable without a signal from `fmp.py`: if
         this reports a miss but the live request that follows then fails and
         `_get` falls back to serving stale cached data, the response is in
         fact cache-served even though this reported `False` -- see risks.
         """
-        cache = self.client.cache
-        if cache is None:
-            return False
-        cache_identifier = json.dumps({"path": "profile", "params": {"symbol": symbol}}, sort_keys=True)
-        cache_key = cache.build_key("profile", cache_identifier)
-        return cache.get(cache_key, max_age_seconds=self.client.profile_ttl_seconds) is not None
+        return self.client.is_cached(namespace, path, params, ttl_seconds)
 
     def get_company_profile(self, symbol: str, symbol_overrides: dict[str, list[str]] | None = None) -> dict | None:
         requested_symbol = canonicalize_symbol(symbol)
         for candidate in resolve_symbol_candidates(requested_symbol, symbol_overrides, kind="quote"):
-            was_cached = self._profile_will_be_served_from_cache(candidate)
+            was_cached = self._will_be_served_from_cache(
+                "profile", "profile", {"symbol": candidate}, self.client.profile_ttl_seconds
+            )
             try:
                 rows = self.client.get_profile(candidate)
             except MarketDataAuthError:
@@ -505,6 +525,9 @@ class MarketDataService:
     def get_etf_holdings(self, symbol: str, symbol_overrides: dict[str, list[str]] | None = None) -> tuple[str | None, list[dict]]:
         requested_symbol = canonicalize_symbol(symbol)
         for candidate in resolve_etf_holdings_candidates(requested_symbol, symbol_overrides):
+            was_cached = self._will_be_served_from_cache(
+                "holdings", f"api/v3/etf-holder/{candidate}", {}, self.client.history_ttl_seconds
+            )
             try:
                 rows = self.client.get_etf_holders(candidate)
             except MarketDataAuthError:
@@ -518,7 +541,7 @@ class MarketDataService:
                 continue
             if rows:
                 self.holdings_history.record_snapshot(requested_symbol, candidate, rows)
-                self.last_fetch_meta[requested_symbol] = {"type": "holdings", "resolved_symbol": candidate, "cached": True}
+                self.last_fetch_meta[requested_symbol] = {"type": "holdings", "resolved_symbol": candidate, "cached": was_cached}
                 return candidate, rows
         return None, []
 

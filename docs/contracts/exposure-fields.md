@@ -204,9 +204,9 @@ Confidence semantics currently mean:
 
 | UI field | Current UI/provider source | App state source | Truth class | Unavailable rule | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Sector labels | `topLookthroughSectors` in `apps/desktop/src/features/portfolio/ExposurePanel.tsx` | `analysis.lookthrough_sector_exposure` | `engine-derived` | if no constituent exposure, show empty/near-empty state | current-state economic exposure after ETF unpacking |
-| Sector market value | `item.market_value` | `analysis.lookthrough_sector_exposure[].market_value` | `engine-derived` | if unavailable, omit row | derived from constituent-level sources |
-| Sector weight | `item.weight` | `analysis.lookthrough_sector_exposure[].weight` | `engine-derived` | if unavailable, omit row | weight of total current look-through market value |
+| Sector labels | no current frontend consumer — `lookthrough_sector_exposure` is not rendered by any component today (confirmed by exhaustive grep across `apps/desktop/src`; the only sector-facing card, `SectorPieCard.tsx`, reads `sector_allocation`/`sector_position_breakdown` instead) | `analysis.lookthrough_sector_exposure` | `engine-derived` | if no constituent exposure, show empty/near-empty state | current-state economic exposure after ETF unpacking; may include an `"Unclassified"` bucket (US-38.1) — a real, disclosed sector value for value whose look-through constituent has no static-registry sector and no curated fund-category override, never an error state |
+| Sector market value | `item.market_value` | `analysis.lookthrough_sector_exposure[].market_value` | `engine-derived` | if unavailable, omit row | derived from constituent-level sources; `"Unclassified"` value is counted in full, never dropped or redistributed |
+| Sector weight | `item.weight` | `analysis.lookthrough_sector_exposure[].weight` | `engine-derived` | if unavailable, omit row | weight of total current look-through market value; the `"Unclassified"` bucket is exempt from the `MIN_SECTOR_WEIGHT` (0.05%) display-suppression filter every other bucket is subject to — it is always itemized, however small (US-38.1) |
 
 ### Current-state concentration section
 

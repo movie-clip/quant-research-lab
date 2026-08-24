@@ -125,6 +125,23 @@ INSTRUMENT_DEFINITIONS: dict[str, Instrument] = {
     "TLT": _instrument("etf-tlt", "TLT", "iShares 20+ Year Treasury Bond ETF", "etf", "Fixed Income", "Bond ETF", "USD"),
     "AGG": _instrument("etf-agg", "AGG", "iShares Core US Aggregate Bond ETF", "etf", "Fixed Income", "Bond ETF", "USD"),
     "BND": _instrument("etf-bnd", "BND", "Vanguard Total Bond Market ETF", "etf", "Fixed Income", "Bond ETF", "USD"),
+    # US-38.1 (T-38.1.2): companion curation for 8 ETF tickers previously
+    # resolved only via the now-deleted risk.py keyword-guess fallbacks
+    # (_infer_sector_from_sources / _infer_sector_from_resolved_pair). Sector
+    # values mirror what those functions already returned for these exact
+    # tickers; category values are drawn from FUND_CATEGORY_OVERRIDE_CATEGORIES
+    # (risk.py) so the fund-category-override mechanic continues to match
+    # them. No classification_source= (defaults to None, stamped "static" at
+    # merge time), no isin= (all 8 are US-listed) — mirrors the SLV/ICOM/
+    # SGLD/ISLN/IEF curated-entry precedent.
+    "XLF": _instrument("etf-xlf", "XLF", "Financial Select Sector SPDR Fund", "etf", "Financials", "Sector ETF", "USD"),
+    "XLV": _instrument("etf-xlv", "XLV", "Health Care Select Sector SPDR Fund", "etf", "Health Care", "Sector ETF", "USD"),
+    "IBB": _instrument("etf-ibb", "IBB", "iShares Biotechnology ETF", "etf", "Health Care", "Sector ETF", "USD"),
+    "ITA": _instrument("etf-ita", "ITA", "iShares U.S. Aerospace & Defense ETF", "etf", "Defense", "Thematic ETF", "USD"),
+    "PPA": _instrument("etf-ppa", "PPA", "Invesco Aerospace & Defense ETF", "etf", "Defense", "Thematic ETF", "USD"),
+    "BIL": _instrument("etf-bil", "BIL", "SPDR Bloomberg 1-3 Month T-Bill ETF", "etf", "Fixed Income", "Bond ETF", "USD"),
+    "VGSH": _instrument("etf-vgsh", "VGSH", "Vanguard Short-Term Treasury ETF", "etf", "Fixed Income", "Bond ETF", "USD"),
+    "DBC": _instrument("etf-dbc", "DBC", "Invesco DB Commodity Index Tracking Fund", "etf", "Commodities", "Commodity ETF", "USD"),
     "VUAA": _instrument("etf-vuaa", "VUAA", "Vanguard S&P 500 UCITS ETF", "etf", "Broad Market", "Broad Market UCITS ETF", "USD", isin="IE00BFMXXD54"),
     "SXRV": _instrument("etf-sxrv", "SXRV", "iShares Nasdaq 100 UCITS ETF", "etf", "Technology", "Thematic UCITS ETF", "EUR", isin="IE00B53SZB19"),
     "ISLN": _instrument("etf-isln", "ISLN", "iShares Physical Silver ETC", "etf", "Commodities", "Commodity UCITS ETF", "USD", isin="IE00B4NCWG09"),

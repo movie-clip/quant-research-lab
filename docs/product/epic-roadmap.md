@@ -1,12 +1,14 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: **2026-08-21**.*
+*Living execution snapshot. Updated: **2026-08-24**.*
 
-**Every epic is complete.** Most recently shipped: **Epic 37 — Dynamic Equity
-Sector Classification** (1 story, closed 2026-08-21), preceded by **Epic 36 —
+**Every epic is complete.** Most recently shipped: **Epic 38 —
+Sector-Classification Follow-Through: ETF Look-Through & Diagnostic
+Integrity** (2 stories, closed 2026-08-24), preceded by **Epic 37 — Dynamic
+Equity Sector Classification** (1 story, closed 2026-08-21), **Epic 36 —
 Findings-First Doc & Gate Hygiene** (3 stories, closed 2026-08-20), **Epic 35 —
 Market-Data Failure Honesty** (3 stories, closed 2026-08-19) and **Epic 34 —
-An Answerable Dashboard** (9 stories, closed 2026-08-19). Epics 13 and 18–36
+An Answerable Dashboard** (9 stories, closed 2026-08-19). Epics 13 and 18–37
 are complete; see each section below.
 
 **Open items**, none of which block anything:
@@ -67,6 +69,43 @@ The next epic is unscoped. `main` now requires CI to pass before merge.
 
 ---
 
+
+## Completed Epic: Epic 38 — Sector-Classification Follow-Through: ETF Look-Through & Diagnostic Integrity
+
+**PRD:** [`docs/product/prd/epic-38-sector-classification-follow-through.md`](product/prd/epic-38-sector-classification-follow-through.md)
+
+**Closed 2026-08-24. All 2 stories Done.**
+
+Seeded by a post-close recon pass over Epic 37 that folded in four findings,
+none of which were new discoveries — all four were already named, in
+writing, by Epic 37's own stories/PRD as explicitly out of scope or as a
+noticed-but-unscoped risk: the ETF look-through sector-inference gap Epic
+37's PRD explicitly deferred, a cache-flag bug pattern US-37.2 fixed for one
+method but did not investigate for the rest, a duplicated cache-key formula
+US-37.2's own risk section flagged as needing a home in `fmp.py`, and a
+methodology-doc re-review that closed with no ticket needed. Ships as its
+own new, dedicated two-story epic rather than reopening the now-closed
+Epic 37, per the same placement precedent Epic 37 itself used against
+Epic 24.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-38.1 | ETF look-through sector exposure stops guessing and stops silently landing on "Other" | Done |
+| US-38.2 | Market-data cache diagnostics report the truth, and the cache-key formula has one home | Done |
+
+Two-story epic. Stories are structurally independent (disjoint files,
+disjoint concerns). No build-order constraints.
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-08-24 | US-38.2 | `FmpClient` gains `build_cache_identifier` / `is_cached`, the one cache-key formula both `_get` and `get_etf_holders` now call instead of constructing it inline; `YFinanceClient` gets its own independent twin (different provider, deliberately not routed through `FmpClient`). `market_data.py`'s renamed `_will_be_served_from_cache` delegates to `FmpClient.is_cached`; `get_latest_quotes`, both branches of `get_historical_prices`, `get_direct_verified_benchmark_history` (AND of two underlying pre-checks), and `get_etf_holdings` all pre-check before fetch and report real hit/miss; `get_etf_holdings_for_date` inherits the fix via delegation. `get_company_profile`'s US-37.2 outcome unchanged (AC8 regression). 8 pre-existing fully-mocked tests fixed with the prescribed one-line `instance.is_cached.return_value = True`. All 8 ACs SATISFIED per tech-lead INTEGRATION's trace; new coverage includes an AND-semantics test and a structural formula-agreement test proving AC7 by construction. |
+| 2026-08-24 | US-38.1 | `analytics/risk.py`'s two hardcoded ETF-ticker-keyword → sector proxy functions and the ungated live `get_company_profile` fallback inside `_build_shared_sector_overlap` are deleted, replaced by a static-registry-or-"Unclassified" rule (per-source-slice attribution preserved; an unresolved slice counts at full weight toward "Unclassified", never redistributed, never dropped). "Unclassified" is exempt from the existing `MIN_SECTOR_WEIGHT` (0.05%) suppression filter every other bucket keeps. Eight ETF tickers the deleted proxy lists referenced but the registry didn't curate (`XLF`, `XLV`, `IBB`, `ITA`, `PPA`, `BIL`, `VGSH`, `DBC`) are now curated in `INSTRUMENT_DEFINITIONS`, preserving factor-tilt fidelity. All 9 ACs SATISFIED per tech-lead INTEGRATION's trace and independently re-derived by quant-analyst AUDIT (matched the research brief's worked example exactly). 858 → 878 backend (+20), 331 frontend unchanged; tsc + dead-code gate clean; `dashboardGoldens.ts` untouched. Docs: `financial-methodology.md` gains "ETF look-through constituent classification (US-38.1)"; `exposure-fields.md`'s look-through-sector rows document the "Unclassified" bucket; `tech-debt-register.md:177` (F-B) corrected and marked RESOLVED, narrower ETF-side-FMP-reliability sub-finding left explicitly open. Both gates and the acceptance reviewer returned PASS — all 17 ACs across both stories verified SATISFIED, no GAP/DRIFTED. |
+
+---
 
 ## Completed Epic: Epic 37 — Dynamic Equity Sector Classification
 

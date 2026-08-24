@@ -1460,6 +1460,63 @@ Contract rule:
   mechanism — do not extend the guarantees above to it without a matching doc
   update
 
+### ETF look-through constituent classification (US-38.1)
+
+The scope note above excluded ETF look-through constituent classification.
+This subsection covers it.
+
+A look-through constituent's identity is a bare ticker sourced from
+`MarketDataService.get_etf_holdings(...)` (FMP's own ETF-holdings feed) —
+there is no broker-statement ISIN backing it, unlike a directly-held equity.
+The identity-gate mechanism above (statement ISIN vs. FMP profile ISIN)
+therefore has no applicable input for a look-through constituent: AC5's
+"missing ISIN evidence on either side" branch is not an edge case here, it is
+the only reachable outcome. Look-through constituent classification
+accordingly has only two tiers, not three:
+
+1. Static registry lookup (`InstrumentRegistry.get_instrument(symbol).sector`),
+   unconditional — same tier as direct-equity classification's `"static"` tier,
+   unaffected by this section.
+2. Nothing resolved → `UNCLASSIFIED_SECTOR_LABEL` ("Unclassified",
+   `app/analytics/overview.py:13`) — no dynamic FMP lookup is attempted for a
+   look-through constituent, at any point, because the identity evidence a
+   dynamic lookup would need to be trustworthy structurally does not exist for
+   this input.
+
+Per-source-slice attribution (each ETF/direct position contributing to one
+constituent's value is classified independently) is unchanged and unaffected:
+a constituent partially sourced from a fund whose own category is curated
+(one of `FUND_CATEGORY_OVERRIDE_CATEGORIES` — a Thematic/Sector/Bond/Commodity
+ETF, UCITS or US-listed variant — with its own `.sector` set) has that slice
+classified by the *fund's* curated sector, not by attempting an equity-style
+lookup on a non-equity holding. `_fund_category_proxy_sector` applies the same
+rule to the ETF-overlap-pair card's shared-symbol case
+(`_build_shared_sector_overlap`), checking each side's resolved ETF in turn so
+the two call sites never diverge on what counts as a curated fund category.
+This fund-category override predates and is unaffected by US-38.1.
+
+Consequence: `LookThroughSectorExposure` and `EtfOverlapPair.sector_overlap`
+totals may split a single ETF's look-through value across a real sector and
+`"Unclassified"` in the same response — this is the honest outcome of partial
+resolution, not an error state, and mirrors the direct-equity Unclassified
+bucket's own contract rules (never dropped from the weight total, never merged
+into `"Other"`). `"Unclassified"` is also exempt from
+`build_lookthrough_sector_exposure`'s `MIN_SECTOR_WEIGHT` (0.05%)
+display-suppression filter — every other sector bucket remains subject to it,
+but an unresolved bucket is always itemized, however small, matching the
+direct-equity Unclassified precedent above, which has no equivalent floor.
+
+Implementation:
+- `services/quant-engine/app/analytics/risk.py` —
+  `build_lookthrough_sector_exposure(...)`, `_build_shared_sector_overlap(...)`,
+  `_fund_category_proxy_sector(...)`
+
+Contract rule:
+- a look-through constituent's sector is either curated (`"static"`-equivalent,
+  via the static registry) or `"Unclassified"` — there is no dynamic,
+  FMP-sourced tier for look-through constituents, because no identity evidence
+  exists to gate one
+
 ## Risk Contribution and Concentration
 
 The project reports position and factor risk contribution metrics plus concentration diagnostics.

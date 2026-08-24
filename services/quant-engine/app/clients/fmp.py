@@ -164,6 +164,26 @@ class FmpClient:
                 sleep_seconds = max(0.05, 60 - (now - _REQUEST_TIMESTAMPS[0]))
             time.sleep(min(sleep_seconds, 1.0))
 
+    def build_cache_identifier(self, path: str, params: dict[str, Any]) -> str:
+        """The one formula that decides cache-key identity for an FMP call
+        (US-38.2 / T-38.2.2). `_get` and `get_etf_holders` both build their
+        cache key from this — and so does `MarketDataService`'s pre-check
+        helper (`_will_be_served_from_cache` -> `is_cached` below), so the
+        "is this a hit" answer can never independently drift from the key
+        the client actually looks up.
+        """
+        return json.dumps({"path": path, "params": params}, sort_keys=True)
+
+    def is_cached(self, namespace: str, path: str, params: dict[str, Any], ttl_seconds: int) -> bool:
+        """Read-only pre-check: would a call with this exact (namespace, path,
+        params, ttl) be served from cache right now, with no live request
+        (US-38.2 / T-38.2.2). Never mutates cache or in-flight state.
+        """
+        if self.cache is None:
+            return False
+        cache_key = self.cache.build_key(namespace, self.build_cache_identifier(path, params))
+        return self.cache.get(cache_key, max_age_seconds=ttl_seconds) is not None
+
     def _get(self, namespace: str, path: str, params: dict[str, Any], ttl_seconds: int) -> list[dict[str, Any]]:
         if not self.api_key:
             # US-35.1 AC7 was WRONG and is reverted here. It made an unset key
@@ -182,16 +202,14 @@ class FmpClient:
             raise ValueError("FMP_API_KEY is not configured")
 
         cache_key = None
+        cache_identifier = self.build_cache_identifier(path, params)
         if self.cache is not None:
-            cache_identifier = json.dumps({"path": path, "params": params}, sort_keys=True)
             cache_key = self.cache.build_key(namespace, cache_identifier)
             cached = self.cache.get(cache_key, max_age_seconds=ttl_seconds)
             if cached is not None:
                 logger.info("FMP cache hit [%s] %s", namespace, params)
                 return cached
             logger.info("FMP cache miss [%s] %s", namespace, params)
-        else:
-            cache_identifier = json.dumps({"path": path, "params": params}, sort_keys=True)
 
         with _IN_FLIGHT_LOCK:
             in_flight = _IN_FLIGHT_REQUESTS.get(cache_identifier)
@@ -373,7 +391,7 @@ class FmpClient:
             raise ValueError("FMP_API_KEY is not configured")
 
         cache_key = None
-        cache_identifier = json.dumps({"path": f"api/v3/etf-holder/{symbol}", "params": {}}, sort_keys=True)
+        cache_identifier = self.build_cache_identifier(f"api/v3/etf-holder/{symbol}", {})
         if self.cache is not None:
             cache_key = self.cache.build_key("holdings", cache_identifier)
             cached = self.cache.get(cache_key, max_age_seconds=self.history_ttl_seconds)

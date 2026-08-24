@@ -18,6 +18,19 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
+### Epic 38 — Sector-Classification Follow-Through: ETF Look-Through & Diagnostic Integrity (complete)
+
+PRD: [`prd/epic-38-sector-classification-follow-through.md`](../prd/epic-38-sector-classification-follow-through.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-38.1](US-38.1-etf-lookthrough-sector-classification.md) | ETF look-through sector exposure stops guessing and stops silently landing on "Other" | Backend — deletes the two hardcoded ETF-ticker-keyword → sector proxy functions and the ungated live `get_company_profile` fallback in `analytics/risk.py`; replaces with a static-registry-or-"Unclassified" rule (per-source-slice attribution preserved, "Unclassified" exempt from the `MIN_SECTOR_WEIGHT` suppression filter); curates eight companion ETF tickers (`XLF`/`XLV`/`IBB`/`ITA`/`PPA`/`BIL`/`VGSH`/`DBC`) into `INSTRUMENT_DEFINITIONS` | Done |
+| [US-38.2](US-38.2-market-data-cache-diagnostic-accuracy.md) | Market-data cache diagnostics report the truth, and the cache-key formula has one home | Backend — extends US-37.2's real-hit/miss cache-flag fix from `get_company_profile` to the remaining five `MarketDataService` methods / six call sites; consolidates the cache-key formula into `FmpClient.build_cache_identifier`/`is_cached`, one formula for `fmp.py` itself and `market_data.py`'s pre-check helper | Done |
+
+Two-story epic. Stories are structurally independent (disjoint files, disjoint concerns). No build-order constraints.
+
+---
+
 ### Epic 37 — Dynamic Equity Sector Classification (complete)
 
 PRD: [`prd/epic-37-dynamic-equity-sector-classification.md`](../prd/epic-37-dynamic-equity-sector-classification.md)

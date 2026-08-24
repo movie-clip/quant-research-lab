@@ -14,7 +14,7 @@ from app.analytics.portfolio_imports import (
 )
 from app.analytics.risk import DEFAULT_FACTOR_DEFINITIONS, build_etf_overlap_pairs, build_factor_exposures, build_factor_registry, build_factor_shift_diagnostics, build_lookthrough_exposure, build_lookthrough_sector_exposure, build_market_overlap_summary, build_model_reliability_snapshot, build_portfolio_risk_summary, build_relative_risk_summary, build_risk_contribution_breakdown, build_rolling_risk_series, build_statistical_factor_model, build_stress_scenarios, build_volatility_regime_payload, is_history_series_verified_adjusted, select_history_price_series, selected_history_price_map
 from app.analytics.risk import apply_return_basis_status_to_factor_model, apply_return_basis_status_to_model_reliability
-from app.analytics.risk import _apply_mapping_hard_caps, _build_factor_risk_contributions, _classify_volatility_regime, _compute_covariance_matrix, _mapping_match_label
+from app.analytics.risk import _apply_mapping_hard_caps, _build_factor_risk_contributions, _build_shared_sector_overlap, _classify_volatility_regime, _compute_covariance_matrix, _fund_category_proxy_sector, _mapping_match_label
 from app.analytics.risk import _portfolio_time_weighted_return_series
 from app.analytics.attribution import _portfolio_return_series
 from app.core.constants import DEFAULT_BENCHMARK_SYMBOL, MIN_DAILY_OBSERVATIONS, lookback_calendar_days
@@ -4869,6 +4869,327 @@ def test_build_lookthrough_sector_exposure_uses_thematic_etf_source_sector() -> 
 
     assert by_sector["Defense"].market_value == pytest.approx(60.0, abs=0.01)
     assert by_sector["Technology"].market_value == pytest.approx(50.0, abs=0.01)
+
+
+# ── US-38.1: look-through sector classification stops guessing ──────────────
+# T-38.1.1 removed _infer_sector_from_sources / _infer_sector_from_resolved_pair
+# and the ungated get_company_profile fallback in _build_shared_sector_overlap,
+# replacing all three with the static-registry-or-"Unclassified" rule. The
+# tests below cover the full test plan in
+# docs/product/stories/US-38.1-etf-lookthrough-sector-classification.md.
+
+
+def test_hardcoded_sector_fallback_functions_are_removed() -> None:
+    """Regression: the two hardcoded ETF-ticker-keyword guessers named in the
+    story (risk.py:1613-1627, risk.py:1665-1677 pre-fix) no longer exist as
+    callable attributes on the module."""
+    assert not hasattr(risk_module, "_infer_sector_from_sources")
+    assert not hasattr(risk_module, "_infer_sector_from_resolved_pair")
+
+
+def test_build_lookthrough_sector_exposure_has_no_market_data_dependency() -> None:
+    """AC5, structural guarantee: the function cannot make a market-data call
+    for classification because it is never handed a market-data client."""
+    import inspect
+
+    assert "market_data" not in inspect.signature(build_lookthrough_sector_exposure).parameters
+
+
+def test_build_lookthrough_sector_exposure_registry_hit_resolves_via_static_registry() -> None:
+    """AC1: a constituent whose own symbol is in INSTRUMENT_DEFINITIONS
+    resolves by its curated sector, unaffected by the fallback removal, even
+    though its sourcing ETF (VUAA, "Broad Market UCITS ETF") is not itself a
+    curated fund-category override."""
+    sector_exposure = build_lookthrough_sector_exposure(
+        [
+            LookThroughConstituent(
+                symbol="AAPL",
+                name="Apple",
+                effective_market_value=100.0,
+                portfolio_weight=1.0,
+                sources=[LookThroughSource(source_symbol="VUAA", source_market_value=100.0, source_weight=1.0, resolved_via="SPY")],
+            )
+        ]
+    )
+
+    by_sector = {item.sector: item for item in sector_exposure}
+
+    assert by_sector["Technology"].market_value == pytest.approx(100.0, abs=0.01)
+    assert UNCLASSIFIED_SECTOR_LABEL not in by_sector
+
+
+def test_build_lookthrough_sector_exposure_fund_category_override_still_classifies_by_fund_sector() -> None:
+    """AC2: a slice sourced through a curated Bond ETF (IEF, "Fixed Income")
+    classifies by the fund's own curated sector even though the constituent
+    itself has no registry entry — unaffected by this story."""
+    sector_exposure = build_lookthrough_sector_exposure(
+        [
+            LookThroughConstituent(
+                symbol="OBSCURECO",
+                name="Obscure Co",
+                effective_market_value=100.0,
+                portfolio_weight=1.0,
+                sources=[LookThroughSource(source_symbol="IEF", source_market_value=100.0, source_weight=1.0, resolved_via="IEF")],
+            )
+        ]
+    )
+
+    by_sector = {item.sector: item for item in sector_exposure}
+
+    assert by_sector["Fixed Income"].market_value == pytest.approx(100.0, abs=0.01)
+    assert UNCLASSIFIED_SECTOR_LABEL not in by_sector
+
+
+def test_build_lookthrough_sector_exposure_unresolved_constituent_lands_in_unclassified() -> None:
+    """AC3: no registry hit for the constituent, and the sourcing ETF is not
+    a curated fund-category override — the full slice value lands in
+    "Unclassified", never the literal "Other" and never a guessed label."""
+    sector_exposure = build_lookthrough_sector_exposure(
+        [
+            LookThroughConstituent(
+                symbol="OBSCURECO",
+                name="Obscure Co",
+                effective_market_value=250.0,
+                portfolio_weight=1.0,
+                sources=[LookThroughSource(source_symbol="VUAA", source_market_value=250.0, source_weight=1.0, resolved_via="SPY")],
+            )
+        ]
+    )
+
+    by_sector = {item.sector: item for item in sector_exposure}
+
+    assert set(by_sector) == {UNCLASSIFIED_SECTOR_LABEL}
+    assert by_sector[UNCLASSIFIED_SECTOR_LABEL].market_value == pytest.approx(250.0, abs=0.01)
+    assert by_sector[UNCLASSIFIED_SECTOR_LABEL].weight == pytest.approx(1.0, abs=0.001)
+
+
+def test_build_lookthrough_sector_exposure_partial_resolution_reconciles_total_and_weight() -> None:
+    """AC6, mirrors 03-quant-research.md's worked example: one constituent
+    resolves to a real sector, another in the same response resolves to
+    "Unclassified" — nothing dropped, nothing pro-rated, totals reconcile."""
+    sector_exposure = build_lookthrough_sector_exposure(
+        [
+            LookThroughConstituent(
+                symbol="AAPL",
+                name="Apple",
+                effective_market_value=6000.0,
+                portfolio_weight=0.6,
+                sources=[LookThroughSource(source_symbol="XYZ", source_market_value=10000.0, source_weight=0.6, resolved_via="XYZ")],
+            ),
+            LookThroughConstituent(
+                symbol="OBSCURECO",
+                name="Obscure Co",
+                effective_market_value=4000.0,
+                portfolio_weight=0.4,
+                sources=[LookThroughSource(source_symbol="XYZ", source_market_value=10000.0, source_weight=0.4, resolved_via="XYZ")],
+            ),
+        ]
+    )
+
+    by_sector = {item.sector: item for item in sector_exposure}
+
+    assert by_sector["Technology"].market_value == pytest.approx(6000.0, abs=0.01)
+    assert by_sector[UNCLASSIFIED_SECTOR_LABEL].market_value == pytest.approx(4000.0, abs=0.01)
+    assert sum(item.market_value for item in sector_exposure) == pytest.approx(10000.0, abs=0.01)
+    assert sum(item.weight for item in sector_exposure) == pytest.approx(1.0, abs=0.001)
+
+
+def test_build_lookthrough_sector_exposure_unclassified_exempt_from_suppression_threshold() -> None:
+    """AC8: a small "Unclassified" bucket (below the 0.05% MIN_SECTOR_WEIGHT
+    threshold) is always itemized, while a comparably small *resolved*
+    sector bucket in the same response remains subject to the filter."""
+    sector_exposure = build_lookthrough_sector_exposure(
+        [
+            # 0.04% of the $1,000,000 total — below MIN_SECTOR_WEIGHT (0.05%),
+            # resolved via the static registry, so it stays suppressed.
+            LookThroughConstituent(
+                symbol="JNJ",
+                name="Johnson & Johnson",
+                effective_market_value=400.0,
+                portfolio_weight=0.0004,
+                sources=[LookThroughSource(source_symbol="VUAA", source_market_value=400.0, source_weight=1.0, resolved_via="SPY")],
+            ),
+            # 0.03% of the total — smaller than the JNJ bucket above, but
+            # Unclassified is exempt from the filter so it must still appear.
+            LookThroughConstituent(
+                symbol="OBSCURECO",
+                name="Obscure Co",
+                effective_market_value=300.0,
+                portfolio_weight=0.0003,
+                sources=[LookThroughSource(source_symbol="VUAA", source_market_value=300.0, source_weight=1.0, resolved_via="SPY")],
+            ),
+            LookThroughConstituent(
+                symbol="AAPL",
+                name="Apple",
+                effective_market_value=999300.0,
+                portfolio_weight=0.9993,
+                sources=[LookThroughSource(source_symbol="VUAA", source_market_value=999300.0, source_weight=1.0, resolved_via="SPY")],
+            ),
+        ]
+    )
+
+    by_sector = {item.sector: item for item in sector_exposure}
+
+    assert "Health Care" not in by_sector
+    assert UNCLASSIFIED_SECTOR_LABEL in by_sector
+    assert by_sector[UNCLASSIFIED_SECTOR_LABEL].market_value == pytest.approx(300.0, abs=0.01)
+    assert "Technology" in by_sector
+
+
+@pytest.mark.parametrize(
+    ("ticker", "expected_sector"),
+    [
+        ("XLF", "Financials"),
+        ("XLV", "Health Care"),
+        ("IBB", "Health Care"),
+        ("ITA", "Defense"),
+        ("PPA", "Defense"),
+        ("BIL", "Fixed Income"),
+        ("VGSH", "Fixed Income"),
+        ("DBC", "Commodities"),
+    ],
+)
+def test_build_lookthrough_sector_exposure_companion_curated_tickers_resolve_their_sector(ticker: str, expected_sector: str) -> None:
+    """AC9: each of the 8 newly-curated companion tickers resolves its
+    curated sector/category for look-through value sourced through it,
+    rather than landing in "Unclassified"."""
+    sector_exposure = build_lookthrough_sector_exposure(
+        [
+            LookThroughConstituent(
+                symbol="OBSCURECO",
+                name="Obscure Co",
+                effective_market_value=500.0,
+                portfolio_weight=1.0,
+                sources=[LookThroughSource(source_symbol=ticker, source_market_value=500.0, source_weight=1.0, resolved_via=ticker)],
+            )
+        ]
+    )
+
+    by_sector = {item.sector: item for item in sector_exposure}
+
+    assert by_sector[expected_sector].market_value == pytest.approx(500.0, abs=0.01)
+    assert UNCLASSIFIED_SECTOR_LABEL not in by_sector
+
+
+def test_build_factor_exposures_defense_tilt_reflects_companion_curated_ita_sector() -> None:
+    """AC7 + AC9 together: value sourced through a companion-curated ETF
+    (ITA, Defense) still reads as a real, non-zeroed Defense Tilt at the
+    factor-exposure layer — the companion registry curation is what keeps
+    this figure from silently collapsing to 0.0 post-fix."""
+    sector_exposure = build_lookthrough_sector_exposure(
+        [
+            LookThroughConstituent(
+                symbol="OBSCURECO",
+                name="Obscure Co",
+                effective_market_value=200.0,
+                portfolio_weight=0.2,
+                sources=[LookThroughSource(source_symbol="ITA", source_market_value=200.0, source_weight=1.0, resolved_via="ITA")],
+            ),
+            LookThroughConstituent(
+                symbol="AAPL",
+                name="Apple",
+                effective_market_value=800.0,
+                portfolio_weight=0.8,
+                sources=[LookThroughSource(source_symbol="VUAA", source_market_value=800.0, source_weight=1.0, resolved_via="SPY")],
+            ),
+        ]
+    )
+
+    factor_exposures = build_factor_exposures(
+        PortfolioRiskSummary(
+            benchmark_symbol="SPY",
+            methodology="historical regression vs SPY daily returns",
+            start_date=None,
+            end_date=None,
+            observations=0,
+            portfolio_beta=None,
+            portfolio_correlation=None,
+            r_squared=None,
+            portfolio_volatility_pct=None,
+            benchmark_volatility_pct=None,
+        ),
+        MarketOverlapSummary(benchmark_symbol="SPY", overlap_weight=None, active_share=None, portfolio_in_benchmark_weight=None, benchmark_covered_weight=None),
+        sector_exposure,
+    )
+
+    defense_tilt = next(item for item in factor_exposures if item.factor == "Defense Tilt")
+    assert defense_tilt.exposure == pytest.approx(0.2, abs=0.001)
+
+
+class _NoNetworkCallMarketData:
+    """AC5 spy: fails loudly if _build_shared_sector_overlap ever reaches for
+    a market-data call to classify an unresolved shared symbol's sector."""
+
+    def get_company_profile(self, symbol: str, symbol_overrides=None):
+        raise AssertionError(f"get_company_profile must not be called to classify {symbol} (US-38.1, AC5)")
+
+    def get_etf_holdings(self, symbol: str, symbol_overrides=None):
+        raise AssertionError("get_etf_holdings must not be called by _build_shared_sector_overlap")
+
+
+def test_build_shared_sector_overlap_registry_hit_resolves_without_network_call() -> None:
+    """AC1 mirrored for the ETF-overlap-pair card: a shared symbol in the
+    static registry resolves by its own curated sector, no market-data call."""
+    result = _build_shared_sector_overlap(
+        ["AAPL"],
+        {"AAPL": ("Apple", 0.06)},
+        {"AAPL": ("Apple", 0.02)},
+        "SPY",
+        "VOO",
+        _NoNetworkCallMarketData(),
+        {},
+    )
+
+    assert len(result) == 1
+    assert result[0].sector == "Technology"
+    assert result[0].market_value == pytest.approx(0.02, abs=0.0001)
+
+
+def test_build_shared_sector_overlap_fund_category_proxy_resolves_unregistered_symbol() -> None:
+    """AC2 mirrored: a shared symbol with no registry hit still classifies by
+    a curated fund-category proxy (here, XLF's own "Financials")."""
+    result = _build_shared_sector_overlap(
+        ["OBSCURECO"],
+        {"OBSCURECO": ("Obscure Co", 0.05)},
+        {"OBSCURECO": ("Obscure Co", 0.03)},
+        "XLF",
+        "VOO",
+        _NoNetworkCallMarketData(),
+        {},
+    )
+
+    assert result[0].sector == "Financials"
+
+
+def test_build_shared_sector_overlap_unresolved_symbol_lands_unclassified_without_network_call() -> None:
+    """AC4 + AC5: a shared symbol with no registry hit and no curated
+    fund-category proxy on either side lands in "Unclassified" — the
+    previously-ungated live get_company_profile fallback is gone, so no
+    network/cache call is made to reach this outcome."""
+    result = _build_shared_sector_overlap(
+        ["OBSCURECO"],
+        {"OBSCURECO": ("Obscure Co", 0.05)},
+        {"OBSCURECO": ("Obscure Co", 0.03)},
+        "SPY",
+        "VOO",
+        _NoNetworkCallMarketData(),
+        {},
+    )
+
+    assert len(result) == 1
+    assert result[0].sector == UNCLASSIFIED_SECTOR_LABEL
+    assert result[0].market_value == pytest.approx(0.03, abs=0.0001)
+
+
+def test_fund_category_proxy_sector_checks_left_before_right() -> None:
+    """Documents _fund_category_proxy_sector's own precedence rule (left
+    resolved symbol wins on a tie), and that a pair with no curated
+    fund-category ETF on either side resolves to None."""
+    registry = InstrumentRegistry()
+
+    assert _fund_category_proxy_sector(registry, "XLF", "XLV") == "Financials"
+    assert _fund_category_proxy_sector(registry, "VOO", "XLV") == "Health Care"
+    assert _fund_category_proxy_sector(registry, "VOO", "SPY") is None
 
 
 def test_statistical_factor_model_r_squared_matches_sse_over_sst_formula() -> None:

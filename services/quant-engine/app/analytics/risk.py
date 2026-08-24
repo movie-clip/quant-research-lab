@@ -6,6 +6,7 @@ from math import isfinite, sqrt
 from typing import Literal, Protocol
 
 from app.analytics.currency import position_base_market_values
+from app.analytics.overview import UNCLASSIFIED_SECTOR_LABEL
 from app.core.constants import MIN_DAILY_OBSERVATIONS
 from app.instruments import InstrumentRegistry
 from app.schemas.imports import ImportedPortfolioSnapshot
@@ -1028,6 +1029,25 @@ def apply_return_basis_status_to_factor_model(
     return model.model_copy(update={"status": degraded_status, "windows": degraded_windows})
 
 
+# Curated fund-category override: an ETF classified under one of these
+# categories in the static registry carries its own `.sector` as an
+# authoritative, human-reviewed classification for value sourced through it
+# (US-37.1's "static" trust tier — no identity gate needed). Shared by
+# build_lookthrough_sector_exposure's per-source loop and
+# _fund_category_proxy_sector (US-38.1, T-38.1.1) so the two functions read
+# one list rather than two hand-copied ones.
+FUND_CATEGORY_OVERRIDE_CATEGORIES = {
+    "Thematic UCITS ETF",
+    "Thematic ETF",
+    "Sector UCITS ETF",
+    "Sector ETF",
+    "Bond UCITS ETF",
+    "Bond ETF",
+    "Commodity UCITS ETF",
+    "Commodity ETF",
+}
+
+
 def build_lookthrough_sector_exposure(lookthrough_constituents: list[LookThroughConstituent]) -> list[LookThroughSectorExposure]:
     registry = InstrumentRegistry()
     total_market_value = sum(item.effective_market_value for item in lookthrough_constituents)
@@ -1035,23 +1055,19 @@ def build_lookthrough_sector_exposure(lookthrough_constituents: list[LookThrough
 
     for constituent in lookthrough_constituents:
         instrument = registry.get_instrument(constituent.symbol)
-        default_sector = instrument.sector if instrument and instrument.sector else _infer_sector_from_sources(constituent.sources) or "Other"
+        default_sector = instrument.sector if instrument and instrument.sector else UNCLASSIFIED_SECTOR_LABEL
         sourced_value_total = 0.0
 
         for source in constituent.sources:
             source_instrument = registry.get_instrument(source.source_symbol)
             source_value = source.source_market_value * source.source_weight
             source_sector: str = default_sector
-            if source_instrument and source_instrument.asset_class == "etf" and source_instrument.category in {
-                "Thematic UCITS ETF",
-                "Thematic ETF",
-                "Sector UCITS ETF",
-                "Sector ETF",
-                "Bond UCITS ETF",
-                "Bond ETF",
-                "Commodity UCITS ETF",
-                "Commodity ETF",
-            } and source_instrument.sector:
+            if (
+                source_instrument
+                and source_instrument.asset_class == "etf"
+                and source_instrument.category in FUND_CATEGORY_OVERRIDE_CATEGORIES
+                and source_instrument.sector
+            ):
                 source_sector = source_instrument.sector
 
             sector_totals[source_sector] += source_value
@@ -1064,6 +1080,10 @@ def build_lookthrough_sector_exposure(lookthrough_constituents: list[LookThrough
     # Suppress sectors below 0.05% weight — these round to "0.0%" in the UI
     # and typically represent futures residuals (Equity Index) or tiny ETF tail
     # constituents that would appear as phantom zero-weight entries.
+    # UNCLASSIFIED_SECTOR_LABEL is exempt (US-38.1, AC8): an honest disclosure
+    # of unresolved value is always itemized, however small, matching the
+    # direct-equity "Unclassified" precedent (overview.py, US-37.1) which has
+    # no equivalent floor. Every other bucket keeps the existing floor.
     MIN_SECTOR_WEIGHT = 0.0005
     return [
         LookThroughSectorExposure(
@@ -1072,7 +1092,7 @@ def build_lookthrough_sector_exposure(lookthrough_constituents: list[LookThrough
             weight=round(market_value / total_market_value, 4) if total_market_value else 0.0,
         )
         for sector, market_value in sorted(sector_totals.items(), key=lambda item: item[1], reverse=True)
-        if total_market_value and market_value / total_market_value >= MIN_SECTOR_WEIGHT
+        if sector == UNCLASSIFIED_SECTOR_LABEL or (total_market_value and market_value / total_market_value >= MIN_SECTOR_WEIGHT)
     ]
 
 
@@ -1610,21 +1630,19 @@ def _aligned_active_return_series(portfolio_returns: list[tuple[str, float]], be
     ]
 
 
-def _infer_sector_from_sources(sources: list[LookThroughSource]) -> str:
-    resolved = " ".join(source.resolved_via.upper() for source in sources)
-    if any(token in resolved for token in ["XLF"]):
-        return "Financials"
-    if any(token in resolved for token in ["XLV", "IBB"]):
-        return "Health Care"
-    if any(token in resolved for token in ["ITA", "PPA"]):
-        return "Defense"
-    if any(token in resolved for token in ["BIL", "VGSH"]):
-        return "Fixed Income"
-    if any(token in resolved for token in ["ICOM", "SGLD", "ISLN", "SLV"]):
-        return "Commodities"
-    if any(token in resolved for token in ["SPY", "VUAA"]):
-        return "Broad Market"
-    return "Other"
+def _fund_category_proxy_sector(registry: InstrumentRegistry, left_resolved: str, right_resolved: str) -> str | None:
+    """Curated fund-category match for a shared-symbol pair (US-38.1,
+    T-38.1.1). Checks `left_resolved` then `right_resolved`; the first
+    curated-category match wins (left takes precedence on a tie). Reuses
+    FUND_CATEGORY_OVERRIDE_CATEGORIES, the same list
+    build_lookthrough_sector_exposure's per-source loop reads, so the two
+    functions never diverge on what counts as a curated fund category.
+    """
+    for resolved_symbol in (left_resolved, right_resolved):
+        instrument = registry.get_instrument(resolved_symbol)
+        if instrument and instrument.asset_class == "etf" and instrument.category in FUND_CATEGORY_OVERRIDE_CATEGORIES and instrument.sector:
+            return instrument.sector
+    return None
 
 
 def _build_shared_sector_overlap(
@@ -1639,7 +1657,7 @@ def _build_shared_sector_overlap(
     registry = InstrumentRegistry()
     sector_totals: defaultdict[str, float] = defaultdict(float)
     total_overlap = 0.0
-    proxy_sector = _infer_sector_from_resolved_pair(left_resolved, right_resolved)
+    proxy_sector = _fund_category_proxy_sector(registry, left_resolved, right_resolved)
     for symbol in shared_symbols:
         overlap_weight = min(left_holdings[symbol][1], right_holdings[symbol][1])
         if symbol in sector_cache:
@@ -1651,8 +1669,14 @@ def _build_shared_sector_overlap(
             elif proxy_sector is not None:
                 sector = proxy_sector
             else:
-                profile = market_data.get_company_profile(symbol)
-                sector = str((profile or {}).get("sector") or "Other")
+                # US-38.1 (AC4, AC5): no identity evidence exists for a
+                # shared-symbol whose own registry entry and sourcing ETFs'
+                # curated fund-category both fail to resolve — a live FMP
+                # profile lookup here can only be provider-self-consistent,
+                # not independent evidence, so it is never made. Honest
+                # "Unclassified" disclosure replaces the deleted, ungated
+                # market_data.get_company_profile(symbol) call.
+                sector = UNCLASSIFIED_SECTOR_LABEL
             sector_cache[symbol] = sector
         sector_totals[sector] += overlap_weight
         total_overlap += overlap_weight
@@ -1660,21 +1684,6 @@ def _build_shared_sector_overlap(
         LookThroughSectorExposure(sector=sector, market_value=round(weight, 4), weight=round(weight / total_overlap, 4) if total_overlap else 0.0)
         for sector, weight in sorted(sector_totals.items(), key=lambda item: item[1], reverse=True)
     ]
-
-
-def _infer_sector_from_resolved_pair(left_resolved: str, right_resolved: str) -> str | None:
-    resolved = f"{left_resolved} {right_resolved}".upper()
-    if any(token in resolved for token in ["ITA", "PPA"]):
-        return "Defense"
-    if any(token in resolved for token in ["XLF"]):
-        return "Financials"
-    if any(token in resolved for token in ["XLV", "IBB"]):
-        return "Health Care"
-    if any(token in resolved for token in ["BIL", "VGSH", "IEF"]):
-        return "Fixed Income"
-    if any(token in resolved for token in ["DBC", "ICOM", "SGLD", "ISLN", "SLV"]):
-        return "Commodities"
-    return None
 
 
 # A factor whose Gram-Schmidt residual never exceeds this within a window is
