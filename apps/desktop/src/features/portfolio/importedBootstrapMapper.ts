@@ -36,6 +36,11 @@ export function projectImportedBootstrap(bootstrap: ImportedBootstrapResponse): 
     workspace: {
       snapshot: bootstrap.snapshot,
       overview: bootstrap.overview,
+      lookthrough: bootstrap.lookthrough,
+      lookthrough_sector_exposure: bootstrap.lookthrough_sector_exposure,
+      market_overlap: bootstrap.market_overlap,
+      current_state_concentration: bootstrap.current_state_concentration,
+      availability: bootstrap.availability,
       risk_summary: bootstrap.risk_summary,
       admission_summary: bootstrap.admission_summary,
       benchmark: null,

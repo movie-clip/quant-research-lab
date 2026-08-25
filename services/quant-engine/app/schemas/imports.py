@@ -117,6 +117,10 @@ class SnapshotAnalysisCashBalance(BaseModel):
     amount: float
 
 
+class CombineImportedSnapshotsRequest(BaseModel):
+    snapshots: list[ImportedPortfolioSnapshot]
+
+
 class SnapshotAnalysisRequest(BaseModel):
     benchmark_symbol: str = DEFAULT_BENCHMARK_SYMBOL
     base_currency: str | None = None

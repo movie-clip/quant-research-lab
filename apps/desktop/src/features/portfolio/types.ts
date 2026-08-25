@@ -1168,6 +1168,11 @@ export type ImportAdmissionSummaryV1 = {
 export type ImportedBootstrapResponse = {
   snapshot: ImportedSnapshot
   overview: PortfolioOverview
+  lookthrough: LookThroughOverview
+  lookthrough_sector_exposure: LookThroughSectorExposure[]
+  market_overlap: MarketOverlapSummary
+  current_state_concentration: ExposureCurrentStateConcentration
+  availability: ExposureAvailability
   risk_summary: PortfolioRiskSummary
   admission_summary: ImportAdmissionSummaryV1
   history_context?: ImportedHistoryContext | null
@@ -1176,6 +1181,11 @@ export type ImportedBootstrapResponse = {
 export type ImportedPortfolioSnapshotSource = {
   snapshot: ImportedSnapshot
   overview: PortfolioOverview
+  lookthrough: LookThroughOverview
+  lookthrough_sector_exposure: LookThroughSectorExposure[]
+  market_overlap: MarketOverlapSummary
+  current_state_concentration: ExposureCurrentStateConcentration
+  availability: ExposureAvailability
   risk_summary: PortfolioRiskSummary
   admission_summary?: ImportAdmissionSummaryV1 | null
   benchmark: BenchmarkSummary | null
@@ -1328,6 +1338,21 @@ export type ExposureEngineResponse = {
    *  every other Exposure weight uses. */
   currency_exposure?: CurrencyExposureSummary | null
 }
+
+/** The 6 exposure fields computed once at import time (analyze-upload) that
+ *  must be persisted and replayed verbatim on replace-mode import, session
+ *  restore, and snapshot switching — never re-derived via runExposureEngine's
+ *  lossy second request. Expressed as a Pick off ExposureEngineResponse so it
+ *  cannot silently drift from the shape runExposureEngine actually returns. */
+export type ImportedExposureOverride = Pick<
+  ExposureEngineResponse,
+  | 'overview'
+  | 'lookthrough'
+  | 'lookthrough_sector_exposure'
+  | 'market_overlap'
+  | 'current_state_concentration'
+  | 'availability'
+>
 
 export type CurrencyExposureWeight = {
   currency: string

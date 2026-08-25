@@ -9,7 +9,9 @@ from app.importers.freedom24 import import_statement as import_freedom24_stateme
 from app.importers.interactive_brokers import detect_statement_format, import_statement, preview_pdf_statement
 from app.analytics.performance import build_daily_portfolio_states
 from app.instruments.registry import InstrumentRegistry
+from app.schemas.imports import ImportedPortfolioSnapshot
 from app.services.statement_importer import combine_imported_snapshots
+from app.tests.fixtures import imported_snapshot, position
 
 
 DOCS_DIR = Path(__file__).resolve().parents[4] / "docs"
@@ -414,6 +416,82 @@ def test_three_broker_combine_ib_ff_espp() -> None:
     # The earliest non-null starting_nav from the sorted snapshot list (FF or IB) is used.
     assert combined.statement_totals is not None
     assert (combined.statement_totals.starting_nav or 0) > 0
+
+
+# ── CR-1 (AUDIT-quant.md Finding 1): same-account combine must not silently
+# double-count when account_id fails to parse ─────────────────────────────
+
+
+def _same_account_snapshot(
+    *,
+    account_id: str | None,
+    as_of_date: str,
+    quantity: float,
+    ending_nav: float,
+) -> ImportedPortfolioSnapshot:
+    """A single-position, single-account synthetic snapshot for the account_id
+    ambiguity cases below — mirrors the base/new statement shape from
+    AUDIT-quant.md Finding 1's repro (base Jan AAPL qty 10 / new Feb AAPL qty
+    15), but built from the shared fixtures instead of a real PDF."""
+    payload = imported_snapshot(
+        positions=[position("AAPL", quantity=quantity, as_of_date=as_of_date)],
+        ledger_entries=[
+            {
+                "entry_type": "BUY",
+                "trade_date": as_of_date,
+                "symbol": "AAPL",
+                "quantity": quantity,
+                "price": 100.0,
+                "net_amount": -quantity * 100.0,
+                "currency": "USD",
+                "source_section": "Trades",
+            }
+        ],
+        statement_overrides={"account_id": account_id, "base_currency": "USD"},
+    )
+    payload["statement_totals"] = {
+        "starting_nav": ending_nav - 500.0,
+        "ending_nav": ending_nav,
+        "cash_total": 0.0,
+        "stock_total": ending_nav,
+    }
+    return ImportedPortfolioSnapshot.model_validate(payload)
+
+
+def test_combine_same_account_id_both_sides_latest_wins_regression() -> None:
+    # Regression guard for the unaffected/normal path: account_id parses and
+    # matches on both sides, so the later statement's holdings/NAV replace
+    # (not sum) the earlier statement's — the semantic add_snapshot needs.
+    base = _same_account_snapshot(account_id="U1234567", as_of_date="2024-01-31", quantity=10.0, ending_nav=2000.0)
+    new = _same_account_snapshot(account_id="U1234567", as_of_date="2024-02-29", quantity=15.0, ending_nav=3000.0)
+
+    combined = combine_imported_snapshots([base, new])
+
+    assert len(combined.positions) == 1
+    assert combined.positions[0].quantity == 15.0
+    assert combined.statement_totals is not None
+    assert combined.statement_totals.ending_nav == 3000.0
+
+
+def test_combine_raises_when_account_id_missing_on_both_sides() -> None:
+    # AUDIT-quant.md Finding 1: account_id unparsed on BOTH statements must
+    # not be silently treated as two distinct accounts and summed.
+    base = _same_account_snapshot(account_id=None, as_of_date="2024-01-31", quantity=10.0, ending_nav=2000.0)
+    new = _same_account_snapshot(account_id=None, as_of_date="2024-02-29", quantity=15.0, ending_nav=3000.0)
+
+    with pytest.raises(ValueError, match="account"):
+        combine_imported_snapshots([base, new])
+
+
+def test_combine_raises_when_account_id_missing_on_one_side() -> None:
+    # Finding 1's "more realistic failure mode": one statement's account_id
+    # parses, the other's does not — still ambiguous, must still raise rather
+    # than guess "different account" and sum.
+    base = _same_account_snapshot(account_id="U1234567", as_of_date="2024-01-31", quantity=10.0, ending_nav=2000.0)
+    new = _same_account_snapshot(account_id=None, as_of_date="2024-02-29", quantity=15.0, ending_nav=3000.0)
+
+    with pytest.raises(ValueError, match="account"):
+        combine_imported_snapshots([base, new])
 
 
 def test_import_statements_three_broker_api_function() -> None:

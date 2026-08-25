@@ -1241,6 +1241,15 @@ export function createImportedBootstrapResponseFixture(): ImportedBootstrapRespo
   return {
     snapshot: fixture.snapshot,
     overview: fixture.overview,
+    // US-T0 (SBIO-still-unclassified fix): analyze-upload returns the same 5
+    // exposure fields the exposure engine computes at import time — sourced
+    // from fixture.exposure so this fixture cannot silently drift from the
+    // shape createExposureEngineFixture() actually returns.
+    lookthrough: fixture.exposure.lookthrough,
+    lookthrough_sector_exposure: fixture.exposure.lookthrough_sector_exposure,
+    market_overlap: fixture.exposure.market_overlap,
+    current_state_concentration: fixture.exposure.current_state_concentration,
+    availability: fixture.exposure.availability,
     risk_summary: fixture.diagnostics.risk_summary,
     admission_summary: fixture.admission_summary,
     history_context: fixture.history_context,

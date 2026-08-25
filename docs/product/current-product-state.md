@@ -125,6 +125,8 @@ The researcher imports statements via the Import flow:
 - The desktop file picker accepts `.pdf` and `.csv`; the golden pipeline and `scripts/refresh_statement.py` key off `docs/IB2026.csv`
 - Import produces an `ImportedPortfolioSnapshot` with positions, ledger, reconciliation checks
 - Multiple statements can be stacked as snapshot nodes; the researcher selects which to analyze
+- The snapshot picker's option label for a persisted imported/base node discloses that node's import/capture date (`YYYY-MM-DD`, `variantLabels.ts`'s `resolveNodeImportDate`) instead of a bare `"base"` string; a variant built on top still carries the base's date via ancestor-walk, and a node with no import behind it (e.g. a fresh working draft) renders with no date, unchanged (Epic 40 / US-40.1)
+- Adding a new statement (`add_snapshot` mode) no longer discards the existing node's imported/replay history the way `replace` mode always preserved it — the two snapshots are combined via `POST /portfolios/import/combine-snapshots` (reusing the existing, tested `combine_imported_snapshots` merge, not a client-side reimplementation); an incompatible combine (e.g. differing base currency, or an unparseable `account_id`) discloses the degradation through the existing import-error channel rather than silently dropping history (Epic 40 / US-40.2, contract: `docs/contracts/dashboard-fields.md` § Combine Imported Snapshots)
 - Import Admission Review: a local review of data quality issues (non-financial, desktop-only)
 
 ---
@@ -168,6 +170,8 @@ The researcher imports statements via the Import flow:
 | `unavailable` | Required inputs or trustworthy path do not exist |
 
 Never collapse `withheld` into `unavailable`. Never fabricate or silently fallback.
+
+**`run_metadata.source_status.lookthrough_resolution`, `run_metadata.source_status.benchmark_holdings`, and `run_metadata.confidence` are never a trust source (Epic 40 / US-40.1).** They are always live/per-render values, redundant re-derivations of `availability`'s own classification, and are excluded from the frozen-at-import fields (`availability`, `lookthrough`, `market_overlap`, `current_state_concentration`) a persisted imported/base node otherwise replays unchanged. No current UI reads them for trust display; a permanent regression scanner (`runMetadataTrustSourceGuard.test.ts`) fails the suite if one ever does. See `docs/contracts/exposure-fields.md`.
 
 **Replay coverage disclosures** (imported ledger-replay path). The replay
 reconstructs the positions held on each day of the statement window, so it

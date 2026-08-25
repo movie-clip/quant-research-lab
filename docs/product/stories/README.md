@@ -18,6 +18,19 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
+### Epic 40 — Snapshot Trust & Fidelity Follow-Through (complete)
+
+PRD: none — see `US-40.1`/`US-40.2` for the full delivery record (close-out scope excluded `docs/product/prd/`)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-40.1](US-40.1-snapshot-trust-signal-completeness.md) | The researcher can tell when a snapshot's trust signals reflect frozen import data, not a live recomputation | Doc-only contract note + permanent regression test retiring `run_metadata.source_status.*`/`.confidence` as a trust source (`docs/contracts/exposure-fields.md`, `runMetadataTrustSourceGuard.test.ts`); snapshot-picker labels now disclose a node's import/capture date (`variantLabels.ts`); housekeeping fold-in: `RecordingMarketData` gains 2 delegate methods, dead `market_data` param and the `_build_exposure_source_status`/`_build_exposure_availability` duplication routed to `tech-debt-register.md` | Done |
+| [US-40.2](US-40.2-add-snapshot-preserves-imported-history.md) | Adding a new snapshot to a portfolio no longer discards its imported history | Backend — new `CombineImportedSnapshotsRequest` schema + `POST /portfolios/import/combine-snapshots` route, reusing `combine_imported_snapshots` verbatim (no new merge logic). Frontend — `App.tsx`'s `add_snapshot` branch calls the new route and preserves combined history instead of passing `null`; degrades via the existing `importError` channel on an incompatible combine | Done |
+
+Two-story epic. Stories are structurally independent (no shared function). US-40.1 sequenced first as a soft dependency only, not a build-order constraint.
+
+---
+
 ### Epic 39 — Direct-Held ETF Sector Classification (complete)
 
 PRD: [`prd/epic-39-direct-held-etf-sector-classification.md`](../prd/epic-39-direct-held-etf-sector-classification.md)

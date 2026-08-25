@@ -38,9 +38,9 @@ function getBenchmarkTrust(result: ExposureAnalysis): BenchmarkTrust {
   const overlapStatus = result.exposure_availability?.benchmark_overlap_status ?? 'unavailable'
   if (overlapStatus === 'unavailable') return 'unavailable'
   if (overlapStatus === 'partial') return 'partial'
-  const holdingsSupport = result.run_metadata?.source_status?.benchmark_holdings ?? 'unavailable'
-  if (holdingsSupport === 'verified') return 'verified'
-  if (holdingsSupport === 'degraded') return 'degraded'
+  const confidence = result.exposure_availability?.benchmark_overlap_confidence ?? 'low'
+  if (confidence === 'high') return 'verified'
+  if (confidence === 'medium') return 'degraded'
   return 'unavailable'
 }
 

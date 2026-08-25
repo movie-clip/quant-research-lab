@@ -170,6 +170,24 @@ export async function runImportedDiagnosticsEngine(
   return (await response.json()) as DiagnosticsEngineResponse
 }
 
+export async function combineImportedSnapshots(
+  snapshots: ImportedSnapshot[],
+  apiUrlOptions?: ResolveDesktopApiUrlOptions,
+): Promise<ImportedSnapshot> {
+  const response = await fetch(resolvePortfolioEngineUrl('/api/portfolios/import/combine-snapshots', apiUrlOptions), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ snapshots }),
+  })
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { detail?: string } | null
+    throw new Error(payload?.detail ?? 'Combine imported snapshots failed')
+  }
+
+  return (await response.json()) as ImportedSnapshot
+}
+
 export async function runDashboardHistoryEngine(
   snapshot: PortfolioSnapshot,
   historyContext: ImportedHistoryContext,

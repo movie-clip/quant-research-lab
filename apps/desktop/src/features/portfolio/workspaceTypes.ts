@@ -1,4 +1,4 @@
-import type { ImportAdmissionSummaryV1, ImportedStatementImporter, ImportedSnapshot } from './types'
+import type { ImportAdmissionSummaryV1, ImportedStatementImporter, ImportedSnapshot, ImportedExposureOverride } from './types'
 
 export type PortfolioWorkspaceId = string
 export type PortfolioNodeId = string
@@ -76,6 +76,7 @@ export type ImportedNodeSource = {
   baseCurrency: string | null
   historySource: ImportedHistorySource
   admissionSummary?: ImportAdmissionSummaryV1 | null
+  importedExposureOverride?: ImportedExposureOverride | null
 }
 
 export type PortfolioWorkspaceSource = ImportedNodeSource

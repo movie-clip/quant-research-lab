@@ -3,9 +3,16 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, FiniteFloat
 
+from app.schemas.exposure import ExposureAvailability, ExposureCurrentStateConcentration
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.portfolio_engine import PortfolioHistoryContext
-from app.schemas.reconciliation import PortfolioOverview, PortfolioRiskSummary
+from app.schemas.reconciliation import (
+    LookThroughOverview,
+    LookThroughSectorExposure,
+    MarketOverlapSummary,
+    PortfolioOverview,
+    PortfolioRiskSummary,
+)
 
 
 ImportAdmissionDecision = Literal["admitted", "degraded", "withheld"]
@@ -52,6 +59,11 @@ class ImportAdmissionSummaryV1(BaseModel):
 class ImportedBootstrapResponse(BaseModel):
     snapshot: ImportedPortfolioSnapshot
     overview: PortfolioOverview
+    lookthrough: LookThroughOverview
+    lookthrough_sector_exposure: list[LookThroughSectorExposure]
+    market_overlap: MarketOverlapSummary
+    current_state_concentration: ExposureCurrentStateConcentration
+    availability: ExposureAvailability
     risk_summary: PortfolioRiskSummary
     admission_summary: ImportAdmissionSummaryV1
     history_context: PortfolioHistoryContext | None = None

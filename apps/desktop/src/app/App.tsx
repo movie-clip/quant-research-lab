@@ -3,12 +3,12 @@ import type { ChangeEvent } from 'react'
 
 import { canUseImportedReplay, collapseToHistoryContextSource, resolveEffectiveHistorySource } from '../features/portfolio/historySource'
 import { projectImportedBootstrap } from '../features/portfolio/importedBootstrapMapper'
-import { buildExposureFactorModel, buildPortfolioBaselineView, composeDashboardAnalysisFromEngines, composeDashboardAnalysisWithHistory, runDashboardHistoryEngine, runDiagnosticsEngine, runExposureEngine, composeExposureView, runImportedDashboardHistory, runImportedDiagnosticsEngine } from '../features/portfolio/portfolioAnalysisAdapter'
+import { buildExposureFactorModel, buildPortfolioBaselineView, combineImportedSnapshots, composeDashboardAnalysisFromEngines, composeDashboardAnalysisWithHistory, runDashboardHistoryEngine, runDiagnosticsEngine, runExposureEngine, composeExposureView, runImportedDashboardHistory, runImportedDiagnosticsEngine } from '../features/portfolio/portfolioAnalysisAdapter'
 import { formatVariantNodeLabel, formatWorkingDraftLabel } from '../features/portfolio/variantLabels'
 import { buildPortfolioSnapshotFromAnalysis, overlayImportedSnapshot } from '../features/portfolio/portfolioSnapshot'
 import { composeDashboardSession, type DashboardSession } from './dashboardSession'
 import { resolveImportedWorkspaceStartupTruth } from './startupSelectionValidation'
-import type { ImportedBootstrapResponse, ImportedSnapshot, ImportedStatementImporter, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse } from '../features/portfolio/types'
+import type { ImportedBootstrapResponse, ImportedExposureOverride, ImportedSnapshot, ImportedStatementImporter, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse } from '../features/portfolio/types'
 import type { ImportedHistoryContext, ImportedHistorySource, PortfolioNode, PortfolioWorkspace, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
 import { clearPortfolioWorkspaceState, createWorkspaceFromImport, getDraft, getLastOpenedWorkspaceState, getNode, getWorkspace, getWorkspaceNodes, resetLocalPortfolioDatabase, saveImportedSnapshotNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
 import { DashboardPanel } from '../features/portfolio/DashboardPanel'
@@ -428,11 +428,13 @@ export function App() {
         : nodes.find((item) => item.id === resolvedSnapshot.id) ?? node
       const selectedSource = getEffectiveNodeImportSource(selectedNode, nodes, workspace)
       const selectedDirectSource = getDirectNodeImportSource(selectedNode, workspace)
+      const importedExposureOverride = resolvedSnapshot.id !== 'draft' ? (selectedDirectSource?.importedExposureOverride ?? null) : null
       const restoredAnalytics = await analyzeRestoredSnapshot(
         resolvedSnapshot.snapshot,
         resolvedSnapshot.id,
         resolveEffectiveHistorySource(selectedSource, selectedDirectSource) ?? getWorkspaceHistorySource(workspace) ?? null,
         workspace.id,
+        importedExposureOverride,
       )
 
       if (!isActive()) return
@@ -471,18 +473,20 @@ export function App() {
     options?: {
       preserveDashboardAnalysis?: boolean
       historySource?: ImportedHistorySource | null
+      importedExposureOverride?: ImportedExposureOverride | null
     },
   ) {
     // Drift is self-fetched by DriftBenchmarkPanel from the workspace snapshot
     // (US-30.3 / F-4) — no App-level drift fetch here, so no analyze path can
     // forget it (the restore-path bug that showed a blank chart until the
     // benchmark dropdown was touched).
-    const [exposure, diagnostics] = await Promise.all([
+    const [rawExposure, diagnostics] = await Promise.all([
       runExposureEngine(snapshot),
       options?.historySource?.kind === 'imported_replay'
         ? runImportedDiagnosticsEngine(options.historySource.importedHistorySnapshot)
         : runDiagnosticsEngine(snapshot, options?.historySource?.historyContext ?? getWorkspaceHistorySource(activeWorkspace)?.historyContext ?? null),
     ])
+    const exposure = options?.importedExposureOverride ? { ...rawExposure, ...options.importedExposureOverride } : rawExposure
     const exposureView = composeExposureView(exposure, diagnostics)
     let factorModel: ExposureFactorModelResponse | null
     try {
@@ -519,6 +523,7 @@ export function App() {
           ? (getNodeHistorySource(selectedBaseDirectSource) ?? null)
           : collapseToHistoryContextSource(selectedBaseSource),
         preserveDashboardAnalysis: true,
+        importedExposureOverride: null,
       })
       return
     }
@@ -530,6 +535,7 @@ export function App() {
     await analyzeExposureSnapshot(node.portfolioSnapshot, snapshotId, activeWorkspace.id, {
       historySource: resolveEffectiveHistorySource(nodeSource, directNodeSource),
       preserveDashboardAnalysis: true,
+      importedExposureOverride: directNodeSource?.importedExposureOverride ?? null,
     })
   }
 
@@ -537,7 +543,8 @@ export function App() {
     snapshot: WorkingDraft['portfolioSnapshot'],
     snapshotId: string,
     historySource: ImportedHistorySource | null | undefined,
-    _workspaceId?: string,
+    _workspaceId: string | undefined,
+    importedExposureOverride: ImportedExposureOverride | null,
   ) {
     let diagnosticsHistoryContext: ImportedHistoryContext | null = historySource?.historyContext ?? null
     let diagnostics: DiagnosticsEngineResponse
@@ -562,7 +569,8 @@ export function App() {
         : null
     }
 
-    const exposure = await runExposureEngine(snapshot)
+    const rawExposure = await runExposureEngine(snapshot)
+    const exposure = importedExposureOverride ? { ...rawExposure, ...importedExposureOverride } : rawExposure
 
     const exposureView = composeExposureView(exposure, diagnostics)
     let factorModel: ExposureFactorModelResponse | null
@@ -772,13 +780,27 @@ export function App() {
         const baseSource = getEffectiveNodeImportSource(baseNode, workspaceNodes, activeWorkspace)
         const mergedHistoryContext = mergeHistoryContext(getNodeHistorySource(baseSource)?.historyContext ?? null, importedViews.historyContext)
 
+        const baseImportedHistorySnapshot = canUseImportedReplay(baseSource) ? (baseSource?.historySource.importedHistorySnapshot ?? null) : null
+        // No prior replay data to combine with -> adopt the new statement's own
+        // snapshot alone. Still strictly better than discarding it outright, and
+        // honest: there is nothing to combine.
+        let combinedHistorySnapshot: ImportedSnapshot | null = nextAnalysis.snapshot
+        if (baseImportedHistorySnapshot) {
+          try {
+            combinedHistorySnapshot = await combineImportedSnapshots([baseImportedHistorySnapshot, nextAnalysis.snapshot])
+          } catch {
+            combinedHistorySnapshot = null
+            setImportError('Added statement could not be combined with the existing imported history (for example, a differing base currency) — this snapshot keeps the merged positions but not full replay history.')
+          }
+        }
+
         const savedNode = await saveImportedSnapshotNode({
           workspaceId: activeWorkspace.id,
           parentNodeId: baseNode?.id ?? activeWorkspace.rootNodeId,
           portfolioSnapshot: overlaidSnapshot,
           importedFileNames,
           historyContext: mergedHistoryContext,
-          importedHistorySnapshot: null,
+          importedHistorySnapshot: combinedHistorySnapshot,
           admissionSummary: nextAnalysis.admission_summary,
           name: buildImportedSnapshotName(nextAnalysis.snapshot),
         })

@@ -121,18 +121,19 @@ describe('DashboardPanel', () => {
     expect(screen.getByText('Benchmark-relative positioning unavailable')).toBeTruthy()
   })
 
-  it('shows degraded coverage note when benchmark holdings support is degraded', () => {
+  it('shows degraded coverage note when frozen benchmark overlap confidence is medium', () => {
+    // CR-1 (2026-08-24-sbio-still-unclassified-bug, quant-audit Finding 1): the
+    // badge must be derived entirely from `exposure_availability` (frozen),
+    // not from the live `run_metadata.source_status.benchmark_holdings` — see
+    // BenchmarkPositioningCard.test.tsx for the single-vintage regression.
     render(
       <DashboardPanel
         result={null}
         exposureResult={{
           ...mockExposureView,
-          run_metadata: {
-            ...mockExposureView.run_metadata!,
-            source_status: {
-              ...mockExposureView.run_metadata!.source_status,
-              benchmark_holdings: 'degraded',
-            },
+          exposure_availability: {
+            ...mockExposureView.exposure_availability!,
+            benchmark_overlap_confidence: 'medium',
           },
         }}
       />,

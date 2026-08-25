@@ -18,6 +18,12 @@ Single source of truth for:
   `test_equity_sector_resolution.py`, `_SpyMarketData` in
   `test_instrument_registry.py`).
 
+Gotcha (US-40.2, found building CR-1's regression tests): a synthetic
+`statement_totals` payload must set `cash_total`/`stock_total` explicitly —
+`combine_imported_snapshots`'s merged `ending_nav` is derived from summing
+those two fields across terminal snapshots, not read from a bare `ending_nav`
+field on the input.
+
 Policy: new engine tests import from here instead of re-implementing builders
 (see .claude/skills/write-tests/SKILL.md).
 """

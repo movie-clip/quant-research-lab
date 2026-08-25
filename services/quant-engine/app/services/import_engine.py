@@ -31,6 +31,11 @@ def build_import_bootstrap_from_snapshot(
     return compose_import_bootstrap_response(
         snapshot=snapshot,
         overview=exposure_result.overview,
+        lookthrough=exposure_result.lookthrough,
+        lookthrough_sector_exposure=exposure_result.lookthrough_sector_exposure,
+        market_overlap=exposure_result.market_overlap,
+        current_state_concentration=exposure_result.current_state_concentration,
+        availability=exposure_result.availability,
         risk_summary=PortfolioRiskSummary(
             benchmark_symbol=benchmark_symbol,
             methodology='import_bootstrap',

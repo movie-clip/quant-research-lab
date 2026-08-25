@@ -136,6 +136,8 @@ class RecordingMarketData:
         self._inner = inner
         self._series: dict[tuple[str, str, str], list[dict]] = {}
         self._meta: dict[str, dict] = {}
+        self._profiles: dict[str, dict | None] = {}
+        self._sector_weightings: dict[str, list[dict]] = {}
 
     def get_historical_prices(
         self,
@@ -188,6 +190,20 @@ class RecordingMarketData:
         if meta is not None:
             self._meta[canonicalize_symbol(symbol)] = meta
 
+    def get_company_profile(
+        self, symbol: str, symbol_overrides: dict[str, list[str]] | None = None
+    ) -> dict | None:
+        profile = self._inner.get_company_profile(symbol, symbol_overrides)
+        self._profiles[canonicalize_symbol(symbol)] = profile
+        return profile
+
+    def get_etf_sector_weightings(
+        self, symbol: str, symbol_overrides: dict[str, list[str]] | None = None
+    ) -> list[dict]:
+        rows = self._inner.get_etf_sector_weightings(symbol, symbol_overrides)
+        self._sector_weightings[canonicalize_symbol(symbol)] = rows
+        return rows
+
     def to_payload(self) -> dict[str, Any]:
         return {
             "series": [
@@ -195,4 +211,8 @@ class RecordingMarketData:
                 for (symbol, from_date, to_date), rows in sorted(self._series.items())
             ],
             "fetch_meta": {symbol: self._meta[symbol] for symbol in sorted(self._meta)},
+            "profiles": {symbol: self._profiles[symbol] for symbol in sorted(self._profiles)},
+            "sector_weightings": {
+                symbol: self._sector_weightings[symbol] for symbol in sorted(self._sector_weightings)
+            },
         }

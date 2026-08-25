@@ -132,6 +132,19 @@ def _validate_compatible_snapshots(snapshots: list[ImportedPortfolioSnapshot]) -
     if len(base_currencies) != 1:
         raise ValueError("Cannot combine statements with different base currencies")
 
+    # Position/NAV merging below decides same-account (latest-wins replace) vs.
+    # different-account (sum) purely from account_id equality. If account_id is
+    # missing/unparsed on either side, that decision cannot be made safely: a
+    # same-account statement whose id failed to parse would otherwise be treated
+    # as a distinct account and silently summed instead of superseded. Fail
+    # closed rather than guess.
+    if len(snapshots) > 1 and any(not snapshot.statement.account_id for snapshot in snapshots):
+        raise ValueError(
+            "Cannot combine statements: at least one statement has no parsed account "
+            "identifier, so it cannot be confirmed whether it represents the same "
+            "account (positions should replace) or a different account (positions "
+            "should sum). Re-check the statement's account/client ID field."
+        )
 
 def _build_combined_statement_period(snapshots: list[ImportedPortfolioSnapshot]) -> str | None:
     dated_periods = [parsed for snapshot in snapshots if (parsed := _parse_statement_period(snapshot.statement.statement_period)) is not None]

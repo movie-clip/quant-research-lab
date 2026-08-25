@@ -30,6 +30,63 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+// Minimal in-memory stand-in for IndexedDB, backing both `withStore` and
+// `withStores` from a single shared map so a value written through one
+// entry point (e.g. createWorkspaceFromImport's `withStores` transaction) is
+// readable through the other (e.g. saveImportedSnapshotNode's `withStore`
+// reads) — real cross-function flows in this module mix both. Reuse this
+// rather than the narrower ad hoc store stubs used elsewhere in this file
+// when a test needs more than one storage function to see the same data.
+function createFakePortfolioDb() {
+  const stores = new Map<string, Map<string, unknown>>()
+  function storeFor(name: string) {
+    if (!stores.has(name)) stores.set(name, new Map())
+    return stores.get(name)!
+  }
+  function keyFor(value: unknown): string {
+    const v = value as { id?: string; workspaceId?: string }
+    return v.id ?? v.workspaceId ?? ''
+  }
+  function makeStoreApi(name: string) {
+    const map = storeFor(name)
+    return {
+      get(key: string) {
+        const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: map.get(key) }
+        queueMicrotask(() => request.onsuccess?.())
+        return request as unknown as IDBRequest
+      },
+      put(value: unknown) {
+        map.set(keyFor(value), structuredClone(value))
+        const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null }
+        queueMicrotask(() => request.onsuccess?.())
+        return request as unknown as IDBRequest
+      },
+      index(_indexName: string) {
+        return {
+          getAll(key: string) {
+            const results = Array.from(map.values()).filter((v) => (v as { workspaceId?: string }).workspaceId === key)
+            const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: results }
+            queueMicrotask(() => request.onsuccess?.())
+            return request as unknown as IDBRequest
+          },
+        }
+      },
+    } as unknown as IDBObjectStore
+  }
+  return {
+    stores,
+    install() {
+      vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (storeName, _mode, handler) => {
+        return new Promise((resolve, reject) => handler(makeStoreApi(storeName), resolve, reject))
+      })
+      vi.spyOn(portfolioDb, 'withStores').mockImplementation(async (_storeNames, _mode, handler) => {
+        const transaction = { objectStore: (name: string) => makeStoreApi(name) } as unknown as IDBTransaction
+        return new Promise((resolve, reject) => handler(transaction, resolve, reject))
+      })
+    },
+  }
+}
+
 describe('portfolioWorkspaceStorage', () => {
   it('builds persisted sources with historySource only', () => {
     const persistedSource = buildPersistedImportedSource({
@@ -210,6 +267,61 @@ describe('portfolioWorkspaceStorage', () => {
     expect(created.workspaceState.activeDraftId).toBe(created.draft.id)
     expect(created.workspaceState.selectedExposureSnapshotId).toBe(created.rootNode.id)
     expect(!('kind' in created.workspace.source) && created.workspace.source.admissionSummary).toEqual(bootstrap.admission_summary)
+  })
+
+  it('persists the 6-field exposure override verbatim from the analyze-upload response on replace-mode import', async () => {
+    // Coverage point 1 (2026-08-24-sbio-still-unclassified-bug/T2): the fields
+    // computed once at import time must survive into workspace.source
+    // unchanged, so a later lossy runExposureEngine call never needs to be
+    // trusted for them.
+    createFakePortfolioDb().install()
+
+    const bootstrap = createImportedBootstrapResponseFixture()
+    const analysis = projectImportedBootstrap(bootstrap).workspace
+    const created = await portfolioWorkspaceStorage.createWorkspaceFromImport({
+      analysis,
+      importedFileNames: ['IB2025.pdf'],
+    })
+
+    const source = created.workspace.source
+    expect('importedExposureOverride' in source).toBe(true)
+    expect(source.importedExposureOverride).toEqual({
+      overview: analysis.overview,
+      lookthrough: analysis.lookthrough,
+      lookthrough_sector_exposure: analysis.lookthrough_sector_exposure,
+      market_overlap: analysis.market_overlap,
+      current_state_concentration: analysis.current_state_concentration,
+      availability: analysis.availability,
+    })
+  })
+
+  it('leaves importedExposureOverride undefined on an add_snapshot node even though the parent workspace carries one', async () => {
+    // Coverage point 3 (structural half): saveImportedSnapshotNode is
+    // deliberately unchanged by the T1 fix — its merged snapshot was never
+    // computed by the fresh exposure_result at import time, so substituting
+    // any of the 6 fields would render silently wrong totals for the combined
+    // portfolio. This is the known, deliberately-unfixed gap, not a claim the
+    // add_snapshot path is fixed.
+    createFakePortfolioDb().install()
+
+    const bootstrap = createImportedBootstrapResponseFixture()
+    const analysis = projectImportedBootstrap(bootstrap).workspace
+    const created = await portfolioWorkspaceStorage.createWorkspaceFromImport({
+      analysis,
+      importedFileNames: ['IB2025.pdf'],
+    })
+    expect(created.workspace.source.importedExposureOverride).toBeTruthy()
+
+    const saved = await portfolioWorkspaceStorage.saveImportedSnapshotNode({
+      workspaceId: created.workspace.id,
+      parentNodeId: created.rootNode.id,
+      portfolioSnapshot: created.draft.portfolioSnapshot,
+      importedFileNames: ['IB2026.pdf'],
+      name: 'IB 2026',
+    })
+
+    expect(saved.node.source && 'importedExposureOverride' in saved.node.source).toBe(false)
+    expect(saved.node.source?.importedExposureOverride).toBeUndefined()
   })
 
   it('clears candidate improvement draft annotation when recreating a fresh draft from a node', async () => {

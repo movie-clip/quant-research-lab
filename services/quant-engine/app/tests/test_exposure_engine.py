@@ -777,3 +777,44 @@ def test_currency_exposure_makes_no_market_data_call() -> None:
     ).read_text(encoding="utf-8")
     assert "MarketDataService" not in source
     assert "get_historical_prices" not in source
+
+
+def test_exposure_engine_run_metadata_source_status_and_availability_are_self_consistent_within_one_call(mocker) -> None:
+    """US-40.1 / T-40.1.1, T-40.1.4 (AC4-AC6) — characterization, not new
+    behavior. `run_metadata.source_status.lookthrough_resolution`/
+    `run_metadata.confidence` (`_build_exposure_source_status`) and
+    `availability.lookthrough_status`/`.lookthrough_confidence`/
+    `.benchmark_overlap_confidence` (`_build_exposure_availability`) are two
+    independent re-derivations of the identical three-way classification over
+    the identical inputs, computed inside the same `build_exposure_result`
+    call. This pins that self-consistency-within-one-call property so a
+    future edit that decouples them (e.g. makes one path async, optional, or
+    changes only one of the two functions) is caught. No assertion here
+    should change unless behavior actually changes — see
+    `docs/contracts/exposure-fields.md`'s "excluded from this freeze" note
+    and `03-quant-research.md` (2026-08-25-leftover-findings-fold-in run)
+    § Duplication finding.
+    """
+    snapshot = import_statements([str(STATEMENT_2026_PATH)])
+    stub = StubMarketDataService()
+    mocker.patch("app.services.exposure_engine.MarketDataService", return_value=stub)
+
+    result = build_exposure_result(snapshot, "SPY")
+
+    # `lookthrough_resolution` and `lookthrough_status` are the same
+    # three-way classification (unavailable/partial/live) over the same
+    # inputs — they must always agree within one call.
+    assert result.run_metadata.source_status.lookthrough_resolution == result.availability.lookthrough_status
+
+    # `run_metadata.confidence` is `_combine_exposure_confidence(lookthrough_confidence,
+    # benchmark_overlap_confidence)` — "low" beats "medium" beats "high".
+    # Recomputed independently here (not by importing the private helper) so
+    # the test pins the *contract*, not the implementation detail.
+    confidences = {result.availability.lookthrough_confidence, result.availability.benchmark_overlap_confidence}
+    if "low" in confidences:
+        expected_confidence = "low"
+    elif "medium" in confidences:
+        expected_confidence = "medium"
+    else:
+        expected_confidence = "high"
+    assert result.run_metadata.confidence == expected_confidence

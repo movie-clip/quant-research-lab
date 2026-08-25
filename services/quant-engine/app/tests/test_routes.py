@@ -1,6 +1,10 @@
+from datetime import datetime
+
 from fastapi.testclient import TestClient
 
 from app.api.main import app
+from app.schemas.imports import ImportedCashBalance, ImportedPortfolioSnapshot, ImportedStatement
+from app.services.statement_importer import combine_imported_snapshots, import_statements
 from app.tests._statement_fixtures import (
     ESPP_PATH as ESPP_FIXTURE_PATH,
     FREEDOM24_PATH as FREEDOM24_FIXTURE_PATH,
@@ -32,6 +36,61 @@ def test_import_route_returns_404_for_missing_statement() -> None:
     response = client.post("/portfolios/import/interactive-brokers", json={"statement_path": "missing.pdf"})
 
     assert response.status_code == 404
+
+
+def _build_minimal_snapshot(base_currency: str, source_path: str) -> ImportedPortfolioSnapshot:
+    return ImportedPortfolioSnapshot(
+        statement=ImportedStatement(
+            importer="interactive_brokers",
+            imported_at=datetime(2026, 4, 11),
+            source_path=source_path,
+            detected_format="snapshot",
+            account_id="U123",
+            base_currency=base_currency,
+            statement_period="2026-04-11",
+            page_count=1,
+        ),
+        instruments=[],
+        cash_balances=[ImportedCashBalance(currency=base_currency, ending_cash=0.0)],
+        positions=[],
+        ledger_entries=[],
+    )
+
+
+# US-40.2 / T-40.2.3 — POST /portfolios/import/combine-snapshots (T-40.2.2a's
+# new thin-wrapper route). Per 05-technical-plan.md § US-40.2 design, this is
+# NOT a re-test of the merge logic itself (already covered by
+# `combine_imported_snapshots`'s own tests in test_importer.py) — it only
+# confirms the route (a) delegates to the existing function verbatim and (b)
+# maps its ValueError to HTTP 400 with the original message, the same
+# error-mapping pattern already used by `import_interactive_brokers_statement`.
+def test_combine_snapshots_route_returns_the_function_own_combined_result() -> None:
+    client = TestClient(app)
+    snapshot_2025 = import_statements([STATEMENT_PATH])
+    snapshot_2026 = import_statements([STATEMENT_2026_PATH])
+    expected = combine_imported_snapshots([snapshot_2025, snapshot_2026])
+
+    response = client.post(
+        "/portfolios/import/combine-snapshots",
+        json={"snapshots": [snapshot_2025.model_dump(mode="json"), snapshot_2026.model_dump(mode="json")]},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == expected.model_dump(mode="json")
+
+
+def test_combine_snapshots_route_returns_400_for_incompatible_base_currencies() -> None:
+    client = TestClient(app)
+    usd_snapshot = _build_minimal_snapshot("USD", "usd.pdf")
+    eur_snapshot = _build_minimal_snapshot("EUR", "eur.pdf")
+
+    response = client.post(
+        "/portfolios/import/combine-snapshots",
+        json={"snapshots": [usd_snapshot.model_dump(mode="json"), eur_snapshot.model_dump(mode="json")]},
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Cannot combine statements with different base currencies"}
 
 
 

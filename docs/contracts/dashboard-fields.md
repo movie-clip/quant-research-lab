@@ -169,6 +169,39 @@ Dashboard may display import-admission evidence attached to imported bootstrap r
 
 Import admission is informational on Dashboard: workspace creation is non-blocking and the read-only summary cannot upgrade trust or change broker truth. (The never-wired `ImportAdmissionReviewDispositionV1` reviewer-disposition plumbing was removed in US-23.9 — no producer, no consumer.)
 
+## Combine Imported Snapshots (US-40.2)
+
+`POST /portfolios/import/combine-snapshots` — backs the `add_snapshot` import
+mode's history preservation. Contract source of truth:
+`services/quant-engine/app/schemas/imports.py`, route
+`services/quant-engine/app/api/routes/imports.py` (on the existing
+`/portfolios/import`-prefixed router, no separate registration).
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| Request `snapshots` | `list[ImportedPortfolioSnapshot]` (`CombineImportedSnapshotsRequest`) | Pure wrapper — no new nested schema. Frontend sends `ImportedSnapshot[]` (`types.ts`, 1:1 mirror of `ImportedPortfolioSnapshot`) as an inline `{ snapshots }` body (`portfolioAnalysisAdapter.ts`'s `combineImportedSnapshots`); no named TS request type exists, matching `runImportedDiagnosticsEngine`'s existing no-wrapper convention. |
+| Response | `ImportedPortfolioSnapshot` | The merged snapshot — same shape as the route's own request items and as the analyze-upload import response. |
+| Error | HTTP 400, `detail: str` | Raised on `ValueError` from `combine_imported_snapshots` (base-currency mismatch, or a falsy `statement.account_id` on either input — CR-1, 2026-08-25). Identical error-mapping pattern to `POST /portfolios/import/interactive-brokers`. |
+
+**Merge logic is not duplicated.** The route calls the existing, tested
+`combine_imported_snapshots` (`services/quant-engine/app/services/statement_importer.py`)
+verbatim — the same function `import_statements` already used for
+multi-file-in-one-request combines. No client-side port of the NAV/TWR/
+ledger-merge math exists; see `docs/finance/financial-methodology.md`'s
+"Multi-Statement Snapshot Merge" section for the formula.
+
+**Consumer: `App.tsx`'s `add_snapshot` branch.** On adding a statement to an
+existing node, the branch combines the node's prior
+`historySource.importedHistorySnapshot` with the newly imported statement's
+own snapshot via this route, then passes the result into
+`saveImportedSnapshotNode(...)` as `importedHistorySnapshot` — preserving
+reproducibility/replay data that `add_snapshot` previously discarded (passed
+`null`). On a 400 (incompatible combine), the branch falls back to
+`combinedHistorySnapshot = null` and discloses the degradation via the
+existing `importError` / `dashboardSession.importError` channel — no new
+prop or component. The `replace`-mode path does not call this route; it
+already used the just-imported statement's own snapshot directly.
+
 ## Field Inventory
 
 ### Header and account metadata

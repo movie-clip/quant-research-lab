@@ -2260,6 +2260,92 @@ Contract rule:
 - Indexed series points with null values must be emitted as null, not omitted.
   The frontend renders null as a line break, not a zero.
 
+## Multi-Statement Snapshot Merge
+
+*`combine_imported_snapshots` (US-40.2 reuse; CR-1 account-identity fix,
+2026-08-25). Merges N imported broker-statement snapshots — the initial
+multi-file import path, and now also the ordinary `add_snapshot` combine
+(`POST /portfolios/import/combine-snapshots`) — into one `ImportedPortfolioSnapshot`.
+This is the merge that feeds the Cash anchor rule above whenever the anchored
+snapshot is a combined one.*
+
+```text
+Inputs are first re-sorted by each snapshot's own ledger/position date range
+(_snapshot_sort_key), oldest to newest — caller order is not trusted or
+required.
+
+statement_totals (per merged snapshot, _merge_statement_totals):
+  starting_nav          = the EARLIEST statement's own starting_nav
+                           (falls back to the first positive starting_nav
+                           found across statements if the earliest has none)
+  ending_nav             = terminal_cash_total + terminal_stock_total
+  cash_total, stock_total = summed across the TERMINAL (latest-per-account)
+                           statement's own cash_total/stock_total — i.e. one
+                           account's own latest value, or several distinct
+                           accounts' latest values added together
+  time_weighted_return_pct = geometric compounding of EVERY input statement's
+                           own period return, oldest to newest:
+                             growth = Π_i (1 + twr_i / 100)
+                             combined_twr = (growth − 1) × 100
+                           (a 3-statement chain of 5%, 3%, 2% compounds to
+                           10.313%, not 10%)
+                           If ANY input statement's time_weighted_return_pct
+                           is null, the combined value is null (unavailable)
+                           rather than compounding the available subset —
+                           never a partial/silent result.
+  other *_total fields (dividends, withholding tax, interest, fees,
+  commissions, deposits) are plain sums across all input statements.
+
+Position/cash/instrument merge (terminal, per account):
+  _latest_snapshot_by_account buckets inputs by statement.account_id and
+  keeps only the latest (by sort key) snapshot per account_id — the
+  "terminal snapshots". Positions and cash balances are then merged across
+  those terminal snapshots by (symbol, currency, as_of_date) / currency key:
+  same account_id on both sides       -> latest-wins REPLACE
+                                          (a later statement's holdings
+                                          supersede an earlier one's; not
+                                          summed)
+  different account_id on both sides  -> genuinely distinct accounts;
+                                          their terminal positions/cash SUM
+  Ledger entries (_merge_ledger_entries) and instruments (_merge_instruments)
+  accumulate from every input statement regardless of account_id — dedup is
+  by exact ledger-entry tuple / instrument symbol, not by account.
+
+Account-identity guard (CR-1, _validate_compatible_snapshots):
+  Same-account-replace vs. different-account-sum is decided purely by
+  account_id string equality, so a falsy/missing account_id on EITHER side
+  of a >1-input combine cannot be classified safely — it is indistinguishable
+  from "same account, unparsed id" (which must replace) or "another account,
+  unparsed id" (which must sum). combine_imported_snapshots now fails
+  closed: it raises ValueError before any merge runs if any input's
+  statement.account_id is falsy, surfacing through the existing
+  ValueError -> HTTP 400 -> frontend degradation-disclosure path (the same
+  channel the base-currency-mismatch check already used) rather than
+  guessing. Before this fix, a falsy account_id on either side was
+  bucketed as an "additional" terminal snapshot and its positions/NAV were
+  silently summed against the true latest snapshot, double-counting a
+  same-account combine.
+
+Base-currency compatibility (_validate_compatible_snapshots) is also
+required for a combine to proceed — mismatched base currencies raise
+ValueError before this account-identity check.
+```
+
+Implementation:
+- `services/quant-engine/app/services/statement_importer.py` —
+  `combine_imported_snapshots`, `_merge_statement_totals`,
+  `_latest_snapshot_by_account`, `_merge_terminal_positions`,
+  `_merge_terminal_cash_balances`, `_validate_compatible_snapshots`
+- `services/quant-engine/app/api/routes/imports.py` —
+  `POST /portfolios/import/combine-snapshots` (ValueError -> HTTP 400)
+
+Contract rule:
+- A combined snapshot's `starting_nav`/`ending_nav` are the inputs to the
+  Cash anchor rule above (`base_cash = starting_nav − opening_positions_value`)
+  exactly as a single-statement snapshot's would be — the combine step
+  produces one more `ImportedStatementTotals`, it does not bypass or
+  special-case the anchor formula that consumes it.
+
 ## FX Conversion Fallback Disclosure
 
 *US-27.8 (audit F9). Applies to the broker replay path

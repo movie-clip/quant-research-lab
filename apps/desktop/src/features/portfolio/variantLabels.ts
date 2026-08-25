@@ -14,9 +14,28 @@ function buildNodePath(node: PortfolioNode, nodeById: Map<string, PortfolioNode>
   return path
 }
 
+export function resolveNodeImportDate(node: PortfolioNode, nodes: PortfolioNode[]): string | null {
+  const nodeById = new Map(nodes.map((item) => [item.id, item]))
+  const importedAt = node.portfolioSnapshot?.importedMeta?.importedAt
+  if (importedAt) return importedAt.slice(0, 10)
+
+  let current = node
+  while (current.parentId) {
+    const parent = nodeById.get(current.parentId)
+    if (!parent) break
+    const parentImportedAt = parent.portfolioSnapshot?.importedMeta?.importedAt
+    if (parentImportedAt) return parentImportedAt.slice(0, 10)
+    current = parent
+  }
+
+  return null
+}
+
 export function formatVariantNodeLabel(node: PortfolioNode, nodes: PortfolioNode[]): string {
   const nodeById = new Map(nodes.map((item) => [item.id, item]))
-  return buildNodePath(node, nodeById).join(' -> ')
+  const path = buildNodePath(node, nodeById).join(' -> ')
+  const importDate = resolveNodeImportDate(node, nodes)
+  return importDate ? `${path} (${importDate})` : path
 }
 
 export function formatWorkingDraftLabel(activeNode: PortfolioNode | null, nodes: PortfolioNode[]): string {

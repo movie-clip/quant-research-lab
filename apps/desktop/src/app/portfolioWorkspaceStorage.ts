@@ -1,7 +1,7 @@
 import { appStateStoreName, deletePortfolioDatabase, portfolioNodeStoreName, withStore, withStores, workingDraftStoreName, workspaceStateStoreName, workspaceStoreName } from './portfolioDb'
 import { buildImportedHistorySource } from '../features/portfolio/historySource'
 import { buildPortfolioSnapshotFromAnalysis, clonePortfolioSnapshot, getPortfolioSnapshotGrossExposure, getPortfolioSnapshotNetCapital, getPortfolioSnapshotSectorCount } from '../features/portfolio/portfolioSnapshot'
-import type { ImportAdmissionSummaryV1, ImportedPortfolioSnapshotSource, ImportedSnapshot } from '../features/portfolio/types'
+import type { ImportAdmissionSummaryV1, ImportedExposureOverride, ImportedPortfolioSnapshotSource, ImportedSnapshot } from '../features/portfolio/types'
 import type { ImportedHistoryContext, ImportedNodeSource, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
 
 const activeWorkspacePointerKey = 'active-workspace-pointer'
@@ -14,6 +14,7 @@ export function buildPersistedImportedSource(input: {
   historyContext?: ImportedHistoryContext | null
   importedHistorySnapshot?: ImportedSnapshot | null
   admissionSummary?: ImportAdmissionSummaryV1 | null
+  importedExposureOverride?: ImportedExposureOverride | null
 }): ImportedNodeSource {
   const source: ImportedNodeSource = {
     importedFileNames: input.importedFileNames,
@@ -28,6 +29,9 @@ export function buildPersistedImportedSource(input: {
   if (input.admissionSummary !== undefined) {
     source.admissionSummary = input.admissionSummary
   }
+  if (input.importedExposureOverride !== undefined) {
+    source.importedExposureOverride = input.importedExposureOverride
+  }
   return source
 }
 
@@ -41,6 +45,9 @@ function sanitizeImportedNodeSource(value: ImportedNodeSource): ImportedNodeSour
   }
   if (value.admissionSummary !== undefined) {
     source.admissionSummary = structuredClone(value.admissionSummary)
+  }
+  if (value.importedExposureOverride !== undefined) {
+    source.importedExposureOverride = structuredClone(value.importedExposureOverride)
   }
   return source
 }
@@ -112,6 +119,14 @@ export async function createWorkspaceFromImport(input: {
       historyContext: input.historyContext ?? null,
       importedHistorySnapshot: input.importedHistorySnapshot ?? null,
       admissionSummary: input.analysis.admission_summary ?? null,
+      importedExposureOverride: {
+        overview: input.analysis.overview,
+        lookthrough: input.analysis.lookthrough,
+        lookthrough_sector_exposure: input.analysis.lookthrough_sector_exposure,
+        market_overlap: input.analysis.market_overlap,
+        current_state_concentration: input.analysis.current_state_concentration,
+        availability: input.analysis.availability,
+      },
     }),
   }
   const rootNode: PortfolioNode = {

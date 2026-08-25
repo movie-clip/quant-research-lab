@@ -1,16 +1,17 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: **2026-08-24**.*
+*Living execution snapshot. Updated: **2026-08-25**.*
 
-**Every epic is complete.** Most recently shipped: **Epic 39 — Direct-Held
-ETF Sector Classification** (1 story, closed 2026-08-24), preceded by
-**Epic 38 — Sector-Classification Follow-Through: ETF Look-Through &
-Diagnostic Integrity** (2 stories, closed 2026-08-24), **Epic 37 — Dynamic
-Equity Sector Classification** (1 story, closed 2026-08-21), **Epic 36 —
-Findings-First Doc & Gate Hygiene** (3 stories, closed 2026-08-20), **Epic 35 —
-Market-Data Failure Honesty** (3 stories, closed 2026-08-19) and **Epic 34 —
-An Answerable Dashboard** (9 stories, closed 2026-08-19). Epics 13 and 18–38
-are complete; see each section below.
+**Every epic is complete.** Most recently shipped: **Epic 40 — Snapshot Trust
+& Fidelity Follow-Through** (2 stories, closed 2026-08-25), preceded by
+**Epic 39 — Direct-Held ETF Sector Classification** (1 story, closed
+2026-08-24), **Epic 38 — Sector-Classification Follow-Through: ETF
+Look-Through & Diagnostic Integrity** (2 stories, closed 2026-08-24),
+**Epic 37 — Dynamic Equity Sector Classification** (1 story, closed
+2026-08-21), **Epic 36 — Findings-First Doc & Gate Hygiene** (3 stories,
+closed 2026-08-20), **Epic 35 — Market-Data Failure Honesty** (3 stories,
+closed 2026-08-19) and **Epic 34 — An Answerable Dashboard** (9 stories,
+closed 2026-08-19). Epics 13 and 18–40 are complete; see each section below.
 
 **Open items**, none of which block anything:
 
@@ -52,9 +53,15 @@ are complete; see each section below.
   `dependency-audit.yml`'s first scheduled run; addressing them is a
   follow-up, not part of Epic 36.
 
-**No epic is active.** Epic 36 — Findings-First Doc & Gate Hygiene closed
-2026-08-20 (3 stories), seeded by a findings-first health review done
-between epics. It closed the commit gate's tool-dependence with a real
+**No epic is active.** Epic 40 — Snapshot Trust & Fidelity Follow-Through
+closed 2026-08-25 (2 stories), most recently — see its section below. The
+paragraph that follows predates Epics 37–40 and was never rewritten at any of
+those close-outs (matching precedent: each of those epics updated only the
+summary line above and its own new section, not this narrative); it is kept
+here as the still-accurate record of why Epic 36 itself was created. Epic 36
+— Findings-First Doc & Gate Hygiene closed 2026-08-20 (3 stories), seeded by
+a findings-first health review done between epics. It closed the commit
+gate's tool-dependence with a real
 git-level hook (F-R1), added a scheduled, network-permitted
 dependency-vulnerability scan (F-R3), and reconciled four doc-accuracy drifts
 (F-R5–F-R8) — the cache CLI doc, the route-module inventory (now backed by a
@@ -70,6 +77,78 @@ The next epic is unscoped. `main` now requires CI to pass before merge.
 
 ---
 
+
+## Completed Epic: Epic 40 — Snapshot Trust & Fidelity Follow-Through
+
+**PRD:** none — this close-out's scope excluded `docs/product/prd/`, so no
+retrospective PRD file was created for this epic despite that being this
+project's usual close-out convention (Epic 37/38/39 each have one). See
+`docs/product/stories/US-40.1-snapshot-trust-signal-completeness.md` and
+`US-40.2-add-snapshot-preserves-imported-history.md` for the full delivery
+record in the interim.
+
+**Closed 2026-08-25. All 2 stories Done.**
+
+Seeded by leftover findings carried out of the 2026-08-24-sbio-still-unclassified-bug
+run rather than a fresh discovery: three items named in that run's own `run.md`
+Open table as `CARRIED` (not new), plus a fourth ("no freeze-date signal in
+the snapshot picker" / `run_metadata.source_status`/`.confidence` never
+frozen) surfaced directly by this run's own scout pass over that carried
+list. Also folds in two adjacent test-infra leftovers (`RecordingMarketData`'s
+missing two delegate methods; a dead `market_data` parameter on
+`_build_shared_sector_overlap`) as housekeeping inside US-40.1, per the
+producer's delivery brief. Ships as its own new, dedicated two-story epic
+rather than reopening Epic 39 (closed the same day these findings were
+carried) or Epic 38, per the same placement precedent Epic 37, 38 and 39 all
+used — new epic, every time, never a reopen.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| [US-40.1](../stories/US-40.1-snapshot-trust-signal-completeness.md) | The researcher can tell when a snapshot's trust signals reflect frozen import data, not a live recomputation | Done |
+| [US-40.2](../stories/US-40.2-add-snapshot-preserves-imported-history.md) | Adding a new snapshot to a portfolio no longer discards its imported history | Done |
+
+Two-story epic. Stories are structurally independent — no shared function per
+01-scout's blast-radius check. US-40.1 was sequenced first only as a soft
+dependency (its "read the frozen state once, don't recompute" pattern
+informed US-40.2's recombination design), not a hard build-order constraint.
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-08-25 | US-40.1 | `docs/contracts/exposure-fields.md` gains a sentence declaring `run_metadata.source_status.lookthrough_resolution`, `run_metadata.source_status.benchmark_holdings` and `run_metadata.confidence` permanently excluded from the import-time freeze and never a valid trust source — they are live/per-render redundant re-derivations of `availability`'s own classification, the same defect class the 2026-08-24 CR-1 fix closed for `benchmark_overlap_status`. Enforced by a new permanent scanner, `runMetadataTrustSourceGuard.test.ts`, failing the suite if any file under `apps/desktop/src/features/portfolio` reads `run_metadata.source_status`/`run_metadata?.confidence`; a new `test_exposure_engine.py` characterization test pins today's self-consistency between `run_metadata.source_status`/`.confidence` and `availability`'s own fields so a future edit that decouples them is caught. No schema change, no engine behavior change — a consumption-discipline fix. Separately, the snapshot picker's label for a persisted imported/base node now discloses its capture date (`variantLabels.ts`'s new `resolveNodeImportDate`, sourced from the client-persisted `PortfolioSnapshot.importedMeta.importedAt`, ancestor-walk fallback for variant nodes, `YYYY-MM-DD` truncation) instead of the bare literal `"base"`; a node with no import behind it (e.g. a fresh working draft) renders exactly as before, no fabricated date. Housekeeping fold-in: `RecordingMarketData` (`frozen_market_data.py`) gains `get_company_profile`/`get_etf_sector_weightings` delegate-and-capture methods, matching the real `MarketDataService`'s signatures, closing a gap in the frozen golden-refresh harness; the dead `market_data` parameter on `_build_shared_sector_overlap` (`risk.py:1654`) was confirmed NOT caught by `detect_deadcode.py --strict` (vulture doesn't flag unused params) and is routed to `docs/tech-debt-register.md` instead of removed here; the `_build_exposure_source_status`/`_build_exposure_availability` duplication the research brief found is likewise noted and routed to the register, not fixed — it touches core exposure-classification logic and needs its own quant-research pass first, per guardrail 1. All 6 ACs SATISFIED per tech-lead INTEGRATION's DoD cross-check (file:line citations checked against 05-technical-plan.md, not report prose). |
+| 2026-08-25 | US-40.2 | `add_snapshot` mode no longer discards the existing node's imported/replay history when a new statement is layered on. Design (tech-lead, fulfilling T-40.2.1): rather than porting the ~250-line NAV/TWR/ledger-merge logic to TypeScript (a second, unaudited implementation of financial merge math), a new backend endpoint reuses the existing, tested `combine_imported_snapshots` verbatim — new `CombineImportedSnapshotsRequest` schema (`app/schemas/imports.py`, `snapshots: list[ImportedPortfolioSnapshot]`) and `POST /portfolios/import/combine-snapshots` route (`app/api/routes/imports.py`), identical `ValueError` → HTTP 400 error-mapping to the existing import route, on the already-registered `/portfolios/import` router (no new `include_router`). `App.tsx`'s `add_snapshot` branch now calls a new `combineImportedSnapshots` adapter function and passes the combined result into the existing `saveImportedSnapshotNode` call in place of the literal `null` it passed before; a chain of sequential add_snapshot imports stays correctly combined at every link, because each step's input is already the accumulated result of the prior ones. When the two snapshots cannot be combined (e.g. differing base currency, or CR-1's new account-identity guard firing), the existing `importError`/`dashboardSession.importError` disclosure channel — unmodified — surfaces the degradation; no fabricated merge, no silent drop. The `replace`-mode path is untouched (AC4). All 4 ACs SATISFIED per tech-lead INTEGRATION's DoD cross-check. |
+
+**CR-1 (folded into this close-out, not a separate story).** Quant-audit found
+a real double-counting defect in `combine_imported_snapshots` reachable by the
+route this epic's US-40.2 newly wires up: when either input snapshot's
+`account_id` is falsy, the pre-existing latest-per-account merge could not
+distinguish "same account, unparsed id" (must replace) from "another account,
+unparsed id" (must sum) — silently double-counting positions/NAV on the
+same-account case. Fixed by `_validate_compatible_snapshots` failing closed:
+any falsy `account_id` in a >1-input combine now raises `ValueError` before
+any merge runs, surfacing through the same `ValueError` → HTTP 400 →
+frontend-degradation channel the pre-existing base-currency-mismatch check
+already used — zero new special-casing needed anywhere in the stack (traced
+end to end at integration: `statement_importer.py` → `imports.py` →
+`portfolioAnalysisAdapter.ts` → `App.tsx`'s catch block, all pre-existing and
+generic). `docs/finance/financial-methodology.md` gains a new
+"Multi-Statement Snapshot Merge" section documenting the full merge formula
+(NAV selection, geometric TWR compounding, the account-identity guard) plus
+one sentence (per quant re-audit's Finding 3, MINOR) noting a single missing
+`time_weighted_return_pct` input nulls the whole compounded result rather
+than partially compounding. Both the original quant audit and the
+independent re-audit returned PASS; 3 new regression tests pin the fix in
+`test_importer.py`.
+
+Final state (per `11-integration.md`'s independently re-run verification):
+backend 911 passed, frontend 40 files / 354 tests passed, `tsc --noEmit`
+clean, dead-code gate (ruff + vulture + knip) clean, `dashboardGoldens.ts`
+byte-identical.
+
+---
 
 ## Completed Epic: Epic 39 — Direct-Held ETF Sector Classification
 

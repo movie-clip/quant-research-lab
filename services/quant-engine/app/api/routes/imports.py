@@ -6,9 +6,9 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from app.schemas.import_bootstrap import ImportedBootstrapResponse
-from app.schemas.imports import ImportedPortfolioSnapshot, SnapshotAnalysisRequest
+from app.schemas.imports import CombineImportedSnapshotsRequest, ImportedPortfolioSnapshot, SnapshotAnalysisRequest
 from app.services.import_engine import build_import_bootstrap, build_import_bootstrap_from_portfolio_snapshot_request
-from app.services.statement_importer import import_statements
+from app.services.statement_importer import combine_imported_snapshots, import_statements
 
 
 router = APIRouter(prefix="/portfolios/import", tags=["imports"])
@@ -42,6 +42,16 @@ def import_interactive_brokers_statement(
 
     try:
         return import_statements([str(path) for path in paths])
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/combine-snapshots", response_model=ImportedPortfolioSnapshot)
+def combine_snapshots(
+    request: CombineImportedSnapshotsRequest,
+) -> ImportedPortfolioSnapshot:
+    try:
+        return combine_imported_snapshots(request.snapshots)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
