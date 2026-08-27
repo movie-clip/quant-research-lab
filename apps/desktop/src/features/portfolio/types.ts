@@ -539,6 +539,18 @@ export type DashboardRangeMetrics = {
    *  replay's reconstructed inputs; `unavailable` when nothing was published.
    *  Render the marker: a degraded return must never read as a verified one. */
   portfolio_return_trust?: 'verified' | 'degraded' | 'unavailable'
+  /** CR-2 #1 (2026-08-26 chart audit): the ISO date this range's window
+   *  BEGINS — the head of the same slice `_build_range_metrics` used to
+   *  compute this range's summary. Lets the chart filter
+   *  `performance_series` to `>= window_start_date` and re-base the
+   *  already-published `portfolio_return_pct` chain to 100 at that point,
+   *  instead of always charting the full imported history regardless of
+   *  the selected range. `null` when the range has no lower bound (e.g.
+   *  "All" — the window IS the full imported history, nothing to filter).
+   *  Optional (like `portfolio_return_trust` above) so existing fixture
+   *  literals predating this field keep type-checking; the backend always
+   *  serializes it. */
+  window_start_date?: string | null
 }
 
 export type PerformanceSeriesPoint = {

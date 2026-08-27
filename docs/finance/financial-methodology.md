@@ -2433,19 +2433,26 @@ Opening cash anchor + reconciliation adjustments (US-31.3 / Epic 31 F-2, F-3):
   The terminal reconciliation snaps the final state's `total_portfolio_value` to
   the statement's ending NAV — correct, since that is the broker's own number —
   but the move is an ACCOUNTING CORRECTION, not performance. It is recorded as
-  `DailyPortfolioState.reconciliation_adjustment`, and:
+  `DailyPortfolioState.reconciliation_adjustment`.
 
-    Rule: no return is published for a day whose |reconciliation_adjustment|
-          exceeds REPLAY_RECONCILIATION_TOLERANCE. The day is WITHHELD (absent
-          from the return series, disclosed via `withheld_return_dates` with a
-          stated reason) — never computed, never substituted with the
-          un-reconciled value, because the state's value was overwritten and no
-          trustworthy return exists for it.
+    Rule (US-34.8, superseding the withholding rule this section stated before
+          US-34.8 shipped): the reconciled terminal day is CORRECTED, not
+          withheld. Its return is computed from
+          `market_derived_terminal_value(states)` — the terminal
+          `total_portfolio_value` less its recorded `reconciliation_adjustment`
+          — instead of the reconciled figure, so the adjustment cannot enter the
+          published return by construction. See §Terminal-value input rule
+          (US-34.6) above for the full derivation and the "levels keep the
+          reconciled figure, returns do not" split.
 
-  The predicate lives on `DailyPortfolioState.return_is_publishable` so every
-  return builder (performance / risk / attribution) shares one definition. A
-  withheld day therefore cannot leak into volatility, beta, correlation, factor
-  attribution or any rolling window (IB2026: annualised vol 23.63% → 23.32%).
+  `DailyPortfolioState.return_is_publishable` is False only for the OTHER
+  cause: a state carrying a material `unbacked_cash_flow` (§ above, "Withheld
+  quantities move cash") — cash moved by a withheld-quantity symbol with no
+  position behind it in market value, for which no corrected value exists. The
+  predicate lives on `return_is_publishable` so every return builder
+  (performance / risk / attribution) shares one definition. A withheld day
+  therefore cannot leak into volatility, beta, correlation, factor attribution
+  or any rolling window (IB2026: annualised vol 23.63% → 23.32%).
 
 Fund-currency conversion basis (US-31.5 / Epic 31 F-4):
   the currency a holding's market value is converted FROM is the FUND (quote)
@@ -2553,9 +2560,12 @@ by **what the daily portfolio states were built from**, the same rule
     otherwise flat day fabricated **+9.43%**. `trade_flow` therefore excludes
     trades in symbols absent from that day's valuation (they remain disclosed
     via `unpriced_replay_symbols`).
-  - **Withholding still wins.** A day carrying a material
-    `reconciliation_adjustment` publishes no return on this basis either
-    (§Terminal Reconciliation / US-31.3, guardrail #3).
+  - **Withholding still wins.** A day carrying a material `unbacked_cash_flow`
+    publishes no return on this basis either — `return_is_publishable` is
+    shared across all three return builders (§Terminal-value input rule,
+    US-34.6/US-34.8, guardrail #3). The terminal day's
+    `reconciliation_adjustment` no longer withholds a return; it is corrected
+    via `market_derived_terminal_value` instead.
 
   The **investor-performance** family — the Dashboard performance series, TWR,
   money-weighted return, net contributions, monthly returns and the dashboard

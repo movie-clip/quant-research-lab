@@ -1,10 +1,40 @@
+import React from 'react'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createDashboardHistoryRunMetadataFixture, createDiagnosticsEngineFixture, createExposureEngineFixture, createImportedDashboardFixture } from '../../test/portfolioFixtures'
 import type { DashboardAnalysis, DiagnosticsEngineResponse } from './types'
-import { DashboardPanel, normalizePerformanceSeries } from './DashboardPanel'
+import { DashboardPanel } from './DashboardPanel'
 import { composeExposureView } from './portfolioAnalysisAdapter'
+
+// CR-2 #1 follow-up (2026-08-26-performance-benchmark-chart-audit): mirrors
+// PerformanceBenchmarkCard.test.tsx's own `vi.mock('recharts', ...)` so this
+// file can intercept the exact `data` array `LineChart` receives, rather than
+// reading SVG geometry (write-tests/SKILL.md's Recharts guidance).
+vi.mock('recharts', async () => {
+  const actual = await vi.importActual<typeof import('recharts')>('recharts')
+  return {
+    ...actual,
+    ResponsiveContainer: ({ children }: { children: React.ReactNode }) => {
+      if (!React.isValidElement(children)) {
+        return <>{children}</>
+      }
+      return React.cloneElement(children as React.ReactElement<{ width?: number; height?: number }>, {
+        width: 960,
+        height: 320,
+      })
+    },
+    LineChart: ({ data }: { data: Array<{ date: string; portfolio: number | null; benchmark: number | null }> }) => (
+      <div data-testid="indexed-chart-data">{JSON.stringify(data)}</div>
+    ),
+  }
+})
+
+async function getChartDates(): Promise<string[]> {
+  const el = await screen.findByTestId('indexed-chart-data')
+  const data = JSON.parse(el.textContent ?? '[]') as Array<{ date: string }>
+  return data.map((p) => p.date)
+}
 
 const mockExposureView = composeExposureView(createExposureEngineFixture(), createDiagnosticsEngineFixture())
 
@@ -168,21 +198,6 @@ describe('DashboardPanel', () => {
     expect(screen.queryByText('NVDA')).toBeNull()
   })
 
-  it('normalizes all-range performance from first non-zero portfolio point', () => {
-    const normalized = normalizePerformanceSeries([
-      { date: '2025-01-02', portfolio_value: 0, benchmark_price: 100, portfolio_return_pct: 0, benchmark_return_pct: 0 },
-      { date: '2025-01-03', portfolio_value: 0, benchmark_price: 101, portfolio_return_pct: 0, benchmark_return_pct: 1 },
-      { date: '2025-06-30', portfolio_value: 3139.15, benchmark_price: 110, portfolio_return_pct: 0, benchmark_return_pct: 10 },
-      { date: '2026-04-10', portfolio_value: 64687.71, benchmark_price: 116, portfolio_return_pct: 871.82, benchmark_return_pct: 16.22 },
-    ])
-
-    expect(normalized[0].portfolio_index).toBeNull()
-    expect(normalized[1].portfolio_index).toBeNull()
-    expect(normalized[2].portfolio_index).toBe(100)
-    expect(normalized[3].portfolio_index).toBeGreaterThan(100)
-    expect(normalized[2].benchmark_index).toBe(100)
-  })
-
   // ─── US-25.1: Performance & Benchmark card ──────────────────────────────────
 
   it('renders the performance chart and summary strip when range_metrics/performance_series are present', () => {
@@ -249,6 +264,35 @@ describe('DashboardPanel', () => {
     expect(screen.getByRole('button', { name: '3M window' }).getAttribute('aria-pressed')).toBe('true')
     expect(fetchSpy).not.toHaveBeenCalled()
     fetchSpy.mockRestore()
+  })
+
+  // CR-2 #1 follow-up (06-integration.md's own finding): the range-switch test
+  // above only ever asserted `aria-pressed` on identical-valued ranges, so a
+  // chart that never re-anchored would have passed it. This test gives '1M'
+  // and '3M' distinct `window_start_date` anchors and asserts the chart data
+  // PerformanceBenchmarkCard actually renders changes with the selector, not
+  // just the summary strip beneath it.
+  it('changes the chart data passed to PerformanceBenchmarkCard when the range selector changes', async () => {
+    const fixture = createImportedDashboardFixture()
+    // Fixture performance_series dates: 2025-01-02, 2025-02-03, 2025-03-03.
+    const result = {
+      ...fixture,
+      range_metrics: {
+        ...fixture.range_metrics,
+        '1M': { ...fixture.range_metrics!['1M'], window_start_date: '2025-03-03' },
+        '3M': { ...fixture.range_metrics!['3M'], window_start_date: '2025-01-02' },
+      },
+    } as unknown as DashboardAnalysis
+    render(<DashboardPanel result={result} />)
+
+    const initialDates = await getChartDates()
+    expect(initialDates).toEqual(['2025-03-03']) // 1M is the default active range
+
+    fireEvent.click(screen.getByRole('button', { name: '3M window' }))
+    const threeMonthDates = await getChartDates()
+
+    expect(threeMonthDates).toEqual(['2025-01-02', '2025-02-03', '2025-03-03'])
+    expect(threeMonthDates).not.toEqual(initialDates)
   })
 
   it('still shows the allowlisted TWR/MWR scalars and omits max_drawdown_pct when investor economics is withheld', () => {

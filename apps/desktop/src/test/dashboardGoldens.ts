@@ -31470,7 +31470,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "monthly_returns_reliable": true,
-      "portfolio_return_trust": "degraded"
+      "portfolio_return_trust": "degraded",
+      "window_start_date": "2026-07-13"
     },
     "3M": {
       "summary": {
@@ -31503,7 +31504,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "monthly_returns_reliable": true,
-      "portfolio_return_trust": "degraded"
+      "portfolio_return_trust": "degraded",
+      "window_start_date": "2026-05-11"
     },
     "YTD": {
       "summary": {
@@ -31552,7 +31554,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "monthly_returns_reliable": true,
-      "portfolio_return_trust": "degraded"
+      "portfolio_return_trust": "degraded",
+      "window_start_date": "2026-01-08"
     },
     "1Y": {
       "summary": {
@@ -31601,7 +31604,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "monthly_returns_reliable": true,
-      "portfolio_return_trust": "degraded"
+      "portfolio_return_trust": "degraded",
+      "window_start_date": "2026-01-08"
     },
     "All": {
       "summary": {
@@ -31650,7 +31654,8 @@ export const ib2026ImportedDashboardGoldenFixture = {
         }
       ],
       "monthly_returns_reliable": true,
-      "portfolio_return_trust": "degraded"
+      "portfolio_return_trust": "degraded",
+      "window_start_date": null
     }
   }
 } satisfies ImportedDashboardSource
@@ -34800,7 +34805,8 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "monthly_returns_reliable": true,
-      "portfolio_return_trust": "degraded"
+      "portfolio_return_trust": "degraded",
+      "window_start_date": "2026-03-11"
     },
     "3M": {
       "summary": {
@@ -34833,7 +34839,8 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "monthly_returns_reliable": true,
-      "portfolio_return_trust": "degraded"
+      "portfolio_return_trust": "degraded",
+      "window_start_date": "2026-01-08"
     },
     "YTD": {
       "summary": {
@@ -34866,7 +34873,8 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "monthly_returns_reliable": true,
-      "portfolio_return_trust": "degraded"
+      "portfolio_return_trust": "degraded",
+      "window_start_date": "2026-01-02"
     },
     "1Y": {
       "summary": {
@@ -34903,7 +34911,8 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "monthly_returns_reliable": true,
-      "portfolio_return_trust": "degraded"
+      "portfolio_return_trust": "degraded",
+      "window_start_date": "2025-12-01"
     },
     "All": {
       "summary": {
@@ -34940,7 +34949,8 @@ export const ff2026ImportedDashboardGoldenFixture = {
         }
       ],
       "monthly_returns_reliable": true,
-      "portfolio_return_trust": "degraded"
+      "portfolio_return_trust": "degraded",
+      "window_start_date": null
     }
   }
 } satisfies ImportedDashboardSource

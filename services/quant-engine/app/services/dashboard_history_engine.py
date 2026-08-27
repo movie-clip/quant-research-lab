@@ -501,8 +501,12 @@ def run_imported_dashboard_history(
         fx_history=replay_fx_history,
         symbol_fund_currencies=replay_fund_currencies,
     )
-    # US-31.3 (Epic 31 F-3): dates whose return is withheld because the state
-    # carries a material reconciliation adjustment.
+    # US-31.3 (Epic 31 F-3) / US-34.8: dates whose return is withheld because
+    # the state carries a material unbacked cash flow (a withheld-quantity
+    # symbol's trade moved cash with no position behind it). A material
+    # terminal reconciliation adjustment no longer withholds a return as of
+    # US-34.8 — that day is corrected via market_derived_terminal_value
+    # instead; see financial-methodology.md's Terminal-value input rule.
     withheld_return_dates, withheld_return_reason = replay_disclosures(daily_states)
     verified_benchmark_scope = _validate_verified_benchmark_slice(
         benchmark_symbol=resolved_benchmark_symbol,
@@ -747,6 +751,7 @@ def _build_range_metrics(
                 monthly_returns=[],
                 monthly_returns_reliable=False,
                 portfolio_return_trust="unavailable",
+                window_start_date=None,
             )
             for range_name in RANGE_WINDOWS
         }
@@ -755,6 +760,12 @@ def _build_range_metrics(
     latest_year = performance_series[-1].date[:4]
     for range_name, window in RANGE_WINDOWS.items():
         perf = _slice_performance_series(performance_series, daily_states, range_name, window, latest_year)
+        # CR-2 #1: publish the window's own lower bound — the date already at
+        # the head of the slice `_slice_performance_series` just computed, not
+        # a new derivation. "All" has no lower bound (its slice IS the full
+        # imported history), so it stays `None` rather than the series' first
+        # date, matching the schema's documented "no lower bound" contract.
+        window_start_date = perf[0].date if perf and range_name != "All" else None
         visible_dates = {point.date for point in perf}
         states = [state for state in daily_states if state.date in visible_dates]
         monthly_returns = _compute_contribution_adjusted_monthly_returns(states)
@@ -791,6 +802,7 @@ def _build_range_metrics(
                 if allow_portfolio_twr_outputs
                 else "unavailable"
             ),
+            window_start_date=window_start_date,
         )
     return metrics
 

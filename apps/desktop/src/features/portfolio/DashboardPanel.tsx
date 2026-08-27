@@ -31,25 +31,6 @@ function formatLoadedStatements(result: DashboardAnalysis | null, fallbackFileNa
     .join(', ')
 }
 
-export function normalizePerformanceSeries(perf: DashboardAnalysis['performance_series']) {
-  const anchorPoint = perf.find((point) => point.portfolio_value > 0)
-  const anchorPortfolioValue = anchorPoint?.portfolio_value ?? null
-  const anchorBenchmarkPrice = anchorPoint?.benchmark_price ?? null
-
-  return perf.map((point) => {
-    const beforeAnchor = anchorPoint != null && point.date < anchorPoint.date
-    return {
-      ...point,
-      portfolio_index: anchorPortfolioValue && anchorPortfolioValue > 0 && !beforeAnchor
-        ? (point.portfolio_value / anchorPortfolioValue) * 100
-        : null,
-      benchmark_index: anchorBenchmarkPrice && anchorBenchmarkPrice > 0 && !beforeAnchor && point.benchmark_price
-        ? (point.benchmark_price / anchorBenchmarkPrice) * 100
-        : null,
-    }
-  })
-}
-
 type DashboardPanelProps = {
   result: DashboardAnalysis | null
   exposureResult?: ExposureAnalysis | null

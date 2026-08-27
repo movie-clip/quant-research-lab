@@ -48,6 +48,17 @@ class DashboardRangeMetrics(BaseModel):
     # was published at all. Never collapses a published-but-degraded number into
     # `unavailable` — that is the distinction the whole ladder exists for.
     portfolio_return_trust: Literal["verified", "degraded", "unavailable"] = "unavailable"
+    # CR-2 #1 (2026-08-26 chart audit): the ISO date this range's window
+    # BEGINS — the same date `_build_range_metrics` already reads off the
+    # head of its own `_slice_performance_series(...)` slice
+    # (`dashboard_history_engine.py`), simply not previously published. Lets
+    # the frontend filter `performance_series` to `>= window_start_date` and
+    # re-base the already-published `portfolio_return_pct` chain to 100 at
+    # that point, instead of always charting the full imported history
+    # regardless of the selected range. `None` when the range has no lower
+    # bound (e.g. "All" — the window IS the full imported history, so there
+    # is nothing to filter against).
+    window_start_date: str | None = None
 
 
 class DashboardHistoryRunSourceStatus(BaseModel):

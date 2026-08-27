@@ -45,19 +45,51 @@ function returnBasisLabel(basis: string | undefined): string {
 
 type IndexedPoint = { date: string; portfolio: number | null; benchmark: number | null }
 
-function buildIndexedSeries(perf: DashboardAnalysis['performance_series']): IndexedPoint[] {
-  const anchor = perf.find((p) => p.portfolio_value > 0)
-  const anchorPortfolio = anchor?.portfolio_value ?? null
+function buildIndexedSeries(
+  perf: DashboardAnalysis['performance_series'],
+  windowStartDate: string | null,
+): IndexedPoint[] {
+  // CR-2 #1 (2026-08-26 chart audit): scope the chart to the selected range
+  // the same way the summary strip below it already is. `null` (e.g. "All")
+  // means the window IS the full imported history — no filtering, and the
+  // CR-1 formula below runs unchanged, anchored to day one.
+  const sliced = windowStartDate != null ? perf.filter((p) => p.date >= windowStartDate) : perf
+
+  const anchor = sliced.find((p) => p.portfolio_value > 0)
   const anchorBenchmark = anchor?.benchmark_price ?? null
 
-  return perf.map((p) => {
+  // Re-basing pivot for the portfolio leg: the already-published cumulative
+  // `portfolio_return_pct` at the window's own first point (the same date
+  // `window_start_date` names). `null` when there is no window to re-base
+  // to, or when that first point's return has not itself been published.
+  const pctAtWindowStart = windowStartDate != null ? sliced[0]?.portfolio_return_pct ?? null : null
+
+  return sliced.map((p) => {
     const beforeAnchor = anchor != null && p.date < anchor.date
+    let portfolio: number | null = null
+    if (p.portfolio_return_pct != null) {
+      if (windowStartDate != null) {
+        // US-27.8 / audit F10 (CR-1) algebra, re-based to the sub-window's
+        // start instead of day one:
+        //   indexed_t = 100 * (1 + pct_t/100) / (1 + pct_windowStart/100)
+        // Pure re-basing of an already-correct TWR chain — no new formula.
+        portfolio =
+          pctAtWindowStart != null
+            ? (100 * (1 + p.portfolio_return_pct / 100)) / (1 + pctAtWindowStart / 100)
+            : null
+      } else {
+        // US-27.8 / audit F10 (CR-1 2026-08-26): TWR-indexed from the
+        // already-computed cumulative `portfolio_return_pct`, NOT a raw
+        // market-value ratio — a deposit/withdrawal is not performance.
+        portfolio = 100 * (1 + p.portfolio_return_pct / 100)
+      }
+    }
+    // A null point (not yet computable, or withheld) stays null: no
+    // interpolation, no fabricated carry-forward (§Indexed Return Series
+    // edge cases).
     return {
       date: p.date,
-      portfolio:
-        anchorPortfolio && anchorPortfolio > 0 && !beforeAnchor
-          ? (p.portfolio_value / anchorPortfolio) * 100
-          : null,
+      portfolio,
       benchmark:
         anchorBenchmark && anchorBenchmark > 0 && !beforeAnchor && p.benchmark_price
           ? (p.benchmark_price / anchorBenchmark) * 100
@@ -91,7 +123,7 @@ export function PerformanceBenchmarkCard({ result, activeRange }: PerformanceBen
   }
 
   const metrics: DashboardRangeMetrics = rangeMetrics[activeRange]
-  const chartData = buildIndexedSeries(result.performance_series)
+  const chartData = buildIndexedSeries(result.performance_series, metrics.window_start_date ?? null)
   const hasChartData = chartData.some((p) => p.portfolio != null || p.benchmark != null)
   const benchmarkSymbol = result.run_metadata?.reproducibility?.benchmark_symbol ?? 'Benchmark'
   const portfolioBasis = result.run_metadata?.return_basis_contract?.portfolio_path

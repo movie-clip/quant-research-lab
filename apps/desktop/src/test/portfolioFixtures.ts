@@ -1293,36 +1293,50 @@ export function createImportedDashboardFixture(): ImportedDashboardSource {
     ],
     source_status: { performance_history: 'live', monthly_returns: 'live' },
     run_metadata: createDashboardHistoryRunMetadataFixture(),
+    // window_start_date per range is deliberately real and distinct (not
+    // absent/null across the board) so a test that renders off this shared
+    // fixture without an inline override still exercises range-dependent
+    // chart re-anchoring, rather than silently masking a regression of the
+    // "chart ignores the range selector" bug (CR-2 #1). Values are calendar
+    // boundaries strictly before each window's first counted day among the
+    // fixture's own performance_series dates (2025-01-02 / 2025-02-03 /
+    // 2025-03-03), except YTD, which uses the year's own first trading day
+    // exactly, and All, which stays null (no lower bound, full history).
     range_metrics: {
       '1M': {
         summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: null, excess_return_pct: null },
         max_drawdown_pct: null,
         monthly_returns: [{ month: '2025-01', return_pct: 0 }, { month: '2025-02', return_pct: 0 }, { month: '2025-03', return_pct: 0 }],
         monthly_returns_reliable: true,
+        window_start_date: '2025-03-01',
       },
       '3M': {
         summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: null, excess_return_pct: null },
         max_drawdown_pct: null,
         monthly_returns: [{ month: '2025-01', return_pct: 0 }, { month: '2025-02', return_pct: 0 }, { month: '2025-03', return_pct: 0 }],
         monthly_returns_reliable: true,
+        window_start_date: '2025-02-01',
       },
       YTD: {
         summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: null, excess_return_pct: null },
         max_drawdown_pct: null,
         monthly_returns: [{ month: '2025-01', return_pct: 0 }, { month: '2025-02', return_pct: 0 }, { month: '2025-03', return_pct: 0 }],
         monthly_returns_reliable: true,
+        window_start_date: '2025-01-02',
       },
       '1Y': {
         summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: null, excess_return_pct: null },
         max_drawdown_pct: null,
         monthly_returns: [{ month: '2025-01', return_pct: 0 }, { month: '2025-02', return_pct: 0 }, { month: '2025-03', return_pct: 0 }],
         monthly_returns_reliable: true,
+        window_start_date: '2025-01-01',
       },
       All: {
         summary: { start_value: 10000, end_value: 12000, net_contributions: 1000, investment_gain: 1000, time_weighted_return_pct: 20, money_weighted_return_pct: 9.52, benchmark_return_pct: null, excess_return_pct: null },
         max_drawdown_pct: null,
         monthly_returns: [{ month: '2025-01', return_pct: 0 }, { month: '2025-02', return_pct: 0 }, { month: '2025-03', return_pct: 0 }],
         monthly_returns_reliable: true,
+        window_start_date: null,
       },
     },
   }

@@ -1,10 +1,44 @@
+import React from 'react'
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { DashboardAnalysis } from './types'
+import type { DashboardAnalysis, PerformanceSeriesPoint } from './types'
 import { PerformanceBenchmarkCard } from './PerformanceBenchmarkCard'
 
+// CR-1 (2026-08-26-performance-benchmark-chart-audit, FINDING 1/2): the card's
+// `buildIndexedSeries` is not exported, so the only way to assert the exact
+// portfolio/benchmark index values it computes — without reading SVG path
+// geometry, which write-tests/SKILL.md's Recharts section explicitly warns
+// off — is to intercept the `data` array Recharts' `LineChart` receives. This
+// mirrors src/test/setup.tsx's ResponsiveContainer shim locally (that global
+// mock does not carry into this file's own `vi.mock('recharts', ...)`).
+vi.mock('recharts', async () => {
+  const actual = await vi.importActual<typeof import('recharts')>('recharts')
+  return {
+    ...actual,
+    ResponsiveContainer: ({ children }: { children: React.ReactNode }) => {
+      if (!React.isValidElement(children)) {
+        return <>{children}</>
+      }
+      return React.cloneElement(children as React.ReactElement<{ width?: number; height?: number }>, {
+        width: 960,
+        height: 320,
+      })
+    },
+    LineChart: ({ data }: { data: Array<{ date: string; portfolio: number | null; benchmark: number | null }> }) => (
+      <div data-testid="indexed-chart-data">{JSON.stringify(data)}</div>
+    ),
+  }
+})
+
 afterEach(cleanup)
+
+/** Reads the exact indexed series `buildIndexedSeries` computed, via the
+ *  `LineChart` mock above. Waits for `ChartShell`'s one-tick deferred mount. */
+async function getChartData(): Promise<Array<{ date: string; portfolio: number | null; benchmark: number | null }>> {
+  const el = await screen.findByTestId('indexed-chart-data')
+  return JSON.parse(el.textContent ?? '[]')
+}
 
 /**
  * US-34.2 (Epic 34 F-1): the Dashboard publishes a `replay_derived` return.
@@ -70,6 +104,184 @@ function analysis(overrides: {
     },
   } as unknown as DashboardAnalysis
 }
+
+/**
+ * CR-1 (2026-08-26-performance-benchmark-chart-audit, FINDING 1/2): the
+ * portfolio line must be a TWR-indexed chain built from `portfolio_return_pct`
+ * (`indexed_t = 100 * (1 + portfolio_return_pct_t / 100)`), never a raw
+ * `portfolio_value` ratio — a deposit/withdrawal is not performance. This is
+ * the regression guard 02-quant-audit.md's FINDING 1 says would have caught
+ * the original CRITICAL bug (a $50k mid-period deposit on a flat market
+ * previously drew the chart's final point to 150, i.e. a fabricated +50pp
+ * "gain" from pure cash).
+ */
+describe('PerformanceBenchmarkCard portfolio line (buildIndexedSeries)', () => {
+  it('tracks portfolio_return_pct-derived values across a mid-period deposit, not raw portfolio_value', async () => {
+    const result = analysis()
+    result.performance_series = [
+      { date: '2026-01-08', portfolio_value: 100000, benchmark_price: 500, portfolio_return_pct: 0, benchmark_return_pct: null },
+      // $50k deposit, flat market: true TWR stays 0% even though NAV jumps 50%.
+      { date: '2026-03-01', portfolio_value: 150000, benchmark_price: 500, portfolio_return_pct: 0, benchmark_return_pct: null },
+      { date: '2026-08-10', portfolio_value: 153000, benchmark_price: 550, portfolio_return_pct: 2.0, benchmark_return_pct: null },
+    ] satisfies PerformanceSeriesPoint[]
+
+    render(<PerformanceBenchmarkCard result={result} activeRange="All" />)
+    const data = await getChartData()
+
+    // Old (buggy) formula would give 150000 / 100000 * 100 = 150 here.
+    expect(data[1].portfolio).toBe(100)
+    expect(data[0].portfolio).toBe(100)
+    expect(data[2].portfolio).toBe(102)
+  })
+
+  it('still indexes the benchmark leg from raw benchmark_price, unaffected by the portfolio-side fix', async () => {
+    const result = analysis()
+    result.performance_series = [
+      { date: '2026-01-08', portfolio_value: 100000, benchmark_price: 500, portfolio_return_pct: 0, benchmark_return_pct: null },
+      { date: '2026-03-01', portfolio_value: 150000, benchmark_price: 500, portfolio_return_pct: 0, benchmark_return_pct: null },
+      { date: '2026-08-10', portfolio_value: 153000, benchmark_price: 550, portfolio_return_pct: 2.0, benchmark_return_pct: null },
+    ] satisfies PerformanceSeriesPoint[]
+
+    render(<PerformanceBenchmarkCard result={result} activeRange="All" />)
+    const data = await getChartData()
+
+    expect(data[0].benchmark).toBe(100)
+    expect(data[1].benchmark).toBe(100)
+    expect(data[2].benchmark).toBeCloseTo(110, 5) // 550 / 500 * 100, deposit has no effect
+  })
+
+  it('anchors the first indexed portfolio point at 100 from the always-zero first-point return, not from portfolio_value', async () => {
+    // 03-frontend.md risks: portfolio_return_pct is always 0.0 on the engine's
+    // very first daily_state regardless of that state's own portfolio_value —
+    // a subtly different anchor rule than the old (now-deleted)
+    // DashboardPanel.normalizePerformanceSeries, which anchored on the first
+    // date with portfolio_value > 0 and left everything before it null.
+    const result = analysis()
+    result.performance_series = [
+      { date: '2026-01-08', portfolio_value: 0, benchmark_price: 500, portfolio_return_pct: 0, benchmark_return_pct: null },
+      { date: '2026-01-09', portfolio_value: 100000, benchmark_price: 501, portfolio_return_pct: 1.5, benchmark_return_pct: null },
+    ] satisfies PerformanceSeriesPoint[]
+
+    render(<PerformanceBenchmarkCard result={result} activeRange="All" />)
+    const data = await getChartData()
+
+    expect(data[0].portfolio).toBe(100)
+    expect(data[1].portfolio).toBeCloseTo(101.5, 5)
+  })
+})
+
+/**
+ * CR-2 #1 (2026-08-26-performance-benchmark-chart-audit, FINDING 1): the
+ * range selector must re-anchor the CHART, not just the summary strip below
+ * it. Before this fix `buildIndexedSeries` always consumed the top-level,
+ * never-sliced `performance_series` regardless of `activeRange`, so every
+ * range rendered an identical chart. `window_start_date`
+ * (`DashboardRangeMetrics.window_start_date`, backend dispatch 07) is the
+ * per-range anchor that makes this test possible: two ranges with distinct
+ * non-null `window_start_date` values must produce chart data that differs
+ * both in which dates are plotted AND in the re-based trajectory, while both
+ * still open at the base-100 reference point.
+ */
+describe('PerformanceBenchmarkCard range-switch chart re-anchoring (CR-2 #1)', () => {
+  const multiRangeResult = {
+    performance_series: [
+      { date: '2026-01-08', portfolio_value: 100000, benchmark_price: 500, portfolio_return_pct: 0, benchmark_return_pct: null },
+      { date: '2026-03-01', portfolio_value: 101000, benchmark_price: 505, portfolio_return_pct: 1.0, benchmark_return_pct: null },
+      { date: '2026-06-01', portfolio_value: 103000, benchmark_price: 520, portfolio_return_pct: 3.0, benchmark_return_pct: null },
+      { date: '2026-07-15', portfolio_value: 104000, benchmark_price: 530, portfolio_return_pct: 4.0, benchmark_return_pct: null },
+      { date: '2026-08-10', portfolio_value: 105000, benchmark_price: 540, portfolio_return_pct: 5.0, benchmark_return_pct: null },
+    ] satisfies PerformanceSeriesPoint[],
+    range_metrics: {
+      '1M': {
+        summary: {
+          start_value: 104000,
+          end_value: 105000,
+          net_contributions: 0,
+          investment_gain: 1000,
+          time_weighted_return_pct: 0.96,
+          money_weighted_return_pct: 0.96,
+          benchmark_return_pct: null,
+          excess_return_pct: null,
+        },
+        max_drawdown_pct: null,
+        monthly_returns: [],
+        monthly_returns_reliable: true,
+        portfolio_return_trust: 'degraded',
+        window_start_date: '2026-07-15',
+      },
+      '3M': {
+        summary: {
+          start_value: 103000,
+          end_value: 105000,
+          net_contributions: 0,
+          investment_gain: 2000,
+          time_weighted_return_pct: 1.94,
+          money_weighted_return_pct: 1.94,
+          benchmark_return_pct: null,
+          excess_return_pct: null,
+        },
+        max_drawdown_pct: null,
+        monthly_returns: [],
+        monthly_returns_reliable: true,
+        portfolio_return_trust: 'degraded',
+        window_start_date: '2026-06-01',
+      },
+    },
+    daily_states: [],
+    run_metadata: {
+      return_basis_contract: { portfolio_path: 'replay_derived', benchmark_path: 'price_return_only' },
+      reproducibility: { benchmark_symbol: 'SPY' },
+      withheld_return_dates: [],
+      withheld_return_impact_pct: null,
+    },
+  } as unknown as DashboardAnalysis
+
+  it('plots a different date window per range, each re-based to 100 at its own window start', async () => {
+    const { rerender } = render(<PerformanceBenchmarkCard result={multiRangeResult} activeRange="1M" />)
+    const oneMonth = await getChartData()
+
+    // 1M's window starts 2026-07-15 — two points, re-based to 100 there.
+    expect(oneMonth.map((p) => p.date)).toEqual(['2026-07-15', '2026-08-10'])
+    expect(oneMonth[0].portfolio).toBe(100)
+    expect(oneMonth[1].portfolio).toBeCloseTo((100 * 1.05) / 1.04, 5)
+
+    rerender(<PerformanceBenchmarkCard result={multiRangeResult} activeRange="3M" />)
+    const threeMonth = await getChartData()
+
+    // 3M's window starts 2026-06-01 — three points, re-based to 100 there.
+    expect(threeMonth.map((p) => p.date)).toEqual(['2026-06-01', '2026-07-15', '2026-08-10'])
+    expect(threeMonth[0].portfolio).toBe(100)
+    expect(threeMonth[2].portfolio).toBeCloseTo((100 * 1.05) / 1.03, 5)
+
+    // The chart genuinely changed: different plotted range AND a different
+    // re-based trajectory for the same underlying date/return, not merely a
+    // longer prefix of the same series. Both ranges share the 2026-07-15 date,
+    // but its indexed value differs because each range re-bases to its own
+    // window start (1.04 pivot vs 1.03 pivot).
+    expect(oneMonth).not.toEqual(threeMonth)
+    expect(oneMonth[0].portfolio).not.toBeCloseTo(threeMonth[1].portfolio ?? NaN, 5)
+  })
+
+  it('leaves the chart unsliced (full history, day-one anchor) when window_start_date is null, e.g. "All"', async () => {
+    const allResult = {
+      ...multiRangeResult,
+      range_metrics: {
+        ...multiRangeResult.range_metrics,
+        All: {
+          ...multiRangeResult.range_metrics!['1M'],
+          window_start_date: null,
+        },
+      },
+    } as unknown as DashboardAnalysis
+
+    render(<PerformanceBenchmarkCard result={allResult} activeRange="All" />)
+    const data = await getChartData()
+
+    expect(data.map((p) => p.date)).toEqual(['2026-01-08', '2026-03-01', '2026-06-01', '2026-07-15', '2026-08-10'])
+    expect(data[0].portfolio).toBe(100)
+    expect(data[data.length - 1].portfolio).toBeCloseTo(105, 5)
+  })
+})
 
 /**
  * US-34.5 (Epic 34 F-10): the benchmark return and excess are published.
