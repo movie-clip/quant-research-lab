@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "portfolio": {
+    "project": {
       "type": "stdio",
       "command": "python",
       "args": ["services/quant-engine/app/mcp_server/server.py"],

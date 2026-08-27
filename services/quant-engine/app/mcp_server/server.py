@@ -20,7 +20,11 @@ from mcp.server.mcpserver import MCPServer
 
 from app.mcp_server.tools import probing, testing
 
-server = MCPServer("portfolio")
+# Named generically, and registered under the key "project" in .mcp.json.
+# That key forms the mcp__project__<tool> prefix the agent network grants,
+# so the lane definitions stay project-agnostic: any repo the network binds
+# implements this same five-tool contract under the same name.
+server = MCPServer("project")
 
 
 @server.tool()
