@@ -26,3 +26,13 @@ _dynamic_context.auto_adjust
 # are all invoked by injection/registration. They are kept below the
 # `--min-confidence 80` threshold in practice; if a future vulture version raises
 # their confidence, add them here with a reason rather than lowering confidence.
+
+# MCP tool wrappers in app/mcp_server/server.py — registered dynamically by
+# MCPServer's @server.tool() decorator and invoked over stdio by the client, so
+# they are never called from repo code. The logic they delegate to lives in
+# app/mcp_server/tools/*_impl and IS covered by app/tests/test_mcp_tools.py.
+run_tests
+check_gates
+reset_goldens
+build_snapshot
+probe_engine

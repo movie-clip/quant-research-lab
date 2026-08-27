@@ -10,3 +10,15 @@
 ruff==0.15.17
 vulture==2.16
 pip-audit==2.10.1
+# MCP tool server (app/mcp_server/) — exposes run_tests / probe_engine /
+# check_gates / build_snapshot / reset_goldens to agent sessions. Dev-only:
+# nothing in app/api or app/services imports it.
+mcp>=2.0
+# WARNING: `pip install mcp` pulls sse-starlette, which wants starlette>=0.49.1,
+# while requirements.txt pins starlette==0.48.0 (FastAPI 0.119.1 raises
+# "Router.__init__() got an unexpected keyword argument 'on_startup'" on newer
+# starlette, which breaks collection of EVERY backend test). Keep starlette on
+# its pin and ignore the resulting `pip check` complaint: sse_starlette IS
+# imported when the server starts, but it works against 0.48.0 anyway — its
+# >=0.49.1 floor is stricter than what this stdio server actually exercises.
+# Verified: app/mcp_server/server.py registers all five tools on starlette 0.48.0.
