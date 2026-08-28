@@ -13,14 +13,30 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 |---|---|
 | **Backlog** | Story defined (statement + acceptance criteria + rough test plan). Not yet ticketed. |
 | **Next phase** | Pulled into the active phase and broken into ordered tickets. |
-| **In progress** | An agent is delivering it via the `build-story` skill. |
+| **In progress** | An agent is delivering it via the `.agentic` network's `orchestrate-feature` skill. |
 | **Done** | Every acceptance criterion met, full test plan passing, docs updated. |
 
 ## Index
 
+### Unassigned / Backlog (no epic)
+
+Stories drafted and planned but not yet assigned to an epic. The owner
+decided (2026-08-26) against opening a new epic to hold these; they keep
+their placeholder numbers until one is assigned at ticketing time. US-41.2
+has since shipped as a standalone Backlog story — epic placement (open
+"Epic 41 — Documentation & Roadmap Accuracy Reconciliation" or leave it
+standalone) is still the owner's call and would renumber both files.
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-41.1](US-41.1-inline-withheld-return-annotation.md) | Explain a withheld-return gap where it appears on the Performance & Benchmark chart | Frontend-only — surface the existing `withheld_return_dates` disclosure inline at the chart break point in `PerformanceBenchmarkCard.tsx`; additive, no new disclosure, no methodology change | Backlog |
+| [US-41.2](US-41.2-system-architecture-doc-accuracy-and-route-guard.md) | Make the architecture doc an agent is told to trust for backend seams match the repo, and guard it | Docs + test — rewrite `docs/architecture/system-architecture.md`'s backend-seams / service-layer / data-flow / API-boundary inventory to the 15 registered routers and their real services (the pre-Epic-8 ranking / construction / optimizer / replay surfaces removed), and add a mechanical guard (`test_architecture_doc_route_inventory.py`) that fails on any future drift, naming the offending module. Market-data, trust-rule and accepted-tradeoff sections untouched | Done |
+
+---
+
 ### Epic 40 — Snapshot Trust & Fidelity Follow-Through (complete)
 
-PRD: none — see `US-40.1`/`US-40.2` for the full delivery record (close-out scope excluded `docs/product/prd/`)
+PRD: [`prd/epic-40-snapshot-trust-and-fidelity-follow-through.md`](../prd/epic-40-snapshot-trust-and-fidelity-follow-through.md) — a retrospective close-out PRD (Status: Completed); see also `US-40.1`/`US-40.2` for the full delivery record
 
 | Story | Title | Scope | Status |
 |---|---|---|---|
@@ -79,7 +95,7 @@ PRD: [`prd/epic-36-findings-first-doc-and-gate-hygiene.md`](../prd/epic-36-findi
 | [US-36.2](US-36.2-dependency-vulnerability-scan.md) | CI flags a newly-vulnerable pinned dependency instead of staying silent forever | F-R3: nothing scanned the pinned backend / locked frontend dependency sets for known vulnerabilities. New `pip-audit`/`npm audit` scan tooling plus a separate, scheduled, network-permitted GitHub Actions workflow — deliberately not folded into the network-free `run_all_tests.py`/CI gate | Done |
 | [US-36.3](US-36.3-docs-match-the-repo.md) | The docs an agent is told to trust for "what's shipped" actually match the repo | F-R5/F-R6/F-R7/F-R8 bundled: stale cache-CLI doc, undercounted route inventory (+ new mechanical check), stale Epic 24 PRD status header, undocumented accepted security tradeoff. Also retires `docs/product/review-2026-08-20-findings.md` as superseded | Done |
 
-### Epic 35 — Market-Data Failure Honesty (active)
+### Epic 35 — Market-Data Failure Honesty (complete)
 
 PRD: [`prd/epic-35-market-data-cache-resilience.md`](../prd/epic-35-market-data-cache-resilience.md)
 
@@ -89,7 +105,7 @@ PRD: [`prd/epic-35-market-data-cache-resilience.md`](../prd/epic-35-market-data-
 | [US-35.2](US-35.2-clearable-cache-namespaces.md) | Make every cache namespace clearable and inspectable | F-2: `list` printed `history_yf`, `holdings` and more; `clear --namespace` accepted a hand-written four-item list, so most were unnameable. Choices are now derived from disk, a partial clear says what it left behind, and a typo is rejected instead of reporting `Removed 0`. **The claimed prefix collision did not exist** — matching was already exact, so that AC became a guard against introducing one | Done |
 | [US-35.3](US-35.3-capture-refuses-to-degrade.md) | Refuse to overwrite the golden capture with a degraded one | F-3: the capture wrote whatever it recorded and printed the count — it overwrote 73 series with 21 and reported success. Now compares against the committed fixture and refuses, naming what changed. Catches the sharpest case: a benchmark **present with zero rows**, which any "is SPY there?" check would pass | Done |
 
-### Epic 34 — An Answerable Dashboard: Reachable Trust States (active)
+### Epic 34 — An Answerable Dashboard: Reachable Trust States (complete)
 
 PRD: [`prd/epic-34-answerable-dashboard-and-reachable-trust.md`](../prd/epic-34-answerable-dashboard-and-reachable-trust.md)
 
@@ -122,7 +138,7 @@ PRD: [`prd/epic-33-corporate-actions-replay-integrity.md`](../prd/epic-33-corpor
 
 ---
 
-### Epic 32 — Project Hygiene & Agent-Facing Doc Accuracy (active)
+### Epic 32 — Project Hygiene & Agent-Facing Doc Accuracy (complete)
 
 PRD: [`prd/epic-32-project-hygiene-and-agent-docs.md`](../prd/epic-32-project-hygiene-and-agent-docs.md)
 
@@ -148,6 +164,25 @@ PRD: [`prd/epic-31-ledger-replay-correctness.md`](../prd/epic-31-ledger-replay-c
 
 ---
 
+### Epic 30 — Exposure Improvements (complete)
+
+PRD: [`prd/epic-30-exposure-improvements.md`](../prd/epic-30-exposure-improvements.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-30.1](US-30.1-drift-valuation-basis.md) | Fix the drift valuation basis — honest anchor, fail-closed TWR, truthful note | Drift no-ledger path switches to the synthetic market-value chain (PRD F-1); ≤ −100% daily returns fail closed instead of compounding (F-2); basis notes made truthful per path; PortfolioStateEngine cash anchored from real cash_balances when starting_nav absent | Done |
+| [US-30.2](US-30.2-drift-coverage-fx-disclosure.md) | Drift coverage + FX disclosure — statement-anchored symbols, implied rates | Disclose flat statement-anchored (zero-coverage) holdings on DriftResult (PRD F-3, wording corrected: anchored, not omitted); carry US-28.1 statement-implied FX through workspace snapshot → request → engine with a three-tier FX disclosure (static-rate / fallback / anchored) (F-6) | Done |
+| [US-30.3](US-30.3-exposure-first-render.md) | Exposure first-render reliability — self-fetching drift panel + Since-Import anchor | Convert the drift panel to the self-fetching pattern so the chart renders on Exposure-tab open with no dropdown interaction (F-4); anchor the "Since Import" window to the statement-period start instead of the import timestamp (F-5) | Done |
+| [US-30.4](US-30.4-exposure-calculation-audit.md) | Findings-first audit of the remaining Exposure calculations | Audit-only (no code): verified every Exposure calculation surface against the methodology and recorded PRD findings F-7..F-10 with file:line evidence and reproduced numbers — currency-mixed weight denominators (Critical), missing FX disclosure, ungated per-position beta, two incompatible portfolio-return bases | Done |
+| [US-30.5a](US-30.5a-exposure-fx-weights.md) | FX-convert every Exposure weight + disclose the currency basis | Fix PRD F-7 (Critical: every Exposure weight denominator raw-sums EUR/GBP/USD) by converting with the statement's implied rates, and F-8 (no card disclosed the degradation). Regenerates dashboardGoldens.ts deliberately | Done |
+| [US-30.5b](US-30.5b-position-beta-min-observations.md) | Gate per-position risk statistics on the minimum observation floor | Fix PRD F-9: withhold per-position beta/correlation/volatility until a holding has ≥ MIN_DAILY_OBSERVATIONS (20) return observations (methodology §Beta). Behaviour-neutral for the committed portfolio; goldens byte-identical | Done |
+| [US-30.5c](US-30.5c-return-basis.md) | Provenance-selected return basis — cash-excluded market-value chain for synthetic series | Fix PRD F-10: synthetic surfaces (rolling correlation/beta, factor attribution, factor model, stress, multi-benchmark) move onto the cash-excluded market-value chain; the imported ledger-replay path keeps the trade-safe TWR (avoiding the F-1 fabrication a blanket swap would reintroduce). Goldens byte-identical; ledger-path de-dilution deferred to tech-debt US-24.9 | Done |
+| [US-30.6](US-30.6-concentration-pack-cardshell.md) | Migrate the Concentration Pack onto CardShell + bring it under the design-system audit | Epic 30 close. Findings-first audit showed the tab already meets the ui-polish baseline; re-scoped to the deferred gap — the Concentration Pack (largest Exposure surface) was raw `<section>`s with no landmark and outside the audited surface. Wrapped in CardShell (region landmark), named its subsections, added ExposurePanel.tsx to ALL_CARD_FILES. No Synthetic badge (snapshot analytics); zero layout change; goldens untouched | Done |
+
+Recommended build order: 30.1 → 30.2 → 30.3 → 30.4 → 30.5a → 30.5b → 30.5c → 30.6.
+
+---
+
 ### Epic 29 — Chart First-Render Reliability (complete)
 
 PRD: [`prd/epic-29-chart-first-render-reliability.md`](../prd/epic-29-chart-first-render-reliability.md)
@@ -159,20 +194,12 @@ PRD: [`prd/epic-29-chart-first-render-reliability.md`](../prd/epic-29-chart-firs
 
 ---
 
-### Epic 28 — IBKR CSV Importer & Statement-Refresh Resilience (backlog)
+### Epic 28 — IBKR CSV Importer & Statement-Refresh Resilience (complete)
 
 PRD: [`prd/epic-28-ibkr-csv-importer.md`](../prd/epic-28-ibkr-csv-importer.md)
 
 | Story | Title | Scope | Status |
 |---|---|---|---|
-| [US-30.2](US-30.2-drift-coverage-fx-disclosure.md) | Drift coverage + FX disclosure — statement-anchored symbols, implied rates | Disclose flat statement-anchored (zero-coverage) holdings on DriftResult (PRD F-3, wording corrected: anchored, not omitted); carry US-28.1 statement-implied FX through workspace snapshot → request → engine with a three-tier FX disclosure (static-rate / fallback / anchored) (F-6) | Done |
-| [US-30.3](US-30.3-exposure-first-render.md) | Exposure first-render reliability — self-fetching drift panel + Since-Import anchor | Convert the drift panel to the self-fetching pattern so the chart renders on Exposure-tab open with no dropdown interaction (F-4); anchor the "Since Import" window to the statement-period start instead of the import timestamp (F-5) | Done |
-| [US-30.4](US-30.4-exposure-calculation-audit.md) | Findings-first audit of the remaining Exposure calculations | Audit-only (no code): verified every Exposure calculation surface against the methodology and recorded PRD findings F-7..F-10 with file:line evidence and reproduced numbers — currency-mixed weight denominators (Critical), missing FX disclosure, ungated per-position beta, two incompatible portfolio-return bases | Done |
-| [US-30.5a](US-30.5a-exposure-fx-weights.md) | FX-convert every Exposure weight + disclose the currency basis | Fix PRD F-7 (Critical: every Exposure weight denominator raw-sums EUR/GBP/USD) by converting with the statement's implied rates, and F-8 (no card disclosed the degradation). Regenerates dashboardGoldens.ts deliberately | Done |
-| [US-30.6](US-30.6-concentration-pack-cardshell.md) | Migrate the Concentration Pack onto CardShell + bring it under the design-system audit | Epic 30 close. Findings-first audit showed the tab already meets the ui-polish baseline; re-scoped to the deferred gap — the Concentration Pack (largest Exposure surface) was raw `<section>`s with no landmark and outside the audited surface. Wrapped in CardShell (region landmark), named its subsections, added ExposurePanel.tsx to ALL_CARD_FILES. No Synthetic badge (snapshot analytics); zero layout change; goldens untouched | Done |
-| [US-30.5c](US-30.5c-return-basis.md) | Provenance-selected return basis — cash-excluded market-value chain for synthetic series | Fix PRD F-10: synthetic surfaces (rolling correlation/beta, factor attribution, factor model, stress, multi-benchmark) move onto the cash-excluded market-value chain; the imported ledger-replay path keeps the trade-safe TWR (avoiding the F-1 fabrication a blanket swap would reintroduce). Goldens byte-identical; ledger-path de-dilution deferred to tech-debt US-24.9 | Done |
-| [US-30.5b](US-30.5b-position-beta-min-observations.md) | Gate per-position risk statistics on the minimum observation floor | Fix PRD F-9: withhold per-position beta/correlation/volatility until a holding has ≥ MIN_DAILY_OBSERVATIONS (20) return observations (methodology §Beta). Behaviour-neutral for the committed portfolio; goldens byte-identical | Done |
-| [US-30.1](US-30.1-drift-valuation-basis.md) | Fix the drift valuation basis — honest anchor, fail-closed TWR, truthful note | Drift no-ledger path switches to the synthetic market-value chain (PRD F-1); ≤ −100% daily returns fail closed instead of compounding (F-2); basis notes made truthful per path; PortfolioStateEngine cash anchored from real cash_balances when starting_nav absent | Done |
 | [US-28.1](US-28.1-ibkr-csv-importer-backend.md) | IBKR Activity-Statement CSV importer (backend) | New `interactive_brokers_csv.py` parsing `docs/IB2026.csv` (22 sections, utf-8-sig, stdlib csv) into the unchanged snapshot contract; fail-safe per record; reconciles against its own Change-in-NAV totals | Done |
 | [US-28.2](US-28.2-wire-csv-end-to-end.md) | Wire CSV end-to-end: detection, upload UI, golden pipeline on IB2026.csv | Remove the three `.pdf` gates (statement_importer, App.tsx filter + accept attr); goldens key off IB2026.csv (Jan–Jun window — one deliberate `refresh_statement.py` regeneration); legacy PDFs unchanged | Done |
 | [US-28.3](US-28.3-statement-refresh-resilience.md) | Statement-refresh resilience: centralize statement-truth pins + document the workflow | Classify statement-truth vs structural assertions; one truths module per side; swap-simulation meta-test; refresh workflow documented | Done |
@@ -202,6 +229,17 @@ Recommended build order: 27.1 → 27.2 → 27.3 → 27.4/27.5/27.6 → 27.7 → 
 
 ---
 
+### Epic 26 — Currency Exposure & Risk (complete)
+
+PRD: [`prd/epic-26-currency-exposure-and-risk.md`](../prd/epic-26-currency-exposure-and-risk.md)
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-26.1](US-26.1-currency-exposure-by-weight.md) | Currency exposure by weight (snapshot) | New `analytics/currency_exposure.py` + Exposure-tab card: per-currency weight, non-base total, explicit `unclassified` bucket. Corrects two defects in the research brief's formula — the denominator must be **base-currency converted** (the brief's raw sum is the F-7 Critical defect US-30.5a fixed) and the null-currency rule was self-contradictory. Snapshot analytics, zero new market-data calls. A third correction emerged in build: the brief's "unclassified" bucket is unreachable (schema-required currency) and the real fabrication is upstream in the request-path builder — logged as US-26.3 | Done |
+| [US-26.2](US-26.2-currency-risk-contribution.md) | Currency risk contribution (historical) | Decomposes each non-base holding's base-currency return into **local / FX / interaction** legs (an exact identity, not an approximation) and splits portfolio variance by component covariance into three shares summing to exactly 1.0. Dedicated route + self-fetching card (60d/252d, `Synthetic` badge) — **not** the exposure engine, which fetches no history. Both prior blockers cleared by the research brief. Measured on IB2026: securities 96.70% / currency 3.31% / interaction −0.013%, summing to exactly 1.0 | Done |
+
+---
+
 ### Epic 25 — Dashboard Performance & Risk Summary (complete)
 
 PRD: [`prd/epic-25-dashboard-performance-risk-summary.md`](../prd/epic-25-dashboard-performance-risk-summary.md)
@@ -218,18 +256,7 @@ Recommended build order: 25.1 → 25.2 → 25.3 → 25.4.
 
 ---
 
-### Epic 26 — Currency Exposure & Risk (active)
-
-PRD: [`prd/epic-26-currency-exposure-and-risk.md`](../prd/epic-26-currency-exposure-and-risk.md)
-
-| Story | Title | Scope | Status |
-|---|---|---|---|
-| [US-26.1](US-26.1-currency-exposure-by-weight.md) | Currency exposure by weight (snapshot) | New `analytics/currency_exposure.py` + Exposure-tab card: per-currency weight, non-base total, explicit `unclassified` bucket. Corrects two defects in the research brief's formula — the denominator must be **base-currency converted** (the brief's raw sum is the F-7 Critical defect US-30.5a fixed) and the null-currency rule was self-contradictory. Snapshot analytics, zero new market-data calls. A third correction emerged in build: the brief's "unclassified" bucket is unreachable (schema-required currency) and the real fabrication is upstream in the request-path builder — logged as US-26.3 | Done |
-| [US-26.2](US-26.2-currency-risk-contribution.md) | Currency risk contribution (historical) | Decomposes each non-base holding's base-currency return into **local / FX / interaction** legs (an exact identity, not an approximation) and splits portfolio variance by component covariance into three shares summing to exactly 1.0. Dedicated route + self-fetching card (60d/252d, `Synthetic` badge) — **not** the exposure engine, which fetches no history. Both prior blockers cleared by the research brief. Measured on IB2026: securities 96.70% / currency 3.31% / interaction −0.013%, summing to exactly 1.0 | Done |
-
----
-
-### Epic 24 — Codebase Improvement (active)
+### Epic 24 — Codebase Improvement (complete)
 
 PRD: [`prd/epic-24-codebase-improvement.md`](../prd/epic-24-codebase-improvement.md)
 
@@ -267,7 +294,7 @@ PRD: [`prd/epic-23-dead-code-cleanup-and-review.md`](../prd/epic-23-dead-code-cl
 
 ---
 
-### Epic 22 — Import Admission Review UI (completed)
+### Epic 22 — Import Admission Review UI (complete)
 
 PRD: [`prd/epic-22-import-admission-review-ui.md`](../prd/epic-22-import-admission-review-ui.md)
 
@@ -278,7 +305,7 @@ PRD: [`prd/epic-22-import-admission-review-ui.md`](../prd/epic-22-import-admissi
 
 ---
 
-### Epic 21 — Testing Strategy & Architecture Hardening (completed)
+### Epic 21 — Testing Strategy & Architecture Hardening (complete)
 
 PRD: [`prd/epic-21-testing-strategy-hardening.md`](../prd/epic-21-testing-strategy-hardening.md)
 
@@ -294,7 +321,7 @@ Recommended build order: 21.1 → 21.2 → 21.3 → 21.4 → 21.5.
 
 ---
 
-### Epic 20 — Market-Data Cache Efficiency & Control (completed)
+### Epic 20 — Market-Data Cache Efficiency & Control (complete)
 
 PRD: [`prd/epic-20-market-data-cache-efficiency.md`](../prd/epic-20-market-data-cache-efficiency.md)
 
@@ -308,7 +335,7 @@ Recommended build order: 20.1 → 20.2 → 20.3.
 
 ---
 
-### Epic 19 — Instrument Identity Integrity (completed)
+### Epic 19 — Instrument Identity Integrity (complete)
 
 PRD: [`prd/epic-19-instrument-identity-integrity.md`](../prd/epic-19-instrument-identity-integrity.md)
 
@@ -501,5 +528,6 @@ Stories must be built in order (8.1 → 8.2 → ... → 8.9). Each leaves a comp
 | [US-3.2](US-3.2-inverse-rank-weight-opt-in.md) | Make inverse-rank-weight selectable at launch | Cancelled |
 | [US-3.3](US-3.3-top-n-in-etf-ranking-tab.md) | Set Top N directly in the ETF Ranking tab | Cancelled |
 
-To implement a story, invoke the `build-story` skill and point it at the file.
-To author a new story from a feature idea, invoke the `write-story` skill.
+To implement a story, run the `.agentic` network's `orchestrate-feature` skill
+and point it at the story file. To author a new story from a feature idea, use
+the `write-story` skill.

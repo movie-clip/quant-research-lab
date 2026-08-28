@@ -1,6 +1,6 @@
 # Current Product State
 
-*Canonical shipped-state inventory. Updated: 2026-08-19 (after Epic 34 — an answerable Dashboard: replay-derived TWR, statement-anchored opening cash, disclosed withholdings, a published terminal day, and a verified total-return benchmark).*
+*Canonical shipped-state inventory. Updated: 2026-08-27 (body current through Epic 40 — snapshot trust & fidelity follow-through — plus Epics 35–39, the 2026-08-26 chart-data audit, and the 2026-08-27 US-41.2 architecture-doc seam-accuracy pass; see `epic-roadmap.md` for the authoritative epic status).*
 
 ---
 
@@ -151,7 +151,9 @@ The researcher imports statements via the Import flow:
 - `currency_risk.py` — currency risk engine (Epic 26)
 - `provenance.py` — market-data provenance (FMP vs Yahoo Finance) engine (Epic 18)
 
-~16 service files, all under `services/quant-engine/app/services/`, plus pure-analytics modules under `services/quant-engine/app/analytics/` (incl. `drawdown.py` and `distribution.py` added in Epic 13).
+~25 service files, all under `services/quant-engine/app/services/`, plus pure-analytics modules under `services/quant-engine/app/analytics/` (incl. `drawdown.py` and `distribution.py` added in Epic 13).
+
+**Architecture-doc seam accuracy (US-41.2, 2026-08-27):** `docs/architecture/system-architecture.md` — the doc `CLAUDE.md` and `project.md` § "Sources of truth" name for "what are the backend seams?" — had its backend-seams inventory, service-layer list, data-flow narrative and API-boundary section rewritten to describe only the 15 registered route modules above and their real service files; the pre-Epic-8 ranking / construction / optimizer / replay route paths and eight non-existent service files it still listed are gone. A new pytest guard, `services/quant-engine/app/tests/test_architecture_doc_route_inventory.py`, resolves the doc's stated router list against `app/api/routes/` bidirectionally and fails the suite on any drift — a doc entry with no registered route, or a registered route absent from the doc — naming the offending module, the same treatment `test_route_inventory.py` gives this file's own route-module list (US-36.3). The market-data-provenance, architecture-level-trust-rule and accepted-tradeoff sections were left byte-identical.
 
 **Market-data providers (Epic 18):** price history is served behind `MarketDataService` with two providers tried in priority order — **FMP (primary)** then **Yahoo Finance via `yfinance` (secondary fallback)**, the latter used only when FMP returns nothing (e.g. European UCITS ETFs FMP's plan 402s). Provenance (`fmp` vs `yfinance`) is recorded per symbol and surfaced visibly. The Exposure tab shows a portfolio-level **"Data sources" panel** (US-18.2) grouping holdings into FMP (primary) / Yahoo Finance (secondary) / unpriced via the `POST /engines/provenance/run` engine; the Intra-Portfolio Correlation card also keeps an inline "via Yahoo Finance" marker (US-18.1). The panel also surfaces **instrument identity-mismatch warnings** (Epic 19 / US-19.1): when a registry-known ticker's fund name is identity-disjoint from the broker statement's own description (a possible mislabel, e.g. the DFND case), it shows a "⚠ Possible identity mismatch" line. The same check is emitted as the `instrument_description_registry_consistency` Import Admission check. Detection is conservative (flag only on disjoint identity; never auto-corrects). The `DFND` (VanEck Defense) symbol resolves to the real Yahoo lines `DFNS.L`/`DFEN.DE`/`DFNG.L` — never the look-alike `DFND.L` (a different fund) (US-18.3). yfinance is a real second source, never a proxy substitute.
 

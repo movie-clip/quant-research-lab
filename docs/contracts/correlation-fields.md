@@ -50,6 +50,19 @@ Data source: `DriftResult.daily_series` (from `POST /api/engines/drift/run`)
 | `fx_static_rate_currencies` | `list[str]` (default `[]`) | `string[] \| undefined` | Drift panel helper note when non-empty | — | No (empty when none) | US-30.2 (audit F-6): currencies converted at the statement's implied period-end rate (US-28.1 `statement_totals.fx_rates`, supplied via `DriftEngineRequest.fx_rates`) — a STATIC rate across the window; levels are broker truth as of period end, FX return dynamics absent. Disclosed separately from the fallback tier; a currency appears in exactly one tier. |
 | `statement_anchored_symbols` | `list[str]` (default `[]`) | `string[] \| undefined` | Drift panel helper note when non-empty | — | No (empty when none) | US-30.2 (audit F-3): held symbols valued FLAT at the statement close for the whole window (zero in-window price coverage) — zero return contribution, dampens returns/volatility. |
 
+### `DriftWindow` (one entry per drift window)
+
+| Field | Backend type (Python) | TS type | UI label | Trust class | Nullable | Notes |
+|---|---|---|---|---|---|---|
+| `label` | `str` | `string` | Window selector label | — | No | `"1M"`, `"3M"`, `"6M"`, `"12M"`, `"Since Import"` |
+| `start_date` | `str \| None` (default `None`) | `string \| null` | — | synthetic | Yes | ISO 8601; window lower bound |
+| `end_date` | `str \| None` (default `None`) | `string \| null` | — | synthetic | Yes | ISO 8601; window upper bound |
+| `portfolio_return_pct` | `float \| None` (default `None`) | `number \| null` | Portfolio return cell | synthetic | Yes | Null on an unavailable / failed-closed window |
+| `benchmark_return_pct` | `float \| None` (default `None`) | `number \| null` | Benchmark return cell | synthetic | Yes | Null on an unavailable / failed-closed window |
+| `spread_pct` | `float \| None` (default `None`) | `number \| null` | Spread cell | synthetic | Yes | `portfolio_return_pct − benchmark_return_pct` |
+| `trust` | `Literal["synthetic", "unavailable"]` (default `"unavailable"`) | `'synthetic' \| 'unavailable'` | Per-window TrustBadge | — | No | `"unavailable"` when the window's chain could not be built or hit a ≤ −100% daily return |
+| `note` | `str \| None` (default `None`) | `string \| null` | TrustBadge tooltip (verbatim) | — | Yes | States the basis that produced the window (US-30.1) or the degradation reason |
+
 ### Rebasing contract
 
 `IndexedReturnChart` rebases indexed series to 100 at the first non-null value within the selected sub-window:
@@ -68,7 +81,7 @@ Data source: `ExposureAnalysis.rolling_risk` (from `POST /api/engines/exposure/r
 
 ### `RollingRiskPoint` (correlation/beta columns only)
 
-**Backend schema:** `services/quant-engine/app/analytics/risk.py` — `build_rolling_risk_series`
+**Backend schema:** `services/quant-engine/app/schemas/reconciliation.py` — `RollingRiskPoint` (series assembled by `services/quant-engine/app/analytics/risk.py` — `build_rolling_risk_series`)
 **Frontend type:** `apps/desktop/src/features/portfolio/types.ts` — `RollingRiskPoint`
 **UI component:** `RollingCorrelationChart`
 
@@ -105,7 +118,6 @@ Data source: `POST /api/engines/correlation/multi`
 |---|---|---|---|
 | `snapshot` | `ImportedPortfolioSnapshot` | `ImportedSnapshot` | Full imported portfolio snapshot |
 | `lookback_days` | `int` (default 252, min 1) | `number` | Lookback window in trading days. Default: `252`. |
-| `coverage` | `SyntheticHistoryCoverage \| None` | `SyntheticHistoryCoverage \| null \| undefined` | `helper` note when the window was truncated or holdings excluded | synthetic | Yes | US-27.7 coverage disclosure — see `financial-methodology.md` §Synthetic History Coverage Rule |
 
 ### `MultiBenchmarkCorrelationResult`
 
@@ -113,6 +125,7 @@ Data source: `POST /api/engines/correlation/multi`
 |---|---|---|---|---|---|---|
 | `benchmarks` | `list[BenchmarkStats]` | `BenchmarkStats[]` | Table rows | synthetic | No (empty when unavailable) | Sorted by `\|correlation\|` descending; unavailable rows last. |
 | `lookback_days` | `int` | `number` | Lookback (header) | — | No | Echoed from request. Displayed as "Nd lookback". |
+| `coverage` | `SyntheticHistoryCoverage \| None` | `SyntheticHistoryCoverage \| null \| undefined` | `helper` note when the window was truncated or holdings excluded | synthetic | Yes | US-27.7 coverage disclosure — see `financial-methodology.md` §Synthetic History Coverage Rule |
 
 ### `BenchmarkStats` (one row per benchmark)
 

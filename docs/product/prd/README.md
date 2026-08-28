@@ -26,8 +26,9 @@ features.
 4. **Guardrails always apply** — methodology traceability, truth-class
    separation, trust semantics, no execution, fail-closed loading. See
    `CLAUDE.md`.
-5. An agent delivers a story with the `build-story` skill
-   (`.claude/skills/build-story/`).
+5. An agent delivers a story through the `.agentic` network's
+   `orchestrate-feature` skill; new stories are authored with the `write-story`
+   skill. (The old `build-story` skill is superseded and must not run.)
 
 ## Lifecycle
 
@@ -38,12 +39,18 @@ Backlog  ──►  Next phase (ticketed)  ──►  In progress  ──►  Do
 
 ## Index
 
-| PRD | Epic | Status |
-|---|---|---|
-| `epic-5-usable-core-flow.md` | Epic 5 — Usable Core Flow | **Active** |
-| `epic-3-construction-optimizer-methodology.md` | Epic 3 — Construction & Optimizer Methodology | Foundation complete — stories deprioritized |
+**`docs/product/epic-roadmap.md` is the authoritative epic index** — it carries
+the live status of every epic and the slice log. This file does not duplicate
+that table; it only records the PRD-authoring conventions below.
 
-PRDs for Epics 1, 2, 4 are not written separately; their shipped state lives
-in `docs/product/current-product-state.md` and their history in
-`docs/product/epic-roadmap.md`. PRDs for Epics 6 and 7 will be written when
-those epics become active.
+- One PRD file per epic lives in this directory (`epic-<n>-<slug>.md`), written
+  retrospectively at epic close-out (the convention established by Epic 37/38/39).
+- PRDs for Epics 1, 2 and 4 were never written separately; their shipped state
+  lives in `docs/product/current-product-state.md` and their history in
+  `docs/product/epic-roadmap.md`.
+- Epic 3 (Construction & Optimizer Methodology) was **cancelled** — its features
+  were removed in the Epic 8 pivot. Epic 5 (Usable Core Flow) is **complete**,
+  also superseded by that pivot. No `epic-3-*.md` / `epic-5-*.md` PRD file exists.
+
+Every epic is currently complete; there is no active epic. See
+`docs/product/epic-roadmap.md` for which epic is current at any time.

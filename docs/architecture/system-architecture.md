@@ -11,7 +11,7 @@ The project is split into a desktop application and a local quant engine.
 - `apps/desktop`
   - workflow UI, workspace state, review flows, visualization, and local artifact persistence
 - `services/quant-engine`
-  - deterministic finance and quant engines for imports, diagnostics, ranking, construction, optimizer preview, and replay
+  - deterministic finance and quant engines for portfolio import and for snapshot / synthetic-history analytics — exposure, diagnostics, dashboard history, drift, attribution, correlation, currency risk, stress, drawdown, distribution, and provenance
 
 The desktop app should treat the quant engine as the source of truth for portfolio calculations.
 
@@ -21,90 +21,50 @@ Import admission has a narrower split: the quant engine emits read-only `ImportA
 
 - deterministic outputs over hidden heuristics
 - explicit methodology and policy ids
-- explicit truth separation across imported truth, synthetic analytics, persisted artifacts, and hypothetical outputs
-- fail-closed loading for malformed or contradictory persisted artifacts
+- explicit truth separation across imported broker truth, snapshot analytics, synthetic history, and persisted import artifacts
+- fail-closed loading for malformed or contradictory persisted import artifacts
 - thin frontend; no duplicate finance engine in UI code
 
 ## Current Implemented Backend Seams
 
-### Replay and portfolio-improvement seams
+### Registered routers
 
-- `POST /backtests/portfolio-allocation`
-  - canonical allocation replay route for candidate-vs-reference comparison
-- `POST /backtests/portfolio-allocation/replacement-intent-preview`
-  - hypothetical replacement replay from draft snapshot plus replacement intent
-- `POST /backtests/portfolio-allocation/replacement-intent-overlay-preview`
-  - overlay-aware hypothetical replay for the current benchmark-trend overlay slice
-- `POST /backtests/portfolio-allocation/construction-artifact-preview`
-  - replay from an explicit persisted construction artifact reference
-- `POST /backtests/portfolio-allocation/optimizer-handoff-preview`
-  - replay from an explicit persisted optimizer handoff reference
-- `POST /backtests/portfolio-allocation/optimizer-handoff/constraints`
-  - validation and policy surface for persisted optimizer handoff references
+The engine registers 15 routers (`services/quant-engine/app/api/main.py`):
+- `health` — GET /health; liveness probe
+- `imports` — POST /portfolios/import/{interactive-brokers, combine-snapshots, interactive-brokers/analyze, interactive-brokers/analyze-upload, interactive-brokers/analyze-snapshot}; IBKR statement + snapshot import, bootstrap analytics
+- `exposure` — POST /engines/exposure/run -> ExposureResult
+- `diagnostics` — POST /engines/diagnostics/{run, run-imported} -> DiagnosticsResult
+- `dashboard_history` — POST /engines/dashboard-history/{run, run-imported} -> DashboardHistoryResult
+- `drift` — POST /engines/drift/run -> DriftResult
+- `attribution` — POST /engines/attribution/run -> FactorAttributionResponse
+- `correlation` — POST /engines/correlation/{multi, intra} -> MultiBenchmarkCorrelationResult / IntraCorrelationResult
+- `stress` — POST /engines/stress/run -> StressEngineResponse
+- `drawdown` — POST /engines/drawdown/run -> DrawdownEngineResponse
+- `distribution` — POST /engines/distribution/run -> DistributionEngineResponse
+- `provenance` — POST /engines/provenance/run -> ProvenanceResult
+- `currency_risk` — POST /engines/currency-risk/run -> CurrencyRiskResult
+- `market_data` — GET /market-data/{quote-short, historical-price-light}; FMP / yfinance passthrough
+- `cache` — GET /cache/stats, POST /cache/clear; FMP cache admin
 
-### Construction seams
+Grouped by role:
 
-- `POST /construction/run`
-  - first-class persisted backend construction run
-- `GET /construction/artifacts/{artifact_id}`
-  - immutable construction artifact load with validation on read
-- `POST /backtests/candidate-formation/replacement-intent`
-  - narrow review-oriented candidate formation seam
-- `POST /backtests/candidate-construction/replacement-intent`
-  - narrow review-oriented single-replacement construction seam
-- `POST /backtests/candidate-construction/replacement-intent/constraints`
-  - narrow review-oriented validation seam for replacement construction
+- **Import** — `imports` ingests Interactive Brokers statements and combined snapshots and returns bootstrap analytics.
+- **Analytics engines** — `exposure`, `diagnostics`, `dashboard_history`, `drift`, `attribution`, `correlation`, `stress`, `drawdown`, `distribution`, `provenance`, and `currency_risk` each run one deterministic snapshot-analytics or synthetic-history computation over a `PortfolioSnapshot` plus optional history context, and return a derived result with explicit trust metadata.
+- **Infrastructure** — `health` is a liveness probe; `market_data` is a thin passthrough to the market-data seam; `cache` administers the FMP cache.
 
-### Ranking and optimizer seams
+### Service layer
 
-ETF-specific ranking (original shipped path):
-- `POST /strategy-lab/etf-ranking`
-  - ETF-specific ranking seam that persists an immutable artifact before returning it
-- `GET /strategy-lab/etf-ranking/artifacts/{artifact_id}`
-  - ETF-specific persisted artifact load by stable `artifact_id`
-- `GET /strategy-lab/etf-ranking/artifacts/recent`
-  - ETF-specific recent persisted artifact discovery seam with newest-first listing and optional `effective_peer_group` filtering
-- `GET /strategy-lab/etf-ranking/artifacts/recent/metadata`
-  - ETF-specific recent discovery metadata seam for current consumers
+Each engine route is a thin wrapper over one service under
+`services/quant-engine/app/services/`. Every file named here exists in that
+directory today:
 
-Generic ranking platform (newer cross-universe ranking path):
-- `POST /strategy-lab/ranking/run`
-  - first-class generalized ranking run that accepts a `UniverseSpec` (etf_peer_group, custom_list, broad_equity_screen, sector_screen, index_constituent) plus a versioned `ScoreConfig` and persists an immutable `generic_ranking` artifact before returning it
-- `GET /strategy-lab/ranking/artifacts/{artifact_id}`
-  - generic ranking artifact load by stable `artifact_id`
-- `GET /strategy-lab/ranking/artifacts/recent`
-  - generic ranking recent persisted artifact discovery (newest-first)
+- Per-engine services: `exposure_engine.py`, `diagnostics_engine.py`, `dashboard_history_engine.py`, `drift_engine.py`, `attribution_engine.py`, `correlation_engine.py`, `intra_correlation_engine.py`, `stress_engine.py`, `drawdown_engine.py`, `distribution_engine.py`, `provenance_engine.py`, `currency_risk_engine.py`.
+- Import path: `import_engine.py`, `import_engine_composer.py`, `statement_importer.py`, `import_admission.py`, `portfolio_snapshot_builder.py`, `history_context_builder.py`.
+- Market data: `market_data.py` (`MarketDataService`).
+- Cache: `cache_admin.py`.
+- Shared / supporting: `benchmark_service.py`, `holdings_history.py`, `instrument_enrichment.py`, `instrument_identity.py`, `portfolio_proof.py`.
 
-Cross-kind discovery:
-- `GET /strategy-lab/ranking-artifacts/catalog`
-  - generalized persisted ranking artifact catalog across all supported kinds (`etf_ranking`, `intent_bound_etf_replacement_ranking`, `generic_ranking`)
-- `GET /strategy-lab/ranking-artifacts/recent`
-  - generalized recent discovery across the same kinds
-
-Intent-bound ETF replacement ranking:
-- `POST /strategy-lab/etf-ranking/replacements`
-  - additive strategy-lab route that persists and returns the immutable intent-bound ETF replacement ranking artifact envelope
-- `GET /strategy-lab/etf-ranking/replacements/artifacts/{artifact_id}`
-  - additive strategy-lab artifact load route for the same persisted intent-bound ETF replacement ranking artifact
-- `POST /ranking/etf-replacements`
-  - compatibility route for the same persisted intent-bound ETF replacement ranking flow that returns the legacy non-artifact POST contract
-- `GET /ranking/etf-replacements/artifacts/{artifact_id}`
-  - compatibility alias for immutable intent-bound ETF replacement ranking artifact load by stable `artifact_id`
-
-Optimizer:
-- `POST /optimizer/preview`
-  - hypothetical optimizer preview that can persist an explicit replay handoff reference
-
-Ranking is now a generalized platform with three artifact kinds: `etf_ranking`, `intent_bound_etf_replacement_ranking`, and `generic_ranking`. All three are construction-eligible through the canonical `POST /construction/ranking-artifacts/preflight/{artifact_id}` + `POST /construction/run` boundary. ETF replacement is still an intent-scoped review family rather than a freeform ranking entry point. Generic ranking covers the broader cross-universe path with versioned `ScoreConfig`, `UniverseSpec` snapshotting, and per-instrument `EligibilityRecord` truth.
-
-### Important implementation reality
-
-- `services/quant-engine/app/services/portfolio_backtest_engine.py` is the current integration seam for replay, replay diagnostics, construction-artifact replay, optimizer-handoff replay, and overlay-aware replay
-- `services/quant-engine/app/services/construction_run_service.py` and `services/quant-engine/app/services/construction_artifact_service.py` are the current persisted construction seams
-- `services/quant-engine/app/services/strategy_lab.py` is the current narrow shipped ETF ranking seam for persisted artifact creation, artifact reload, and recent discovery metadata
-- `services/quant-engine/app/services/replacement_ranking.py` and `services/quant-engine/app/services/replacement_ranking_artifact_service.py` are the current intent-bound ETF replacement ranking build and persisted-artifact seams
-- `services/quant-engine/app/services/optimizer_preview_service.py` and `services/quant-engine/app/services/optimizer_handoff_constraints.py` are the current optimizer preview and persisted-handoff seams
-- docs should describe these as real current boundaries until they are split further
+Docs should describe these as the real current boundaries until they are split further.
 
 ## Truth Classes and Trust Semantics
 
@@ -113,9 +73,7 @@ The project uses explicit truth classes when reasoning about financial outputs:
 - `broker-truth historical diagnostics`
 - `snapshot current-state analytics`
 - `synthetic snapshot-history diagnostics`
-- `persisted construction artifacts`
-- `hypothetical optimizer previews and handoffs`
-- `replay-derived hypothetical outputs`
+- `persisted import artifacts` (content-addressed, immutable)
 
 These must remain visibly distinct in both payloads and UI.
 
@@ -243,11 +201,8 @@ or remaps the symbol.
 Current API direction:
 
 - local workspace persistence is snapshot-first
-- engine outputs are derived runtime artifacts or persisted immutable research artifacts
+- engine outputs are derived runtime artifacts
 - the frontend may persist `PortfolioSnapshot` and workspace metadata locally, but it must not persist derived analytics as portfolio truth
-- formed candidates, constructed candidates, persisted construction artifacts, optimizer previews, optimizer handoffs, hypothetical replays, and saved proposals are not applied portfolio truth
-
-Future normalized API groups should preserve, not hide, the current artifact seams around construction, optimizer handoff, and replay.
 
 **Accepted tradeoff — unauthenticated local file-read (import routes).**
 `services/quant-engine/app/api/routes/imports.py`'s
@@ -272,76 +227,12 @@ longer holds.
 2. normalize into domain transactions, balances, and positions
 3. build `PortfolioSnapshot` plus optional history context
 4. persist snapshot as local truth in the desktop workspace model
-5. call dedicated engines for diagnostics, ranking, construction, replay, optimizer preview, and monitoring as appropriate
+5. call dedicated engines (exposure, diagnostics, dashboard-history, drift, attribution, correlation, currency-risk, stress, drawdown, distribution, provenance) as appropriate
 6. send derived outputs to the UI with explicit provenance and trust metadata
 
 Import admission evidence is finite-only for numeric observed, comparison, and delta fields. Non-finite imported numeric inputs degrade to unavailable evidence rather than serializing `NaN` or `Infinity`. Desktop read/build paths may return sanitized clones of local review metadata without rewriting IndexedDB; save paths must match captured evidence against the current non-pass check evidence.
 
-### Ranking, construction, optimizer, and replay
-
-1. define universe or review intent
-2. compute ETF ranking output and persist an immutable ranking artifact, or accept explicit candidate inputs through other narrow review seams
-3. construct candidate weights through either review-oriented construction or persisted construction policies
-4. optionally produce a hypothetical optimizer preview and persist a handoff reference
-5. replay baseline vs candidate through explicit artifact or handoff references
-6. emit replay metrics, diagnostics comparison, and provenance
-
-### Persisted ETF ranking artifact rule
-
-- ETF ranking persists an immutable artifact before return on the shipped `POST /strategy-lab/etf-ranking` seam
-- downstream ETF consumers can reopen one artifact by `artifact_id`, browse recent artifacts, and discover current `effective_peer_group` metadata from the recent index
-- generalized discovery may also surface ETF artifacts through additive backend-only catalog/recent routes
-- docs must describe generation as a current ETF-specific artifact seam only; they must not overstate it as a generalized ranking-run platform
-
-### Persisted intent-bound ETF replacement ranking artifact rule
-
-- intent-bound ETF replacement ranking now persists an immutable artifact before return on both `POST /strategy-lab/etf-ranking/replacements` and `POST /ranking/etf-replacements`
-- the persisted artifact is the authoritative internal handoff after execution on both routes
-- `POST /ranking/etf-replacements` maps that canonical persisted result back to the legacy response shape instead of exposing the artifact envelope
-- artifact-backed response access remains additive on `POST /strategy-lab/etf-ranking/replacements` and the artifact GET routes
-- downstream consumers can reload that artifact only by explicit `artifact_id` on either route family
-- persistence is the authoritative downstream truth for this slice
-- reload remains an artifact-id load boundary only; it does not reconstruct request state or perform validation/preflight side effects
-- validation/open/review semantics remain unchanged in this slice; persistence does not widen those boundaries
-- load semantics fail closed on missing file (`404`), invalid json (`400`), non-object payload (`400`), schema failure (`400`), lineage contradiction (`400`), or canonical identity mismatch (`400`)
-
-### Generalized ranking artifact discovery rule
-
-- generalized ranking discovery reads only persisted authoritative artifacts and persisted authoritative indexes
-- ETF discovery reuses the ETF recent index where present, but only as an internal ETF discovery aid for recent-list ordering
-- ETF same-day recent ties preserve persisted `recent.jsonl` sequence as the authoritative order; generalized discovery must not re-sort those ETF ties by `artifact_id`
-- supported kinds without a recent index derive deterministic recent ordering from persisted authoritative metadata only, never by recomputing rankings
-- malformed json, non-object payloads, unsupported schema versions, and provable identity or integrity contradictions fail closed instead of being skipped or repaired
-- unsupported artifact kinds or unsupported persisted schema states fail closed instead of silently widening support
-- the ETF `recent.jsonl` file is not a reusable artifact payload or external contract surface; it remains internal operational state for ETF discovery only
-- additive generalized discovery does not change current ETF-native or replacement execution and load routes
-
-### Persisted generic ranking artifact rule
-
-- generic ranking persists an immutable artifact on `POST /strategy-lab/ranking/run` before return
-- artifacts carry `UniverseSpecSnapshot` (resolved member list with `spec_digest`), `ScoreConfigRef` (with content-addressed `score_config_digest`), per-instrument `EligibilityRecord` (with explicit `hard_filter_failures` + `soft_filter_flags`), and optional `CompositeScoreTrace` (per-factor cross-sectional mean/std for offline normalization replay)
-- artifact identity is content-addressed: `generic_ranking_artifact_<sha256(canonical_json_without_artifact_id)[:16]>`
-- supported factor families: price-bar (momentum, volatility, drawdown, liquidity) and fundamental (quality via Novy-Marx/Sloan/AQR formulas, value via FMP TTM ratios — Greenblatt/Fama-French)
-- when fundamental factors are requested without an FMP API key, the service emits a warning and returns the artifact with those factor values as null; confidence drops to `partial` rather than failing the request
-- supported universe kinds: `etf_peer_group`, `custom_list`, `broad_equity_screen`, `sector_screen` (FMP screener), `index_constituent` with two index families:
-  - `index_id="sp500"` — live FMP `/stable/sp500-constituent` (current snapshot only; PIT historical reconstruction deferred)
-  - `index_id="russell1000"` — static JSON snapshot under `data/universe/index_snapshots/russell1000.json`, sourced from iShares IWB ETF holdings (no FMP endpoint exists for Russell 1000); fail-closed on missing/malformed snapshot file; bundled snapshot is a representative sample, scripted ingestion of the full membership is deferred
-- generic ranking artifacts are construction-eligible through the same canonical preflight + run boundary used by ETF and replacement ranking; the construction allowlist is now a three-kind set
-- load fails closed on missing file (`404`), invalid json (`400`), non-object payload (`400`), schema failure (`400`), or canonical identity mismatch (`400`)
-
-### Persisted construction artifact rule
-
-- construction artifacts persist immutable policy outputs before replay consumption
-- artifacts capture `selection_rule_trace` during policy execution and keep it as provenance
-- replay echoes the persisted trace; replay must not reconstruct or reinterpret that trace
-- construction preflight + run accept three ranking artifact handoff kinds: `etf_ranking_artifact_construction_handoff_v1`, `intent_bound_etf_replacement_ranking_artifact_construction_handoff_v1`, `generic_ranking_artifact_construction_handoff_v1` — explicit allowlist; unsupported families fail closed
-- for `generic_ranking` handoffs, `EligibilityRecord.hard_filter_failures` flow through to `ConstructionRankedCandidateInput.exclusion_reason` rather than being silently dropped
-
-### Optimizer handoff rule
-
-- optimizer previews can persist an immutable handoff reference only when the preview is feasible
-- downstream replay and constraint validation consume the explicit persisted reference only
-- optimizer handoff outputs remain hypothetical and must not be treated as applied portfolio truth
+Every engine reads from the persisted `PortfolioSnapshot` plus optional history context; there is no persisted-artifact, ranking, construction, optimizer-handoff, or replay flow.
 
 ## Desktop Workspace Model
 
@@ -354,7 +245,7 @@ The desktop app follows a local-first workspace structure:
 
 Saved portfolio variants are immutable child nodes. Engine outputs are recalculated or restored as derived views and are not the persisted truth of the workspace.
 
-Review artifacts and persisted references should remain lineage-aware and fail closed when internal contradictions are provable.
+Persisted snapshots and workspace references should remain lineage-aware and fail closed when internal contradictions are provable.
 
 ## Documentation Rule
 

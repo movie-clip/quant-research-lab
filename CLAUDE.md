@@ -45,6 +45,7 @@ Exposure also shows a **vs Market drift panel** at the top: rolling portfolio re
 | `docs/architecture/system-architecture.md` | Backend seams, route inventory, truth class semantics |
 | `docs/contracts/*.md` | Field inventory — backend ↔ TS type ↔ UI traceability |
 | `docs/contracts/risk-fields.md` | Risk-tab contract: stress, drawdown, VaR & distribution response shapes (Epic 13) |
+| `docs/contracts/currency-risk-fields.md` | Currency Risk Contribution contract: local/FX/interaction return-decomposition and component-covariance variance-share response shapes (Epic 26) |
 | `.claude/skills/quant-research/SKILL.md` | Research a financial concept; produce a brief + methodology section |
 | `.claude/skills/write-story/SKILL.md` | Turn idea / brief into a ticketed user story |
 | `.claude/skills/build-story/SKILL.md` | Implement a ticketed story end-to-end |

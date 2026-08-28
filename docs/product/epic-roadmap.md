@@ -1,6 +1,6 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: **2026-08-25**.*
+*Living execution snapshot. Updated: **2026-08-27**.*
 
 **Every epic is complete.** Most recently shipped: **Epic 40 — Snapshot Trust
 & Fidelity Follow-Through** (2 stories, closed 2026-08-25), preceded by
@@ -75,17 +75,36 @@ series with 21 while reporting success (F-3). All three are fixed.
 
 The next epic is unscoped. `main` now requires CI to pass before merge.
 
+**Between-epic work shipped 2026-08-27 (no epic).** **US-41.2** rewrote
+`docs/architecture/system-architecture.md`'s backend-seams / service-layer /
+data-flow / API-boundary inventory to the 15 registered routers and their real
+service files — it still described the pre-Epic-8 ranking / construction /
+optimizer / replay product — and added a mechanical guard
+(`services/quant-engine/app/tests/test_architecture_doc_route_inventory.py`)
+that fails on any future drift, naming the offending module, the same treatment
+`test_route_inventory.py` gives `current-product-state.md` (US-36.3). Ran as a
+standalone Backlog story under the existing doc-hygiene precedent (US-32.3,
+US-36.3); whether to open "Epic 41 — Documentation & Roadmap Accuracy
+Reconciliation" to house it and US-41.1 is still the owner's call (see
+`docs/product/stories/US-41.2-system-architecture-doc-accuracy-and-route-guard.md`
+§ Open decisions). Integration and acceptance gates both PASS — all 13 ACs
+SATISFIED; `python scripts/run_all_tests.py` green (backend 947, frontend 359,
+`tsc --noEmit` clean, dead-code gate clean). Not entered in a slice log: the
+slice log below is strictly epic-partitioned and has no row format for a
+no-epic story.
+
 ---
 
 
 ## Completed Epic: Epic 40 — Snapshot Trust & Fidelity Follow-Through
 
-**PRD:** none — this close-out's scope excluded `docs/product/prd/`, so no
-retrospective PRD file was created for this epic despite that being this
-project's usual close-out convention (Epic 37/38/39 each have one). See
+**PRD:** [`prd/epic-40-snapshot-trust-and-fidelity-follow-through.md`](prd/epic-40-snapshot-trust-and-fidelity-follow-through.md)
+(Status: Completed) — a retrospective close-out PRD, added by a dedicated
+follow-up order after the original close-out scoped `docs/product/prd/` out.
+See also
 `docs/product/stories/US-40.1-snapshot-trust-signal-completeness.md` and
 `US-40.2-add-snapshot-preserves-imported-history.md` for the full delivery
-record in the interim.
+record.
 
 **Closed 2026-08-25. All 2 stories Done.**
 
@@ -777,7 +796,7 @@ US-34.5 and US-34.9 (done). Epic 34's story list is complete.
 
 ---
 
-## Epic 33 — Corporate Actions & Replay Quantity Integrity (complete)
+## Completed Epic: Epic 33 — Corporate Actions & Replay Quantity Integrity
 
 **PRD:** [`docs/product/prd/epic-33-corporate-actions-replay-integrity.md`](product/prd/epic-33-corporate-actions-replay-integrity.md)
 
@@ -1269,58 +1288,6 @@ Epic 25 addendum since it extends the same US-25.3 card.
 
 ---
 
-## Completed Epic: Epic 23 — Dead-Code Cleanup & Codebase Review
-
-**PRD:** [`docs/product/prd/epic-23-dead-code-cleanup-and-review.md`](product/prd/epic-23-dead-code-cleanup-and-review.md)
-
-### Goal
-
-A safe, comprehensive, per-area sweep that removes confirmed-dead code across the
-whole project (one reviewable area per story, full suite green after each, zero
-behaviour change), stands up a dead-code detection floor (tooling + tsconfig
-flags), and **catalogs** hardcodes / anti-patterns into `docs/tech-debt-register.md`
-to seed a follow-up improvement epic (Epic 24). Deletions + tooling + docs only —
-no behaviour change, no smell fixes (those are Epic 24).
-
-### Story snapshot
-
-| Story | Title | Status |
-|---|---|---|
-| US-23.1 | Detection tooling + tech-debt register + removal protocol | Done |
-| US-23.2 | Backend sweep — analytics, schemas, domain, instruments | Done |
-| US-23.3 | Backend sweep — services, routes, clients, core, importers | Done |
-| US-23.4 | Frontend sweep — app & features | Done |
-| US-23.5 | Contract & schema↔type↔docs drift reconciliation | Done |
-| US-23.6 | Tests, fixtures & golden-pipeline hygiene | Done |
-| US-23.7 | Scripts, tooling & docs reconciliation | Done |
-| US-23.8 | Enforce the dead-code floor in the canonical test gate | Done |
-| US-23.9 | Remove the unused disposition plumbing (cross-seam) | Done |
-
-Recommended build order: 23.1 → 23.5 → 23.2 → 23.3 → 23.4 → 23.6 → 23.7 → 23.8.
-(23.1 stands up the tooling/register; 23.5 settles cross-seam contracts before
-deletions; 23.7 reconciles docs + hands the register to Epic 24; **23.8 last** —
-wires `knip`/`ruff`/`vulture` zero-findings enforcement into `run_all_tests.py`
-once the baseline is clean, so dead code can't re-accumulate and no future
-cleanup epic is needed. ESLint deliberately not adopted — `tsc` + `knip` cover
-the dead-code goal; ESLint's in-file `no-unused-vars` is redundant with `tsc`.)
-
-### Slice log
-
-| Date | Story | What shipped |
-|---|---|---|
-| 2026-06-19 | US-23.8 | **Epic 23 tail — the dead-code detection floor is now an enforced gate, and Epic 23 is Completed.** `scripts/run_all_tests.py` gained two gate steps: `npx tsc --noEmit` and `python scripts/detect_deadcode.py --strict` (ruff + vulture + knip, zero-findings) — so any newly-introduced dead code or in-file unused local fails the suite. **Baseline cleaned to green:** `knip.json` set `ignoreExportsUsedInFile: true` (so a flagged export is used *nowhere*, not merely over-exported) — collapsing 74 findings to 5 genuinely-dead exports, which were removed (the dead `buildExposureFactorModelResponse` duplicate + its `ImportedExposureFactorModelSource` type, the unused `buildImportedExposureView`/`buildImportedDashboardView`/`buildImportedDiagnosticsView` adapter views, `hashPortfolioSnapshot`); plus 4 vulture-100% test-dead items (an unreachable-after-return method, two unused lambda params, one signature-match `auto_adjust` kwarg → reasoned `vulture_allowlist.py` entry). **Enforcement proven (AC4):** a scratch unused export was shown to fail the gate, then removed. **Documented (AC6)** in `CLAUDE.md` + `testing-architecture.md` (how to read a failure; reasoned-allowlist policy). Full suite + both gate steps green; goldens untouched; `git status` clean. No app behaviour change — tooling only. |
-| 2026-06-19 | US-23.7 | Epic 23 reconciliation close-out (the enforcement gate US-23.8 is the tail that flips the epic to Completed). **scripts/** swept — `ruff` + `vulture` clean, no dead code (CLI entry points are live by design). **Docs reconciled** to the leaner tree: removed the stale live-state references to the US-23.9-removed disposition subsystem from `system-architecture.md`, `dashboard-fields.md`, and `financial-methodology.md` (contract `import-admission-fields.md` was already reconciled in US-23.9); contract docs confirmed free of the removed `MarketOverlapConstituent` schema + US-23.4 dead types. **Register consolidated** into a prioritized "Epic 24 backlog" (severity × effort, grouped to proposed stories). **Epic 24 — Codebase Improvement PRD seeded** (`docs/product/prd/epic-24-codebase-improvement.md`, Backlog) with a 7-story list led by the two hardcoded-year latent bugs. **Epic 23 removal totals (US-23.1–23.7):** 7 unimported files deleted + the cross-seam disposition subsystem; ~1,550 lines of dead/duplicate code removed across 36 services/apps files (gross deletions; net is smaller — insertions are mostly the US-23.9 persistence-test rewrite + reasoned `# noqa`); detectors now clean on all backend trees (`ruff`/`vulture`) with knip down to over-exported-but-live only. Full suite green throughout; goldens untouched; no methodology change. |
-| 2026-06-19 | US-23.6 | Test-suite hygiene sweep (backend pytest + frontend vitest). **Removed:** backend — 12 `F401` unused imports across 8 test files + 3 `F841` dead locals (`test_analytics.py` `snapshot`/`price_histories`, `test_drawdown_analytics.py` `top_returns`); frontend — `DashboardPerformanceChart.tsx` (no production importer) together with its **vacuous** App.test.tsx suspense scaffolding (the `vi.hoisted` mock + `vi.mock` + reset + suspense test — confirmed it could not exercise a real suspense boundary since App never renders the component), plus 4 dead leaf fixture factories (`createIb2026/Ff2026ImportedDashboardFixture`, `createImportedBaselineFixture`, `createDiagnosticsFixture`). The 4 over-exported-but-live fixtures were kept. **AC1 decision:** the ~10 hand-rolled snapshot builders were NOT wholesale-migrated to `fixtures.py` — many return route-payload dicts vs the shared model builder, so migration is deferred to Epic 24 with a recorded reason. **AC5 catalog:** fixture-duplication + a coverage gap (`test_build_portfolio_risk_summary_and_position_contributions` never calls `build_position_risk_contributions`) recorded. Golden invariants intact; `git status` clean after `run_all_tests.py`; 233 desktop + backend green; tsc clean. |
-| 2026-06-19 | US-23.3 | Backend wiring-tier dead-code sweep (`services/` + `api/` + `clients/` + `core/` + `importers/`). **Removal (AC1):** the dead **duplicate** `allow_exact_slice_benchmark_return_output` computation in `dashboard_history_engine.py` — investigated and confirmed dead (its result was discarded; the live benchmark-output gating is the per-range call → `_compute_visible_summary`; withholding logic unchanged). Output-neutral; drops a wasted call per dashboard run. The 3 Freedom24 `F841` locals (`isin`/`realized_pnl`/`account`) were checked against the schema and **kept under reasoned `# noqa: F841`** (parsed-but-dropped: `isin` is a real `ImportedInstrument.isin` coverage gap, `realized_pnl` is unmodeled, `account` is benign) rather than deleted — evidence preserved. `vulture --min-confidence 80` finds no dead routes/methods/classes; every registered route still passes the US-21.3 route-table check. **AC4 catalog (16 wiring smells → Epic 24):** the fragile positional Freedom24 PDF parser (~50 fixed-offset reads), `fmp.py` hardcoded `timeout=30.0` + hardcoded `etf-holder` v3 URL bypassing settings `base_url`, the `"SPY"` default benchmark duplicated across ≥4 engines, the `99.0` coverage threshold, the `ceil(window*1.6)+30` lookback heuristic duplicated across 3 engines, and `_MIN_OBSERVATIONS=20` triplication; `core/` noted as exemplary settings-driven config (no findings). Full suite green; goldens untouched; no methodology change. |
-| 2026-06-19 | US-23.2 | Backend dead-code sweep of the pure-logic core (`analytics/` + `schemas/` + `domain/` + `instruments/`) — closed out. Dead-code removal (AC1–AC3) was landed in a prior pass (5 F401 unused imports across `attribution.py`/`risk.py`/`reconciliation.py`; the dead full-period OLS block + discarded `alpha_annualized`/`specific_risk`/`collinearity_warnings` locals + orphaned `_orthogonalize_factor_series`; the dead `top_shared` market-overlap build + `MarketOverlapConstituent` schema; the `target`/`portfolio_names` locals — all output-neutral, methodology cross-checked). This pass **confirmed** the four modules are now `ruff F401/F811/F841`-clean and `vulture --min-confidence 80`-clean, and completed **AC4**: an exhaustive hardcode/anti-pattern catalog (24 findings → Epic 24), headlined by two **hardcoded calendar-year `2025` latent bugs** (`activity.py:24`, `reconciliation.py:24` silently drop non-2025 ledger entries), hardcoded broker-section strings in `domain/ledger.py`, and the inline mapping-score weight/threshold clusters in `risk.py`. No code change this pass; full suite green; goldens untouched; no methodology edit (proof of behaviour-neutrality). |
-| 2026-06-19 | US-23.9 | Removed the never-wired `ImportAdmissionReviewDispositionV1` disposition plumbing across the seam (carved from US-23.4, gated by the workspace round-trip tests). **FE** (`portfolioWorkspaceStorage.ts`): dropped the disposition save fn, `assertValidImportAdmissionReviewDispositionForSave`, the 8 sanitize/canonicalize/match helpers, the whole fingerprint subsystem (`canonicalizeForFingerprint`/`buildDeterministicImportAdmissionFingerprint`/`buildImportSnapshotFingerprint`/`buildImportAdmissionSummaryFingerprint`), the now-dead `isPlainRecord`/`isNonEmptyString`, the type aliases, and `admissionReviewDispositions` handling in `buildPersistedImportedSource`+`sanitizeImportedNodeSource`. Removed `ImportAdmissionReviewDispositionV1`+`ImportAdmissionCheckEvidenceSummaryV1` (`types.ts`) and the `admissionReviewDispositions` field+import (`workspaceTypes.ts`). **BE** (`import_bootstrap.py`): dropped `ImportAdmissionReviewDispositionV1`+`ImportAdmissionReviewEvidenceSummaryV1`+the `ImportAdmissionReviewDisposition` enum+`ImportAdmissionReviewEvidenceStatus` alias+the now-unused `field_validator` import. **Persisted-state safety**: a pre-US-23.9 workspace's `admissionReviewDispositions` blob is dropped on read (field absent, no throw, storage not rewritten) — proven by a new round-trip regression. Removed the ~14 disposition/fingerprint test blocks + 3 BE disposition tests; `import-admission-fields.md` reconciled (disposition subsystem → "Removed" note). 234 frontend green (added 1, net −13 blocks); backend `test_import_admission.py` 17 green; ruff/knip clean, no new vulture findings; tsc clean; goldens untouched. |
-| 2026-06-17 | US-23.4 | Frontend dead-code sweep — closed out. Removed the confirmed-dead set (6 unimported files: `featureFlags`/`portfolioState`/`CurrentFactorSnapshotCard`/`SectorDonutCard`/`historyTruth`/`investorEconomics`; 5 dead types; `getPortfolioDatabaseName`) — knip 7→1 files, 65→60 types, 22→21 exports. Resolved `features/market-data` + `features/settings` as intentional README-only placeholders (not dead). Recorded the over-exported live types, 7 suspected-unused CSS tokens (kept — design-scale/indirect-ref risk), and "no FE anti-patterns of note" in the register. **Carved out** the two heavy/entangled remainders to their own slices: the disposition plumbing → **US-23.9** (per the 2026-06-17 stability decision — ~250-line persistence+test+schema change gated by the workspace round-trip tests), and `DashboardPerformanceChart` (test-coupled) → **US-23.6**. Suite green; tsc clean; goldens untouched. |
-| 2026-06-12 | US-23.5 | Contract & schema↔type↔docs drift reconciliation (sequenced before the deletion sweeps). Triaged the US-23.1 detector baseline into the register: of knip's 81 flagged exports/types, **only 10 are truly dead** (5 FE-orphan types `ActivityPoint`/`CanonicalLedgerRecord`/`ReconciliationCheck`/`DiagnosticsPayload`/`ExposureEnginePayload` + 5 unused fixture/db helpers) and 7 whole unimported files; the other **71 are live in-file mirrors merely over-exported** (not deletable — `export` keyword unnecessary; re-run knip iteratively as the 10 are removed). Three-way audit (Pydantic schemas ↔ `types.ts` ↔ `docs/contracts/*`) found **no type-level drift** — every doc-referenced identifier resolves to a live schema/TS type or a UI-component/prose word; no stale rows, no dangling types, so contract docs are accurate as-is and **no reconciliation edits were needed**. Confirmed none of the deletion candidates cross a documented seam (safe for US-23.4). Flagged the canonical cross-seam dead case — the `ImportAdmissionReviewDispositionV1` disposition plumbing — with coordinated owners (FE US-23.4 + BE US-23.2). Register/docs only; suite green, tsc clean, goldens untouched. |
-| 2026-06-12 | US-23.1 | Dead-code detection floor + tech-debt register. Python: `ruff` (`ruff.toml`, unused rules F401/F811/F841) + `vulture` (`vulture_allowlist.py` for dynamic-use FPs — Pydantic `__context` etc.), declared in new `requirements-dev.txt`. TypeScript: `knip` devDependency + minimal `knip.json` (auto-detects Vite/Vitest entries). New `scripts/detect_deadcode.py` runs all three (informational; `--strict` = the US-23.8 gate mode). New `docs/tech-debt-register.md` (category schema + per-entry fields + the "confirmed dead" removal protocol + the captured baseline as the per-area worklist). Documented in CLAUDE.md + testing-architecture.md (incl. why ESLint is not adopted — redundant with tsc). **Baseline captured**: ruff 29 (17×F401, 12×F841), vulture (FactorRiskContribution + test items), knip **7 unused files / 22 unused exports / 65 unused types** — triaged to US-23.2/23.3/23.4/23.6. `tsconfig noUnusedLocals/noUnusedParameters` **staged** (enabling surfaces ~20 in-file violations inside not-yet-deleted dead files; turned on in US-23.8). Tooling/config/docs only — no app code; 242 frontend + backend green; tsc clean; goldens untouched. |
-| 2026-06-12 | — | Epic created from a "clean dead code + review the whole project" request, after the US-22.2 review surfaced never-consumed disposition plumbing and a survey found **no dead-code tooling** (no ruff/vulture/knip/ts-prune/eslint) and no `noUnusedLocals`. Per-area story breakdown (tooling+register, backend×2, frontend, contracts, tests, scripts-docs) so nothing is missed; dual deliverable per story — remove dead code AND catalog hardcodes/anti-patterns into a tech-debt register feeding a follow-up Epic 24. Tail story US-23.8 added per request: enforce the detectors (`knip`+`ruff`+`vulture`, zero-findings) in `run_all_tests.py` once the baseline is clean, so dead code can't re-accumulate and no future cleanup epic is needed (researched: ESLint not adopted — redundant with `tsc` for the dead-code goal). PRD + 8 stories authored. |
-
----
-
 ## Completed Epic: Epic 24 — Codebase Improvement
 
 **PRD:** [`docs/product/prd/epic-24-codebase-improvement.md`](product/prd/epic-24-codebase-improvement.md)
@@ -1397,6 +1364,58 @@ while Epic 31's F-1..F-3 corrupt the series itself.*
 | 2026-06-24 | US-24.3 | **De-duplicated the three copy-pasted analytics defaults** into a single `app/core/constants.py` (the lowest layer, so `schemas` can import it without a cycle): `lookback_calendar_days(window)` (= `ceil(window*1.6)+30`), `MIN_DAILY_OBSERVATIONS` (= `20`), `DEFAULT_BENCHMARK_SYMBOL` (= `"SPY"`). Replaced the duplicate `_lookback_calendar_days` in **6** engines (attribution / correlation / distribution / drawdown / stress / provenance + intra-correlation — two more consumers than the original catalog noted), the flat `_MIN_OBSERVATIONS=20` across the distribution/correlation/drawdown/intra engines + the `analytics/distribution.py`/`analytics/correlation.py` modules, and ~10 `"SPY"` defaults (3 schema field defaults + the engine `or "SPY"` fallbacks). **Behaviour-neutral** — values unchanged, `dashboardGoldens.ts` untouched, full suite + dead-code gate green; the distinct `WINDOW_MIN_OBSERVATIONS` (OLS buffer) and `attribution.min_observations=window` were deliberately **not** merged. Added 3 shared-module tests; methodology doc + register updated. |
 | 2026-06-19 | US-24.2 | **Extracted the risk-model scoring rubric & thresholds into named, documented constants** (behaviour-neutral). Lifted the factor→UCITS mapping-quality composite/sub-weights, hard-cap ceilings + reasons, `_mapping_match_label` thresholds, the `_mapping_quality_score`/`_cost_fit_score` quality maps, the volatility-regime percentile cutoffs, and the factor-model `FACTOR_MODEL_MIN_SHARED_OBSERVATIONS` floor into a documented `# ── Factor-mapping scoring rubric ──` constants block in `risk.py`; plus `BENCHMARK_HOLDINGS_VERIFIED_COVERAGE_PCT` in `exposure_engine.py`. Each constant carries a one-line rationale ("heuristic, no academic basis" where applicable — **no fabricated citations**). **Pin-tests-first discipline:** added 6 exact-value golden-master tests (`test_analytics.py`) capturing the *current* score_pcts/labels/hard-caps/regime-cutoffs/stress-projections/min-history before the extraction, so a transposed weight fails loudly. Behaviour-neutral — `dashboardGoldens.ts` untouched; 141 analytics+exposure tests green; full suite + dead-code gate green; tsc clean. The leaf per-token `_*_score` rubric literals stay inline (deferred, low value). Methodology doc + register updated. |
 | 2026-06-19 | US-24.1 | **Fixed the two hardcoded calendar-year `2025` latent bugs** (the register's only High-severity entries). Removed `if entry.date.year != 2025` from `analytics/activity.py` `build_activity_series` (which silently dropped every non-2025 ledger entry → empty activity for 2026+ statements) and `and candidate.date.year == 2025` from `analytics/reconciliation.py` `_negative_withholding_total` (which reconciled non-2025 withholding against `0`). Removal — not "derive the year" — because the snapshot ledger is already period-scoped and the sibling reconciliation actuals (dividends/fees/interest/deposits) never year-filtered; the `%Y-%m` bucketing handles any span. **Behaviour-neutral for 2025** (all-2025 fixtures → identical output; `dashboardGoldens.ts` untouched). Added 4 `test_analytics.py` regressions (2026 non-empty activity, 2025-unchanged pin, 2026 withholding reconciles, multi-year span). Methodology doc gained a "Statement reconciliation & activity scoping" rule; register rows marked Resolved. Full suite + dead-code gate green; tsc clean. |
+
+---
+
+## Completed Epic: Epic 23 — Dead-Code Cleanup & Codebase Review
+
+**PRD:** [`docs/product/prd/epic-23-dead-code-cleanup-and-review.md`](product/prd/epic-23-dead-code-cleanup-and-review.md)
+
+### Goal
+
+A safe, comprehensive, per-area sweep that removes confirmed-dead code across the
+whole project (one reviewable area per story, full suite green after each, zero
+behaviour change), stands up a dead-code detection floor (tooling + tsconfig
+flags), and **catalogs** hardcodes / anti-patterns into `docs/tech-debt-register.md`
+to seed a follow-up improvement epic (Epic 24). Deletions + tooling + docs only —
+no behaviour change, no smell fixes (those are Epic 24).
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| US-23.1 | Detection tooling + tech-debt register + removal protocol | Done |
+| US-23.2 | Backend sweep — analytics, schemas, domain, instruments | Done |
+| US-23.3 | Backend sweep — services, routes, clients, core, importers | Done |
+| US-23.4 | Frontend sweep — app & features | Done |
+| US-23.5 | Contract & schema↔type↔docs drift reconciliation | Done |
+| US-23.6 | Tests, fixtures & golden-pipeline hygiene | Done |
+| US-23.7 | Scripts, tooling & docs reconciliation | Done |
+| US-23.8 | Enforce the dead-code floor in the canonical test gate | Done |
+| US-23.9 | Remove the unused disposition plumbing (cross-seam) | Done |
+
+Recommended build order: 23.1 → 23.5 → 23.2 → 23.3 → 23.4 → 23.6 → 23.7 → 23.8.
+(23.1 stands up the tooling/register; 23.5 settles cross-seam contracts before
+deletions; 23.7 reconciles docs + hands the register to Epic 24; **23.8 last** —
+wires `knip`/`ruff`/`vulture` zero-findings enforcement into `run_all_tests.py`
+once the baseline is clean, so dead code can't re-accumulate and no future
+cleanup epic is needed. ESLint deliberately not adopted — `tsc` + `knip` cover
+the dead-code goal; ESLint's in-file `no-unused-vars` is redundant with `tsc`.)
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-06-19 | US-23.8 | **Epic 23 tail — the dead-code detection floor is now an enforced gate, and Epic 23 is Completed.** `scripts/run_all_tests.py` gained two gate steps: `npx tsc --noEmit` and `python scripts/detect_deadcode.py --strict` (ruff + vulture + knip, zero-findings) — so any newly-introduced dead code or in-file unused local fails the suite. **Baseline cleaned to green:** `knip.json` set `ignoreExportsUsedInFile: true` (so a flagged export is used *nowhere*, not merely over-exported) — collapsing 74 findings to 5 genuinely-dead exports, which were removed (the dead `buildExposureFactorModelResponse` duplicate + its `ImportedExposureFactorModelSource` type, the unused `buildImportedExposureView`/`buildImportedDashboardView`/`buildImportedDiagnosticsView` adapter views, `hashPortfolioSnapshot`); plus 4 vulture-100% test-dead items (an unreachable-after-return method, two unused lambda params, one signature-match `auto_adjust` kwarg → reasoned `vulture_allowlist.py` entry). **Enforcement proven (AC4):** a scratch unused export was shown to fail the gate, then removed. **Documented (AC6)** in `CLAUDE.md` + `testing-architecture.md` (how to read a failure; reasoned-allowlist policy). Full suite + both gate steps green; goldens untouched; `git status` clean. No app behaviour change — tooling only. |
+| 2026-06-19 | US-23.7 | Epic 23 reconciliation close-out (the enforcement gate US-23.8 is the tail that flips the epic to Completed). **scripts/** swept — `ruff` + `vulture` clean, no dead code (CLI entry points are live by design). **Docs reconciled** to the leaner tree: removed the stale live-state references to the US-23.9-removed disposition subsystem from `system-architecture.md`, `dashboard-fields.md`, and `financial-methodology.md` (contract `import-admission-fields.md` was already reconciled in US-23.9); contract docs confirmed free of the removed `MarketOverlapConstituent` schema + US-23.4 dead types. **Register consolidated** into a prioritized "Epic 24 backlog" (severity × effort, grouped to proposed stories). **Epic 24 — Codebase Improvement PRD seeded** (`docs/product/prd/epic-24-codebase-improvement.md`, Backlog) with a 7-story list led by the two hardcoded-year latent bugs. **Epic 23 removal totals (US-23.1–23.7):** 7 unimported files deleted + the cross-seam disposition subsystem; ~1,550 lines of dead/duplicate code removed across 36 services/apps files (gross deletions; net is smaller — insertions are mostly the US-23.9 persistence-test rewrite + reasoned `# noqa`); detectors now clean on all backend trees (`ruff`/`vulture`) with knip down to over-exported-but-live only. Full suite green throughout; goldens untouched; no methodology change. |
+| 2026-06-19 | US-23.6 | Test-suite hygiene sweep (backend pytest + frontend vitest). **Removed:** backend — 12 `F401` unused imports across 8 test files + 3 `F841` dead locals (`test_analytics.py` `snapshot`/`price_histories`, `test_drawdown_analytics.py` `top_returns`); frontend — `DashboardPerformanceChart.tsx` (no production importer) together with its **vacuous** App.test.tsx suspense scaffolding (the `vi.hoisted` mock + `vi.mock` + reset + suspense test — confirmed it could not exercise a real suspense boundary since App never renders the component), plus 4 dead leaf fixture factories (`createIb2026/Ff2026ImportedDashboardFixture`, `createImportedBaselineFixture`, `createDiagnosticsFixture`). The 4 over-exported-but-live fixtures were kept. **AC1 decision:** the ~10 hand-rolled snapshot builders were NOT wholesale-migrated to `fixtures.py` — many return route-payload dicts vs the shared model builder, so migration is deferred to Epic 24 with a recorded reason. **AC5 catalog:** fixture-duplication + a coverage gap (`test_build_portfolio_risk_summary_and_position_contributions` never calls `build_position_risk_contributions`) recorded. Golden invariants intact; `git status` clean after `run_all_tests.py`; 233 desktop + backend green; tsc clean. |
+| 2026-06-19 | US-23.3 | Backend wiring-tier dead-code sweep (`services/` + `api/` + `clients/` + `core/` + `importers/`). **Removal (AC1):** the dead **duplicate** `allow_exact_slice_benchmark_return_output` computation in `dashboard_history_engine.py` — investigated and confirmed dead (its result was discarded; the live benchmark-output gating is the per-range call → `_compute_visible_summary`; withholding logic unchanged). Output-neutral; drops a wasted call per dashboard run. The 3 Freedom24 `F841` locals (`isin`/`realized_pnl`/`account`) were checked against the schema and **kept under reasoned `# noqa: F841`** (parsed-but-dropped: `isin` is a real `ImportedInstrument.isin` coverage gap, `realized_pnl` is unmodeled, `account` is benign) rather than deleted — evidence preserved. `vulture --min-confidence 80` finds no dead routes/methods/classes; every registered route still passes the US-21.3 route-table check. **AC4 catalog (16 wiring smells → Epic 24):** the fragile positional Freedom24 PDF parser (~50 fixed-offset reads), `fmp.py` hardcoded `timeout=30.0` + hardcoded `etf-holder` v3 URL bypassing settings `base_url`, the `"SPY"` default benchmark duplicated across ≥4 engines, the `99.0` coverage threshold, the `ceil(window*1.6)+30` lookback heuristic duplicated across 3 engines, and `_MIN_OBSERVATIONS=20` triplication; `core/` noted as exemplary settings-driven config (no findings). Full suite green; goldens untouched; no methodology change. |
+| 2026-06-19 | US-23.2 | Backend dead-code sweep of the pure-logic core (`analytics/` + `schemas/` + `domain/` + `instruments/`) — closed out. Dead-code removal (AC1–AC3) was landed in a prior pass (5 F401 unused imports across `attribution.py`/`risk.py`/`reconciliation.py`; the dead full-period OLS block + discarded `alpha_annualized`/`specific_risk`/`collinearity_warnings` locals + orphaned `_orthogonalize_factor_series`; the dead `top_shared` market-overlap build + `MarketOverlapConstituent` schema; the `target`/`portfolio_names` locals — all output-neutral, methodology cross-checked). This pass **confirmed** the four modules are now `ruff F401/F811/F841`-clean and `vulture --min-confidence 80`-clean, and completed **AC4**: an exhaustive hardcode/anti-pattern catalog (24 findings → Epic 24), headlined by two **hardcoded calendar-year `2025` latent bugs** (`activity.py:24`, `reconciliation.py:24` silently drop non-2025 ledger entries), hardcoded broker-section strings in `domain/ledger.py`, and the inline mapping-score weight/threshold clusters in `risk.py`. No code change this pass; full suite green; goldens untouched; no methodology edit (proof of behaviour-neutrality). |
+| 2026-06-19 | US-23.9 | Removed the never-wired `ImportAdmissionReviewDispositionV1` disposition plumbing across the seam (carved from US-23.4, gated by the workspace round-trip tests). **FE** (`portfolioWorkspaceStorage.ts`): dropped the disposition save fn, `assertValidImportAdmissionReviewDispositionForSave`, the 8 sanitize/canonicalize/match helpers, the whole fingerprint subsystem (`canonicalizeForFingerprint`/`buildDeterministicImportAdmissionFingerprint`/`buildImportSnapshotFingerprint`/`buildImportAdmissionSummaryFingerprint`), the now-dead `isPlainRecord`/`isNonEmptyString`, the type aliases, and `admissionReviewDispositions` handling in `buildPersistedImportedSource`+`sanitizeImportedNodeSource`. Removed `ImportAdmissionReviewDispositionV1`+`ImportAdmissionCheckEvidenceSummaryV1` (`types.ts`) and the `admissionReviewDispositions` field+import (`workspaceTypes.ts`). **BE** (`import_bootstrap.py`): dropped `ImportAdmissionReviewDispositionV1`+`ImportAdmissionReviewEvidenceSummaryV1`+the `ImportAdmissionReviewDisposition` enum+`ImportAdmissionReviewEvidenceStatus` alias+the now-unused `field_validator` import. **Persisted-state safety**: a pre-US-23.9 workspace's `admissionReviewDispositions` blob is dropped on read (field absent, no throw, storage not rewritten) — proven by a new round-trip regression. Removed the ~14 disposition/fingerprint test blocks + 3 BE disposition tests; `import-admission-fields.md` reconciled (disposition subsystem → "Removed" note). 234 frontend green (added 1, net −13 blocks); backend `test_import_admission.py` 17 green; ruff/knip clean, no new vulture findings; tsc clean; goldens untouched. |
+| 2026-06-17 | US-23.4 | Frontend dead-code sweep — closed out. Removed the confirmed-dead set (6 unimported files: `featureFlags`/`portfolioState`/`CurrentFactorSnapshotCard`/`SectorDonutCard`/`historyTruth`/`investorEconomics`; 5 dead types; `getPortfolioDatabaseName`) — knip 7→1 files, 65→60 types, 22→21 exports. Resolved `features/market-data` + `features/settings` as intentional README-only placeholders (not dead). Recorded the over-exported live types, 7 suspected-unused CSS tokens (kept — design-scale/indirect-ref risk), and "no FE anti-patterns of note" in the register. **Carved out** the two heavy/entangled remainders to their own slices: the disposition plumbing → **US-23.9** (per the 2026-06-17 stability decision — ~250-line persistence+test+schema change gated by the workspace round-trip tests), and `DashboardPerformanceChart` (test-coupled) → **US-23.6**. Suite green; tsc clean; goldens untouched. |
+| 2026-06-12 | US-23.5 | Contract & schema↔type↔docs drift reconciliation (sequenced before the deletion sweeps). Triaged the US-23.1 detector baseline into the register: of knip's 81 flagged exports/types, **only 10 are truly dead** (5 FE-orphan types `ActivityPoint`/`CanonicalLedgerRecord`/`ReconciliationCheck`/`DiagnosticsPayload`/`ExposureEnginePayload` + 5 unused fixture/db helpers) and 7 whole unimported files; the other **71 are live in-file mirrors merely over-exported** (not deletable — `export` keyword unnecessary; re-run knip iteratively as the 10 are removed). Three-way audit (Pydantic schemas ↔ `types.ts` ↔ `docs/contracts/*`) found **no type-level drift** — every doc-referenced identifier resolves to a live schema/TS type or a UI-component/prose word; no stale rows, no dangling types, so contract docs are accurate as-is and **no reconciliation edits were needed**. Confirmed none of the deletion candidates cross a documented seam (safe for US-23.4). Flagged the canonical cross-seam dead case — the `ImportAdmissionReviewDispositionV1` disposition plumbing — with coordinated owners (FE US-23.4 + BE US-23.2). Register/docs only; suite green, tsc clean, goldens untouched. |
+| 2026-06-12 | US-23.1 | Dead-code detection floor + tech-debt register. Python: `ruff` (`ruff.toml`, unused rules F401/F811/F841) + `vulture` (`vulture_allowlist.py` for dynamic-use FPs — Pydantic `__context` etc.), declared in new `requirements-dev.txt`. TypeScript: `knip` devDependency + minimal `knip.json` (auto-detects Vite/Vitest entries). New `scripts/detect_deadcode.py` runs all three (informational; `--strict` = the US-23.8 gate mode). New `docs/tech-debt-register.md` (category schema + per-entry fields + the "confirmed dead" removal protocol + the captured baseline as the per-area worklist). Documented in CLAUDE.md + testing-architecture.md (incl. why ESLint is not adopted — redundant with tsc). **Baseline captured**: ruff 29 (17×F401, 12×F841), vulture (FactorRiskContribution + test items), knip **7 unused files / 22 unused exports / 65 unused types** — triaged to US-23.2/23.3/23.4/23.6. `tsconfig noUnusedLocals/noUnusedParameters` **staged** (enabling surfaces ~20 in-file violations inside not-yet-deleted dead files; turned on in US-23.8). Tooling/config/docs only — no app code; 242 frontend + backend green; tsc clean; goldens untouched. |
+| 2026-06-12 | — | Epic created from a "clean dead code + review the whole project" request, after the US-22.2 review surfaced never-consumed disposition plumbing and a survey found **no dead-code tooling** (no ruff/vulture/knip/ts-prune/eslint) and no `noUnusedLocals`. Per-area story breakdown (tooling+register, backend×2, frontend, contracts, tests, scripts-docs) so nothing is missed; dual deliverable per story — remove dead code AND catalog hardcodes/anti-patterns into a tech-debt register feeding a follow-up Epic 24. Tail story US-23.8 added per request: enforce the detectors (`knip`+`ruff`+`vulture`, zero-findings) in `run_all_tests.py` once the baseline is clean, so dead code can't re-accumulate and no future cleanup epic is needed (researched: ESLint not adopted — redundant with `tsc` for the dead-code goal). PRD + 8 stories authored. |
 
 ---
 
@@ -1863,7 +1882,7 @@ the Exposure tab.
 
 ---
 
-## Completed Epic: Epic 8 — Reset to Portfolio Analysis Core
+## Completed Epic: Epic 8 — Reset to Analysis Core
 
 **PRD:** [`docs/product/prd/epic-8-reset-to-analysis-core.md`](product/prd/epic-8-reset-to-analysis-core.md)
 

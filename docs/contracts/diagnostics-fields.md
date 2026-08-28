@@ -47,6 +47,9 @@ Diagnostics now expose explicit grouped run metadata:
 - `run_metadata.methodology_id`
 - `run_metadata.price_basis`
 - `run_metadata.source_status`
+- `run_metadata.section_trust`
+- `run_metadata.return_basis_evidence`
+- `run_metadata.portfolio_proof`
 - `run_metadata.investor_economics_status`
 - `run_metadata.investor_economics_partial_unlock`
 - `run_metadata.confidence`
@@ -72,6 +75,28 @@ Diagnostics now expose explicit grouped run metadata:
     - `live_market_data_verified_adjusted_close`
     - `live_market_data_unverified_return_basis`
     - `unavailable`
+
+### `run_metadata.section_trust`
+
+- per-section trust for the diagnostics paths that depend on market-data return basis
+- current fields, each `verified_adjusted_close` / `degraded_unverified_return_basis` / `unavailable`:
+  - `benchmark_relative_path`
+  - `factor_model_path`
+  - `risk_contribution_path`
+
+### `run_metadata.return_basis_evidence`
+
+- grouped `ReturnBasisEvidence` bundle recording the positive return-basis evidence per history input
+- current fields:
+  - `portfolio_history`
+  - `benchmark_history`
+  - `factor_history`
+
+### `run_metadata.portfolio_proof`
+
+- `PortfolioProofMetadata` — the strict return-basis proof-admission result for the portfolio path
+  (`app/schemas/return_basis.py`); consumers must not infer verified total-return equivalence unless
+  the proof explicitly grants it
 
 ### `run_metadata.investor_economics_status`
 
