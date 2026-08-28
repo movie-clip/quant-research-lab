@@ -1,8 +1,11 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: **2026-08-27**.*
+*Living execution snapshot. Updated: **2026-08-28**.*
 
-**Every epic is complete.** Most recently shipped: **Epic 40 — Snapshot Trust
+**Epic 41 — Documentation & Roadmap Accuracy Reconciliation** and **Epic 42 —
+Dependency Vulnerability Remediation** are active (both findings-first, opened
+2026-08-28; see their sections below). Every earlier epic is complete. Most
+recently shipped before them: **Epic 40 — Snapshot Trust
 & Fidelity Follow-Through** (2 stories, closed 2026-08-25), preceded by
 **Epic 39 — Direct-Held ETF Sector Classification** (1 story, closed
 2026-08-24), **Epic 38 — Sector-Classification Follow-Through: ETF
@@ -45,16 +48,18 @@ closed 2026-08-19). Epics 13 and 18–40 are complete; see each section below.
   attention outside any one slice.
 - **Real dependency-vulnerability findings**, surfaced by US-36.2's
   design-verification runs (live `pip-audit`/`npm audit`, not part of the
-  network-free gate, deliberately not acted on): advisories against
-  currently-pinned `starlette==0.48.0`, `pypdf==6.9.1`,
-  `python-multipart==0.0.20`, `pydantic-settings==2.13.1`,
+  network-free gate): advisories against currently-pinned `starlette==0.48.0`,
+  `pypdf==6.9.1`, `python-multipart==0.0.20`, `pydantic-settings==2.13.1`,
   `python-dotenv==1.1.1`, and one low-severity transitive frontend package,
-  `@babel/core`. Expected to reappear as real findings on
-  `dependency-audit.yml`'s first scheduled run; addressing them is a
-  follow-up, not part of Epic 36.
+  `@babel/core`. Addressing them was a follow-up, not part of Epic 36 —
+  **now owned by Epic 42 — Dependency Vulnerability Remediation** (see its
+  section below). US-42.1 (Done 2026-08-28) assessed all six as `F-1..F-6` in
+  `docs/product/dependency-advisory-assessment-2026-08.md`; the remediation
+  stories are grouped but not yet authored.
 
-**No epic is active.** Epic 40 — Snapshot Trust & Fidelity Follow-Through
-closed 2026-08-25 (2 stories), most recently — see its section below. The
+**Epic 41 and Epic 42 are active.** Epic 40 — Snapshot Trust & Fidelity
+Follow-Through closed 2026-08-25 (2 stories), the most recent to fully close —
+see its section below. The
 paragraph that follows predates Epics 37–40 and was never rewritten at any of
 those close-outs (matching precedent: each of those epics updated only the
 summary line above and its own new section, not this narrative); it is kept
@@ -73,27 +78,106 @@ backlog: a 401 came back as empty data rather than an error and persisted for
 and the golden capture could not tell that it had degraded, overwriting 73
 series with 21 while reporting success (F-3). All three are fixed.
 
-The next epic is unscoped. `main` now requires CI to pass before merge.
+`main` now requires CI to pass before merge.
 
-**Between-epic work shipped 2026-08-27 (no epic).** **US-41.2** rewrote
-`docs/architecture/system-architecture.md`'s backend-seams / service-layer /
-data-flow / API-boundary inventory to the 15 registered routers and their real
-service files — it still described the pre-Epic-8 ranking / construction /
-optimizer / replay product — and added a mechanical guard
-(`services/quant-engine/app/tests/test_architecture_doc_route_inventory.py`)
-that fails on any future drift, naming the offending module, the same treatment
-`test_route_inventory.py` gives `current-product-state.md` (US-36.3). Ran as a
-standalone Backlog story under the existing doc-hygiene precedent (US-32.3,
-US-36.3); whether to open "Epic 41 — Documentation & Roadmap Accuracy
-Reconciliation" to house it and US-41.1 is still the owner's call (see
-`docs/product/stories/US-41.2-system-architecture-doc-accuracy-and-route-guard.md`
-§ Open decisions). Integration and acceptance gates both PASS — all 13 ACs
-SATISFIED; `python scripts/run_all_tests.py` green (backend 947, frontend 359,
-`tsc --noEmit` clean, dead-code gate clean). Not entered in a slice log: the
-slice log below is strictly epic-partitioned and has no row format for a
-no-epic story.
+**US-41.2's shipped record now lives in the Epic 41 section below**, not in a
+"between-epic work (no epic)" narrative paragraph. The owner opened **Epic 41 —
+Documentation & Roadmap Accuracy Reconciliation** on 2026-08-28 to house US-41.2
+(Done 2026-08-27), US-41.3 (Done 2026-08-28) and the carried Dashboard-trust
+story US-41.1 (Backlog); and **Epic 42 — Dependency Vulnerability Remediation**
+for the US-36.2 scan's first real findings (US-42.1 Done 2026-08-28). See both
+sections immediately below.
 
 ---
+
+
+## Epic 42 — Dependency Vulnerability Remediation
+
+**PRD:** [`prd/epic-42-dependency-vulnerability-remediation.md`](prd/epic-42-dependency-vulnerability-remediation.md)
+(Status: Active)
+
+**Active. Opened 2026-08-28. 1 story Done (US-42.1); remediation stories
+grouped, not yet authored.**
+
+Findings-first epic, explicit sibling to Epic 21 (test / architecture
+hardening) and Epic 36 (which built the scheduled `dependency-audit.yml` scan
+under US-36.2 and deliberately deferred acting on what it finds). The scan's
+first real run surfaced advisories against five pinned backend packages
+(`starlette`, `pypdf`, `python-multipart`, `pydantic-settings`, `python-dotenv`)
+and one transitive frontend package (`@babel/core`). Backend versions are
+pinned exact because the route-introspection and golden tests are sensitive to
+FastAPI / Pydantic internals, so this epic assesses reachability and golden
+impact before any bump is scoped — the findings-first pattern.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| [US-42.1](../stories/US-42.1-assess-outstanding-dependency-advisories.md) | Assess the six outstanding dependency advisories before any version is changed | Done |
+
+Remediation grouping (US-42.1 AC7, the epic's forward plan — stories not yet
+authored):
+
+- **(a) golden-safe** — one backend bump story for F-2 pypdf `6.9.1→6.15.0`,
+  F-3 python-multipart `0.0.20→0.0.31`, F-4 pydantic-settings `2.13.1→2.14.2`,
+  F-5 python-dotenv `1.1.1→1.2.2`; and a separate lockfile-only `apps/desktop`
+  story for F-6 @babel/core `7.29.0→7.29.6`. No quant-audit — every trial bump
+  was byte-identical to baseline on the 16-file / 437-test sensitive subset.
+- **(b) needs quant-audit** — none.
+- **(c) blocked** — F-1 starlette: min-safe `1.3.1` breaches FastAPI 0.119.1's
+  `starlette<0.49.0` pin and breaks pytest collection; a FastAPI-bump story
+  must land first.
+- **In scope, not yet assessed** — the broader `apps/desktop` advisories the
+  2026-08-28 frontend lanes flagged (`vite`, `esbuild`, `postcss`, `nanoid`,
+  `@vitest/mocker`, `vite-node`) need their own assessment story.
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-08-28 | US-42.1 | Findings-only audit of the six `dependency-audit.yml` advisories, no manifest touched (`requirements.txt`, `requirements-dev.txt`, `package.json`, `package-lock.json` byte-identical — AC9). New `docs/product/dependency-advisory-assessment-2026-08.md` records, per advisory: id(s) + severity (from live `pip_audit==2.10.1` + api.osv.dev on 2026-08-28 for backend; GitHub Advisory DB REST API + `npm audit` for `@babel/core`), reachability with `file:line` reasoning, minimum non-vulnerable version, and — for the five backend packages — golden / analytic impact from one-package-at-a-time trial bumps in a throwaway out-of-repo venv against a 16-file / 437-test sensitive subset (goldens + route inventory + analytics + engine + importer tests). Result: F-2..F-5 golden-safe (zero movement), F-6 safe (build-time only, lockfile-only fix, no shipped runtime surface), F-1 starlette blocked behind a FastAPI bump (resolver conflict + pytest collection failure reproduced). Three-bucket remediation grouping folded into the Epic 42 PRD. Carried unverified: PYSEC-2026-161 has no OSV CVSS vector; pypdf CVSS-4.0-only records carry no CVSS 3.1 base; the live scan found 37 advisory records vs the "five advisories" the carried US-36.2 list implied; the trial bump ran a subset, not the full suite. No test delta — audit only; backend 949 / frontend 359 unchanged. Tech-lead INTEGRATION (`11-integration.md`) and reviewer acceptance (`12-review.md`) both PASS; AC1–AC11 SATISFIED. |
+
+
+## Epic 41 — Documentation & Roadmap Accuracy Reconciliation
+
+**PRD:** [`prd/epic-41-documentation-and-roadmap-accuracy-reconciliation.md`](prd/epic-41-documentation-and-roadmap-accuracy-reconciliation.md)
+(Status: Active)
+
+**Active. Opened 2026-08-28. 2 stories Done (US-41.2, US-41.3); US-41.1 carried
+Backlog.**
+
+Charter: Documentation & Roadmap Accuracy Reconciliation, plus one carried
+Dashboard-trust story (US-41.1). Explicit sibling to Epic 32 (Project Hygiene &
+Agent-Facing Doc Accuracy) and Epic 36 (Findings-First Doc & Gate Hygiene) —
+third instance of the same doc-accuracy / gate-hygiene shape, seeded by the
+2026-08-27 between-epics health review (`2026-08-27-next-epic-or-story`
+`02-scout.md` § A–I, folded into the PRD as `F-1..F-15`). The project's
+convention for this class is "new epic, every time, never a reopen".
+
+US-41.1 (an inline withheld-return chart annotation) is a Dashboard
+trust-surfacing feature, not doc-accuracy work; it is carried here for an epic
+home only, keeps its number, and stays Backlog — nothing in this epic builds it.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| [US-41.1](../stories/US-41.1-inline-withheld-return-annotation.md) | Explain a withheld-return gap where it appears on the Performance & Benchmark chart | Backlog |
+| [US-41.2](../stories/US-41.2-system-architecture-doc-accuracy-and-route-guard.md) | Make the architecture doc an agent is told to trust for backend seams match the repo, and guard it | Done |
+| [US-41.3](../stories/US-41.3-status-and-navigation-doc-reconciliation.md) | The agent-facing status and navigation docs match the roadmap, git and the shipped code | Done |
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-08-27 | US-41.2 | Rewrote `docs/architecture/system-architecture.md`'s backend-seams / service-layer / data-flow / API-boundary inventory (46 insertions / 155 deletions) to the 15 registered routers and their real service files — it still described the pre-Epic-8 ranking / construction / optimizer / replay product removed ~30 epics ago. New mechanical guard `services/quant-engine/app/tests/test_architecture_doc_route_inventory.py` (3 tests: bidirectional drift check, non-vacuous-scan, red-before / green-after verified) fails on any future drift naming the offending module — the same treatment `test_route_inventory.py` gives `current-product-state.md` (US-36.3). The three protected sections (trust rule, market-data provenance, accepted-tradeoff note) byte-identical. Shipped as a standalone Backlog story before Epic 41 was opened; recorded here at Epic 41 close-out. Backend +3 tests (→ 947); frontend 359 unchanged. Integration (`10-integration.md`) and acceptance (`11-review.md`) gates both PASS — all 13 ACs SATISFIED; `python scripts/run_all_tests.py` green (`tsc --noEmit` clean, dead-code gate clean). |
+| 2026-08-28 | US-41.3 | The six carried 2026-08-27 reconciliation items. `docs/contracts/correlation-fields.md:84` — the `**Backend schema:**` line now cites `schemas/reconciliation.py` — `RollingRiskPoint` (class at `reconciliation.py:122`), keeping `analytics/risk.py` — `build_rolling_risk_series` as a parenthetical "series assembled by" reference (F-14); `factor-drift-fields.md` cites no Pydantic class — N/A, no citation invented. `CLAUDE.md`'s "Where to find what" doc map gains a dedicated `docs/contracts/currency-risk-fields.md` row after the `risk-fields.md` row, same form (F-15). `docs/product/current-product-state.md` body re-audited line-by-line against shipped code: one non-methodology correction ("~16 service files" → "~25 service files"), **no methodology or trust-semantics claim found stale**, no quant referral raised (F-8). `epic-roadmap.md` — the Epic 23 / Epic 24 `---`-delimited section blocks swapped so per-epic sections run strictly descending 40 → 8 (pure block move, no heading / PRD-link / goal / story-snapshot / slice-log content reworded); Epic 33 heading normalised to the majority `## Completed Epic: Epic 33 —` form (F-13). New mechanical guard `services/quant-engine/app/tests/test_roadmap_epic_ordering.py` (T-41.3.4): strictly-descending assert that names the offending heading pair on failure + non-vacuous-scan (≥ 20 headings, Epic 40 present); red-before / green-after confirmed. `stories/README.md` / `prd/README.md` residue (F-2, F-3, F-5, F-6, F-7) verified already reconciled by US-41.2 / the 2026-08-27 docs passes — re-confirmed, no further edit. The `DriftWindow` / `coverage` TS columns in `correlation-fields.md` verified column-for-column against `apps/desktop/src/features/portfolio/types.ts` — already correct, no edit (F-12). Backend 947 → 949 (+2: `test_roadmap_epic_ordering.py`); frontend 359 unchanged; `dashboardGoldens.ts` and backend goldens byte-identical. Tech-lead INTEGRATION (`11-integration.md`) and reviewer acceptance (`12-review.md`) both PASS; AC1–AC7 SATISFIED; `python scripts/run_all_tests.py` green (`tsc --noEmit` clean, dead-code strict gate clean). |
+
+**Carried out of this epic.** The `financial-methodology.md` terminal
+reconciliation adjustment figure (−$53.13 in story US-34.3 vs −$58.11 / −$19.98
+in the methodology doc) is unreconciled and routed to the quant lane as a
+standalone referral — out of Epic 41 scope (editing `financial-methodology.md`
+was barred). US-41.1 stays Backlog and needs its own build run.
 
 
 ## Completed Epic: Epic 40 — Snapshot Trust & Fidelity Follow-Through

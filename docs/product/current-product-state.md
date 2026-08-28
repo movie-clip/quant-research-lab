@@ -1,6 +1,6 @@
 # Current Product State
 
-*Canonical shipped-state inventory. Updated: 2026-08-27 (body current through Epic 40 — snapshot trust & fidelity follow-through — plus Epics 35–39, the 2026-08-26 chart-data audit, and the 2026-08-27 US-41.2 architecture-doc seam-accuracy pass; see `epic-roadmap.md` for the authoritative epic status).*
+*Canonical shipped-state inventory. Updated: 2026-08-28 (body current through Epic 40 — snapshot trust & fidelity follow-through — plus Epics 35–39, the 2026-08-26 chart-data audit, the 2026-08-27 US-41.2 architecture-doc seam-accuracy pass, and the 2026-08-28 US-41.3 body re-audit — one non-methodology correction, "~16" → "~25" service files, no trust/methodology claim moved. Epic 41 (doc-accuracy reconciliation) and Epic 42 (dependency-advisory assessment, US-42.1) are agent/infra-facing and add no user-visible product surface — not recorded in the body per this doc's feature-only convention. See `epic-roadmap.md` for the authoritative epic status).*
 
 ---
 

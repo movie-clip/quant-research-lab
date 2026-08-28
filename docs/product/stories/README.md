@@ -18,19 +18,25 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
-### Unassigned / Backlog (no epic)
+### Epic 42 — Dependency Vulnerability Remediation (active)
 
-Stories drafted and planned but not yet assigned to an epic. The owner
-decided (2026-08-26) against opening a new epic to hold these; they keep
-their placeholder numbers until one is assigned at ticketing time. US-41.2
-has since shipped as a standalone Backlog story — epic placement (open
-"Epic 41 — Documentation & Roadmap Accuracy Reconciliation" or leave it
-standalone) is still the owner's call and would renumber both files.
+PRD: [`prd/epic-42-dependency-vulnerability-remediation.md`](../prd/epic-42-dependency-vulnerability-remediation.md) (Status: Active) — findings-first; US-36.2's scan produced the first real advisories, assessed as `F-1..F-6` in `docs/product/dependency-advisory-assessment-2026-08.md`. Remediation stories grouped, not yet authored.
 
 | Story | Title | Scope | Status |
 |---|---|---|---|
-| [US-41.1](US-41.1-inline-withheld-return-annotation.md) | Explain a withheld-return gap where it appears on the Performance & Benchmark chart | Frontend-only — surface the existing `withheld_return_dates` disclosure inline at the chart break point in `PerformanceBenchmarkCard.tsx`; additive, no new disclosure, no methodology change | Backlog |
+| [US-42.1](US-42.1-assess-outstanding-dependency-advisories.md) | Assess the six outstanding dependency advisories before any version is changed | Findings-only audit — per advisory: id(s) + severity, reachability with reasoning, minimum non-vulnerable version, and (backend) golden / analytic impact from a throwaway-venv trial bump. Produces the assessment doc and a three-bucket remediation grouping. No manifest change | Done |
+
+---
+
+### Epic 41 — Documentation & Roadmap Accuracy Reconciliation (active)
+
+PRD: [`prd/epic-41-documentation-and-roadmap-accuracy-reconciliation.md`](../prd/epic-41-documentation-and-roadmap-accuracy-reconciliation.md) (Status: Active) — doc-accuracy / gate-hygiene, third instance after Epic 32 and Epic 36; seeded by the 2026-08-27 health review, findings folded in as `F-1..F-15`. Charter widened to carry one Dashboard-trust story (US-41.1).
+
+| Story | Title | Scope | Status |
+|---|---|---|---|
+| [US-41.1](US-41.1-inline-withheld-return-annotation.md) | Explain a withheld-return gap where it appears on the Performance & Benchmark chart | Frontend-only — surface the existing `withheld_return_dates` disclosure inline at the chart break point in `PerformanceBenchmarkCard.tsx`; additive, no new disclosure, no methodology change. Carried Dashboard-trust feature, not doc-accuracy work | Backlog |
 | [US-41.2](US-41.2-system-architecture-doc-accuracy-and-route-guard.md) | Make the architecture doc an agent is told to trust for backend seams match the repo, and guard it | Docs + test — rewrite `docs/architecture/system-architecture.md`'s backend-seams / service-layer / data-flow / API-boundary inventory to the 15 registered routers and their real services (the pre-Epic-8 ranking / construction / optimizer / replay surfaces removed), and add a mechanical guard (`test_architecture_doc_route_inventory.py`) that fails on any future drift, naming the offending module. Market-data, trust-rule and accepted-tradeoff sections untouched | Done |
+| [US-41.3](US-41.3-status-and-navigation-doc-reconciliation.md) | The agent-facing status and navigation docs match the roadmap, git and the shipped code | Docs + test — the six carried 2026-08-27 reconciliation items: `correlation-fields.md` DriftWindow TS columns, the `**Backend schema:**` citations, a line-by-line `current-product-state.md` body re-audit, `epic-roadmap.md` per-epic section ordering + guard (`test_roadmap_epic_ordering.py`), the `CLAUDE.md` doc-map row, and residual pointer / label sweep | Done |
 
 ---
 
