@@ -165,12 +165,38 @@ of deliberate updates:
    rejected `FMP_API_KEY` (which now raises rather than returning empty data,
    US-35.1) or a poisoned cache: check `python scripts/manage_cache.py list`,
    and note that `--namespace history` does **not** clear `history_yf` (US-35.2).
-3. **Update the statement-truth pins** — all in ONE module:
-   `services/quant-engine/app/tests/statement_truths.py`. The failing test is
-   `test_importer_csv.py::test_statement_matches_truths_module`, and its
+3. **Update the importer-derived statement-truth pins** — all in ONE module:
+   `services/quant-engine/app/tests/statement_truths.py`. These are the values
+   the IB importer alone produces from the CSV (symbol lists, ledger counts,
+   totals, TWR, implied FX, one pinned position per currency). The failing test
+   is `test_importer_csv.py::test_statement_matches_truths_module`, and its
    `diff_statement_truths` output lists exactly which pins moved (each line
-   names this doc). Structural tests derive their expectations from the
-   snapshot itself and must not fail on a refresh.
+   names this doc). Structural tests — those that derive their expectations from
+   the imported snapshot's own totals (schema shape, reconciliation passes, sums
+   that fall out of the snapshot) — do not pin values from this module and must
+   not fail on a refresh.
+
+   **Replay-audit regression pins (step 3b).** A *distinct* pin class that does
+   NOT live in `statement_truths.py` and is not a candidate to move there:
+   inline `pytest.approx` literals in `app/tests/test_ledger_replay_audit.py`,
+   `app/tests/test_portfolio_state.py` and `app/tests/test_analytics.py` —
+   terminal and peak market value, per-day and range TWR, peak date,
+   `len(states)`, cash-anchor residual, reconciliation adjustment,
+   money-weighted return and investment gain, per-symbol replayed value, and the
+   HHI / volatility ratios. These are **replay-engine-derived**, not
+   importer-derived: each depends on the frozen `FrozenMarketData` golden plus
+   the ledger-replay engine running over the widened history window, so there is
+   no single importer accessor for them and `diff_statement_truths` cannot see
+   them. On each refresh they are hand-regenerated from the values the
+   assertion-failure messages report (deterministic, no network — the frozen
+   golden is already staged by step 2), the new literal is written in place, and
+   a `# <YYYY-MM-DD> statement refresh: <old> -> <new>` comment is added above
+   the assertion recording the move (older `US-33.4:` pre/post comments in the
+   same files are the prior art for this). The Epic 31 F-1..F-5 replay-audit
+   tests exist *precisely* to pin these magnitudes in the order the narrative
+   builds them, so pinning them inline is correct by design — re-homing them into
+   a constants module would strip the per-test context the numbers only make
+   sense inside.
 4. **Add registry entries for brand-new holdings** — the one deliberate step
    outside the truths module (see the fmp-data skill; watch for wrong-fund
    ticker collisions like CIBR US vs CIBR.L UCITS). The registry ISIN
@@ -182,9 +208,15 @@ of deliberate updates:
 This failure surface is regression-pinned by
 `app/tests/test_statement_refresh.py`: a simulated swap (changed quantity +
 new symbol) must surface diffs ONLY from the truths module (each naming this
-workflow) plus the registry-coverage step — anything else failing on a
-refresh is a structural test wrongly pinning statement truths (fix the test,
-per the classification in `statement_truths.py`'s docstring).
+workflow) plus the registry-coverage step. The swap simulation inspects only
+the diff of its own mutation, so it does **not** exercise the step-3b
+replay-audit pins — those are a known, documented exception to "only the
+truths module moves on a refresh", not a covered surface (the
+`diff_replay_truths` harness that would let the meta-test assert against them
+is unbuilt, tracked as a producer follow-up). Setting that class aside:
+anything else failing on a refresh is a structural test wrongly pinning
+statement truths (fix the test, per the classification in
+`statement_truths.py`'s docstring).
 
 The legacy IB PDFs (2022–2025), `FF2026.pdf`, and `ESPP2026.pdf` are frozen
 committed fixtures — never refreshed — so their pinned truths (e.g. in

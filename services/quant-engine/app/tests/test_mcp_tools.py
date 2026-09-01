@@ -12,13 +12,14 @@ handshakes. That is a human check: see `app/mcp_server/server.py`.
 from __future__ import annotations
 
 import subprocess
+import sys
 
 import pytest
 from pydantic import ValidationError
 
 from app.mcp_server.tools import probing, testing
 from app.schemas.imports import ImportedPortfolioSnapshot
-from app.tests.fixtures import price_rows_from_returns
+from app.tests.fixtures import price_rows, price_rows_from_returns
 
 
 class TestEngineModuleDerivation:
@@ -93,25 +94,28 @@ class TestBuildSnapshot:
 
 class TestProbeEngine:
     def test_drawdown_route_returns_a_response_with_mocked_market_data(self) -> None:
+        # /engines/drawdown/run is a FLAT route: the snapshot fields go at the
+        # top level, not under a "snapshot" key.
         payload = {
-            "snapshot": probing.build_snapshot_impl(
+            **probing.build_snapshot_impl(
                 positions=[{"symbol": "AAPL", "market_value": 1000.0}]
-            )
+            ),
+            "benchmark_symbol": "SPY",
         }
         result = probing.probe_engine_impl(
             "/engines/drawdown/run",
             payload,
-            histories={
-                "AAPL": price_rows_from_returns([0.01, -0.05, 0.02, -0.03, 0.04])
-            },
+            default_rows=price_rows_from_returns(
+                [0.01, -0.02, 0.015, -0.01, 0.02] * 12
+            ),
         )
         assert result["engine_module"] == "app.services.drawdown_engine"
         assert result["mocked"] is True
-        # The route may reject the payload shape; what this pins is that the
-        # probe reached the app and came back with a real HTTP response rather
-        # than raising, and that no live network was touched.
-        assert isinstance(result["status"], int)
+        assert result["status"] == 200
         assert result["body"] is not None
+        # Correct shape for this route -> no mismatch warning.
+        assert result["request_shape"] == "flat"
+        assert result["shape_mismatch"] is None
 
     def test_patches_are_unwound_after_the_probe(self) -> None:
         import app.services.drawdown_engine as engine
@@ -131,6 +135,250 @@ class TestProbeEngine:
             engine_module="app.services.drawdown_engine",
         )
         assert result["engine_module"] == "app.services.drawdown_engine"
+
+
+class TestProbeShapeClassification:
+    """F-1: the probe reports which request-body shape the route expects."""
+
+    @staticmethod
+    def _snapshot() -> dict:
+        return probing.build_snapshot_impl(
+            positions=[{"symbol": "AAPL", "market_value": 1000.0}]
+        )
+
+    def test_flat_route_shape_and_model(self) -> None:
+        result = probing.probe_engine_impl(
+            "/engines/drawdown/run",
+            {**self._snapshot(), "benchmark_symbol": "SPY"},
+            histories={},
+        )
+        assert result["request_shape"] == "flat"
+        assert result["request_model"] == "DrawdownEngineRequest"
+        assert result["shape_mismatch"] is None
+
+    def test_snapshot_wrapped_route_shape_and_model(self) -> None:
+        result = probing.probe_engine_impl(
+            "/engines/provenance/run",
+            {"snapshot": self._snapshot()},
+            default_rows=price_rows(40),
+        )
+        assert result["request_shape"] == "snapshot-wrapped"
+        assert result["request_model"] == "ProvenanceRequest"
+        assert result["shape_mismatch"] is None
+
+    def test_bare_snapshot_route_shape_and_model(self) -> None:
+        result = probing.probe_engine_impl(
+            "/engines/diagnostics/run-imported",
+            self._snapshot(),
+            default_rows=price_rows(40),
+        )
+        assert result["request_shape"] == "bare-snapshot"
+        assert result["request_model"] == "ImportedPortfolioSnapshot"
+        assert result["shape_mismatch"] is None
+
+    def test_wrong_shape_payload_warns_without_raising(self) -> None:
+        # A snapshot-wrapped payload sent to the FLAT drawdown route: the
+        # mismatch is reported, the probe still returns the route's real
+        # response, and nothing raises.
+        result = probing.probe_engine_impl(
+            "/engines/drawdown/run",
+            {"snapshot": self._snapshot()},
+            histories={},
+        )
+        assert result["shape_mismatch"] is not None
+        assert result["shape_mismatch"]["expected"] == "flat"
+        assert result["shape_mismatch"]["supplied"] == "snapshot-wrapped"
+        assert result["status"] == 200
+        assert result["body"] is not None
+
+    def test_unclassified_route_is_disclosed_not_guessed(self) -> None:
+        # Real engine prefix (module derivable -> probe stays offline) but a
+        # misspelled action segment, so no APIRoute matches.
+        result = probing.probe_engine_impl(
+            "/engines/drawdown/bogus", {}, histories={}
+        )
+        assert result["request_shape"] == "unclassified"
+        assert result["request_model"] is None
+        assert result["shape_mismatch"] is None
+        assert result["status"] == 404
+
+
+class TestProbeTrustGating:
+    """F-1: `ok` means the route answered, not merely `status < 400`."""
+
+    @staticmethod
+    def _flat_payload() -> dict:
+        return {
+            **probing.build_snapshot_impl(
+                positions=[{"symbol": "AAPL", "market_value": 1000.0}]
+            ),
+            "benchmark_symbol": "SPY",
+        }
+
+    def test_unavailable_trust_downgrades_ok_despite_2xx(self) -> None:
+        # No positions -> drawdown fails closed with trust "unavailable" at a
+        # 200 status.
+        result = probing.probe_engine_impl(
+            "/engines/drawdown/run", {"benchmark_symbol": "SPY"}, histories={}
+        )
+        assert result["status"] == 200
+        assert result["ok"] is False
+        assert result["ok_downgraded_by"] == {"trust": "unavailable"}
+
+    def test_non_unavailable_trust_keeps_ok(self) -> None:
+        result = probing.probe_engine_impl(
+            "/engines/drawdown/run",
+            self._flat_payload(),
+            default_rows=price_rows_from_returns([0.01, -0.011, 0.009, -0.008] * 15),
+        )
+        assert result["status"] == 200
+        assert result["body"]["trust"] == "synthetic"
+        assert result["ok"] is True
+        assert result["ok_downgraded_by"] is None
+
+    def test_trust_downgrade_helper_fires_only_on_unavailable(self) -> None:
+        assert probing._trust_downgrade({"trust": "unavailable"}) == {
+            "trust": "unavailable"
+        }
+        assert probing._trust_downgrade(
+            {"portfolio_return_trust": "unavailable"}
+        ) == {"portfolio_return_trust": "unavailable"}
+        assert probing._trust_downgrade({"trust": "verified"}) is None
+        assert probing._trust_downgrade({"trust": "degraded"}) is None
+        assert probing._trust_downgrade({"trust": "withheld"}) is None
+        assert probing._trust_downgrade({"trust": "synthetic"}) is None
+        # depth-1 only: nested per-row trust does not downgrade
+        assert probing._trust_downgrade({"row": {"trust": "unavailable"}}) is None
+        assert probing._trust_downgrade(["not", "a", "dict"]) is None
+
+
+class TestProbeBodyBounding:
+    """F-2: long arrays are bounded head/tail; `fields=` filters first."""
+
+    def test_long_array_bounded_head_tail_with_sentinel(self) -> None:
+        body, paths = probing._bound_arrays({"series": list(range(100))})
+        series = body["series"]
+        assert len(series) == 11
+        assert series[:5] == [0, 1, 2, 3, 4]
+        assert series[-5:] == [95, 96, 97, 98, 99]
+        marker = series[5]["__probe_truncated__"]
+        assert marker["original_count"] == 100
+        assert marker["dropped"] == 90
+        assert marker["kept_head"] == 5
+        assert marker["kept_tail"] == 5
+        assert "probe_engine truncated this array" in marker["note"]
+        assert paths == ["series"]
+
+    def test_short_array_is_untouched(self) -> None:
+        # exactly HEAD + TAIL + 1 -> not over the limit
+        body, paths = probing._bound_arrays({"series": list(range(11))})
+        assert body["series"] == list(range(11))
+        assert paths == []
+
+    def test_empty_array_and_null_pass_through(self) -> None:
+        assert probing._bound_arrays({"series": []}) == ({"series": []}, [])
+        assert probing._bound_arrays(None) == (None, [])
+        assert probing._bound_arrays([]) == ([], [])
+
+    def test_nested_array_path_is_dotted(self) -> None:
+        body, paths = probing._bound_arrays(
+            {"episodes": [{"pts": list(range(40))}]}
+        )
+        assert paths == ["episodes.0.pts"]
+        assert len(body["episodes"][0]["pts"]) == 11
+
+    def test_apply_fields_keeps_named_keys_plus_trust(self) -> None:
+        body = {"a": 1, "b": 2, "c": 3, "trust": "synthetic", "x_trust": "verified"}
+        kept, fields_kept, omitted = probing._apply_fields(body, ["a", "c"])
+        assert set(kept) == {"a", "c", "trust", "x_trust"}
+        assert kept["a"] == 1 and kept["c"] == 3
+        assert fields_kept == ["a", "c", "trust", "x_trust"]
+        assert omitted == 1
+
+    def test_apply_fields_on_non_dict_is_a_noop(self) -> None:
+        assert probing._apply_fields([1, 2, 3], ["a"]) == ([1, 2, 3], None, None)
+
+    def test_drawdown_probe_over_long_history_is_bounded(self) -> None:
+        flat = {
+            **probing.build_snapshot_impl(
+                positions=[{"symbol": "AAPL", "market_value": 1000.0}]
+            ),
+            "benchmark_symbol": "SPY",
+        }
+        long_rows = price_rows_from_returns([0.01, -0.011, 0.009, -0.008] * 150)
+        result = probing.probe_engine_impl(
+            "/engines/drawdown/run", flat, default_rows=long_rows
+        )
+        assert result["body"]["trust"] == "synthetic"
+        assert "underwater_series" in result["truncation"]
+        series = result["body"]["underwater_series"]
+        assert len(series) == 11
+        assert series[5]["__probe_truncated__"]["original_count"] > 100
+
+    def test_fields_filter_runs_before_truncation(self) -> None:
+        flat = {
+            **probing.build_snapshot_impl(
+                positions=[{"symbol": "AAPL", "market_value": 1000.0}]
+            ),
+            "benchmark_symbol": "SPY",
+        }
+        long_rows = price_rows_from_returns([0.01, -0.011, 0.009, -0.008] * 150)
+        result = probing.probe_engine_impl(
+            "/engines/drawdown/run",
+            flat,
+            default_rows=long_rows,
+            fields=["max_drawdown_pct"],
+        )
+        assert result["fields_kept"] is not None
+        assert "max_drawdown_pct" in result["body"]
+        assert "underwater_series" not in result["body"]
+        assert result["fields_omitted_count"] >= 1
+        # underwater_series was filtered out before truncation ran
+        assert result["truncation"] == []
+        # trust key is always retained so ok / ok_downgraded_by stay explainable
+        assert "trust" in result["body"]
+
+
+class TestProbeAllowUnmocked:
+    """F-3: a non-derivable route fails safe, not live."""
+
+    def test_non_derivable_route_is_refused_by_default(self) -> None:
+        result = probing.probe_engine_impl("/health", {})
+        assert result["refused"] is True
+        assert result["ok"] is False
+        assert result["status"] is None
+        assert result["body"] is None
+        assert "allow_unmocked" in result["reason"]
+
+    def test_allow_unmocked_runs_and_is_disclosed(self) -> None:
+        result = probing.probe_engine_impl("/health", {}, allow_unmocked=True)
+        assert result["refused"] is False
+        assert result["unmocked"] is True
+        assert result["mocked"] is False
+        assert result["engine_module"] is None
+        assert isinstance(result["status"], int)
+
+    def test_typod_explicit_engine_module_raises_loudly(self) -> None:
+        with pytest.raises(ModuleNotFoundError):
+            probing.probe_engine_impl(
+                "/engines/drawdown/run",
+                {},
+                engine_module="app.services.drawdon_engine",
+            )
+
+    def test_typod_route_segment_raises_loudly(self) -> None:
+        with pytest.raises(ModuleNotFoundError):
+            probing.probe_engine_impl("/engines/drawdon/run", {})
+
+    def test_normal_engine_route_is_unaffected(self) -> None:
+        result = probing.probe_engine_impl(
+            "/engines/drawdown/run",
+            {**probing.build_snapshot_impl(), "benchmark_symbol": "SPY"},
+            histories={},
+        )
+        assert result["refused"] is False
+        assert result["mocked"] is True
+        assert result["unmocked"] is False
 
 
 class TestRunTestsParsing:
@@ -216,13 +464,15 @@ class TestGates:
             "deadcode",
             "typecheck",
             "goldens_drifted",
+            "timeouts",
             "commit_gate",
         }
         assert result["deadcode"]["ok"] is True
         assert result["goldens_drifted"] is False
+        assert result["timeouts"] == []
 
     def test_check_gates_flags_goldens_drift(self, mocker) -> None:
-        def fake_run(command, cwd, extra_env=None):
+        def fake_run(command, cwd, extra_env=None, *, timeout=None):
             stdout = " M " + testing.GOLDENS_PATH if command[0] == "git" else ""
             return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
 
@@ -237,4 +487,175 @@ class TestGates:
         )
         result = testing.reset_goldens_impl()
         assert run.call_args[0][0] == ["git", "checkout", "--", testing.GOLDENS_PATH]
+        assert result["ok"] is True
+
+
+class TestRunTestsTimeout:
+    """F-4: a hung subprocess returns a structured result, it does not hang."""
+
+    def test_run_tests_passes_a_scope_appropriate_timeout(self, mocker) -> None:
+        run = mocker.patch.object(
+            testing,
+            "_run",
+            return_value=subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+        )
+        testing.run_tests_impl(scope="full")
+        assert run.call_args.kwargs["timeout"] == testing.TIMEOUTS["full"]
+
+        testing.run_tests_impl(scope="backend", path="app/tests/test_x.py")
+        assert run.call_args.kwargs["timeout"] == testing.TIMEOUTS["backend"]
+
+        # the full-suite budget is distinct from a single-file iteration and
+        # from the per-gate budget check_gates uses
+        assert testing.TIMEOUTS["full"] != testing.TIMEOUTS["backend"]
+        assert testing.TIMEOUTS["full"] != testing.TIMEOUTS["gate"]
+
+    def test_timeout_result_is_structured_and_does_not_raise(self, mocker) -> None:
+        mocker.patch.object(
+            testing,
+            "_run",
+            side_effect=subprocess.TimeoutExpired(cmd="pytest", timeout=600),
+        )
+        result = testing.run_tests_impl(scope="backend")
+        assert result["timed_out"] is True
+        assert result["ok"] is False
+        assert result["exit_code"] is None
+        assert result["failures"] == []
+        assert result["failure_count"] == 0
+        assert result["timeout_seconds"] == testing.TIMEOUTS["backend"]
+        assert result["scope"] == "backend"
+
+    def test_timeout_is_distinguishable_from_pass_and_from_failure(
+        self, mocker
+    ) -> None:
+        mocker.patch.object(
+            testing,
+            "_run",
+            return_value=subprocess.CompletedProcess(
+                [], 0, stdout="1 passed in 0.10s\n", stderr=""
+            ),
+        )
+        passed = testing.run_tests_impl(scope="backend")
+        assert passed["timed_out"] is False and passed["ok"] is True
+
+        mocker.patch.object(
+            testing,
+            "_run",
+            return_value=subprocess.CompletedProcess(
+                [],
+                1,
+                stdout="FAILED app/tests/test_x.py::test_a - boom\n1 failed\n",
+                stderr="",
+            ),
+        )
+        failed = testing.run_tests_impl(scope="backend")
+        assert failed["timed_out"] is False
+        assert failed["ok"] is False
+        assert failed["exit_code"] == 1
+        assert failed["failure_count"] == 1
+
+
+class TestGatesTimeout:
+    """F-4: check_gates reports a per-gate timeout, keeps the completed gates."""
+
+    def test_gate_and_git_subprocesses_get_their_own_timeouts(self, mocker) -> None:
+        run = mocker.patch.object(
+            testing,
+            "_run",
+            return_value=subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+        )
+        testing.check_gates_impl()
+        timeouts_used = {call.kwargs.get("timeout") for call in run.call_args_list}
+        assert testing.TIMEOUTS["gate"] in timeouts_used
+        assert testing.TIMEOUTS["git"] in timeouts_used
+
+    def test_one_gate_timing_out_still_reports_the_others(self, mocker) -> None:
+        def fake_run(command, cwd, extra_env=None, *, timeout=None):
+            if command[0] == sys.executable:  # the deadcode subprocess
+                raise subprocess.TimeoutExpired(cmd="deadcode", timeout=timeout)
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+        mocker.patch.object(testing, "_run", side_effect=fake_run)
+        result = testing.check_gates_impl()
+        assert "deadcode" in result["timeouts"]
+        assert result["deadcode"]["timed_out"] is True
+        # the gates that completed still carry real results
+        assert result["typecheck"]["timed_out"] is False
+        assert result["goldens_drifted"] is False
+        assert result["commit_gate"]["marker_present"] in (True, False)
+
+    def test_fast_gate_run_carries_no_timeout_marker(self, mocker) -> None:
+        mocker.patch.object(
+            testing,
+            "_run",
+            return_value=subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+        )
+        result = testing.check_gates_impl()
+        assert result["timeouts"] == []
+        assert result["deadcode"]["timed_out"] is False
+        assert result["typecheck"]["timed_out"] is False
+
+
+class TestResetGoldensRecordsDiscard:
+    """F-5: reset_goldens captures what it is about to discard, before it does."""
+
+    def test_diff_is_captured_before_the_checkout(self, mocker) -> None:
+        calls: list[list[str]] = []
+
+        def fake_run(command, cwd, extra_env=None, *, timeout=None):
+            calls.append(command)
+            if command[:3] == ["git", "diff", "--stat"]:
+                return subprocess.CompletedProcess(
+                    command, 0, stdout=" file | 2 +-\n", stderr=""
+                )
+            if command[:2] == ["git", "diff"]:
+                return subprocess.CompletedProcess(
+                    command, 0, stdout="@@ -1 +1 @@\n-a\n+b\n", stderr=""
+                )
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+        mocker.patch.object(testing, "_run", side_effect=fake_run)
+        result = testing.reset_goldens_impl()
+
+        assert calls[0][:3] == ["git", "diff", "--stat"]
+        assert calls[1][:2] == ["git", "diff"]
+        assert calls[2][:3] == ["git", "checkout", "--"]
+        assert result["diff_stat"] == "file | 2 +-"
+        assert "+b" in result["diff"]
+        assert result["discarded"] is True
+        assert result["ok"] is True
+
+    def test_checkout_failure_still_carries_the_capture(self, mocker) -> None:
+        def fake_run(command, cwd, extra_env=None, *, timeout=None):
+            if command[:3] == ["git", "diff", "--stat"]:
+                return subprocess.CompletedProcess(
+                    command, 0, stdout=" f | 1 +\n", stderr=""
+                )
+            if command[:2] == ["git", "diff"]:
+                return subprocess.CompletedProcess(
+                    command, 0, stdout="patch text\n", stderr=""
+                )
+            return subprocess.CompletedProcess(
+                command, 1, stdout="", stderr="error: pathspec"
+            )
+
+        mocker.patch.object(testing, "_run", side_effect=fake_run)
+        result = testing.reset_goldens_impl()
+
+        assert result["ok"] is False
+        assert result["stderr"] == "error: pathspec"
+        assert result["diff_stat"] == "f | 1 +"
+        assert "patch text" in result["diff"]
+        assert result["discarded"] is True
+
+    def test_no_drift_reports_nothing_discarded(self, mocker) -> None:
+        mocker.patch.object(
+            testing,
+            "_run",
+            return_value=subprocess.CompletedProcess([], 0, stdout="", stderr=""),
+        )
+        result = testing.reset_goldens_impl()
+        assert result["discarded"] is False
+        assert result["diff_stat"] == ""
+        assert result["diff"] == ""
         assert result["ok"] is True

@@ -77,6 +77,8 @@ def probe_engine(
     default_rows: list[dict] | None = None,
     vendor_by_symbol: dict[str, str] | None = None,
     engine_module: str | None = None,
+    fields: list[str] | None = None,
+    allow_unmocked: bool = False,
 ) -> dict[str, Any]:
     """POST one engine route in-process with market data mocked, e.g. /engines/drawdown/run.
     Use instead of writing a throwaway probe script; returns the route's JSON."""
@@ -87,6 +89,8 @@ def probe_engine(
         default_rows=default_rows,
         vendor_by_symbol=vendor_by_symbol,
         engine_module=engine_module,
+        fields=fields,
+        allow_unmocked=allow_unmocked,
     )
 
 

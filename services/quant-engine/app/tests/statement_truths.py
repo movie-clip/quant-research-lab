@@ -1,7 +1,7 @@
 """Single source of statement-truth pins for the CURRENT IB statement (US-28.3).
 
 Statement truths are values specific to the current broker export
-(`docs/IB2026.csv`, period 2026-01-01 - 2026-06-30): symbol lists, counts,
+(`docs/IB2026.csv`, period 2026-01-01 - 2026-08-28): symbol lists, counts,
 totals. They are legitimate pins, but they change on every statement refresh —
 so they live HERE and only here. Structural invariants (schema shape,
 reconciliation passes, sums that derive from the snapshot's own totals) must
@@ -27,9 +27,9 @@ from app.schemas.imports import ImportedPortfolioSnapshot
 
 REFRESH_WORKFLOW_DOC = "docs/architecture/testing-architecture.md#statement-refresh-workflow"
 
-# ── Statement identity (period 2026-01-01 - 2026-08-11) ──────────────────────
+# ── Statement identity (period 2026-01-01 - 2026-08-28) ──────────────────────
 IB_ACCOUNT_ID = "U8516450"  # stable across refreshes (same account)
-IB_STATEMENT_PERIOD = "2026-01-01 - 2026-08-11"
+IB_STATEMENT_PERIOD = "2026-01-01 - 2026-08-28"
 IB_BASE_CURRENCY = "USD"
 
 # ── Portfolio composition ─────────────────────────────────────────────────────
@@ -43,12 +43,12 @@ IB_REPLAY_UNIVERSE_SIZE = 68
 
 # One pinned position per statement currency (full row precision).
 IB_PINNED_POSITIONS = {
-    "DEFS": {"currency": "EUR", "quantity": 500, "cost_basis": 2796.475015, "close_price": 6.496, "market_value": 3248.0, "unrealized_pnl": 451.524985},
-    "SEMI": {"currency": "GBP", "quantity": 200, "market_value": 2929.2, "unrealized_pnl": 166.2},
+    "DEFS": {"currency": "EUR", "quantity": 500, "cost_basis": 2796.475015, "close_price": 6.148, "market_value": 3074.0, "unrealized_pnl": 277.524985},
+    "SEMI": {"currency": "GBP", "quantity": 200, "market_value": 2885.6, "unrealized_pnl": 122.6},
     # USD pin was AMZN until the 2026-08-11 refresh, which sold it in full
     # (it now appears in IB_ABSENT_SYMBOLS). VUAA is the replacement: a large,
     # long-held USD line, so the pin stays meaningful across refreshes.
-    "VUAA": {"currency": "USD", "quantity": 80, "cost_basis": 10081.463136, "market_value": 11964.8},
+    "VUAA": {"currency": "USD", "quantity": 80, "cost_basis": 10081.463136, "market_value": 12004.8},
 }
 
 # Two pinned instruments proving ISIN/exchange/type flow (AC4 of US-28.1).
@@ -59,7 +59,7 @@ IB_PINNED_INSTRUMENTS = {
 
 # ── Ledger ────────────────────────────────────────────────────────────────────
 IB_LEDGER_COUNTS = {
-    "BUY": 92,
+    "BUY": 93,
     "SELL": 77,
     "DIVIDEND": 25,
     "WITHHOLDING_TAX": 28,
@@ -72,20 +72,20 @@ IB_LEDGER_COUNTS = {
 #    stored per the schema's absolute-value convention) ───────────────────────
 IB_TOTALS_2DP = {
     "starting_nav": 52381.12,
-    "ending_nav": 65429.98,
-    "cash_total": 507.00,
-    "stock_total": 64922.99,
+    "ending_nav": 65892.74,
+    "cash_total": 146.07,
+    "stock_total": 65746.67,
     "dividends_total": 125.72,
     "withholding_tax_total": 17.93,
     "interest_total": 1.64,
     "other_fees_total": 1.05,
-    "commissions_total": 215.16,
+    "commissions_total": 216.86,
     "deposits_total": 9963.00,
 }
-IB_TWR_PCT = 4.765666  # Time Weighted Rate of Return, 6dp
+IB_TWR_PCT = 5.506619  # Time Weighted Rate of Return, 6dp
 
 # Statement-implied FX rates (base restatement of Open Positions totals).
-IB_IMPLIED_FX_4DP = {"EURUSD": 1.1543, "GBPUSD": 1.3508}
+IB_IMPLIED_FX_4DP = {"EURUSD": 1.1583, "GBPUSD": 1.3535}
 
 # ── Base-currency weighting (US-30.5a / audit F-7) ───────────────────────────
 # Re-homed here by US-33.4: `test_currency_conversion.py` and
@@ -97,11 +97,11 @@ IB_IMPLIED_FX_4DP = {"EURUSD": 1.1543, "GBPUSD": 1.3508}
 # The raw mixed-currency sum is the PRE-FIX number (F-7 summed currency-mixed
 # numerals). It is pinned because it is the arbiter test's counter-example: it
 # must never equal the converted total.
-IB_RAW_MIXED_CURRENCY_SUM = 62031.85
+IB_RAW_MIXED_CURRENCY_SUM = 62843.22
 # Per-symbol weight (%) on the base-currency denominator, 2dp.
-IB_BASE_WEIGHTS_PCT = {"SEMI": 6.09, "SXRV": 15.70, "VDST": 24.70, "VUAA": 18.43}
+IB_BASE_WEIGHTS_PCT = {"SEMI": 5.94, "SXRV": 15.55, "VDST": 24.44, "VUAA": 18.26}
 # Position-concentration HHI on those base weights, 6dp.
-IB_POSITION_HHI_BASE = 0.138194
+IB_POSITION_HHI_BASE = 0.135814
 
 # ── Sector-classification examples (held / sold symbols) ─────────────────────
 # Held symbols expected in build_portfolio_overview sector buckets.

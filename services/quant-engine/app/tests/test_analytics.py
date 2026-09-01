@@ -8506,7 +8506,8 @@ def test_replay_cash_anchor_disclosed_on_run_metadata() -> None:
         "window_start": "2026-01-08",
         "trust": "verified",
     }.items() <= anchor.model_dump().items()
-    assert anchor.residual == pytest.approx(46.69, abs=2.0)
+    # 2026-08-28 statement refresh: 46.69 -> -1.15
+    assert anchor.residual == pytest.approx(-1.15, abs=2.0)
 
 
 def test_withheld_days_are_named_with_only_the_causes_that_fired() -> None:
@@ -8530,7 +8531,8 @@ def test_withheld_days_are_named_with_only_the_causes_that_fired() -> None:
     # withheld is the unbacked-cash set (US-33.2 / US-34.4), whose cause is a
     # missing POSITION and for which no corrected value exists.
     assert metadata.withheld_return_dates[-1] == "2026-07-17"
-    assert "2026-08-11" not in metadata.withheld_return_dates
+    # 2026-08-28 statement refresh: terminal date "2026-08-11" -> "2026-08-28"
+    assert "2026-08-28" not in metadata.withheld_return_dates
     # US-34.4 took this from 7 to 5 (two immaterial unbacked days); US-34.8
     # takes it to 4 (the reconciled terminal day is corrected, not withheld).
     assert len(metadata.withheld_return_dates) == 4
@@ -8543,10 +8545,12 @@ def test_withheld_days_are_named_with_only_the_causes_that_fired() -> None:
         "withholds any day (US-34.8)"
     )
     # The state itself records the adjustment that caused the withholding.
-    assert history.daily_states[-1].date == "2026-08-11"
+    # 2026-08-28 statement refresh: "2026-08-11" -> "2026-08-28"
+    assert history.daily_states[-1].date == "2026-08-28"
     # US-34.3: 1,366.17 before the anchor moved to the statement's own starting
     # cash — 96% of it was the anchor offset riding through the window.
-    assert history.daily_states[-1].reconciliation_adjustment == pytest.approx(-19.98, abs=2.0)
+    # 2026-08-28 statement refresh: -19.98 -> -5.95
+    assert history.daily_states[-1].reconciliation_adjustment == pytest.approx(-5.95, abs=2.0)
 
 
 def test_adjusted_day_never_enters_the_replay_return_series() -> None:
@@ -8591,7 +8595,8 @@ def test_volatility_excludes_the_reconciliation_adjustment() -> None:
     # worth +1.3pp of annualised volatility on its own. US-34.3 then raised
     # opening cash to the statement's own figure, which lifts every return
     # denominator: 13.81%.
-    assert annualised_vol_pct == pytest.approx(13.81, abs=0.1)
+    # 2026-08-28 statement refresh: 13.81 -> 13.43
+    assert annualised_vol_pct == pytest.approx(13.43, abs=0.1)
     withheld = [state.date for state in history.daily_states if not state.return_is_publishable]
     published = [d for d, _ in _portfolio_time_weighted_return_series(history.daily_states)]
     assert withheld and not set(withheld) & set(published)
@@ -8670,7 +8675,7 @@ def test_portfolio_return_basis_is_classified_not_hardcoded() -> None:
 def test_replay_derived_basis_publishes_the_cumulative_return_series() -> None:
     """US-34.2 AC2/AC3: the chain is computed, and withholding is unchanged.
 
-    141 of 148 points carry a return. The 7 gaps are exactly the days US-31.3
+    157 of 161 points carry a return. The 4 gaps are exactly the days US-31.3
     and US-33.2 withhold — publishing the series must not quietly resurrect
     them.
     """
@@ -8678,16 +8683,19 @@ def test_replay_derived_basis_publishes_the_cumulative_return_series() -> None:
     series = history.performance_series
 
     published = [point for point in series if point.portfolio_return_pct is not None]
-    assert len(series) == 148
+    # 2026-08-28 statement refresh: 148 -> 161
+    assert len(series) == 161
     # 141 -> 143 (US-34.4, two immaterial unbacked days) -> 144 (US-34.8, the
     # corrected terminal day).
-    assert len(published) == 144
+    # 2026-08-28 statement refresh: 144 -> 157
+    assert len(published) == 157
 
     gaps = {point.date for point in series if point.portfolio_return_pct is None}
     assert gaps == set(history.run_metadata.withheld_return_dates)
     # US-34.8: the reconciled terminal day is no longer a gap — it is computed
     # with the adjustment removed. Every remaining gap is an unbacked-cash day.
-    assert "2026-08-11" not in gaps
+    # 2026-08-28 statement refresh: "2026-08-11" -> "2026-08-28"
+    assert "2026-08-28" not in gaps
     assert "2026-04-17" in gaps  # US-33.2, an unbacked-cash day
     assert all(
         state.unbacked_cash_flow
@@ -8715,9 +8723,10 @@ def test_every_range_publishes_its_own_time_weighted_return() -> None:
     # 2026-06-23) are genuine DOWN days that the flat $1.00 unbacked-cash
     # tolerance had been discarding, so publishing them lowers the compounded
     # figure. Was 4.19 / 3.49 / 2.40.
-    assert twr["1M"] == pytest.approx(4.14, abs=0.05)
-    assert twr["3M"] == pytest.approx(1.56, abs=0.05)
-    assert twr["All"] == pytest.approx(0.43, abs=0.05)
+    # 2026-08-28 statement refresh: 1M 4.14 -> 5.68; 3M 1.56 -> -0.79; All 0.43 -> 1.11
+    assert twr["1M"] == pytest.approx(5.68, abs=0.05)
+    assert twr["3M"] == pytest.approx(-0.79, abs=0.05)
+    assert twr["All"] == pytest.approx(1.11, abs=0.05)
     # The windows genuinely differ — the defect above produced one number.
     assert len({round(value, 2) for value in twr.values()}) > 1
 
@@ -8806,7 +8815,8 @@ def test_money_weighted_return_excludes_the_reconciliation_adjustment() -> None:
     terminal = history.daily_states[-1]
 
     # US-34.3: 2.95 before opening cash moved to the statement's own figure.
-    assert summary.money_weighted_return_pct == pytest.approx(2.76, abs=0.02)
+    # 2026-08-28 statement refresh: 2.76 -> 3.49
+    assert summary.money_weighted_return_pct == pytest.approx(3.49, abs=0.02)
     # The removed amount IS the recorded adjustment — not an unexplained shift.
     contaminated = (
         (terminal.total_portfolio_value - summary.start_value - summary.net_contributions)
@@ -8834,7 +8844,8 @@ def test_investment_gain_excludes_the_reconciliation_adjustment() -> None:
     summary = (history.range_metrics or {})["All"].summary
     terminal = history.daily_states[-1]
 
-    assert summary.investment_gain == pytest.approx(1_645.99, abs=0.02)
+    # 2026-08-28 statement refresh: 1_645.99 -> 2_091.78
+    assert summary.investment_gain == pytest.approx(2_091.78, abs=0.02)
     assert summary.investment_gain == pytest.approx(
         summary.end_value
         - summary.start_value
@@ -8898,7 +8909,8 @@ def test_withholding_bound_reaches_the_run_metadata() -> None:
     withholding = history.run_metadata.quantity_withheld_symbols[0]
 
     assert withholding.symbol == "LQQ"
-    assert withholding.peak_net_cash_invested == pytest.approx(2_130.62, abs=1.0)
+    # 2026-08-28 statement refresh: 2_130.62 -> 2_138.01
+    assert withholding.peak_net_cash_invested == pytest.approx(2_138.01, abs=1.0)
     assert withholding.peak_share_of_portfolio_pct == pytest.approx(3.52, abs=0.05)
     assert withholding.exposure_day_count == 66
 
@@ -8913,7 +8925,8 @@ def test_immaterial_unbacked_days_return_to_the_published_series() -> None:
     assert "2026-06-10" not in metadata.withheld_return_dates
     assert "2026-06-23" not in metadata.withheld_return_dates
     # US-34.8: the terminal day left this set too.
-    assert "2026-08-11" not in metadata.withheld_return_dates
+    # 2026-08-28 statement refresh: "2026-08-11" -> "2026-08-28"
+    assert "2026-08-28" not in metadata.withheld_return_dates
     assert metadata.withheld_return_dates[-1] == "2026-07-17"
     # Re-measured, not stale: the recovered days no longer contribute.
     assert metadata.withheld_return_impact_pct == pytest.approx(1.48, abs=0.02)
@@ -8936,13 +8949,15 @@ def test_terminal_day_publishes_its_market_return() -> None:
     terminal, previous = states[-1], states[-2]
     series = dict(_portfolio_time_weighted_return_series(states))
 
-    assert terminal.date == "2026-08-11"
+    # 2026-08-28 statement refresh: "2026-08-11" -> "2026-08-28"
+    assert terminal.date == "2026-08-28"
     assert terminal.date not in history.run_metadata.withheld_return_dates
     # US-34.9: the 2026-08-11 re-capture supplied REAL terminal-day closes for
     # the 14 holdings that previously carried 2026-08-10 forward, so the day is
     # now a small decline rather than a near-flat carry artefact. Still an
     # ordinary market move, which is what US-34.8 published it to be.
-    assert series[terminal.date] == pytest.approx(-0.000545, abs=1e-5)
+    # 2026-08-28 statement refresh: -0.000545 -> -0.001155
+    assert series[terminal.date] == pytest.approx(-0.001155, abs=1e-5)
 
     # The published figure is the market-derived chain, to the cent.
     market_derived = terminal.total_portfolio_value - terminal.reconciliation_adjustment

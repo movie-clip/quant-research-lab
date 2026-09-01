@@ -699,8 +699,9 @@ class TestIB2026FundCurrencyReconciliation:
         # 3,580.07). LQQ was a third pin here until US-33.2 withheld its
         # reconstructed quantity — a withheld symbol is in no state at all, so
         # the assertion is now that it is ABSENT rather than valued.
-        assert by_symbol["SXRV"].market_value == pytest.approx(10_192.01, abs=1.0)
-        assert by_symbol["SEMI"].market_value == pytest.approx(3_956.76, abs=1.0)
+        # 2026-08-28 statement refresh: SXRV 10_192.01 -> 10_113.35, SEMI 3_956.76 -> 3_914.32.
+        assert by_symbol["SXRV"].market_value == pytest.approx(10_113.35, abs=1.0)
+        assert by_symbol["SEMI"].market_value == pytest.approx(3_914.32, abs=1.0)
         assert "LQQ" not in by_symbol
         # DEFS (DEFS.L quotes USD): unchanged, never double-converted.
         assert by_symbol["DEFS"].market_value == pytest.approx(
@@ -708,7 +709,8 @@ class TestIB2026FundCurrencyReconciliation:
             * max(price_histories["DEFS"], key=lambda r: r["date"])["price"],
             abs=1.0,
         )
-        assert terminal.total_market_value == pytest.approx(64_896.27, abs=2.0)
+        # 2026-08-28 statement refresh: 64_896.27 -> 65_753.77.
+        assert terminal.total_market_value == pytest.approx(65_753.77, abs=2.0)
 
 
 class TestCashAnchorDisclosure:
@@ -770,8 +772,9 @@ class TestCashAnchorDisclosure:
         anchor = engine.cash_anchor
 
         assert anchor.trust == "verified"
-        assert anchor.residual == pytest.approx(46.69, abs=1.0)
-        # 1.0% of opening cash - inside the documented share, hence verified.
+        # 2026-08-28 statement refresh: 46.69 -> -1.15.
+        assert anchor.residual == pytest.approx(-1.15, abs=1.0)
+        # Well inside the documented share of opening cash, hence verified.
         assert abs(anchor.residual) / 4_672.04 < REPLAY_OPENING_CASH_RESIDUAL_SHARE
 
     def test_cash_anchor_falls_back_to_the_derived_identity(self) -> None:
@@ -915,7 +918,8 @@ class TestCashAnchorDisclosure:
         # US-33.4: -271.23 on the pre-refresh statement. The pin exists to prove
         # the raw sum is a DIFFERENT number from the converted one, not for its
         # own sake.
-        assert raw_mixed == pytest.approx(-1_549.28, abs=1.0), "raw currency-mixed sum pin"
+        # 2026-08-28 statement refresh: -1_549.28 -> -1_910.21.
+        assert raw_mixed == pytest.approx(-1_910.21, abs=1.0), "raw currency-mixed sum pin"
 
         rates = totals.fx_rates or {}
 
@@ -930,10 +934,11 @@ class TestCashAnchorDisclosure:
         implied = engine._statement_implied_opening_cash(to_base)
 
         # US-33.4: on the pre-refresh statement the converted flow was -2,459.29
-        # -> implied opening cash 4,452.94. The 2026-08-11 statement gives
+        # -> implied opening cash 4,452.94. The 2026-08-11 statement gave
         # 4,625.35; the invariant is that it differs materially from the raw
         # basis below, which is what AC3 of US-31.3 guards.
-        assert implied == pytest.approx(4_625.35, abs=2.0)
+        # 2026-08-28 statement refresh: 4_625.35 -> 4_673.19.
+        assert implied == pytest.approx(4_673.19, abs=2.0)
         # The wrong (raw) basis is explicitly rejected.
         wrong = totals.cash_total - raw_mixed
         assert abs(implied - wrong) > 100.0
@@ -960,7 +965,8 @@ class TestTerminalReconciliationAdjustment:
         # US-33.4: 1,197.88 on the pre-refresh statement.
         # US-34.3: 1,366.17 before the anchor moved to the statement's own
         # starting cash.
-        assert states[-1].reconciliation_adjustment == pytest.approx(-19.98, abs=2.0)
+        # 2026-08-28 statement refresh: -19.98 -> -5.95.
+        assert states[-1].reconciliation_adjustment == pytest.approx(-5.95, abs=2.0)
         assert all(s.reconciliation_adjustment is None for s in states[:-1])
         # US-33.4: non-terminal days are publishable unless they carry a
         # withheld symbol's unbacked cash flow (US-33.2) — on IB2026 that is
