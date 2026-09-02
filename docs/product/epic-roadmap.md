@@ -2,9 +2,11 @@
 
 *Living execution snapshot. Updated: **2026-08-28**.*
 
-**Epic 41 — Documentation & Roadmap Accuracy Reconciliation** and **Epic 42 —
-Dependency Vulnerability Remediation** are active (both findings-first, opened
-2026-08-28; see their sections below). Every earlier epic is complete. Most
+**Epic 43 — Engine Seam Consolidation** (opened 2026-09-02), **Epic 41 —
+Documentation & Roadmap Accuracy Reconciliation** and **Epic 42 —
+Dependency Vulnerability Remediation** (both findings-first, opened
+2026-08-28) are active; see their sections below. Every earlier epic is
+complete. Most
 recently shipped before them: **Epic 40 — Snapshot Trust
 & Fidelity Follow-Through** (2 stories, closed 2026-08-25), preceded by
 **Epic 39 — Direct-Held ETF Sector Classification** (1 story, closed
@@ -87,6 +89,66 @@ Documentation & Roadmap Accuracy Reconciliation** on 2026-08-28 to house US-41.2
 story US-41.1 (Backlog); and **Epic 42 — Dependency Vulnerability Remediation**
 for the US-36.2 scan's first real findings (US-42.1 Done 2026-08-28). See both
 sections immediately below.
+
+---
+
+
+## Epic 43 — Engine Seam Consolidation
+
+**PRD:** [`prd/epic-43-engine-seam-consolidation.md`](prd/epic-43-engine-seam-consolidation.md)
+(Status: Active)
+
+**Active. Opened 2026-09-02. 4 stories authored (US-43.1–US-43.4); US-43.1
+Done 2026-09-02, US-43.2–US-43.4 Backlog.**
+
+Seeded by the 2026-09-02 `/improve-codebase-architecture` review, which found
+four shallow seams in the quant-engine hot spots and recorded them as rows
+US-43.1–US-43.4 in `docs/tech-debt-register.md`. Every story is a
+**behaviour-neutral relocation** in the Epic 24 discipline — the goldens stay
+byte-identical:
+
+- **US-43.1** — Synthetic History has no module: its construction is a private
+  `_build_synthetic_snapshot_history_states_with_coverage` in
+  `diagnostics_engine.py` imported by five other engines. → new
+  `services/synthetic_history.py`. **Shipped 2026-09-02** — public
+  `build_synthetic_snapshot_history_states` / `..._with_coverage`, all six
+  consumers rewired, goldens byte-identical.
+- **US-43.2** — the statistical factor model's internals leak out of
+  `analytics/risk.py` (`attribution.py` imports `_fit_factor_model` et al.). →
+  new `analytics/factor_model.py`; `ReturnBasis` literal → `schemas/return_basis.py`.
+  Leak-first only; no full `risk.py` split.
+- **US-43.3** — the trust ladder (guardrail #3) is parallel private helpers in
+  the two largest engines. → new `services/trust_gate.py`. Relocation, not
+  unification: the two `SectionTrust` builders stay two functions; only the
+  byte-identical `_has_any_symbol_price_history` merges.
+- **US-43.4** — `import_engine_composer.py` (36 lines) is a pass-through. → fold
+  into `import_engine.py`.
+
+New module names are recorded in the repo-root `CONTEXT.md` (created with this
+epic).
+
+**Explicitly not in this epic** (recorded as register notes): reconciling the
+four diverged daily-return implementations, and any behavioural unification of
+the trust helpers — both are methodology-reviewed changes needing a
+quant-research pass, not relocations.
+
+### Story snapshot
+
+| Story | Title | Status |
+|---|---|---|
+| [US-43.1](../stories/US-43.1-extract-synthetic-history-construction.md) | Extract synthetic-history construction into its own module | Done |
+| [US-43.2](../stories/US-43.2-extract-factor-model-internals.md) | Extract the factor-model internals out of `risk.py` | Backlog |
+| [US-43.3](../stories/US-43.3-relocate-the-trust-gate.md) | Relocate the trust gate into its own module | Backlog |
+| [US-43.4](../stories/US-43.4-collapse-import-engine-composer.md) | Collapse `import_engine_composer` into `import_engine` | Backlog |
+
+Build order: 43.1 → 43.2 → 43.3 → 43.4 (disjoint modules, independently
+shippable; highest-leverage first, pass-through collapse last).
+
+### Slice log
+
+| Date | Story | What shipped |
+|---|---|---|
+| 2026-09-02 | US-43.1 | Behaviour-neutral relocation of the two synthetic-history builders out of `services/diagnostics_engine.py` into a new leaf module `services/synthetic_history.py` (`build_synthetic_snapshot_history_states` + `build_synthetic_snapshot_history_states_with_coverage`, public names, bodies moved verbatim — only the two `def` names and the thin wrapper's internal self-call lost the leading underscore). All six consumers rewired to import from the new module (diagnostics takes the thin wrapper; attribution, correlation, distribution, drawdown, stress take the coverage variant); four now-dead imports cleaned from `diagnostics_engine.py`. `test_synthetic_history_coverage.py` retargeted + one new AC2 pin test asserting object identity across the five engines; `test_correlation_engine.py` monkeypatch string retargeted to the public name on the consuming module. No schema, route, `analytics/`, or `apps/desktop/src/**` change; `dashboardGoldens.ts` diff empty; backend goldens byte-identical. Tests: backend 980 passed, frontend 359 passed, `tsc --noEmit` and dead-code gate clean (one new AC2 pin test added; the 11 pre-existing coverage-matrix cases edited by name only). Integration (`05-integration.md`) and acceptance (`06-review.md`) gates both PASS; AC1–AC5 SATISFIED. Independent quant-audit not required per the tech-lead verbatim-move ruling (`02-technical-plan.md` § 7) — the integration gate char-diffed the moved bodies against `git show HEAD` and found only the three permitted renames. |
 
 ---
 

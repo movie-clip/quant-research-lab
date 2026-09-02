@@ -21,7 +21,7 @@ from app.analytics.attribution import build_factor_attribution, _unavailable_res
 from app.analytics.risk import FACTOR_PROXY_MAP
 from app.schemas.attribution import FactorAttributionRequest, FactorAttributionResponse
 from app.core.constants import lookback_calendar_days
-from app.services.diagnostics_engine import _build_synthetic_snapshot_history_states_with_coverage
+from app.services.synthetic_history import build_synthetic_snapshot_history_states_with_coverage
 from app.services.market_data import MarketDataService
 
 
@@ -95,7 +95,7 @@ def run_attribution_engine(request: FactorAttributionRequest) -> FactorAttributi
     factor_histories[benchmark_symbol] = benchmark_rows
 
     # Build synthetic daily portfolio states.
-    daily_states, coverage = _build_synthetic_snapshot_history_states_with_coverage(
+    daily_states, coverage = build_synthetic_snapshot_history_states_with_coverage(
         snapshot=snapshot,
         price_histories=symbol_price_histories,
         valuation_dates=valuation_dates,

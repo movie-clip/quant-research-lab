@@ -18,8 +18,8 @@ from datetime import date, timedelta
 
 from app.engine.portfolio_state import PortfolioStateEngine
 from app.schemas.imports import ImportedPortfolioSnapshot
-from app.services.diagnostics_engine import (
-    _build_synthetic_snapshot_history_states_with_coverage,
+from app.services.synthetic_history import (
+    build_synthetic_snapshot_history_states_with_coverage,
 )
 from app.tests.fixtures import imported_snapshot, position
 
@@ -58,7 +58,7 @@ def test_material_short_history_symbol_truncates_the_window_and_is_disclosed() -
         "BBB": _rows(dates[10:], 50.0, 0.02),
     }
 
-    states, coverage = _build_synthetic_snapshot_history_states_with_coverage(
+    states, coverage = build_synthetic_snapshot_history_states_with_coverage(
         snapshot=snapshot, price_histories=histories, valuation_dates=dates,
     )
 
@@ -86,7 +86,7 @@ def test_sub_de_minimis_late_lister_is_excluded_not_truncating() -> None:
         "CCC": _rows(dates[20:], 5.0, 0.0),
     }
 
-    states, coverage = _build_synthetic_snapshot_history_states_with_coverage(
+    states, coverage = build_synthetic_snapshot_history_states_with_coverage(
         snapshot=snapshot, price_histories=histories, valuation_dates=dates,
     )
 
@@ -108,7 +108,7 @@ def test_zero_coverage_symbol_is_excluded_never_statement_price_filled() -> None
     ])
     histories = {"AAA": _rows(dates, 100.0, 0.01)}
 
-    states, coverage = _build_synthetic_snapshot_history_states_with_coverage(
+    states, coverage = build_synthetic_snapshot_history_states_with_coverage(
         snapshot=snapshot, price_histories=histories, valuation_dates=dates,
     )
 
@@ -121,7 +121,7 @@ def test_no_covered_positions_returns_empty_states_with_full_disclosure() -> Non
     dates = _dates(30)
     snapshot = _snapshot([position("ZZZ", market_value=1000.0)])
 
-    states, coverage = _build_synthetic_snapshot_history_states_with_coverage(
+    states, coverage = build_synthetic_snapshot_history_states_with_coverage(
         snapshot=snapshot, price_histories={}, valuation_dates=dates,
     )
 
@@ -143,7 +143,7 @@ def test_interior_gap_keeps_carry_to_next_quote_convention() -> None:
     ]
     snapshot = _snapshot([position("AAA", market_value=1000.0)])
 
-    states, coverage = _build_synthetic_snapshot_history_states_with_coverage(
+    states, coverage = build_synthetic_snapshot_history_states_with_coverage(
         snapshot=snapshot, price_histories={"AAA": gap_rows}, valuation_dates=dates,
     )
 
@@ -174,7 +174,7 @@ def test_truncated_window_volatility_exceeds_the_old_flat_fill_output() -> None:
         "BBB": [{"date": d, "price": 50.0} for d in dates[20:]],  # material, late, flat
     }
 
-    states, coverage = _build_synthetic_snapshot_history_states_with_coverage(
+    states, coverage = build_synthetic_snapshot_history_states_with_coverage(
         snapshot=snapshot, price_histories=histories, valuation_dates=dates,
     )
 
@@ -330,3 +330,38 @@ def test_distribution_engine_fails_closed_when_truncated_below_the_floor(mocker)
     assert result.coverage is not None
     assert result.coverage.limiting_symbol == "NEWCO"
     assert result.coverage.effective_start_date == full[-10]["date"]
+
+
+# ── AC2 — the extraction pin: every consumer binds to the shared module ───────
+
+
+def test_all_engine_consumers_bind_to_the_shared_synthetic_history_symbol() -> None:
+    """AC2 — the five coverage-consuming engines import the builder from
+    app.services.synthetic_history (object identity, not a re-implementation),
+    and the old private diagnostics_engine names are gone."""
+    from app.services import (
+        attribution_engine,
+        correlation_engine,
+        diagnostics_engine,
+        distribution_engine,
+        drawdown_engine,
+        stress_engine,
+    )
+    from app.services import synthetic_history
+
+    for engine in (
+        attribution_engine,
+        correlation_engine,
+        distribution_engine,
+        drawdown_engine,
+        stress_engine,
+    ):
+        assert (
+            engine.build_synthetic_snapshot_history_states_with_coverage
+            is synthetic_history.build_synthetic_snapshot_history_states_with_coverage
+        )
+
+    assert not hasattr(diagnostics_engine, "_build_synthetic_snapshot_history_states")
+    assert not hasattr(
+        diagnostics_engine, "_build_synthetic_snapshot_history_states_with_coverage"
+    )

@@ -62,7 +62,7 @@ directory today:
 - Import path: `import_engine.py`, `import_engine_composer.py`, `statement_importer.py`, `import_admission.py`, `portfolio_snapshot_builder.py`, `history_context_builder.py`.
 - Market data: `market_data.py` (`MarketDataService`).
 - Cache: `cache_admin.py`.
-- Shared / supporting: `benchmark_service.py`, `holdings_history.py`, `instrument_enrichment.py`, `instrument_identity.py`, `portfolio_proof.py`.
+- Shared / supporting: `benchmark_service.py`, `holdings_history.py`, `instrument_enrichment.py`, `instrument_identity.py`, `portfolio_proof.py`, `synthetic_history.py` (Synthetic History truth-class reconstruction — `build_synthetic_snapshot_history_states` / `..._with_coverage`, consumed by the diagnostics, attribution, correlation, distribution, drawdown and stress engines; extracted from `diagnostics_engine.py` in US-43.1).
 
 Docs should describe these as the real current boundaries until they are split further.
 

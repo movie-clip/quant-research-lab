@@ -177,8 +177,8 @@ Current adjusted-close verification rule:
 ## Synthetic History Coverage Rule
 
 *US-27.7 (audit F8). Applies to both daily-state builders: the synthetic
-snapshot-history convention (`_build_synthetic_snapshot_history_states*` in
-`diagnostics_engine.py` — feeds the stress / drawdown / distribution /
+snapshot-history convention (`build_synthetic_snapshot_history_states*` in
+`services/synthetic_history.py` — feeds the stress / drawdown / distribution /
 multi-benchmark-correlation / attribution engines and synthetic diagnostics)
 and the broker replay path (`engine/portfolio_state.py` — dashboard history,
 drift).*
@@ -887,7 +887,8 @@ where:
                  = (q_i × p_i(t_peak)) / Σ_j (q_j × p_j(t_peak))
   r_i          =  p_i(t_trough) / p_i(t_peak) − 1
   q_i          =  synthetic quantity (current holdings; see
-                  `_build_synthetic_snapshot_history_states`)
+                  `build_synthetic_snapshot_history_states` in
+                  `services/synthetic_history.py`)
   p_i(t)       =  adjusted-close price for symbol i on date t
   V_p(t)       =  Σ_j (q_j × p_j(t))    (portfolio market value at t)
   V_i(t)       =  q_i × p_i(t)          (position i's market value at t)
@@ -965,7 +966,8 @@ withholding, $107.79 net, all present in the states. An unadjusted-close
 concern does not apply here.
 
 **Synthetic path (Risk tab).**
-`_build_synthetic_snapshot_history_states_with_coverage` applies *current
+`build_synthetic_snapshot_history_states_with_coverage` in
+`services/synthetic_history.py` applies *current
 holdings* to historical prices with a **flat cash balance** (today's ending
 cash, held constant) and **no ledger**. A dividend therefore appears only as
 the ex-date price drop, with nothing offsetting it, so this construction **is**

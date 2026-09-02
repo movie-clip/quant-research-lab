@@ -23,7 +23,7 @@ from app.analytics.risk import (
 )
 from app.schemas.reconciliation import StressScenarioResult
 from app.schemas.stress import StressEngineRequest, StressEngineResponse
-from app.services.diagnostics_engine import _build_synthetic_snapshot_history_states_with_coverage
+from app.services.synthetic_history import build_synthetic_snapshot_history_states_with_coverage
 from app.services.market_data import MarketDataService
 from app.services.portfolio_snapshot_builder import build_imported_snapshot_from_request
 
@@ -92,7 +92,7 @@ def run_stress_engine(request: StressEngineRequest) -> StressEngineResponse:
         )
 
     valuation_dates = sorted({row["date"] for row in benchmark_rows})
-    daily_states, coverage = _build_synthetic_snapshot_history_states_with_coverage(
+    daily_states, coverage = build_synthetic_snapshot_history_states_with_coverage(
         snapshot=snapshot,
         price_histories=symbol_price_histories,
         valuation_dates=valuation_dates,

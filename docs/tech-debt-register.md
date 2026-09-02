@@ -323,6 +323,55 @@ category values below extend the Entry schema's enum with `doc-gap` and
 | finance-docs | `app/schemas/dashboard_history.py:51-61` (docstring) / `docs/finance/financial-methodology.md` §Indexed Return Series (no mention) | doc-gap | low | low | none (open) | `window_start_date` silently means two different things for two range kinds: for 1M/3M/1Y it is the last daily state strictly *before* the window's first counted day (a "day zero" baseline outside the window); for YTD it is the year's own first trading day (*inside* the window). Not a wrong number — chart and summary strip use the identical convention per range, confirmed consistent — but a future engineer extending `window_start_date` to a new range kind could pick either convention without knowing two already coexist. **Source: `10-quant-audit.md` §Log/4, FINDING 1 (MINOR, non-blocking) — not fixed this run.** Fix: a one- or two-line note near the `window_start_date` docstring (or in the methodology section, alongside the CR-2 #2 pointer fix above) stating YTD's anchor is inside the window while the sliding windows' anchor is outside it. |
 | frontend | `apps/desktop/src/features/portfolio/types.ts:553` (`DashboardRangeMetrics.window_start_date`) | typing-precision | low | low | none (open) | Typed `window_start_date?: string \| null` (optional) where the backend always serializes the field as `string \| null` (07-backend.md's contract note asked for the strict form). Judged safe-direction / non-blocking: `PerformanceBenchmarkCard.tsx` normalizes via `metrics.window_start_date ?? null` before use, so an absent key and an explicit `null` behave identically, and the sibling `portfolio_return_trust?:` field in the same type is the same established optional-on-a-backend-guaranteed-field shape. Worth tightening for precision — doing so would also force `portfolioFixtures.ts`'s `createImportedDashboardFixture` (currently supplies **no** `window_start_date` in any of its five `range_metrics` entries) to give real, distinct per-range values, closing a latent gap where any future test rendering the card off the shared fixture without an inline override would silently exercise the exact "chart ignores the range selector" shape CR-2 #1 fixed, and pass. **Source: `11-integration.md` § Typing judgment (DoD 2) and § Fixture coverage footgun — routed to Open, not a CR, not fixed this run.** |
 
+### Engine seam consolidation — 2026-09-02 architecture review (→ Epic 43)
+
+Surfaced by an `/improve-codebase-architecture` review of the quant-engine hot
+spots (the areas the last ~60 commits keep touching). Four **shallow seams**:
+an interface leaks, or a concept has no module and is re-implemented as private
+helpers across several engines. All four are addressed in **Epic 43 — Engine
+Seam Consolidation** (`docs/product/prd/epic-43-engine-seam-consolidation.md`),
+each as a **behaviour-neutral relocation** — the goldens stay byte-identical.
+Category `missing-abstraction` / `fragile-coupling` per the Entry schema.
+
+| area | file:line | category | severity | effort | owner-story | note |
+|---|---|---|---|---|---|---|
+| backend/services-routes | `services/diagnostics_engine.py:774` (`_build_synthetic_snapshot_history_states_with_coverage`) + `:761` | missing-abstraction / fragile-coupling | med | med | US-43.1 | The Synthetic History truth class (`CLAUDE.md` → Truth Classes) is reconstructed by a **private** helper in the diagnostics engine, yet imported across the seam by **five** other engines — `attribution_engine.py:24`, `correlation_engine.py:35`, `distribution_engine.py:25`, `drawdown_engine.py:26`, `stress_engine.py:26`. Fix: move to a new `services/synthetic_history.py`, public names; rewire the 6 consumers. `test_correlation_engine.py:310` patches the name on the *consuming* module, so the patch target survives the move. Behaviour-neutral. **RESOLVED (US-43.1, 2026-09-02): new `services/synthetic_history.py` holds the public `build_synthetic_snapshot_history_states` / `..._with_coverage`; all six consumers (diagnostics, attribution, correlation, distribution, drawdown, stress) rewired to import it; goldens byte-identical; full suite green.** |
+| backend/analytics-schemas | `analytics/risk.py` (factor-model internals: `_fit_factor_model:1741`, `_orthogonalize_factors_window:1698`, `_selected_history_return_series:871`; constants `FACTOR_KEY_MAP` / `FACTOR_PROXY_MAP` / `DEFAULT_FACTOR_DEFINITIONS` / `ROLLING_RIDGE_FLOOR`; `ReturnBasis:62`; `FactorDefinition:98`) | missing-abstraction | med | med | US-43.2 | `analytics/attribution.py:28` imports three `_private` factor-model helpers + four bare constants + `ReturnBasis` from `risk.py`; `stress_engine.py:18` reaches in for `STRESS_SCENARIOS`. `risk.py` is 2,295 lines / ~30 public `build_*` across six unrelated concerns. **Leak-first only:** move the factor-model internals + factor-definition data to a new `analytics/factor_model.py` (`risk.py` imports them back, keeps `build_statistical_factor_model`); move the `ReturnBasis` execution-basis literal to `schemas/return_basis.py` (beside the existing `ReturnBasis*` family). Retarget ~4 `monkeypatch.setattr(risk_module, …)` sites in `test_analytics.py`. **A full `risk.py` split (the other five concerns) is a separate, tracked follow-up — not Epic 43.** Behaviour-neutral. |
+| backend/services-routes | `services/dashboard_history_engine.py` (`_build_dashboard_section_trust:133`, `_allow_dashboard_drawdown_outputs:237`, `_has_any_symbol_price_history:720`, `_has_replay_outputs:724`, `_classify_portfolio_return_basis:162`, `_build_dashboard_return_basis_contract:187`, investor-economics status builders) + `services/diagnostics_engine.py` (`_resolve_section_trust:182`, `_allow_diagnostics_drawdown_outputs:209` + `_apply_diagnostics_drawdown_output_policy:213`, `_has_any_symbol_price_history:952`, `_build_diagnostics_investor_economics_status:258`) | missing-abstraction / duplication | med | med | US-43.3 | The trust ladder (`verified > degraded > withheld > unavailable` — guardrail #3) has no module; it is parallel private helpers in the two largest engines. `_has_any_symbol_price_history` is a **byte-for-byte copy**. Fix: a new `services/trust_gate.py` holding both `SectionTrust` builders (**kept as two engine-qualified functions** — different section shapes and inputs), both drawdown output-admission gates, both investor-economics status builders, and the dashboard return-basis classification helpers; **merge only** the byte-identical `_has_any_symbol_price_history`. Behaviour-neutral. **Not in scope:** unifying the two `SectionTrust` builders or the two return-basis paths — that changes *how* a trust value is computed and needs a quant-research pass first (cf. US-40.1 duplication finding). |
+| backend/services-routes | `services/import_engine_composer.py` (whole file, 36 lines) | anti-pattern / duplication | low | low | US-43.4 | Exposes one function, `compose_import_bootstrap_response`, that only fills an `ImportedBootstrapResponse` from kwargs `import_engine.py` passed through unchanged. Deletion test: folding it into `import_engine.py` concentrates nothing — one hop removed. `import_engine.py` is its only importer anywhere in `app/`. Fix: fold the body in as `_compose_import_bootstrap_response`, delete the file. Behaviour-neutral. |
+
+**Recorded, NOT scheduled — need a methodology-reviewed story, not a relocation:**
+
+- **The four daily-return implementations have genuinely diverged.**
+  `analytics/risk.py::_portfolio_time_weighted_return_series` applies the US-34.8
+  reconciliation correction (`total_portfolio_value − reconciliation_adjustment`)
+  and the `return_is_publishable` skip; `analytics/attribution.py::_portfolio_return_series`
+  (whose own docstring says it "mirrors" the risk.py function) **omits the
+  reconciliation correction**; `services/distribution_engine.py::_compute_daily_returns`
+  and its `drawdown_engine.py` sibling take **no basis parameter** and apply
+  **neither** correction, chaining raw `total_market_value`. Consolidating them
+  onto one series type (a `ReplaySeries` wrapping `list[DailyPortfolioState]`)
+  would change attribution / distribution / drawdown outputs on the imported
+  ledger-replay path — it is a methodology change, not a behaviour-neutral
+  refactor, and per the guardrail-1 discipline (see the US-40.1 duplication
+  finding above) any change to *how* these values are computed needs a
+  quant-research pass first. Owner: a future methodology story; **not Epic 43**
+  (whose US-43.2 explicitly leaves `_portfolio_return_series` alone). The
+  output-neutral residue — `_build_wealth_index` / `_build_drawdown_from_return_index`
+  and the `daily_states: list` → `list[DailyPortfolioState]` annotations —
+  travels with US-43.2/US-43.3 where those helpers already move.
+- **`services/portfolio_proof.py` (3,181 lines) has two responsibilities in one
+  file.** Witness-building (FX / opening-state / cash-flow / calendar /
+  valuation / terminal-reconciliation — ~1,700 lines) and the admission
+  decision (`_evaluate_investor_economics_admission:1889`,
+  `_build_portfolio_admission_decision:2471` — ~950 lines). The public interface
+  is already small (`build_portfolio_proof_metadata`,
+  `build_unavailable_portfolio_proof_metadata`) so friction is **low today** —
+  the file is a deep module, not a shallow one. Splitting the admission half
+  into its own module is worth doing only **after** US-43.3 names the
+  trust-decision vocabulary, so the two can share it. Owner: revisit post-Epic-43;
+  low priority.
+
 ### Contract audit result (US-23.5)
 
 A three-way audit (backend Pydantic schemas ↔ `types.ts`/`workspaceTypes.ts` ↔

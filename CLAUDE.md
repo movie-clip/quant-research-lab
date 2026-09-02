@@ -204,3 +204,13 @@ Plus two reference skills (consulted *from within* the cycle, not steps in it):
 4. **For "what's the scope of this epic"** → read `docs/product/epic-roadmap.md` **first** to find which epic is current, then open that epic's PRD in `docs/product/prd/`. At the time of writing the most recent is Epic 34 (`epic-34-answerable-dashboard-and-reachable-trust.md`), but the roadmap is the authority — a named PRD here goes stale every time an epic ships.
 5. **For "where are we overall"** → `docs/product/epic-roadmap.md`
 6. **For "where does this field come from"** → `docs/contracts/<area>-fields.md`
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `movie-clip/quant-research-lab`, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at the repo root (neither exists yet — created lazily by `/domain-modeling`). See `docs/agents/domain.md`.

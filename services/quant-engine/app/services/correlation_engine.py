@@ -32,7 +32,7 @@ from app.schemas.correlation import (
     MultiBenchmarkCorrelationRequest,
     MultiBenchmarkCorrelationResult,
 )
-from app.services.diagnostics_engine import _build_synthetic_snapshot_history_states_with_coverage
+from app.services.synthetic_history import build_synthetic_snapshot_history_states_with_coverage
 from app.services.market_data import MarketDataService
 
 
@@ -119,7 +119,7 @@ def run_multi_benchmark_correlation(
     )
 
     # Build synthetic daily portfolio states.
-    daily_states, coverage = _build_synthetic_snapshot_history_states_with_coverage(
+    daily_states, coverage = build_synthetic_snapshot_history_states_with_coverage(
         snapshot=snapshot,
         price_histories=symbol_price_histories,
         valuation_dates=valuation_dates,

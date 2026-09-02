@@ -307,7 +307,7 @@ class TestReturnBasis:
             for i, d in enumerate(dates)
         ]
         mocker.patch(
-            "app.services.correlation_engine._build_synthetic_snapshot_history_states_with_coverage",
+            "app.services.correlation_engine.build_synthetic_snapshot_history_states_with_coverage",
             return_value=(crafted_states, SyntheticHistoryCoverage(requested_start_date=dates[0])),
         )
         _install_correlation_market_data_mock(mocker)
