@@ -25,16 +25,15 @@ from __future__ import annotations
 import math
 from collections import defaultdict
 
-from app.analytics.risk import (
+from app.analytics.factor_model import (
     DEFAULT_FACTOR_DEFINITIONS,
     FACTOR_KEY_MAP,
     FACTOR_PROXY_MAP,
     ROLLING_RIDGE_FLOOR,
-    ReturnBasis,
-    _fit_factor_model,
-    _orthogonalize_factors_window,
-    _selected_history_return_series,
+    fit_factor_model,
+    orthogonalize_factors_window,
 )
+from app.analytics.risk import selected_history_return_series
 from app.schemas.attribution import (
     AttributionSeriesEntry,
     FactorAttributionResponse,
@@ -42,6 +41,7 @@ from app.schemas.attribution import (
     FactorPeriodRow,
 )
 from app.schemas.reconciliation import DailyPortfolioState
+from app.schemas.return_basis import ReturnBasis
 
 
 ATTRIBUTION_METHODOLOGY_NOTE = (
@@ -130,7 +130,7 @@ def build_factor_attribution(
 
     # Build daily factor return series keyed by proxy symbol.
     factor_returns: dict[str, dict[str, float]] = {
-        symbol: _selected_history_return_series(rows)
+        symbol: selected_history_return_series(rows)
         for symbol, rows in factor_histories.items()
     }
 
@@ -195,14 +195,14 @@ def build_factor_attribution(
         ]
 
         # Per-window Gram-Schmidt: mirrors _build_rolling_factor_loadings exactly.
-        orthogonalized_window, dropped_factor_labels = _orthogonalize_factors_window(raw_window)
+        orthogonalized_window, dropped_factor_labels = orthogonalize_factors_window(raw_window)
         if dropped_factor_labels:
             # A factor exactly collinear within this window has a null loading
             # (US-27.6) — per the methodology edge case ("any factor
             # contribution null on date t → exclude date t entirely"), skip
             # the date rather than attribute with a partial factor set.
             continue
-        coefficients, _, _ = _fit_factor_model(
+        coefficients, _, _ = fit_factor_model(
             y_window, orthogonalized_window, ridge_lambda=ridge_floor
         )
 

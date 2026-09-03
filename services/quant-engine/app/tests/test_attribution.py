@@ -413,7 +413,7 @@ def test_nonfinite_window_skipped_and_response_is_json_safe(monkeypatch):
     states = _make_daily_states(40, daily_return=0.001)
     histories = _standard_histories(41)
 
-    real_fit = attr_mod._fit_factor_model
+    real_fit = attr_mod.fit_factor_model
     calls = {"n": 0}
 
     def fake_fit(y_window, orth_window, ridge_lambda=1e-5):
@@ -423,7 +423,7 @@ def test_nonfinite_window_skipped_and_response_is_json_safe(monkeypatch):
             coeffs = [float("nan")] * len(coeffs)  # simulate a degenerate window
         return coeffs, a, b
 
-    monkeypatch.setattr(attr_mod, "_fit_factor_model", fake_fit)
+    monkeypatch.setattr(attr_mod, "fit_factor_model", fake_fit)
 
     result = build_factor_attribution(states, histories, window=20)
 

@@ -64,6 +64,8 @@ directory today:
 - Cache: `cache_admin.py`.
 - Shared / supporting: `benchmark_service.py`, `holdings_history.py`, `instrument_enrichment.py`, `instrument_identity.py`, `portfolio_proof.py`, `synthetic_history.py` (Synthetic History truth-class reconstruction — `build_synthetic_snapshot_history_states` / `..._with_coverage`, consumed by the diagnostics, attribution, correlation, distribution, drawdown and stress engines; extracted from `diagnostics_engine.py` in US-43.1).
 
+Analytics layer (`services/quant-engine/app/analytics/`): `analytics/factor_model.py` holds the statistical factor-model internals — the factor-definition vocabulary (`FactorDefinition`, `DEFAULT_FACTOR_DEFINITIONS`, the proxy/key maps), `ROLLING_RIDGE_FLOOR`, the per-window Gram-Schmidt orthogonalisation and the ridge-OLS fit, plus their linear-algebra primitives. Extracted from `analytics/risk.py` in US-43.2 as a leaf module (it imports nothing from `risk.py`). Transitional shape: `risk.py` imports these names back, and `build_statistical_factor_model` (the response-shaping entry point) is still owned by `risk.py`; consumers `attribution.py`, `attribution_engine.py`, `stress_engine.py` and `diagnostics_engine.py` now import factor symbols from `analytics.factor_model`. The `ReturnBasis` execution-basis literal moved to `schemas/return_basis.py` in the same story.
+
 Docs should describe these as the real current boundaries until they are split further.
 
 ## Truth Classes and Trust Semantics

@@ -18,7 +18,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from app.analytics.attribution import build_factor_attribution, _unavailable_response
-from app.analytics.risk import FACTOR_PROXY_MAP
+from app.analytics.factor_model import FACTOR_PROXY_MAP
 from app.schemas.attribution import FactorAttributionRequest, FactorAttributionResponse
 from app.core.constants import lookback_calendar_days
 from app.services.synthetic_history import build_synthetic_snapshot_history_states_with_coverage

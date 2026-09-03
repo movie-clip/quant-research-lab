@@ -6,6 +6,15 @@ from math import isfinite, sqrt
 from typing import Literal, Protocol
 
 from app.analytics.currency import position_base_market_values
+from app.analytics.factor_model import (
+    DEFAULT_FACTOR_DEFINITIONS,
+    FACTOR_PROXY_MAP,
+    FactorDefinition,
+    ROLLING_RIDGE_FLOOR,
+    UcitsCandidateMapping,
+    fit_factor_model,
+    orthogonalize_factors_window,
+)
 from app.analytics.overview import UNCLASSIFIED_SECTOR_LABEL
 from app.core.constants import MIN_DAILY_OBSERVATIONS
 from app.instruments import InstrumentRegistry
@@ -47,35 +56,8 @@ from app.schemas.reconciliation import (
     VolatilitySnapshot,
     WindowSummary,
 )
+from app.schemas.return_basis import ReturnBasis
 from app.services.market_data import detect_histories_return_basis, detect_history_return_basis
-
-# Return-series basis selected by provenance (US-30.5c / PRD F-10; third basis
-# added by US-24.9).
-# "portfolio_value": cash-flow-neutral TWR on total_portfolio_value — trade-safe
-#   but cash-INCLUSIVE, so it stays the investor-performance basis.
-# "market_value": plain market-value chain on total_market_value — excludes the
-#   flat synthetic cash balance, used ONLY on synthetic series (no trades).
-# "market_value_trade_neutral": market-value chain with the day's trade leg
-#   removed — cash-excluded AND trade-safe, so the imported ledger-replay path's
-#   RISK statistics can drop their cash sleeve without reading a BUY as a gain.
-# See methodology §Rolling Pearson Correlation / §Indexed Return Series.
-ReturnBasis = Literal["portfolio_value", "market_value", "market_value_trade_neutral"]
-
-
-@dataclass(frozen=True)
-class UcitsCandidateMapping:
-    provider: str
-    fund_name: str
-    example_tickers: tuple[str, ...]
-    asset_exposure: str
-    domicile: str | None
-    trading_currency: str | None
-    base_currency: str | None
-    currency_hedged: bool | None
-    distribution_policy: str
-    mapping_quality: str
-    notes: str | None = None
-    isin: str | None = None
 
 
 @dataclass(frozen=True)
@@ -94,53 +76,11 @@ def selected_history_price_map(rows: list[dict]) -> tuple[dict[str, float], Lite
     return dict(series.points), series.return_basis_status
 
 
-@dataclass(frozen=True)
-class FactorDefinition:
-    key: str
-    label: str
-    category: str
-    us_proxy: str
-    target_exposure: str
-    primary_mapping: UcitsCandidateMapping | None
-    alternative_mappings: tuple[UcitsCandidateMapping, ...]
-    ucits_examples: tuple[str, ...]
-    mapping_quality: str
-    default_enabled: bool
-    orthogonalization_order: int
-    description: str
-
-
-DEFAULT_FACTOR_DEFINITIONS: tuple[FactorDefinition, ...] = (
-    FactorDefinition("market", "Market", "market", "SPY", "US large-cap broad market / S&P 500", UcitsCandidateMapping("iShares", "iShares Core S&P 500 UCITS ETF", ("CSPX", "SXR8"), "S&P 500", "Ireland", "USD", "USD", False, "accumulating", "high", "Best institutional UCITS mapping for broad US market beta"), (UcitsCandidateMapping("Vanguard", "Vanguard S&P 500 UCITS ETF", ("VUAA",), "S&P 500", "Ireland", "USD", "USD", False, "accumulating", "high"),), ("CSPX", "SXR8", "VUAA"), "high", True, 1, "Broad US equity beta."),
-    FactorDefinition("growth", "Growth", "style", "QQQ", "Nasdaq-100 / US mega-cap growth", UcitsCandidateMapping("Invesco", "Invesco EQQQ Nasdaq-100 UCITS ETF", ("EQQQ",), "Nasdaq-100", "Ireland", "USD", "USD", False, "distributing", "high"), (UcitsCandidateMapping("iShares", "iShares Nasdaq 100 UCITS ETF", ("CNDX",), "Nasdaq-100", "Ireland", "USD", "USD", False, "accumulating", "high"),), ("EQQQ", "CNDX"), "high", True, 2, "Mega-cap growth and tech tilt."),
-    FactorDefinition("value", "Value", "style", "IWD", "US large-cap value", UcitsCandidateMapping("iShares", "iShares Edge MSCI USA Value Factor UCITS ETF", ("IWVL",), "US value factor", "Ireland", "USD", "USD", False, "unknown", "medium-high", "Good practical UCITS mapping; not a perfect Russell/CRSP-style value clone"), (), ("IWVL",), "medium-high", True, 3, "Value style exposure."),
-    FactorDefinition("small_cap", "Small Cap", "style", "IWM", "US small caps", UcitsCandidateMapping("iShares", "iShares MSCI USA Small Cap UCITS ETF", ("IUSN",), "US small caps", "Ireland", "USD", "USD", False, "unknown", "medium", "Good practical mapping, but not a perfect Russell 2000 replication"), (), ("IUSN",), "medium", True, 4, "Size exposure outside large caps."),
-    FactorDefinition("technology", "Technology", "sector", "XLK", "US technology sector", UcitsCandidateMapping("iShares", "iShares S&P 500 Information Technology Sector UCITS ETF", (), "S&P 500 Information Technology", "Ireland", "USD", "USD", False, "unknown", "high", "Validate local exchange ticker from broker/data source"), (), (), "high", True, 5, "Core technology sector exposure."),
-    FactorDefinition("financials", "Financials", "sector", "XLF", "US financials sector", UcitsCandidateMapping("iShares", "iShares S&P 500 Financials Sector UCITS ETF", ("IUFS",), "S&P 500 Financials", "Ireland", "USD", "USD", False, "unknown", "high"), (), ("IUFS",), "high", True, 6, "Rate-sensitive financial sector exposure."),
-    FactorDefinition("health_care", "Health Care", "sector", "XLV", "US health care sector", UcitsCandidateMapping("iShares", "iShares S&P 500 Health Care Sector UCITS ETF", ("IUHC",), "S&P 500 Health Care", "Ireland", "USD", "USD", False, "unknown", "high"), (), ("IUHC",), "high", True, 7, "Defensive health care exposure."),
-    FactorDefinition("energy", "Energy", "sector", "XLE", "US energy sector", UcitsCandidateMapping("iShares", "iShares S&P 500 Energy Sector UCITS ETF", (), "S&P 500 Energy", "Ireland", "USD", "USD", False, "unknown", "high", "Validate local exchange ticker from broker/data source"), (), (), "high", True, 8, "Commodity-linked equity exposure."),
-    FactorDefinition("industrials", "Industrials", "sector", "XLI", "US industrials sector", UcitsCandidateMapping("iShares", "iShares S&P 500 Industrials Sector UCITS ETF", (), "S&P 500 Industrials", "Ireland", "USD", "USD", False, "unknown", "high", "Validate local exchange ticker from broker/data source"), (), (), "high", True, 9, "Cyclical and capex-linked industrial exposure."),
-    FactorDefinition("consumer_staples", "Consumer Staples", "sector", "XLP", "US consumer staples sector", UcitsCandidateMapping("iShares", "iShares S&P 500 Consumer Staples Sector UCITS ETF", (), "S&P 500 Consumer Staples", "Ireland", "USD", "USD", False, "unknown", "high", "Validate local exchange ticker from broker/data source"), (), (), "high", True, 10, "Defensive consumer staples exposure."),
-    FactorDefinition("utilities", "Utilities", "sector", "XLU", "US utilities sector", UcitsCandidateMapping("iShares", "iShares S&P 500 Utilities Sector UCITS ETF", (), "S&P 500 Utilities", "Ireland", "USD", "USD", False, "unknown", "high", "Validate local exchange ticker from broker/data source"), (), (), "high", True, 11, "Rate-sensitive utilities exposure."),
-    FactorDefinition("consumer_discretionary", "Consumer Discretionary", "sector", "XLY", "US consumer discretionary sector", UcitsCandidateMapping("iShares", "iShares S&P 500 Consumer Discretionary Sector UCITS ETF", (), "S&P 500 Consumer Discretionary", "Ireland", "USD", "USD", False, "unknown", "high", "Validate local exchange ticker from broker/data source"), (), (), "high", True, 12, "Cyclical consumer spending exposure."),
-    FactorDefinition("rates_ief", "Intermediate Rates", "macro", "IEF", "US Treasuries 7-10 year", UcitsCandidateMapping("iShares", "iShares USD Treasury Bond 7-10yr UCITS ETF", (), "US Treasury 7-10yr", "Ireland", "USD", "USD", False, "unknown", "high", "Validate exact share class and exchange ticker"), (), (), "high", True, 13, "Intermediate Treasury duration exposure."),
-    FactorDefinition("rates_tlt", "Long Rates", "macro", "TLT", "US Treasuries 20+ year", UcitsCandidateMapping("iShares", "iShares USD Treasury Bond 20+yr UCITS ETF", ("DTLA",), "US Treasury 20+yr", "Ireland", "USD", "USD", False, "unknown", "medium-high", "Good practical TLT mapping if DTLA is the unhedged 20+ year Treasury share class on the target exchange"), (), ("DTLA",), "medium-high", True, 14, "Long-duration Treasury exposure."),
-    FactorDefinition("credit", "Credit", "macro", "LQD", "USD investment-grade corporate bonds", UcitsCandidateMapping("iShares", "iShares $ Corp Bond UCITS ETF", (), "USD investment-grade corporate bonds", "Ireland", "USD", "USD", False, "unknown", "medium-high", "Validate duration and share class against desired LQD-like exposure"), (UcitsCandidateMapping("iShares", "iShares Core $ Corp Bond UCITS ETF", (), "USD investment-grade corporate bonds", "Ireland", "USD", "USD", False, "unknown", "medium-high"),), (), "medium-high", True, 15, "Investment-grade credit spread exposure."),
-    FactorDefinition("commodities", "Commodities", "macro", "DBC", "Broad commodities basket", UcitsCandidateMapping("WisdomTree / Invesco / broad commodity UCITS provider", "Broad Commodity UCITS ETF/ETC", (), "Broad commodities", "Ireland", "USD", "USD", None, "unknown", "medium", "This is the weakest mapping group; roll methodology and product structure vary materially"), (), (), "medium", True, 16, "Broad commodity and inflation exposure."),
-)
-
-FACTOR_PROXY_MAP: dict[str, str] = {item.label: item.us_proxy for item in DEFAULT_FACTOR_DEFINITIONS}
-FACTOR_KEY_MAP: dict[str, str] = {item.label: item.key for item in DEFAULT_FACTOR_DEFINITIONS}
 FACTOR_BY_LABEL: dict[str, FactorDefinition] = {item.label: item for item in DEFAULT_FACTOR_DEFINITIONS}
 
 ROLLING_WINDOWS: tuple[int, ...] = (20, 60, 252)
 COLLINEARITY_WARNING_THRESHOLD = 0.85
 WINDOW_MIN_OBSERVATIONS: dict[int, int] = {20: 25, 60: 75, 252: 275}
-# Ridge regularization floor per window. Per-window Gram-Schmidt ensures factors are
-# orthogonal within each rolling window, so X'X is well-conditioned and λ=1e-5 provides
-# adequate numerical stability without material coefficient shrinkage. Larger λ values
-# (like 0.01) would shrink daily-return-scale coefficients by >80% — unacceptable bias.
-ROLLING_RIDGE_FLOOR: dict[int, float] = {20: 1e-5, 60: 1e-5, 252: 1e-5}
 SHIFT_FLAG_20D_THRESHOLD = 0.25
 SHIFT_FLAG_60D_THRESHOLD = 0.35
 STABILITY_GAP_THRESHOLD = 0.30
@@ -868,7 +808,7 @@ def select_history_price_series(rows: list[dict]) -> SelectedHistoryPriceSeries:
     return SelectedHistoryPriceSeries(points=[], return_basis_status="unavailable", selected_field="unavailable")
 
 
-def _selected_history_return_series(rows: list[dict]) -> dict[str, float]:
+def selected_history_return_series(rows: list[dict]) -> dict[str, float]:
     series = select_history_price_series(rows)
     return _series_to_returns(series.points)
 
@@ -1381,7 +1321,7 @@ def _max_abs_rolling_correlation(left: list[float], right: list[float], window: 
 def build_statistical_factor_model(daily_states: list, factor_histories: dict[str, list[dict]], benchmark_symbol: str, *, return_basis: ReturnBasis = "portfolio_value") -> StatisticalFactorModel:
     portfolio_returns = dict((date, value) for date, value in [(item[0], item[1]) for item in _paired_portfolio_and_benchmark_returns(daily_states, factor_histories.get(benchmark_symbol, []), basis=return_basis)])
     factor_returns = {
-        factor: _selected_history_return_series(rows)
+        factor: selected_history_return_series(rows)
         for factor, rows in factor_histories.items()
     }
     common_dates = sorted(set(portfolio_returns).intersection(*[set(values) for values in factor_returns.values() if values]))
@@ -1619,7 +1559,7 @@ def _portfolio_time_weighted_return_series(
 
 
 def _benchmark_return_series(benchmark_rows: list[dict]) -> dict[str, float]:
-    return _selected_history_return_series(benchmark_rows)
+    return selected_history_return_series(benchmark_rows)
 
 
 def _aligned_active_return_series(portfolio_returns: list[tuple[str, float]], benchmark_returns: dict[str, float]) -> list[tuple[str, float, float, float]]:
@@ -1686,70 +1626,6 @@ def _build_shared_sector_overlap(
     ]
 
 
-# A factor whose Gram-Schmidt residual never exceeds this within a window is
-# treated as exactly collinear with the higher-priority factors (zero-variance
-# residual up to float noise) and is DROPPED for that window per methodology
-# §Per-window orthogonalization — "skip that factor's coefficient (null), do
-# not propagate to later factors" (US-27.6). Near-collinear factors above this
-# floor stay in the design matrix; the ridge floor handles them.
-ORTHOGONALIZATION_ZERO_RESIDUAL_THRESHOLD = 1e-12
-
-
-def _orthogonalize_factors_window(
-    raw_factors: list[tuple[str, str, list[float]]],
-) -> tuple[list[tuple[str, str, list[float]]], list[str]]:
-    """Gram-Schmidt orthogonalization over a single pre-sliced window.
-
-    Unlike _orthogonalize_factor_series (which works from a full-series dict),
-    this helper operates on already-windowed (factor, proxy, values) tuples.
-    Calling this inside every rolling-window iteration guarantees that the
-    resulting factors are mutually uncorrelated *within that window*, which is
-    the correctness requirement for per-window ridge OLS.
-
-    Returns (orthogonalized, dropped_factor_labels). A factor whose residual
-    is ~zero (exactly collinear with earlier factors in this window) is
-    EXCLUDED from the design matrix and reported in dropped_factor_labels —
-    its coefficient is null for this window, and later factors are
-    orthogonalized against the surviving set only (US-27.6; the previous
-    behaviour kept the raw series, letting the ridge split the loading
-    arbitrarily between the collinear pair).
-    """
-    orthogonalized: list[tuple[str, str, list[float]]] = []
-    dropped_factor_labels: list[str] = []
-    for factor, proxy, values in raw_factors:
-        if not orthogonalized:
-            orthogonalized.append((factor, proxy, values))
-            continue
-        design_matrix = [[1.0] + [prior_values[i] for _, _, prior_values in orthogonalized] for i in range(len(values))]
-        # Exact projection (λ=0), matching the methodology's Gram-Schmidt step —
-        # F*_k = f_k − Σ proj(f_k onto F*_j). Ridge belongs only to the final OLS
-        # (§Per-window orthogonalization step 3); a ridged projection leaves an
-        # exact duplicate with a ~λ/S residual, which silently defeated the
-        # collinearity drop below (US-27.6). The earlier factors are already
-        # mutually orthogonal, so the projection solve is well-conditioned;
-        # _solve_linear_system skips genuinely zero pivots.
-        proj_coefficients = _least_squares(design_matrix, values, ridge_lambda=0.0)
-        fitted = [_dot(row, proj_coefficients) for row in design_matrix]
-        residualized = [actual - expected for actual, expected in zip(values, fitted, strict=False)]
-        if not any(abs(v) > ORTHOGONALIZATION_ZERO_RESIDUAL_THRESHOLD for v in residualized):
-            dropped_factor_labels.append(factor)
-            continue
-        orthogonalized.append((factor, proxy, residualized))
-    return orthogonalized, dropped_factor_labels
-
-
-def _fit_factor_model(y: list[float], orthogonalized_factors: list[tuple[str, str, list[float]]], ridge_lambda: float = 1e-5) -> tuple[list[float], list[float], float | None]:
-    x = [[1.0] + [values[index] for _, _, values in orthogonalized_factors] for index in range(len(y))]
-    coefficients = _least_squares(x, y, ridge_lambda=ridge_lambda)
-    fitted = [_dot(row, coefficients) for row in x]
-    residuals = [actual - expected for actual, expected in zip(y, fitted, strict=False)]
-    mean_y = sum(y) / len(y)
-    ss_total = sum((value - mean_y) ** 2 for value in y)
-    ss_resid = sum(residual**2 for residual in residuals)
-    r_squared = None if ss_total == 0 else max(0.0, 1 - (ss_resid / ss_total))
-    return coefficients, residuals, r_squared
-
-
 def _build_rolling_factor_loadings(dates: list[str], y: list[float], raw_factors: list[tuple[str, str, list[float]]], window: int = 20) -> list[RollingFactorLoadingPoint]:
     """Build rolling OLS factor loadings with per-window orthogonalization.
 
@@ -1778,8 +1654,8 @@ def _build_rolling_factor_loadings(dates: list[str], y: list[float], raw_factors
         # coefficient is a clean partial loading after controlling for higher-priority
         # factors. Factors dropped as exactly collinear (US-27.6) are simply absent
         # from the design matrix — their loading stays None for this date.
-        orthogonalized_window, _dropped = _orthogonalize_factors_window(raw_window)
-        coefficients, residuals, r_squared = _fit_factor_model(y_window, orthogonalized_window, ridge_lambda=ridge_floor)
+        orthogonalized_window, _dropped = orthogonalize_factors_window(raw_window)
+        coefficients, residuals, r_squared = fit_factor_model(y_window, orthogonalized_window, ridge_lambda=ridge_floor)
         # Fail-closed on degenerate windows (US-21.3): a singular/zero-variance
         # window can make the OLS solve return non-finite values; NaN passes
         # `is not None` checks and round(), and breaks JSON serialization
@@ -1991,7 +1867,7 @@ def _build_factor_risk_contributions(
     latest_loadings = _latest_valid_60d_loadings(model)
     eligible_definitions = [definition for definition in factor_registry if latest_loadings.get(definition.key) is not None]
     factor_returns = {
-        definition.key: _selected_history_return_series(factor_histories.get(definition.us_proxy, []))
+        definition.key: selected_history_return_series(factor_histories.get(definition.us_proxy, []))
         for definition in eligible_definitions
     }
     common_dates = sorted(set.intersection(*[set(values.keys()) for values in factor_returns.values() if values])) if any(factor_returns.values()) else []
@@ -2040,7 +1916,7 @@ def _build_position_risk_contributions(
     base_values, _ = position_base_market_values(snapshot)
     total_market_value = sum(base_values)
     position_returns = {
-        position.symbol: _selected_history_return_series(price_histories.get(position.symbol, []))
+        position.symbol: selected_history_return_series(price_histories.get(position.symbol, []))
         for position in snapshot.positions
     }
     common_dates = sorted(set.intersection(*[set(values.keys()) for values in position_returns.values() if values])) if any(position_returns.values()) else []
@@ -2206,42 +2082,6 @@ def _model_reliability_confidence(status: str, r_squared: float | None, collinea
     if r_squared is not None and r_squared >= 0.4:
         return "medium"
     return "low"
-
-
-def _least_squares(x: list[list[float]], y: list[float], ridge_lambda: float = 0.0) -> list[float]:
-    xt: list[list[float]] = [[float(x[row_index][column_index]) for row_index in range(len(x))] for column_index in range(len(x[0]))]
-    xtx: list[list[float]] = [
-        [float(sum(left * right for left, right in zip(row, col, strict=False))) for col in xt]
-        for row in xt
-    ]
-    for index in range(1, len(xtx)):
-        xtx[index][index] += ridge_lambda
-    xty: list[float] = [float(sum(left * right for left, right in zip(row, y, strict=False))) for row in xt]
-    return _solve_linear_system(xtx, xty)
-
-
-def _solve_linear_system(matrix: list[list[float]], vector: list[float]) -> list[float]:
-    size = len(vector)
-    augmented = [row[:] + [vector[index]] for index, row in enumerate(matrix)]
-
-    for col in range(size):
-        pivot = max(range(col, size), key=lambda row: abs(augmented[row][col]))
-        if abs(augmented[pivot][col]) < 1e-12:
-            continue
-        augmented[col], augmented[pivot] = augmented[pivot], augmented[col]
-        divisor = augmented[col][col]
-        augmented[col] = [value / divisor for value in augmented[col]]
-        for row in range(size):
-            if row == col:
-                continue
-            factor = augmented[row][col]
-            augmented[row] = [value - (factor * pivot_value) for value, pivot_value in zip(augmented[row], augmented[col], strict=False)]
-
-    return [augmented[row][-1] for row in range(size)]
-
-
-def _dot(left: list[float], right: list[float]) -> float:
-    return sum(l * r for l, r in zip(left, right, strict=False))
 
 
 def _series_to_returns(series: list[tuple[str, float]]) -> dict[str, float]:

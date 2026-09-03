@@ -15,6 +15,18 @@ ReturnBasisConstructionMethod = Literal[
     "unknown",
 ]
 
+# Return-series basis selected by provenance (US-30.5c / PRD F-10; third basis
+# added by US-24.9).
+# "portfolio_value": cash-flow-neutral TWR on total_portfolio_value — trade-safe
+#   but cash-INCLUSIVE, so it stays the investor-performance basis.
+# "market_value": plain market-value chain on total_market_value — excludes the
+#   flat synthetic cash balance, used ONLY on synthetic series (no trades).
+# "market_value_trade_neutral": market-value chain with the day's trade leg
+#   removed — cash-excluded AND trade-safe, so the imported ledger-replay path's
+#   RISK statistics can drop their cash sleeve without reading a BUY as a gain.
+# See methodology §Rolling Pearson Correlation / §Indexed Return Series.
+ReturnBasis = Literal["portfolio_value", "market_value", "market_value_trade_neutral"]
+
 
 class ReturnBasisEvidence(BaseModel):
     verification_status: ReturnBasisVerificationStatus

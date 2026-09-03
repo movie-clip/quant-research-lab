@@ -1115,8 +1115,13 @@ Orthogonalized rolling ridge factor model using US ETF proxies for market, style
 ```
 
 Implementation:
-- `services/quant-engine/app/analytics/risk.py`
-- `factor_model_methodology()`
+- `services/quant-engine/app/analytics/factor_model.py` — the factor-model
+  internals: `FactorDefinition`, `DEFAULT_FACTOR_DEFINITIONS`, `FACTOR_PROXY_MAP`,
+  `FACTOR_KEY_MAP`, `ROLLING_RIDGE_FLOOR`, the per-window orthogonalisation
+  (`orthogonalize_factors_window`) and the ridge-OLS fit (`fit_factor_model`).
+  Extracted from `risk.py` in US-43.2; `risk.py` imports these names back.
+- `services/quant-engine/app/analytics/risk.py` — the `build_*` response-shaping
+  entry points and `factor_model_methodology()`
 
 Named policy constants (US-24.2): the model/classification thresholds live as
 named constants at the top of `risk.py` rather than inline literals —

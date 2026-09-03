@@ -75,6 +75,7 @@ trust-state logic:
 |---|---|
 | `services/quant-engine/app/analytics/performance.py` | TWR, Modified Dietz money-weighted return, daily portfolio states, enriched positions |
 | `services/quant-engine/app/analytics/risk.py` | Volatility, drawdown, rolling factor model, rolling risk series, risk contribution + concentration, relative risk — **and** sector / look-through composition. Much larger than its name suggests; grep it before adding a module |
+| `services/quant-engine/app/analytics/factor_model.py` | Statistical factor-model internals extracted from `risk.py` (US-43.2): factor-definition vocabulary (`FactorDefinition`, `DEFAULT_FACTOR_DEFINITIONS`, proxy/key maps), per-window Gram-Schmidt orthogonalisation and ridge-OLS fit, and their linear-algebra primitives. Leaf module — `risk.py` imports these names back |
 | `services/quant-engine/app/analytics/correlation.py` | Pearson ρ, beta, R², pairwise matrix, diversification ratio, effective number of bets |
 | `services/quant-engine/app/analytics/attribution.py` | Factor return attribution (per-factor contribution + residual) |
 | `services/quant-engine/app/analytics/drawdown.py` | Underwater curve, drawdown episodes, per-position contributors (Risk tab) |

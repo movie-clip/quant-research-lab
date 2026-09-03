@@ -15,8 +15,8 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from app.core.constants import DEFAULT_BENCHMARK_SYMBOL, lookback_calendar_days
+from app.analytics.factor_model import FACTOR_PROXY_MAP
 from app.analytics.risk import (
-    FACTOR_PROXY_MAP,
     STRESS_SCENARIOS,
     build_statistical_factor_model,
     build_stress_scenarios,

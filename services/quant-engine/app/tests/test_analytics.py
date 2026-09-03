@@ -12,7 +12,8 @@ from app.analytics.portfolio_imports import (
     build_reconciliation_summary,
     build_true_performance_series,
 )
-from app.analytics.risk import DEFAULT_FACTOR_DEFINITIONS, build_etf_overlap_pairs, build_factor_exposures, build_factor_registry, build_factor_shift_diagnostics, build_lookthrough_exposure, build_lookthrough_sector_exposure, build_market_overlap_summary, build_model_reliability_snapshot, build_portfolio_risk_summary, build_relative_risk_summary, build_risk_contribution_breakdown, build_rolling_risk_series, build_statistical_factor_model, build_stress_scenarios, build_volatility_regime_payload, is_history_series_verified_adjusted, select_history_price_series, selected_history_price_map
+from app.analytics.factor_model import DEFAULT_FACTOR_DEFINITIONS
+from app.analytics.risk import build_etf_overlap_pairs, build_factor_exposures, build_factor_registry, build_factor_shift_diagnostics, build_lookthrough_exposure, build_lookthrough_sector_exposure, build_market_overlap_summary, build_model_reliability_snapshot, build_portfolio_risk_summary, build_relative_risk_summary, build_risk_contribution_breakdown, build_rolling_risk_series, build_statistical_factor_model, build_stress_scenarios, build_volatility_regime_payload, is_history_series_verified_adjusted, select_history_price_series, selected_history_price_map
 from app.analytics.risk import apply_return_basis_status_to_factor_model, apply_return_basis_status_to_model_reliability
 from app.analytics.risk import _apply_mapping_hard_caps, _build_factor_risk_contributions, _build_shared_sector_overlap, _classify_volatility_regime, _compute_covariance_matrix, _fund_category_proxy_sector, _mapping_match_label
 from app.analytics.risk import _portfolio_time_weighted_return_series
@@ -7911,7 +7912,7 @@ def test_rolling_factor_loadings_never_emit_nonfinite_values(monkeypatch) -> Non
     x = [0.01 * ((index % 7) - 3) for index in range(25)]
     y = [0.5 + 1.2 * value for value in x]
 
-    real_fit = risk_module._fit_factor_model
+    real_fit = risk_module.fit_factor_model
     calls = {"n": 0}
 
     def nan_first_fit(y_window, orth_window, ridge_lambda=1e-5):
@@ -7921,7 +7922,7 @@ def test_rolling_factor_loadings_never_emit_nonfinite_values(monkeypatch) -> Non
             return [float("nan")] * len(coeffs), [float("nan")] * len(residuals), float("nan")
         return coeffs, residuals, r2
 
-    monkeypatch.setattr(risk_module, "_fit_factor_model", nan_first_fit)
+    monkeypatch.setattr(risk_module, "fit_factor_model", nan_first_fit)
 
     points = risk_module._build_rolling_factor_loadings(dates, y, [("Market", "MKT", x)], window=20)
 
@@ -7989,12 +7990,48 @@ def test_orthogonalize_factors_window_reports_dropped_duplicate() -> None:
     """US-27.6 - the window orthogonalizer itself: the duplicate is excluded
     from the returned design matrix and named in dropped_factor_labels."""
     values = [0.01, -0.01, 0.02, -0.005, 0.01]
-    orthogonalized, dropped = risk_module._orthogonalize_factors_window(
+    orthogonalized, dropped = risk_module.orthogonalize_factors_window(
         [("Market", "SPY", values), ("Growth", "QQQ", list(values))]
     )
 
     assert dropped == ["Growth"]
     assert [label for label, _, _ in orthogonalized] == ["Market"]
+
+
+def test_return_basis_literal_lives_in_schemas_and_is_shared_by_reference() -> None:
+    """US-43.2 AC2 — the execution-basis `ReturnBasis` Literal now lives in
+    `app.schemas.return_basis`; every consumer binds the identical object, so the
+    three permitted members cannot drift per-module."""
+    import typing
+
+    from app.schemas.return_basis import ReturnBasis
+
+    assert typing.get_args(ReturnBasis) == (
+        "portfolio_value",
+        "market_value",
+        "market_value_trade_neutral",
+    )
+
+    import app.analytics.attribution as attribution_module
+    import app.analytics.risk as risk_mod
+    import app.services.diagnostics_engine as diagnostics_engine_module
+
+    assert risk_mod.ReturnBasis is ReturnBasis
+    assert attribution_module.ReturnBasis is ReturnBasis
+    assert diagnostics_engine_module.ReturnBasis is ReturnBasis
+
+
+def test_factor_model_fit_symbols_are_shared_by_reference_across_the_seam() -> None:
+    """US-43.2 AC5 — `fit_factor_model` / `orthogonalize_factors_window` were
+    relocated to `app.analytics.factor_model`; `risk` and `attribution` re-import
+    the identical objects, so a `monkeypatch.setattr` on the consumer module's
+    binding still lands on the function the engine actually calls."""
+    import app.analytics.attribution as attribution_module
+    import app.analytics.factor_model as factor_model
+
+    assert risk_module.fit_factor_model is factor_model.fit_factor_model
+    assert risk_module.orthogonalize_factors_window is factor_model.orthogonalize_factors_window
+    assert attribution_module.fit_factor_model is factor_model.fit_factor_model
 
 
 # ── US-30.5c: provenance-selected return basis (PRD F-10) ─────────────────────

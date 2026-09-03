@@ -1,6 +1,6 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: **2026-08-28**.*
+*Living execution snapshot. Updated: **2026-09-02**.*
 
 **Epic 43 — Engine Seam Consolidation** (opened 2026-09-02), **Epic 41 —
 Documentation & Roadmap Accuracy Reconciliation** and **Epic 42 —
@@ -99,7 +99,7 @@ sections immediately below.
 (Status: Active)
 
 **Active. Opened 2026-09-02. 4 stories authored (US-43.1–US-43.4); US-43.1
-Done 2026-09-02, US-43.2–US-43.4 Backlog.**
+and US-43.2 Done 2026-09-02, US-43.3–US-43.4 Backlog.**
 
 Seeded by the 2026-09-02 `/improve-codebase-architecture` review, which found
 four shallow seams in the quant-engine hot spots and recorded them as rows
@@ -116,7 +116,12 @@ byte-identical:
 - **US-43.2** — the statistical factor model's internals leak out of
   `analytics/risk.py` (`attribution.py` imports `_fit_factor_model` et al.). →
   new `analytics/factor_model.py`; `ReturnBasis` literal → `schemas/return_basis.py`.
-  Leak-first only; no full `risk.py` split.
+  Leak-first only; no full `risk.py` split. **Shipped 2026-09-02** — leaf module
+  `analytics/factor_model.py` with the factor definitions, proxy/key maps, ridge
+  floor, per-window orthogonalisation and ridge-OLS fit; `risk.py` imports them
+  back and keeps `build_statistical_factor_model`; four consumers rewired; the
+  linalg trio moved private; `selected_history_return_series` stayed in `risk.py`
+  (renamed public, import-cycle avoidance); goldens byte-identical.
 - **US-43.3** — the trust ladder (guardrail #3) is parallel private helpers in
   the two largest engines. → new `services/trust_gate.py`. Relocation, not
   unification: the two `SectionTrust` builders stay two functions; only the
@@ -137,7 +142,7 @@ quant-research pass, not relocations.
 | Story | Title | Status |
 |---|---|---|
 | [US-43.1](../stories/US-43.1-extract-synthetic-history-construction.md) | Extract synthetic-history construction into its own module | Done |
-| [US-43.2](../stories/US-43.2-extract-factor-model-internals.md) | Extract the factor-model internals out of `risk.py` | Backlog |
+| [US-43.2](../stories/US-43.2-extract-factor-model-internals.md) | Extract the factor-model internals out of `risk.py` | Done |
 | [US-43.3](../stories/US-43.3-relocate-the-trust-gate.md) | Relocate the trust gate into its own module | Backlog |
 | [US-43.4](../stories/US-43.4-collapse-import-engine-composer.md) | Collapse `import_engine_composer` into `import_engine` | Backlog |
 
@@ -149,6 +154,7 @@ shippable; highest-leverage first, pass-through collapse last).
 | Date | Story | What shipped |
 |---|---|---|
 | 2026-09-02 | US-43.1 | Behaviour-neutral relocation of the two synthetic-history builders out of `services/diagnostics_engine.py` into a new leaf module `services/synthetic_history.py` (`build_synthetic_snapshot_history_states` + `build_synthetic_snapshot_history_states_with_coverage`, public names, bodies moved verbatim — only the two `def` names and the thin wrapper's internal self-call lost the leading underscore). All six consumers rewired to import from the new module (diagnostics takes the thin wrapper; attribution, correlation, distribution, drawdown, stress take the coverage variant); four now-dead imports cleaned from `diagnostics_engine.py`. `test_synthetic_history_coverage.py` retargeted + one new AC2 pin test asserting object identity across the five engines; `test_correlation_engine.py` monkeypatch string retargeted to the public name on the consuming module. No schema, route, `analytics/`, or `apps/desktop/src/**` change; `dashboardGoldens.ts` diff empty; backend goldens byte-identical. Tests: backend 980 passed, frontend 359 passed, `tsc --noEmit` and dead-code gate clean (one new AC2 pin test added; the 11 pre-existing coverage-matrix cases edited by name only). Integration (`05-integration.md`) and acceptance (`06-review.md`) gates both PASS; AC1–AC5 SATISFIED. Independent quant-audit not required per the tech-lead verbatim-move ruling (`02-technical-plan.md` § 7) — the integration gate char-diffed the moved bodies against `git show HEAD` and found only the three permitted renames. |
+| 2026-09-02 | US-43.2 | Behaviour-neutral relocation of the statistical-factor-model internals out of `analytics/risk.py` into a new leaf module `analytics/factor_model.py` (`UcitsCandidateMapping`, `FactorDefinition`, `DEFAULT_FACTOR_DEFINITIONS`, `FACTOR_PROXY_MAP`, `FACTOR_KEY_MAP`, `ROLLING_RIDGE_FLOOR`, `ORTHOGONALIZATION_ZERO_RESIDUAL_THRESHOLD`, and the per-window orthogonalisation + ridge-OLS fit — bodies moved verbatim, only `_fit_factor_model` / `_orthogonalize_factors_window` lost the leading underscore). `risk.py` imports the names back and keeps `build_statistical_factor_model`; the four cross-seam consumers (`attribution.py`, `attribution_engine.py`, `stress_engine.py`, `diagnostics_engine.py`) rewired to `analytics.factor_model`. `ReturnBasis` execution-basis `Literal` moved to `schemas/return_basis.py` beside the existing `ReturnBasis*` family (param annotation, not a serialized field — no `types.ts` / contract-doc mirror; `dashboardGoldens.ts` untouched). **AC1 amended** (human-approved at plan time): `selected_history_return_series` + `_series_to_returns` stayed in `risk.py`, renamed public, to avoid a `risk.py` ↔ `factor_model.py` import cycle via `select_history_price_series`; `UcitsCandidateMapping` added to the move. **AC3:** the `_least_squares` / `_solve_linear_system` / `_dot` trio moved into `factor_model.py`, kept private, not re-imported by `risk.py` (no non-factor caller). `test_analytics.py` + `test_attribution.py` monkeypatch targets retargeted; 2 new pin tests (AC2 shared-`ReturnBasis` identity, AC5 fit-symbol seam identity). Backend goldens byte-identical; quant RESEARCH skipped by human-approved ruling (`02-technical-plan.md` § RESEARCH ruling), quant-audit char-diff PASS (anchor = pre-move git blob), integration and acceptance gates PASS. Tests: backend 982 passed (was 980 at US-43.1 close; +2 new pin tests), frontend 359 passed, `tsc --noEmit` and dead-code strict gate clean. |
 
 ---
 

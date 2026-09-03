@@ -1,12 +1,11 @@
 from typing import Literal
 
 from app.core.constants import DEFAULT_BENCHMARK_SYMBOL
+from app.analytics.factor_model import FACTOR_PROXY_MAP
 from app.analytics.risk import (
     COLLINEARITY_WARNING_THRESHOLD,
-    FACTOR_PROXY_MAP,
     RISK_CONTRIBUTION_WINDOW_DAYS,
     ROLLING_WINDOWS,
-    ReturnBasis,
     WINDOW_MIN_OBSERVATIONS,
     apply_return_basis_status_to_factor_model,
     apply_return_basis_status_to_model_reliability,
@@ -37,7 +36,7 @@ from app.schemas.diagnostics import (
     DiagnosticsRiskConcentrationSummary,
     DiagnosticsVolatilitySummary,
 )
-from app.schemas.return_basis import ReturnBasisEvidence
+from app.schemas.return_basis import ReturnBasis, ReturnBasisEvidence
 from app.schemas.dashboard_history import InvestorEconomicsStatus, build_investor_economics_status
 from app.schemas.reconciliation import (
     LookThroughSectorExposure,
