@@ -11,8 +11,6 @@ from app.analytics.risk import (
 from app.schemas.imports import ImportedPortfolioSnapshot
 from app.schemas.dashboard_history import (
     DashboardHistoryEngineRequest,
-    DashboardHistoryInvestorEconomicsPartialUnlock,
-    DashboardHistoryInvestorEconomicsScalarPolicy,
     DashboardHistoryResult,
     DashboardHistoryRunMetadata,
     ReplayCashAnchor,
@@ -22,7 +20,7 @@ from app.schemas.dashboard_history import (
     DashboardMonthlyReturn,
     DashboardRangeMetrics,
 )
-from app.schemas.dashboard_history import InvestorEconomicsStatus, build_investor_economics_status
+from app.schemas.dashboard_history import build_investor_economics_status
 from app.schemas.reconciliation import PerformanceSummary
 from app.services.benchmark_service import build_benchmark_comparison
 from app.services.market_data import (
@@ -30,18 +28,25 @@ from app.services.market_data import (
     VERIFIED_BENCHMARK_ENDPOINT,
     VERIFIED_BENCHMARK_SYMBOL_ALLOWLIST,
     VERIFIED_BENCHMARK_VENDOR,
-    build_histories_return_basis_evidence,
-    build_history_return_basis_evidence,
-    classify_history_return_basis_contract,
     detect_history_return_basis,
 )
 from app.services.portfolio_proof import build_portfolio_proof_metadata, build_unavailable_portfolio_proof_metadata
+from app.services.trust_gate import (
+    allow_dashboard_drawdown_outputs,
+    build_dashboard_investor_economics_partial_unlock,
+    build_dashboard_investor_economics_status,
+    build_dashboard_return_basis_contract,
+    build_dashboard_return_basis_evidence,
+    build_dashboard_section_trust,
+    classify_portfolio_return_basis,
+    has_any_symbol_price_history,
+    has_replay_outputs,
+)
 
 
 DASHBOARD_HISTORY_ID = "dashboard_history_engine_v1"
 DASHBOARD_HISTORY_METHODOLOGY_ID = "dashboard_history_methodology_v1"
 DASHBOARD_HISTORY_DATASET_VERSION = "market_data_service_v1"
-DASHBOARD_EXACT_SLICE_EXCESS_RETURN_RUNTIME_ENABLED = True
 
 
 def _coerce_float(value: object) -> float | None:
@@ -130,92 +135,6 @@ def _build_dashboard_benchmark_history_status(benchmark_rows: list[dict]) -> str
     return "unavailable"
 
 
-def _build_dashboard_section_trust(
-    *,
-    benchmark_rows: list[dict],
-    daily_states: list,
-    monthly_returns_suppressed: bool,
-) -> DashboardHistoryRunMetadata.SectionTrust:
-    benchmark_basis = detect_history_return_basis(benchmark_rows)
-    benchmark_path = (
-        "verified_adjusted_close"
-        if benchmark_basis == "verified_adjusted_close"
-        else "degraded_unverified_return_basis"
-        if benchmark_basis == "unverified_close_only"
-        else "unavailable"
-    )
-    portfolio_path = "imported_replay" if daily_states else "unavailable"
-    monthly_returns_path = (
-        "suppressed_unstable_path"
-        if monthly_returns_suppressed
-        else "imported_replay"
-        if daily_states
-        else "unavailable"
-    )
-    return DashboardHistoryRunMetadata.SectionTrust(
-        portfolio_path=portfolio_path,
-        benchmark_path=benchmark_path,
-        monthly_returns_path=monthly_returns_path,
-    )
-
-
-def _classify_portfolio_return_basis(
-    *,
-    daily_states: list,
-    admitted_exact_slice: bool,
-) -> str:
-    """US-34.2 (Epic 34 F-1): the portfolio return basis, as a function of the run.
-
-    This was a hardcoded `"unavailable"` literal, which no input could change —
-    and because `build_true_performance_series` only chains a return on a
-    publishing basis, that literal suppressed the ENTIRE cumulative series and
-    every headline scalar on the Dashboard, on every run.
-
-    The ladder, strongest first:
-      - `verified_total_return` — the proof admission granted an exact slice.
-        Unreachable on the imported path today, and deliberately so: five of its
-        hard disqualifiers are structural properties of replaying a statement.
-      - `replay_derived`        — the replay produced daily states. A real
-        measurement on reconstructed inputs.
-      - `unavailable`           — no states, so no claimable return.
-    """
-    if admitted_exact_slice:
-        return "verified_total_return"
-    return "replay_derived" if daily_states else "unavailable"
-
-
-def _build_dashboard_return_basis_contract(
-    benchmark_rows: list[dict],
-    *,
-    portfolio_path: str = "unavailable",
-) -> DashboardHistoryRunMetadata.ReturnBasisContract:
-    benchmark_contract = classify_history_return_basis_contract(benchmark_rows)
-    return DashboardHistoryRunMetadata.ReturnBasisContract(
-        portfolio_path=portfolio_path,
-        benchmark_path=benchmark_contract,
-    )
-
-
-def _build_dashboard_return_basis_evidence(
-    *,
-    benchmark_rows: list[dict],
-    symbol_price_histories: dict[str, list[dict]] | None = None,
-    verified_benchmark_scope: dict[str, str | bool | int | None] | None = None,
-) -> DashboardHistoryRunMetadata.ReturnBasisEvidenceBundle:
-    portfolio_evidence = (
-        build_histories_return_basis_evidence(symbol_price_histories or {})
-        if symbol_price_histories
-        else build_history_return_basis_evidence([])
-    )
-    return DashboardHistoryRunMetadata.ReturnBasisEvidenceBundle(
-        portfolio_path=portfolio_evidence,
-        benchmark_path=build_history_return_basis_evidence(
-            benchmark_rows,
-            verified_total_return_scope=verified_benchmark_scope,
-        ),
-    )
-
-
 def _build_dashboard_portfolio_proof_metadata(
     *,
     snapshot: ImportedPortfolioSnapshot,
@@ -231,84 +150,6 @@ def _build_dashboard_portfolio_proof_metadata(
         valuation_dates=valuation_dates,
         fx_history={},
         history_source="imported_replay",
-    )
-
-
-def _allow_dashboard_drawdown_outputs(
-    *,
-    benchmark_rows: list[dict],
-    symbol_price_histories: dict[str, list[dict]],
-) -> bool:
-    # Dashboard investor-economics policy stays narrower than the underlying proof
-    # system: `drawdown_family` is one of
-    # `investor_economics_partial_unlock.withheld_families`, so this output stays
-    # withheld until that policy is decided. Reopening it is blocked on Epic 34
-    # F-10, the same decision that parked US-34.5 — it would move 22 pinned
-    # `max_drawdown_pct is None` assertions and two named policy tests.
-    #
-    # US-34.7 CORRECTED the justification that used to sit here. US-34.2 claimed
-    # the gate was really about whether the price inputs are adjusted, because a
-    # drawdown from unadjusted closes "overstates the loss on dividend-paying
-    # holdings". That is false on THIS path: `_compute_max_drawdown` chains the
-    # `portfolio_value` basis over the imported replay, where dividends arrive as
-    # LEDGER CASH ($125.72 gross / $107.79 net over the IB2026 window, verified
-    # in the daily states), so the ex-date price drop is offset by the receipt
-    # and the chain is already total-return-like.
-    #
-    # The exposure is real on the SYNTHETIC path (Risk tab), which applies a flat
-    # cash balance and no ledger — see `financial-methodology.md` §Wealth Index
-    # and Drawdown. The two parameters below are retained because that is the
-    # question a future gate would ask; they are not read today.
-    return False
-
-
-def _build_dashboard_investor_economics_status() -> InvestorEconomicsStatus:
-    return build_investor_economics_status(
-        available=False,
-    )
-
-
-def _build_dashboard_investor_economics_partial_unlock() -> DashboardHistoryInvestorEconomicsPartialUnlock:
-    return DashboardHistoryInvestorEconomicsPartialUnlock(
-        mode="allowlisted_exact_slice_scalars_only",
-        exact_slice_scalar_allowlist=[
-            DashboardHistoryInvestorEconomicsScalarPolicy(
-                field="range_metrics[*].summary.time_weighted_return_pct",
-                unlock_condition="identical_admitted_exact_slice_only",
-                runtime_enabled=True,
-            ),
-            DashboardHistoryInvestorEconomicsScalarPolicy(
-                field="range_metrics[*].summary.benchmark_return_pct",
-                # US-34.5 (F-10): published whenever the benchmark's own basis
-                # supports a return, labelled with that basis. It no longer
-                # depends on the PORTFOLIO's exact-slice admission — the two
-                # legs are measured from different data and one leg's proof
-                # status was never evidence about the other's.
-                unlock_condition="publishing_benchmark_return_basis_only",
-                runtime_enabled=True,
-            ),
-            DashboardHistoryInvestorEconomicsScalarPolicy(
-                field="range_metrics[*].summary.excess_return_pct",
-                # US-34.5: strictly the difference of the two published legs.
-                # A missing leg yields no excess — never a figure computed
-                # against a null silently read as zero.
-                unlock_condition="both_published_legs_present_only",
-                runtime_enabled=DASHBOARD_EXACT_SLICE_EXCESS_RETURN_RUNTIME_ENABLED,
-            ),
-        ],
-        # US-34.5 (F-10): the benchmark scalars are published with their basis;
-        # the daily benchmark chain stays withheld.
-        client_derivation_rule="labelled_scalars_published_daily_series_withheld",
-        withheld_families=[
-            "benchmark_relative_series",
-            "benchmark_relative_path_derived_outputs",
-            "drawdown_family",
-            "rebucketed_window_summaries",
-            "rewindowed_range_summaries",
-            "diagnostics_benchmark_relative_outputs",
-            "replay_benchmark_relative_outputs",
-            "strategy_lab_benchmark_relative_outputs",
-        ],
     )
 
 
@@ -460,7 +301,7 @@ def run_imported_dashboard_history(
         history_end_date,
     )
 
-    if not benchmark_rows or not _has_any_symbol_price_history(symbol_price_histories):
+    if not benchmark_rows or not has_any_symbol_price_history(symbol_price_histories):
         return _build_unavailable_dashboard_history_result(
             input_imported_at=snapshot.statement.imported_at.isoformat() if snapshot.statement.imported_at is not None else None,
             snapshot_as_of_date=_derive_snapshot_as_of_date(snapshot),
@@ -524,9 +365,9 @@ def run_imported_dashboard_history(
     admitted_portfolio_twr_scope = _admitted_exact_slice_scope(portfolio_proof)
     # US-34.2: the proof is built FIRST so the basis can be classified from it.
     # Previously the contract was constructed with a literal and then patched.
-    return_basis_contract = _build_dashboard_return_basis_contract(
+    return_basis_contract = build_dashboard_return_basis_contract(
         benchmark_rows,
-        portfolio_path=_classify_portfolio_return_basis(
+        portfolio_path=classify_portfolio_return_basis(
             daily_states=daily_states,
             admitted_exact_slice=admitted_portfolio_twr_scope is not None,
         ),
@@ -542,7 +383,7 @@ def run_imported_dashboard_history(
         portfolio_return_basis_contract=return_basis_contract.portfolio_path,
         benchmark_return_basis_contract=return_basis_contract.benchmark_path,
     )
-    if not _has_replay_outputs(daily_states, raw_performance_series):
+    if not has_replay_outputs(daily_states, raw_performance_series):
         return _build_unavailable_dashboard_history_result(
             input_imported_at=snapshot.statement.imported_at.isoformat() if snapshot.statement.imported_at is not None else None,
             snapshot_as_of_date=_derive_snapshot_as_of_date(snapshot),
@@ -553,7 +394,7 @@ def run_imported_dashboard_history(
     performance_series = _withhold_benchmark_return_series(raw_performance_series)
     benchmark_history_status = _build_dashboard_benchmark_history_status(benchmark_rows)
     monthly_returns_suppressed = any(state.total_portfolio_value < 0 for state in daily_states)
-    allow_drawdown_outputs = _allow_dashboard_drawdown_outputs(
+    allow_drawdown_outputs = allow_dashboard_drawdown_outputs(
         benchmark_rows=benchmark_rows,
         symbol_price_histories=symbol_price_histories,
     )
@@ -573,20 +414,20 @@ def run_imported_dashboard_history(
                 monthly_returns="suppressed" if monthly_returns_suppressed else "live",
                 benchmark_history=benchmark_history_status,
             ),
-            section_trust=_build_dashboard_section_trust(
+            section_trust=build_dashboard_section_trust(
                 benchmark_rows=benchmark_rows,
                 daily_states=daily_states,
                 monthly_returns_suppressed=monthly_returns_suppressed,
             ),
             return_basis_contract=return_basis_contract,
-            return_basis_evidence=_build_dashboard_return_basis_evidence(
+            return_basis_evidence=build_dashboard_return_basis_evidence(
                 benchmark_rows=benchmark_rows,
                 symbol_price_histories=symbol_price_histories,
                 verified_benchmark_scope=verified_benchmark_scope,
             ),
             portfolio_proof=portfolio_proof,
-            investor_economics_status=_build_dashboard_investor_economics_status(),
-            investor_economics_partial_unlock=_build_dashboard_investor_economics_partial_unlock(),
+            investor_economics_status=build_dashboard_investor_economics_status(),
+            investor_economics_partial_unlock=build_dashboard_investor_economics_partial_unlock(),
             fx_fallback_currencies=fx_fallback_currencies,
             unpriced_replay_symbols=unpriced_replay_symbols,
             trade_price_anchored_symbols=trade_price_anchored_symbols,
@@ -681,10 +522,10 @@ def _build_unavailable_dashboard_history_result(
                 portfolio_path="unavailable",
                 benchmark_path="unavailable",
             ),
-            return_basis_evidence=_build_dashboard_return_basis_evidence(benchmark_rows=[]),
+            return_basis_evidence=build_dashboard_return_basis_evidence(benchmark_rows=[]),
             portfolio_proof=build_unavailable_portfolio_proof_metadata(),
             investor_economics_status=build_investor_economics_status(available=False),
-            investor_economics_partial_unlock=_build_dashboard_investor_economics_partial_unlock(),
+            investor_economics_partial_unlock=build_dashboard_investor_economics_partial_unlock(),
             reproducibility=DashboardHistoryRunReproducibility(
                 input_imported_at=input_imported_at,
                 snapshot_as_of_date=snapshot_as_of_date,
@@ -715,14 +556,6 @@ def _derive_imported_history_window(snapshot: ImportedPortfolioSnapshot) -> tupl
 
 def _derive_snapshot_as_of_date(snapshot: ImportedPortfolioSnapshot) -> str | None:
     return max((position.as_of_date.isoformat() for position in snapshot.positions if position.as_of_date is not None), default=None)
-
-
-def _has_any_symbol_price_history(symbol_price_histories: dict[str, list[dict]]) -> bool:
-    return any(rows for rows in symbol_price_histories.values())
-
-
-def _has_replay_outputs(daily_states, performance_series) -> bool:
-    return bool(daily_states) and bool(performance_series)
 
 
 def _build_range_metrics(

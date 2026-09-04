@@ -37,7 +37,6 @@ from app.schemas.diagnostics import (
     DiagnosticsVolatilitySummary,
 )
 from app.schemas.return_basis import ReturnBasis, ReturnBasisEvidence
-from app.schemas.dashboard_history import InvestorEconomicsStatus, build_investor_economics_status
 from app.schemas.reconciliation import (
     LookThroughSectorExposure,
     MarketOverlapSummary,
@@ -56,7 +55,6 @@ from app.schemas.reconciliation import (
 )
 from app.services.synthetic_history import build_synthetic_snapshot_history_states
 from app.services.exposure_engine import build_snapshot_from_exposure_request
-from app.services.dashboard_history_engine import _build_dashboard_investor_economics_partial_unlock
 from app.services.market_data import (
     MarketDataService,
     build_histories_return_basis_evidence,
@@ -65,6 +63,15 @@ from app.services.market_data import (
     detect_history_return_basis,
 )
 from app.services.portfolio_proof import build_portfolio_proof_metadata, build_unavailable_portfolio_proof_metadata
+from app.services.trust_gate import (
+    allow_diagnostics_drawdown_outputs,
+    apply_diagnostics_drawdown_output_policy,
+    build_dashboard_investor_economics_partial_unlock,
+    build_diagnostics_drawdown_summary,
+    build_diagnostics_investor_economics_status,
+    build_diagnostics_section_trust,
+    has_any_symbol_price_history,
+)
 
 
 DIAGNOSTICS_ID = "diagnostics_engine_v1"
@@ -176,95 +183,8 @@ def _resolve_diagnostics_confidence(
     return "low"
 
 
-def _resolve_section_trust(
-    *,
-    benchmark_return_basis: Literal["verified_adjusted_close", "unverified_close_only", "unavailable"],
-    factor_return_basis: Literal["verified_adjusted_close", "unverified_close_only", "unavailable"],
-    historical_sections_available: bool,
-) -> DiagnosticsRunMetadata.SectionTrust:
-    if not historical_sections_available:
-        return DiagnosticsRunMetadata.SectionTrust(
-            benchmark_relative_path="unavailable",
-            factor_model_path="unavailable",
-            risk_contribution_path="unavailable",
-        )
-
-    benchmark_relative_path = "verified_adjusted_close" if benchmark_return_basis == "verified_adjusted_close" else "degraded_unverified_return_basis"
-    factor_model_path = (
-        "verified_adjusted_close"
-        if benchmark_return_basis == "verified_adjusted_close" and factor_return_basis == "verified_adjusted_close"
-        else "degraded_unverified_return_basis"
-    )
-    risk_contribution_path = factor_model_path
-    return DiagnosticsRunMetadata.SectionTrust(
-        benchmark_relative_path=benchmark_relative_path,
-        factor_model_path=factor_model_path,
-        risk_contribution_path=risk_contribution_path,
-    )
-
-
-def _allow_diagnostics_drawdown_outputs() -> bool:
-    return False
-
-
-def _apply_diagnostics_drawdown_output_policy(
-    volatility_regime: VolatilityRegimePayload,
-    *,
-    allow_drawdown_outputs: bool,
-) -> VolatilityRegimePayload:
-    if allow_drawdown_outputs:
-        return volatility_regime
-
-    return volatility_regime.model_copy(
-        update={
-            "rolling_series": [
-                point.model_copy(update={"drawdown_pct": None, "wealth_index": None})
-                for point in volatility_regime.rolling_series
-            ],
-            "snapshot": volatility_regime.snapshot.model_copy(
-                update={
-                    "current_drawdown_pct": None,
-                    "max_drawdown_pct": None,
-                }
-            ),
-        }
-    )
-
-
-def _build_diagnostics_drawdown_summary(
-    volatility_regime: VolatilityRegimePayload,
-    *,
-    allow_drawdown_outputs: bool,
-) -> DiagnosticsDrawdownSummary:
-    if not allow_drawdown_outputs:
-        return DiagnosticsDrawdownSummary(
-            current_drawdown_pct=None,
-            max_drawdown_pct=None,
-        )
-
-    return DiagnosticsDrawdownSummary(
-        current_drawdown_pct=volatility_regime.snapshot.current_drawdown_pct,
-        max_drawdown_pct=volatility_regime.snapshot.max_drawdown_pct,
-    )
-
-
 def _allow_diagnostics_relative_return_outputs() -> bool:
     return False
-
-
-def _build_diagnostics_investor_economics_status(
-    *,
-    historical_sections_available: bool,
-    allow_drawdown_outputs: bool,
-    allow_relative_return_outputs: bool,
-) -> InvestorEconomicsStatus:
-    if not historical_sections_available:
-        return build_investor_economics_status(available=False)
-    if allow_drawdown_outputs and allow_relative_return_outputs:
-        return build_investor_economics_status(available=True)
-    return build_investor_economics_status(
-        available=False,
-    )
 
 
 def _apply_diagnostics_relative_return_output_policy(
@@ -381,7 +301,7 @@ def build_historical_diagnostics_result(
         benchmark_return_basis=benchmark_return_basis,
         factor_return_basis=factor_return_basis,
     )
-    section_trust = _resolve_section_trust(
+    section_trust = build_diagnostics_section_trust(
         benchmark_return_basis=benchmark_return_basis,
         factor_return_basis=factor_return_basis,
         historical_sections_available=True,
@@ -415,8 +335,8 @@ def build_historical_diagnostics_result(
         benchmark_rows=benchmark_rows,
         factor_histories=factor_histories,
     )
-    allow_drawdown_outputs = _allow_diagnostics_drawdown_outputs()
-    volatility_regime = _apply_diagnostics_drawdown_output_policy(
+    allow_drawdown_outputs = allow_diagnostics_drawdown_outputs()
+    volatility_regime = apply_diagnostics_drawdown_output_policy(
         build_volatility_regime_payload(daily_states, benchmark_rows, return_basis=return_basis),
         allow_drawdown_outputs=allow_drawdown_outputs,
     )
@@ -467,12 +387,12 @@ def build_historical_diagnostics_result(
                 fx_history={},
                 history_source=portfolio_proof_history_source,
             ),
-            investor_economics_status=_build_diagnostics_investor_economics_status(
+            investor_economics_status=build_diagnostics_investor_economics_status(
                 historical_sections_available=True,
                 allow_drawdown_outputs=allow_drawdown_outputs,
                 allow_relative_return_outputs=allow_relative_return_outputs,
             ),
-            investor_economics_partial_unlock=_build_dashboard_investor_economics_partial_unlock(),
+            investor_economics_partial_unlock=build_dashboard_investor_economics_partial_unlock(),
             confidence=diagnostics_confidence,
             factor_model_parameters=_build_factor_model_parameters(),
             reproducibility=_build_reproducibility_metadata(
@@ -481,7 +401,7 @@ def build_historical_diagnostics_result(
                 history_end_date=daily_states[-1].date if daily_states else None,
             ),
         ),
-        drawdown_summary=_build_diagnostics_drawdown_summary(
+        drawdown_summary=build_diagnostics_drawdown_summary(
             volatility_regime,
             allow_drawdown_outputs=allow_drawdown_outputs,
         ),
@@ -541,7 +461,7 @@ def build_unavailable_diagnostics_result(
                 benchmark_return_basis="unavailable",
                 factor_return_basis="unavailable",
             ),
-            section_trust=_resolve_section_trust(
+            section_trust=build_diagnostics_section_trust(
                 benchmark_return_basis="unavailable",
                 factor_return_basis="unavailable",
                 historical_sections_available=False,
@@ -552,12 +472,12 @@ def build_unavailable_diagnostics_result(
                 factor_history=build_history_return_basis_evidence([]),
             ),
             portfolio_proof=build_unavailable_portfolio_proof_metadata(),
-            investor_economics_status=_build_diagnostics_investor_economics_status(
+            investor_economics_status=build_diagnostics_investor_economics_status(
                 historical_sections_available=False,
                 allow_drawdown_outputs=False,
                 allow_relative_return_outputs=False,
             ),
-            investor_economics_partial_unlock=_build_dashboard_investor_economics_partial_unlock(),
+            investor_economics_partial_unlock=build_dashboard_investor_economics_partial_unlock(),
             confidence="low",
             factor_model_parameters=_build_factor_model_parameters(),
             reproducibility=_build_reproducibility_metadata(snapshot, history_start_date=None, history_end_date=None),
@@ -691,7 +611,7 @@ def _run_diagnostics_with_history(
         history_end_date,
     )
     factor_histories[benchmark_symbol] = benchmark_rows
-    if not benchmark_rows or not _has_any_symbol_price_history(symbol_price_histories):
+    if not benchmark_rows or not has_any_symbol_price_history(symbol_price_histories):
         return build_unavailable_diagnostics_result(
             snapshot,
             benchmark_symbol,
@@ -778,7 +698,3 @@ def run_imported_diagnostics_engine(snapshot: ImportedPortfolioSnapshot, benchma
         historical_basis="imported_portfolio_history",
         provenance_note=_build_history_available_provenance_note("imported_portfolio_history"),
     )
-
-
-def _has_any_symbol_price_history(symbol_price_histories: dict[str, list[dict]]) -> bool:
-    return any(rows for rows in symbol_price_histories.values())

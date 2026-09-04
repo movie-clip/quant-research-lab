@@ -62,7 +62,7 @@ directory today:
 - Import path: `import_engine.py`, `import_engine_composer.py`, `statement_importer.py`, `import_admission.py`, `portfolio_snapshot_builder.py`, `history_context_builder.py`.
 - Market data: `market_data.py` (`MarketDataService`).
 - Cache: `cache_admin.py`.
-- Shared / supporting: `benchmark_service.py`, `holdings_history.py`, `instrument_enrichment.py`, `instrument_identity.py`, `portfolio_proof.py`, `synthetic_history.py` (Synthetic History truth-class reconstruction — `build_synthetic_snapshot_history_states` / `..._with_coverage`, consumed by the diagnostics, attribution, correlation, distribution, drawdown and stress engines; extracted from `diagnostics_engine.py` in US-43.1).
+- Shared / supporting: `benchmark_service.py`, `holdings_history.py`, `instrument_enrichment.py`, `instrument_identity.py`, `portfolio_proof.py`, `synthetic_history.py` (Synthetic History truth-class reconstruction — `build_synthetic_snapshot_history_states` / `..._with_coverage`, consumed by the diagnostics, attribution, correlation, distribution, drawdown and stress engines; extracted from `diagnostics_engine.py` in US-43.1), `trust_gate.py` (the output-trust decision — "is this output trustworthy enough to publish, and at what level" — for the dashboard-history and diagnostics engines: section-trust rollups, per-section output-admission policy for drawdown and investor-economics, the price-history / replay-output presence primitives, and the dashboard return-basis classification; relocated from those two engines in US-43.3. A **relocation, not a unification** — each engine keeps its own `SectionTrust` builder and its own output-admission gates as separate engine-qualified functions; only `has_any_symbol_price_history` merged, byte-identical in both engines. See the trust rule below and guardrail #3).
 
 Analytics layer (`services/quant-engine/app/analytics/`): `analytics/factor_model.py` holds the statistical factor-model internals — the factor-definition vocabulary (`FactorDefinition`, `DEFAULT_FACTOR_DEFINITIONS`, the proxy/key maps), `ROLLING_RIDGE_FLOOR`, the per-window Gram-Schmidt orthogonalisation and the ridge-OLS fit, plus their linear-algebra primitives. Extracted from `analytics/risk.py` in US-43.2 as a leaf module (it imports nothing from `risk.py`). Transitional shape: `risk.py` imports these names back, and `build_statistical_factor_model` (the response-shaping entry point) is still owned by `risk.py`; consumers `attribution.py`, `attribution_engine.py`, `stress_engine.py` and `diagnostics_engine.py` now import factor symbols from `analytics.factor_model`. The `ReturnBasis` execution-basis literal moved to `schemas/return_basis.py` in the same story.
 
@@ -87,6 +87,19 @@ Architecture-level trust rule:
 - `unavailable` means the required source inputs or trustworthy path do not exist at all
 
 Docs and UI must not collapse `withheld` into generic `unavailable`.
+
+The engine-side home of this decision is `app/services/trust_gate.py` (US-43.3),
+for the dashboard-history and diagnostics engines: section-trust rollups,
+per-section output-admission (drawdown, investor-economics), the price-history /
+replay-output presence checks, and the dashboard return-basis classification. It
+is a **relocation** of those two engines' former parallel private helpers, not a
+unification — the two `SectionTrust` builders keep their distinct section shapes
+(`portfolio_path` / `benchmark_path` / `monthly_returns_path` vs
+`benchmark_relative_path` / `factor_model_path` / `risk_contribution_path`) and
+the two return-basis paths stay separate; only `has_any_symbol_price_history`
+(byte-identical in both engines) was merged into one function. Cross-reference:
+guardrail #3 (`verified > degraded > withheld > unavailable`). Behaviour-neutral:
+every function body moved verbatim, so no `run_metadata` field changed.
 
 ### Market-data providers and data provenance
 

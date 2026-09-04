@@ -1,6 +1,6 @@
 # Epic Roadmap
 
-*Living execution snapshot. Updated: **2026-09-02**.*
+*Living execution snapshot. Updated: **2026-09-03**.*
 
 **Epic 43 — Engine Seam Consolidation** (opened 2026-09-02), **Epic 41 —
 Documentation & Roadmap Accuracy Reconciliation** and **Epic 42 —
@@ -99,7 +99,7 @@ sections immediately below.
 (Status: Active)
 
 **Active. Opened 2026-09-02. 4 stories authored (US-43.1–US-43.4); US-43.1
-and US-43.2 Done 2026-09-02, US-43.3–US-43.4 Backlog.**
+and US-43.2 Done 2026-09-02, US-43.3 Done 2026-09-03, US-43.4 Backlog.**
 
 Seeded by the 2026-09-02 `/improve-codebase-architecture` review, which found
 four shallow seams in the quant-engine hot spots and recorded them as rows
@@ -125,7 +125,11 @@ byte-identical:
 - **US-43.3** — the trust ladder (guardrail #3) is parallel private helpers in
   the two largest engines. → new `services/trust_gate.py`. Relocation, not
   unification: the two `SectionTrust` builders stay two functions; only the
-  byte-identical `_has_any_symbol_price_history` merges.
+  byte-identical `_has_any_symbol_price_history` merges. **Shipped 2026-09-03** —
+  new leaf module `services/trust_gate.py` with 14 trust helpers moved verbatim;
+  one merge (`has_any_symbol_price_history`); the `diagnostics_engine →
+  dashboard_history_engine` cross-import removed; AC1 extended by
+  `build_diagnostics_drawdown_summary`; goldens byte-identical.
 - **US-43.4** — `import_engine_composer.py` (36 lines) is a pass-through. → fold
   into `import_engine.py`.
 
@@ -143,7 +147,7 @@ quant-research pass, not relocations.
 |---|---|---|
 | [US-43.1](../stories/US-43.1-extract-synthetic-history-construction.md) | Extract synthetic-history construction into its own module | Done |
 | [US-43.2](../stories/US-43.2-extract-factor-model-internals.md) | Extract the factor-model internals out of `risk.py` | Done |
-| [US-43.3](../stories/US-43.3-relocate-the-trust-gate.md) | Relocate the trust gate into its own module | Backlog |
+| [US-43.3](../stories/US-43.3-relocate-the-trust-gate.md) | Relocate the trust gate into its own module | Done |
 | [US-43.4](../stories/US-43.4-collapse-import-engine-composer.md) | Collapse `import_engine_composer` into `import_engine` | Backlog |
 
 Build order: 43.1 → 43.2 → 43.3 → 43.4 (disjoint modules, independently
@@ -154,6 +158,7 @@ shippable; highest-leverage first, pass-through collapse last).
 | Date | Story | What shipped |
 |---|---|---|
 | 2026-09-02 | US-43.1 | Behaviour-neutral relocation of the two synthetic-history builders out of `services/diagnostics_engine.py` into a new leaf module `services/synthetic_history.py` (`build_synthetic_snapshot_history_states` + `build_synthetic_snapshot_history_states_with_coverage`, public names, bodies moved verbatim — only the two `def` names and the thin wrapper's internal self-call lost the leading underscore). All six consumers rewired to import from the new module (diagnostics takes the thin wrapper; attribution, correlation, distribution, drawdown, stress take the coverage variant); four now-dead imports cleaned from `diagnostics_engine.py`. `test_synthetic_history_coverage.py` retargeted + one new AC2 pin test asserting object identity across the five engines; `test_correlation_engine.py` monkeypatch string retargeted to the public name on the consuming module. No schema, route, `analytics/`, or `apps/desktop/src/**` change; `dashboardGoldens.ts` diff empty; backend goldens byte-identical. Tests: backend 980 passed, frontend 359 passed, `tsc --noEmit` and dead-code gate clean (one new AC2 pin test added; the 11 pre-existing coverage-matrix cases edited by name only). Integration (`05-integration.md`) and acceptance (`06-review.md`) gates both PASS; AC1–AC5 SATISFIED. Independent quant-audit not required per the tech-lead verbatim-move ruling (`02-technical-plan.md` § 7) — the integration gate char-diffed the moved bodies against `git show HEAD` and found only the three permitted renames. |
+| 2026-09-03 | US-43.3 | Behaviour-neutral relocation of the trust gate out of `services/dashboard_history_engine.py` and `services/diagnostics_engine.py` into a new leaf module `services/trust_gate.py` — 14 helpers moved verbatim (section-trust rollups, per-section output-admission gates for drawdown + investor-economics, the price-history / replay-output presence primitives, the dashboard return-basis classification), bodies unchanged apart from the leading `_` dropping and one sanctioned rename `_resolve_section_trust` → `build_diagnostics_section_trust`; the module constant `DASHBOARD_EXACT_SLICE_EXCESS_RETURN_RUNTIME_ENABLED` rode along with the dashboard partial-unlock helper. **One merge** — `has_any_symbol_price_history`, byte-identical in both engines, is now one public function. Both engines import every relocated name from `trust_gate`; the former `diagnostics_engine → dashboard_history_engine` cross-import is deleted (the last cross-engine edge). Relocation, not unification: the two `SectionTrust` builders keep their distinct section shapes, both drawdown gates stay two functions, the two return-basis paths stay separate (US-40.1 territory, out of scope). **AC1 extended** by `build_diagnostics_drawdown_summary` — the tail of the drawdown output-admission pair AC1 half-moved; single call site; verbatim (design ruling `02-technical-plan.md` § A, human-approved). Dead-import cleanup in both engines (schema + `market_data` names orphaned by the moved bodies). New `test_trust_gate.py` with 2 tests (the merge primitive + an AC3 import-surface identity pin); the story's "retarget `test_dashboard_history*` / `test_diagnostics*`" instruction was moot — those files do not exist, so no retarget; regression evidence is `test_analytics.py` + `test_routes.py` + `test_ledger_replay_audit.py` + `test_exposure_engine.py`, all unmodified and green. No schema / `analytics/` / `apps/desktop/src/**` change; `dashboardGoldens.ts` diff empty; backend goldens byte-identical. Quant RESEARCH skipped by human-approved ruling (`02-technical-plan.md` § F); quant-audit char-diff PASS (anchor = pre-move git blob 04cd099), integration and acceptance gates PASS; AC1–AC6 SATISFIED. Tests: backend 984 passed (was 982 at US-43.2 close; +2 new pin tests), frontend 359 passed, `tsc --noEmit` and dead-code strict gate clean. |
 | 2026-09-02 | US-43.2 | Behaviour-neutral relocation of the statistical-factor-model internals out of `analytics/risk.py` into a new leaf module `analytics/factor_model.py` (`UcitsCandidateMapping`, `FactorDefinition`, `DEFAULT_FACTOR_DEFINITIONS`, `FACTOR_PROXY_MAP`, `FACTOR_KEY_MAP`, `ROLLING_RIDGE_FLOOR`, `ORTHOGONALIZATION_ZERO_RESIDUAL_THRESHOLD`, and the per-window orthogonalisation + ridge-OLS fit — bodies moved verbatim, only `_fit_factor_model` / `_orthogonalize_factors_window` lost the leading underscore). `risk.py` imports the names back and keeps `build_statistical_factor_model`; the four cross-seam consumers (`attribution.py`, `attribution_engine.py`, `stress_engine.py`, `diagnostics_engine.py`) rewired to `analytics.factor_model`. `ReturnBasis` execution-basis `Literal` moved to `schemas/return_basis.py` beside the existing `ReturnBasis*` family (param annotation, not a serialized field — no `types.ts` / contract-doc mirror; `dashboardGoldens.ts` untouched). **AC1 amended** (human-approved at plan time): `selected_history_return_series` + `_series_to_returns` stayed in `risk.py`, renamed public, to avoid a `risk.py` ↔ `factor_model.py` import cycle via `select_history_price_series`; `UcitsCandidateMapping` added to the move. **AC3:** the `_least_squares` / `_solve_linear_system` / `_dot` trio moved into `factor_model.py`, kept private, not re-imported by `risk.py` (no non-factor caller). `test_analytics.py` + `test_attribution.py` monkeypatch targets retargeted; 2 new pin tests (AC2 shared-`ReturnBasis` identity, AC5 fit-symbol seam identity). Backend goldens byte-identical; quant RESEARCH skipped by human-approved ruling (`02-technical-plan.md` § RESEARCH ruling), quant-audit char-diff PASS (anchor = pre-move git blob), integration and acceptance gates PASS. Tests: backend 982 passed (was 980 at US-43.1 close; +2 new pin tests), frontend 359 passed, `tsc --noEmit` and dead-code strict gate clean. |
 
 ---
