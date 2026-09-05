@@ -778,6 +778,11 @@ def test_build_import_bootstrap_from_snapshot_falls_back_to_ledger_and_position_
     assert result.risk_summary.end_date == "2026-04-10"
 
 
+def test_import_engine_composer_module_no_longer_exists() -> None:
+    with pytest.raises(ModuleNotFoundError):
+        import app.services.import_engine_composer  # noqa: F401
+
+
 def test_run_dashboard_history_engine_returns_unavailable_without_complete_history_context(mocker) -> None:
     market_data = mocker.patch("app.services.dashboard_history_engine.MarketDataService")
     request = DashboardHistoryEngineRequest(

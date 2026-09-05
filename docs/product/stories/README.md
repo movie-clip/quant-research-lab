@@ -18,16 +18,16 @@ technical feature. Delivery model: see [`../prd/README.md`](../prd/README.md).
 
 ## Index
 
-### Epic 43 — Engine Seam Consolidation (active)
+### Epic 43 — Engine Seam Consolidation (complete)
 
-PRD: [`prd/epic-43-engine-seam-consolidation.md`](../prd/epic-43-engine-seam-consolidation.md) (Status: Active) — seeded by the 2026-09-02 `/improve-codebase-architecture` review; four behaviour-neutral relocations of leaking quant-engine seams. Recorded as rows US-43.1–US-43.4 in `docs/tech-debt-register.md`.
+PRD: [`prd/epic-43-engine-seam-consolidation.md`](../prd/epic-43-engine-seam-consolidation.md) (Status: Completed) — seeded by the 2026-09-02 `/improve-codebase-architecture` review; four behaviour-neutral relocations of leaking quant-engine seams. Recorded as rows US-43.1–US-43.4 in `docs/tech-debt-register.md`.
 
 | Story | Title | Scope | Status |
 |---|---|---|---|
 | [US-43.1](US-43.1-extract-synthetic-history-construction.md) | Extract synthetic-history construction into its own module | Move `_build_synthetic_snapshot_history_states[_with_coverage]` from `diagnostics_engine.py` to a new `services/synthetic_history.py` (public names); rewire the 6 consuming engines + `test_synthetic_history_coverage.py` + `test_correlation_engine.py`'s monkeypatch string. Goldens byte-identical | Done |
 | [US-43.2](US-43.2-extract-factor-model-internals.md) | Extract the factor-model internals out of `risk.py` | New `analytics/factor_model.py` for `_fit_factor_model` / `_orthogonalize_factors_window` / `_selected_history_return_series` + `FACTOR_KEY_MAP` / `FACTOR_PROXY_MAP` / `DEFAULT_FACTOR_DEFINITIONS` / `ROLLING_RIDGE_FLOOR` / `FactorDefinition`; `ReturnBasis` literal → `schemas/return_basis.py`. `risk.py` imports them back; rewire attribution / stress + the ~4 `test_analytics.py` monkeypatch targets. Riskiest on tests. Goldens byte-identical | Done |
 | [US-43.3](US-43.3-relocate-the-trust-gate.md) | Relocate the trust gate into its own module | New `services/trust_gate.py` for both `SectionTrust` builders (kept as two engine-qualified functions), the drawdown / investor-economics output-admission gates, and the dashboard return-basis classification helpers; merge only the byte-identical `_has_any_symbol_price_history`. No behavioural unification. Goldens byte-identical | Done |
-| [US-43.4](US-43.4-collapse-import-engine-composer.md) | Collapse `import_engine_composer` into `import_engine` | Fold the 36-line pass-through composer into `import_engine.py` as a private helper; delete the file; keep the three public entry functions. Goldens byte-identical | Backlog |
+| [US-43.4](US-43.4-collapse-import-engine-composer.md) | Collapse `import_engine_composer` into `import_engine` | Fold the 36-line pass-through composer into `import_engine.py` as a private helper; delete the file; keep the three public entry functions. Goldens byte-identical | Done |
 
 Build order: 43.1 → 43.2 → 43.3 → 43.4 (disjoint modules, independently shippable; highest-leverage first, pass-through collapse last).
 
