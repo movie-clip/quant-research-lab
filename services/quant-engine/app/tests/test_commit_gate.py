@@ -1,8 +1,7 @@
 """The commit-freshness gate must block regardless of which tool issued the
 commit (Epic 36 / US-36.1, T-36.1.2).
 
-F-R1 (`docs/product/review-2026-08-20-findings.md`): a fix was claimed
-("fixed 2026-08-20") for exactly this gap, but the fix only ever covered the
+An earlier fix claimed to close this gap, but it only covered the
 Claude Code `Bash` tool's `PreToolUse` hook (`pre_commit_gate.py`) — a commit
 issued through any other tool (PowerShell, a human's own terminal) walked
 straight past it. Nothing caught that the claim was false. T-36.1.1 closed the

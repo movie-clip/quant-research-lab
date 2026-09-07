@@ -35,8 +35,7 @@ from app.services.instrument_identity import normalize_isin
 if TYPE_CHECKING:
     from app.services.market_data import MarketDataService
 
-# Human-confirmed 2026-08-24 -- see docs/product/stories/US-39.1-.../ Context
-# "DOMINANCE_THRESHOLD = 55% -- resolved" for the evidence table. A fraction,
+# Human-confirmed: 55% is the evidence-supported dominance threshold. A fraction,
 # not a percentage -- scale-invariant against whether FMP's raw weights are
 # reported on a 0-100 or 0-1 basis, since only the RATIO top/total is used.
 DOMINANCE_THRESHOLD = 0.55

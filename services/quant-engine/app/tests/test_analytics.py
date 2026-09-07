@@ -4920,8 +4920,8 @@ def test_build_lookthrough_sector_exposure_uses_thematic_etf_source_sector() -> 
 # T-38.1.1 removed _infer_sector_from_sources / _infer_sector_from_resolved_pair
 # and the ungated get_company_profile fallback in _build_shared_sector_overlap,
 # replacing all three with the static-registry-or-"Unclassified" rule. The
-# tests below cover the full test plan in
-# docs/product/stories/US-38.1-etf-lookthrough-sector-classification.md.
+# tests below cover the supported static-registry behavior and its unavailable
+# fallback.
 
 
 def test_hardcoded_sector_fallback_functions_are_removed() -> None:

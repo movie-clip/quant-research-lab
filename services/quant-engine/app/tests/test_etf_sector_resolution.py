@@ -24,8 +24,8 @@ from app.instruments.etf_sector_resolution import (
 from app.schemas.imports import ImportedInstrument
 from app.tests.fixtures import FakeMarketData as _FakeMarketData
 
-# SBIO's real, live-verified ISIN pair (docs/product/stories/US-39.1-.../
-# Context "The SBIO ticker-collision case"): the statement's actual holding
+# SBIO's real, live-verified ISIN pair demonstrates the ticker-collision case:
+# the statement's actual holding
 # (Invesco NASDAQ Biotech UCITS ETF, LSE) vs. the DIFFERENT US-listed
 # security FMP's bare "SBIO" ticker resolves to (ALPS Medical Breakthroughs
 # ETF) — two distinct funds that merely share a bare ticker string.

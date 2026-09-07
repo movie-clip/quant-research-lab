@@ -1,225 +1,88 @@
 # Current Product State
 
-*Canonical shipped-state inventory. Updated: 2026-08-28 (body current through Epic 40 — snapshot trust & fidelity follow-through — plus Epics 35–39, the 2026-08-26 chart-data audit, the 2026-08-27 US-41.2 architecture-doc seam-accuracy pass, and the 2026-08-28 US-41.3 body re-audit — one non-methodology correction, "~16" → "~25" service files, no trust/methodology claim moved. Epic 41 (doc-accuracy reconciliation) and Epic 42 (dependency-advisory assessment, US-42.1) are agent/infra-facing and add no user-visible product surface — not recorded in the body per this doc's feature-only convention. See `epic-roadmap.md` for the authoritative epic status).*
+Quant Research Lab is a local-first portfolio analytics application. It imports
+broker statements into a desktop-local workspace and calculates deterministic
+portfolio analytics through a local FastAPI engine. It is decision support only:
+it never executes trades or moves money.
 
----
-
-## What the product is
-
-A local-first portfolio research tool. The researcher imports broker statements, and the product computes deterministic analytics displayed on three tabs.
-
----
-
-## Three tabs
+## Shipped surface
 
 ### Dashboard
-Shows portfolio performance history:
-- **Performance & Benchmark card** (Epic 25 / US-25.1): indexed portfolio-vs-benchmark
-  line chart (base 100) + summary strip (Portfolio Value, Time-Weighted Return,
-  Money-Weighted Return, Net Contributions) for a selectable range; return-basis
-  label per path (Verified / Price-return only / Unverified proxy / Unavailable)
-- **Monthly Returns grid** (Epic 25 / US-25.2): signed monthly return cells for the
-  same selected range; whole-card hidden (not zero-filled) when the reconstructed
-  series is marked unreliable
-- **Risk Summary card** (Epic 25 / US-25.3): portfolio/benchmark/downside volatility,
-  tracking error, current/max drawdown, factor & position HHI, top-N factor/
-  position risk share, and Information Ratio + Active Return vs benchmark
-  (US-25.5) — sourced from the Diagnostics engine (not the withheld
-  dashboard-history `max_drawdown_pct` path, which stays withheld under the
-  investor-economics policy below)
-- **Time-weighted return, published (US-34.2)**: every Dashboard range reports a TWR on the `replay_derived` rung — a real measurement on the replay's reconstructed inputs, marked as such beside the number. Previously `null` in all five ranges on every run: `return_basis_contract.portfolio_path` was a hardcoded literal, which also suppressed the whole cumulative return series. The strict proof admission is unchanged and still refuses to certify the imported path, so `investor_economics_status` stays `withheld` and `max_drawdown_pct` stays `null`. The card states what the withheld days cost the figure (IB2026: 1.80pp).
-- **Benchmark return and excess, published on a stated basis (US-34.5)**: every Dashboard range reports the benchmark's return and the excess over it, re-based to that range's own start. Both were `null` on every range on every run before this story. The benchmark leg publishes on whatever basis its own data supports — `verified_total_return` or `price_return_only` — and the basis is rendered beside the figure; `unverified_adjusted_proxy` and `unavailable` still publish nothing. The excess is strictly the difference of the two published figures, so the three numbers on screen always reconcile; a missing leg yields no excess rather than a figure computed against a null. Publishing is not promotion: `investor_economics_status` stays `withheld`, and the daily benchmark return chain stays withheld (the chart indexes prices itself). *(This story shipped on `price_return_only` with a quantified dividend caveat; US-34.9 has since moved the basis to `verified_total_return` — see the next entry for the figures that ship today.)*
-- **The benchmark comparison is a true total return (US-34.9)**: SPY is built by joining FMP's `historical-price-eod/full` and `historical-price-eod/dividend-adjusted` responses, so the benchmark basis is `verified_total_return` — the strongest rung, and one that had never fired before because the pinned endpoint returned no `adjClose` (F-9) and FMP's newest-first row order violated the validator's ascending-order clause (F-14). The Dashboard now reports SPY **+12.35%** and a **−11.92pp** excess for All, against the **+11.75% / −11.21pp** it showed on the price basis; the dividend caveat is no longer displayed because it is no longer true. Only the benchmark *return* uses the adjusted series — position and FX valuation stay on traded prices, enforced by the adjusted method having a single caller.
-- **The chart's portfolio line and range-filtering are now both correct (2026-08-26 audit)**: an audit-and-fix review of the Performance & Benchmark card (not a new epic or story — a defect review of already-shipped US-25.1/US-27.8 behavior) found and fixed two bugs. The chart's portfolio line was a raw `portfolio_value` ratio, not the TWR-indexed `portfolio_return_pct` chain §Indexed Return Series requires — it visibly overstated performance on any window with a net deposit/withdrawal (fixture case: ~10x). Separately, the chart ignored the range selector entirely, always plotting the full imported history regardless of `activeRange`, contradicting the range-scoped summary strip directly beneath it. Both are fixed: the chart now indexes off `portfolio_return_pct` and filters/re-bases to the new `range_metrics[*].window_start_date` field. See `docs/contracts/dashboard-fields.md`'s Performance & Benchmark card entry for the field-level detail, and `docs/tech-debt-register.md` for three related items this same audit found but deliberately did not fix.
-- **A misconfigured market-data key says so (US-35.1)**: a rejected or missing `FMP_API_KEY` now raises `MarketDataAuthError` naming the cause, instead of returning empty history that every engine then degraded on — which made a configuration error look identical to an empty market, and persisted for 24h because the failure was written to the cache. It is never cached, so correcting the key works on the next run. A genuine per-symbol failure (404, unresolvable, or a listing not served on this plan) still degrades to `[]` exactly as before, so one bad symbol never fails a whole-portfolio fetch.
 
-- **Replay Disclosures card** (US-24.11): surfaces the imported replay's own degradations — a non-`verified` opening-cash anchor (basis, both dates, measured residual), withheld return dates with the engine's stated reason, holdings valued at $0, holdings valued at a carried broker trade price, currencies carried unconverted, and (US-33.2) **positions withheld entirely** because their reconstructed quantity spans a share-unit discontinuity. Renders **nothing** when the run is clean (absence of a warning is not a claim) and carries **no** Synthetic badge — the imported replay is broker truth that has been degraded, a different truth class
-- **Rolling Factor Analysis card**: rolling factor loadings snapshot
-- **Sector composition donut** and **Benchmark Positioning card**: current holdings
-  composition and benchmark-relative positioning
-
-Investor economics is withheld by policy when return-basis trust is
-insufficient; only the scalar allowlist in `docs/contracts/dashboard-fields.md`
-is admitted even then. Since US-34.2 and US-34.5 that allowlist covers the three
-headline returns — portfolio TWR, benchmark return and excess — each published
-with its own basis label while the overall status stays `withheld`. Drawdown and
-every benchmark-relative *series* remain withheld. The Risk Summary
-card is unaffected by this withholding — it sources drawdown from the
-separate Diagnostics path instead.
-
-Requires a history context (imported price history or synthetic from current holdings).
-
-*(Epic 25 restored this surface after finding that several prior UI refactors
-had progressively removed it from `DashboardPanel.tsx` without a corresponding
-docs update — the backend fields were fully computed, tested, and golden-pinned
-throughout, but had no rendering component. See
-`docs/product/prd/epic-25-dashboard-performance-risk-summary.md`.)*
+- Import or append Interactive Brokers PDF/CSV statements.
+- Performance and benchmark comparison for selectable periods.
+- Time-weighted return, benchmark return, excess return, monthly returns, and
+  a risk summary when their individual trust rules permit publication.
+- Replay disclosures for degraded broker-replay inputs, including withheld
+  values, cash anchors, carried trade-price valuations, and FX limitations.
 
 ### Exposure
-Shows current portfolio composition:
-- **vs Market drift panel** (top): rolling portfolio return vs benchmark for 1m, 3m, 6m, 12m, and since-import windows (since-import anchors at the statement-period start). Benchmark selectable; default SPY. Self-fetching card — renders on Exposure-tab open with no interaction (US-30.3). Synthetic-history Trust badge.
-- **Currency Exposure card** (Epic 26 / US-26.1): per-currency weight breakdown + a "not in base currency" total. Weights are computed on **base-currency-converted** market values (the same denominator as every other Exposure weight, pinned by test), grouped by the currency each position is denominated in. `non_base_weight` renders "—" (never 0) when the statement carries no base currency. Currencies carried unconverted for want of an FX rate are still counted and are flagged as the card's least reliable rows. Snapshot analytics — no market-data call, no Synthetic badge
-- **Currency Risk Contribution card** (Epic 26 / US-26.2): how much of return *variance* came from currency rather than from the securities — three component-covariance shares (securities / currency / interaction) that sum to exactly 1.0, plus standalone annualised vols and the securities-FX correlation, over a 60d/252d window. Local returns use each holding's **registry fund currency** (US-31.5), never the broker's listing currency. A share **may be negative** and is rendered as such — a leg moving against the rest of the portfolio genuinely reduces variance, and clamping would fabricate a floor. Holdings without fund-currency price or FX history are excluded and named with their weight. Self-fetching from `POST /engines/currency-risk/run`; fails closed below 20 overlapping days. **Synthetic-history Trust badge** (unlike the US-26.1 composition card)
-- **Rolling correlation & beta chart**: dual-axis (ρ left, β right), 20d/60d/252d window selector. Synthetic-history Trust badge.
-- Current state concentration (top positions, asset class split), including
-  top-sector weights and sector HHI
-- **Dynamic equity sector classification (US-37.1)**: an equity held outside
-  the static, hand-curated instrument registry now receives a real sector
-  from FMP's company profile, gated on the statement's ISIN matching the FMP
-  profile's ISIN — never a bare-ticker guess. When no source (static registry
-  or identity-confirmed FMP) resolves a sector, the position appears in the
-  Exposure tab's sector breakdown (top sectors / sector concentration cards)
-  under a distinct, disclosed **"Unclassified"** bucket, with its weight
-  still counted in the sector total — never the string `"Other"`, and never
-  silently dropped. Snapshot analytics (a classification looked up at import
-  time), not broker truth. **ETF look-through constituents now use the same
-  pattern (US-38.1)**: `analytics/risk.py`'s `build_lookthrough_sector_exposure`
-  and `_build_shared_sector_overlap` (the ETF-overlap-pair card) resolve a
-  constituent's sector from the static registry or a curated fund-category
-  override only — never a hardcoded ETF-ticker-keyword guess, and never an
-  ungated live FMP profile call — and a constituent slice with no resolvable
-  sector lands in its own **"Unclassified"** bucket, exempt from the
-  `MIN_SECTOR_WEIGHT` display-suppression filter every other bucket is
-  subject to, so it is always itemized however small its weight. The
-  look-through path's remaining known gap is narrower: FMP's `sector` field
-  is unreliable as an ETF-level thematic proxy (both SPY and GRID return the
-  fund sponsor's own "Financial Services" classification), so this story
-  deliberately did not re-derive ETF-level sector from FMP directly — tracked
-  as the open remainder of `docs/tech-debt-register.md`'s F-B row.
-  **Direct-held ETFs now resolve the same way too (US-39.1)**: a direct-held
-  ETF (e.g. SBIO) outside the static registry no longer silently defaults to
-  `"Broad Market"` on a keyword-substring match (or lack of one) against the
-  broker's free-text description. It instead reads FMP's
-  `/stable/etf/sector-weightings` endpoint — a different endpoint from the
-  general company-profile `sector` field the paragraph above already flagged
-  as unreliable for ETFs — gated on the same statement-ISIN-vs-FMP-profile-ISIN
-  identity check, and accepted as a single sector only when the top-weighted
-  bucket clears a 55% dominance threshold of the fund's total reported
-  weight. Below threshold, or on any lookup failure, the ETF resolves to the
-  same disclosed **"Unclassified"** bucket, never `"Broad Market"` as a
-  guess. `category` (Sector/Thematic/Broad Market/Bond/Commodity ETF) is
-  unaffected — still the pre-existing keyword-substring derivation, resolved
-  independently of `sector`.
-- **Factor return attribution card**: cumulative chart + period attribution table; 20d/60d/252d window. Synthetic-history Trust badge.
-- **Factor Drift Summary card** (Epic 16): ranked per-factor drift (`latest − reference` rolling loading) over a 20d/60d/252d window, rendered as divergent magnitude bars (positive right of baseline, negative left) with signed value + ▲/▼ direction marker. Reuses the engine's existing `rolling_loadings_<window>` series — no backend. Factors null at the window endpoints are excluded (never zero-imputed); fails closed to an EmptyState on insufficient history. Synthetic-history Trust badge.
-- **Multi-benchmark correlation table**: ρ / β / R² vs SPY, QQQ, GLD, IEF, VT; rows sorted by |ρ| desc, unavailable last. Synthetic-history Trust badge.
-- **Intra-portfolio correlation heatmap** (Epic 17): holdings × holdings pairwise Pearson correlation matrix over a 20d/60d/252d window (top-15 holdings by weight), plus a diversification summary (average pairwise ρ, most/least-correlated pair, **Diversification Ratio** — Choueifaty & Coignard 2008, and **Effective Number of Bets** — Meucci 2009, via numpy eigvalsh — both US-17.2; null/"Unavailable" when inputs insufficient). Every cell prints the numeric ρ + a ▲▲/▲/•/▼/▼▼ sign glyph over the `--color-corr-*` palette (color-blind-safe); the diagonal is a muted 1.00; sub-threshold pairs render "n/a" (never 0); holdings without sufficient price history are excluded and disclosed. Cash/non-priceable positions excluded. Synthetic-history Trust badge; EmptyState when fewer than 2 priceable holdings have history.
 
-The visual surface uses design tokens from `apps/desktop/src/app/styles.css` (`:root` block — colors, spacing, typography, radius) and shared primitives in `apps/desktop/src/app/primitives/` (`CardShell`, `TrustBadge`, `WindowSelector`, `EmptyState`, `LoadingState`, `ErrorState`, `ChartShell`, `chartDefaults`). Accessibility baseline: every card is a `role="region"` with `aria-labelledby`; every chart has `role="img"` + descriptive `aria-label`; `WindowSelector` buttons have a token-styled `:focus-visible` outline; the multi-benchmark correlation ρ column uses both color *and* a sign-symbol prefix (▲▲ / ▲ / • / ▼ / ▼▼) so it's distinguishable for color-blind users. The `designSystem.audit.test.ts` regression test enforces the design-system contract.
-
-**For agents building new Exposure-tab cards**: the `ui-polish` skill (`.claude/skills/ui-polish/SKILL.md`) is the canonical guidance — token inventory, primitive prop signatures, canonical card pattern code block, accessibility checklist, anti-patterns. Auto-invoked by `build-story` on frontend tickets. The long-lived contract doc is `docs/contracts/ui-design-system.md`.
+- Holdings, asset-class, concentration, sector, and benchmark positioning.
+- ETF look-through and identity-gated sector classification.
+- Currency exposure, currency-risk contribution, factor analysis, drift, and
+  benchmark/intra-portfolio correlation.
 
 ### Risk
-Shows pre-decision risk-budget views (Epic 13):
-- **Stress Scenarios card**: three predefined factor-shock scenarios (Broad Market Selloff, Rates Down Risk-On, Inflation Reacceleration) with projected portfolio % impact. Sorted by absolute magnitude desc; horizontal magnitude bar per row; color-coded ±% (red/green/muted). Point-in-time — no window selector. Synthetic-history Trust badge.
-- **Drawdown Analytics card**: underwater drawdown curve (Recharts AreaChart) plus top-5 historical drawdown episodes table (Peak / Trough / Recovery / Magnitude / Duration / Underwater). `recovery_date=null` renders as italic "Still underwater". 4-option window selector: 252d / 756d / 1260d / Max (engine cap 3000 calendar days). Synthetic-history Trust badge. Each episode row expands into a **Contributors drawer** (Epic 15 / US-15.2) showing per-position decomposition under arithmetic Brinson attribution — Symbol / Weight @ Peak / Return / Contribution columns sorted by absolute contribution; "Other" aggregate row for positions ranked 6+; "Residual (unexplained)" row when partial data; partial-trust caption surfaces the unexplained share when some positions had missing prices; toggle disabled when decomposition is unavailable (e.g. peak state missing).
-- **VaR & Distribution card**: daily return histogram (Recharts BarChart; loss-tail bars colored red, rest muted; VaR-95 and Mean reference lines) plus a 3-section table — Percentiles (5/10/50/90/95) / Tail Risk (VaR 95, CVaR 95, VaR 99) / Distribution shape (Mean, Std, Skew, Kurtosis-excess). VaR / CVaR cells red when positive (real loss), muted when negative or null. 3-option window selector: 60d / 252d / 504d (default 252; no "Max" — VaR is interpretable only relative to a fixed lookback). Synthetic-history Trust badge.
 
-The Risk tab uses the same Epic 12 design-system primitives as Exposure (`CardShell`, `TrustBadge`, `WindowSelector`, `ChartShell`, `chartDefaults`, state primitives). All three cards self-fetch via `useEffect` on `[snapshot, window]` and surface `trust='unavailable'` with EmptyState when the factor model is empty (Stress) or fewer than 20 daily observations are available (Drawdown, VaR). The CVaR ≥ VaR invariant is enforced by the engine (raises on violation per Acerbi & Tasche 2002). Contract doc: `docs/contracts/risk-fields.md`.
+- Stress scenarios, drawdown analytics, and return distribution/VaR views.
 
----
+## Data and trust model
 
-## Import workflow
+- **Broker truth** is imported positions, balances, and ledger activity.
+- **Snapshot analytics** describe the imported/current portfolio state.
+- **Synthetic history** reconstructs historical behavior from current holdings
+  and market data; it is not broker-replayed performance.
+- **Persisted imports** are desktop-local snapshots and related metadata.
 
-The researcher imports statements via the Import flow:
-- Supported importers: Interactive Brokers (IBKR — Activity-Statement CSV is the canonical current format, imported end-to-end since US-28.2; PDF chain remains for legacy 2022–2025 statements), Freedom24 (PDF), ESPP (PDF)
-- The desktop file picker accepts `.pdf` and `.csv`; the golden pipeline and `scripts/refresh_statement.py` key off `docs/IB2026.csv`
-- Import produces an `ImportedPortfolioSnapshot` with positions, ledger, reconciliation checks
-- Multiple statements can be stacked as snapshot nodes; the researcher selects which to analyze
-- The snapshot picker's option label for a persisted imported/base node discloses that node's import/capture date (`YYYY-MM-DD`, `variantLabels.ts`'s `resolveNodeImportDate`) instead of a bare `"base"` string; a variant built on top still carries the base's date via ancestor-walk, and a node with no import behind it (e.g. a fresh working draft) renders with no date, unchanged (Epic 40 / US-40.1)
-- Adding a new statement (`add_snapshot` mode) no longer discards the existing node's imported/replay history the way `replace` mode always preserved it — the two snapshots are combined via `POST /portfolios/import/combine-snapshots` (reusing the existing, tested `combine_imported_snapshots` merge, not a client-side reimplementation); an incompatible combine (e.g. differing base currency, or an unparseable `account_id`) discloses the degradation through the existing import-error channel rather than silently dropping history (Epic 40 / US-40.2, contract: `docs/contracts/dashboard-fields.md` § Combine Imported Snapshots)
-- Import Admission Review: a local review of data quality issues (non-financial, desktop-only)
+All financially meaningful outputs preserve this distinction and use the trust
+ladder `verified > degraded > withheld > unavailable`. `withheld` is a deliberate
+refusal to publish an unsupported metric, not a synonym for missing data.
 
----
+## Important boundaries
 
-## Backend
+- The desktop persists snapshots and workspace metadata locally. Analytics are
+  runtime-derived views and are not persisted as portfolio truth.
+- Market data uses FMP first and Yahoo Finance as an explicit secondary source;
+  source provenance remains visible to the user.
+- The local import API deliberately accepts a user-selected filesystem path and
+  has no authentication. This is acceptable only while the engine remains a
+  localhost, single-user application; revisit before any remote or multi-user
+  deployment.
+- Ranking, construction, optimizer, backtesting, and monitoring workflows are
+  not current product surfaces.
+
+## Known limitations
+
+- Some investor-economics and drawdown outputs remain withheld when replay or
+  return-basis evidence is insufficient.
+- Synthetic-history analytics are evidence-limited by available market, FX, and
+  dividend data.
+- Currency-less positions supplied through the generic request path can be
+  incorrectly assigned a currency; see the technical-debt register before
+  extending that API.
+
+For formulas and detailed output semantics, read the financial methodology and
+the relevant field contract before changing analytics.
+
+## Backend route inventory
+
+The engine exposes these current HTTP route modules. This list is mechanically
+checked against `services/quant-engine/app/api/routes/`.
 
 15 route modules:
-- `exposure.py` — portfolio exposure analysis
-- `dashboard_history.py` — portfolio performance history
-- `diagnostics.py` — factor model and risk diagnostics (called internally by Exposure)
-- `drift.py` — portfolio drift vs benchmark (Exposure top panel)
-- `attribution.py` — factor return attribution
-- `correlation.py` — multi-benchmark correlation matrix
-- `stress.py` — stress scenario projections (Risk tab, Epic 13)
-- `drawdown.py` — drawdown analytics + episodes (Risk tab, Epic 13)
-- `distribution.py` — VaR / CVaR / return distribution (Risk tab, Epic 13)
-- `imports.py` — broker statement import
-- `market_data.py` — historical prices and ETF holdings
-- `health.py` — health check
-- `cache.py` — market-data cache stats + clear (Epic 20 / US-20.1)
-- `currency_risk.py` — currency risk engine (Epic 26)
-- `provenance.py` — market-data provenance (FMP vs Yahoo Finance) engine (Epic 18)
-
-~25 service files, all under `services/quant-engine/app/services/`, plus pure-analytics modules under `services/quant-engine/app/analytics/` (incl. `drawdown.py` and `distribution.py` added in Epic 13).
-
-**Architecture-doc seam accuracy (US-41.2, 2026-08-27):** `docs/architecture/system-architecture.md` — the doc `CLAUDE.md` and `project.md` § "Sources of truth" name for "what are the backend seams?" — had its backend-seams inventory, service-layer list, data-flow narrative and API-boundary section rewritten to describe only the 15 registered route modules above and their real service files; the pre-Epic-8 ranking / construction / optimizer / replay route paths and eight non-existent service files it still listed are gone. A new pytest guard, `services/quant-engine/app/tests/test_architecture_doc_route_inventory.py`, resolves the doc's stated router list against `app/api/routes/` bidirectionally and fails the suite on any drift — a doc entry with no registered route, or a registered route absent from the doc — naming the offending module, the same treatment `test_route_inventory.py` gives this file's own route-module list (US-36.3). The market-data-provenance, architecture-level-trust-rule and accepted-tradeoff sections were left byte-identical.
-
-**Market-data providers (Epic 18):** price history is served behind `MarketDataService` with two providers tried in priority order — **FMP (primary)** then **Yahoo Finance via `yfinance` (secondary fallback)**, the latter used only when FMP returns nothing (e.g. European UCITS ETFs FMP's plan 402s). Provenance (`fmp` vs `yfinance`) is recorded per symbol and surfaced visibly. The Exposure tab shows a portfolio-level **"Data sources" panel** (US-18.2) grouping holdings into FMP (primary) / Yahoo Finance (secondary) / unpriced via the `POST /engines/provenance/run` engine; the Intra-Portfolio Correlation card also keeps an inline "via Yahoo Finance" marker (US-18.1). The panel also surfaces **instrument identity-mismatch warnings** (Epic 19 / US-19.1): when a registry-known ticker's fund name is identity-disjoint from the broker statement's own description (a possible mislabel, e.g. the DFND case), it shows a "⚠ Possible identity mismatch" line. The same check is emitted as the `instrument_description_registry_consistency` Import Admission check. Detection is conservative (flag only on disjoint identity; never auto-corrects). The `DFND` (VanEck Defense) symbol resolves to the real Yahoo lines `DFNS.L`/`DFEN.DE`/`DFNG.L` — never the look-alike `DFND.L` (a different fund) (US-18.3). yfinance is a real second source, never a proxy substitute.
-
-**Cache control (Epic 20 / US-20.1):** the local JSON file cache (FMP + Yahoo) is inspectable and clearable in-app via `GET /cache/stats` + `POST /cache/clear`, surfaced as a "Market-data cache" card on the Exposure tab (entry counts per namespace + a Clear button). Reduces FMP overuse on top of the existing TTL/negative-cache/in-flight-dedup layer.
-
-**Import Admission Review card (Epic 22 / US-22.1):** the Exposure tab renders the full Import Admission Review (`ImportAdmissionSummaryV1`) as a card — the overall **decision** (admitted / degraded / withheld) and **trust level** badges, plus one row per admission check (residual-cash, NAV, position-market-value, symbol identity, description-consistency, ISIN-consistency) showing its status (pass / warn / fail / unavailable, with a symbol prefix so status isn't colour-only), human-readable message, and observed/comparison/delta evidence + affected fields. Presentational only — rendered from the persisted workspace `admissionSummary` (a persisted-import artifact), never re-fetched or recomputed; survives reload. An import with no review shows an explicit unavailable state, never a fabricated "all clear". The existing Data Sources identity-warning line is unchanged.
-
----
-
-## Trust semantics (always-on)
-
-| Level | Meaning |
-|---|---|
-| `verified` | Engine can make the documented trust claim for that path |
-| `degraded` | Outputs computed but trust downgraded; stronger claims suppressed |
-| `withheld` | Investor-economics outputs suppressed pending return-basis justification |
-| `unavailable` | Required inputs or trustworthy path do not exist |
-
-Never collapse `withheld` into `unavailable`. Never fabricate or silently fallback.
-
-**`run_metadata.source_status.lookthrough_resolution`, `run_metadata.source_status.benchmark_holdings`, and `run_metadata.confidence` are never a trust source (Epic 40 / US-40.1).** They are always live/per-render values, redundant re-derivations of `availability`'s own classification, and are excluded from the frozen-at-import fields (`availability`, `lookthrough`, `market_overlap`, `current_state_concentration`) a persisted imported/base node otherwise replays unchanged. No current UI reads them for trust display; a permanent regression scanner (`runMetadataTrustSourceGuard.test.ts`) fails the suite if one ever does. See `docs/contracts/exposure-fields.md`.
-
-**Replay coverage disclosures** (imported ledger-replay path). The replay
-reconstructs the positions held on each day of the statement window, so it
-values symbols the portfolio no longer holds. Two degradations are surfaced
-rather than absorbed:
-
-| Disclosure | Meaning |
-|---|---|
-| `statement_anchored_symbols` (US-30.2) | Held symbol with no fetchable price history — valued flat at its statement close price (broker-truth-adjacent) |
-| `run_metadata.trade_price_anchored_symbols` (US-24.10) | Symbol with no price history and no statement close, valued at the **broker's own execution price** carried forward from the trade (flat between trades). The third valuation tier; forward-carry only, never back-filled |
-| `run_metadata.unpriced_replay_symbols` (US-31.2) | Symbol held on a day with **no** price history, **no** statement anchor **and** no prior trade price — contributed 0 to that day's market value |
-| `run_metadata.quantity_withheld_symbols` (US-33.2, US-34.4) | Symbol whose **reconstructed quantity** was withheld — its own execution prices span a ratio ≥ 5.0 within one currency, so the roll-back summed pre- and post-split units. Emits no position on any day and claims no valuation tier; disclosed with currency, price bounds, ratio and the rejected opening quantity — plus (US-34.4) **how much was at stake**: the peak end-of-day net cash the broker had in it, that as a share of the portfolio, and the span of days it was excluded (IB2026: at least $2,130.62, 3.52%, 66 of 148 days). A lower bound from broker cash, never a valuation |
-| `run_metadata.replay_cash_anchor` (US-31.3, US-34.3) | How opening cash was obtained + its trust. Precedence: the statement's **own reported starting cash** (observed, `verified`) → the derived `starting_nav − opening_positions_value` identity (`degraded` on a date mismatch) → the snapshot's own balances. Trust follows the source; the residual is published beside it as a separate ledger-reconciliation fact |
-| `run_metadata.withheld_return_dates` (US-33.2, US-34.8) | Days whose return was **withheld** because a withheld-quantity holding traded that day, moving cash with no position behind it — the only remaining cause. The reconciled terminal day is no longer withheld (US-34.8): its return is computed from the market-derived value, so the accounting correction never enters it while the day's real market move is kept |
-
-Valuation precedence is **market history → statement close → last broker trade
-price**, and exactly one tier values a symbol on any given **day** — the disclosure
-lists are unions over the window, so a symbol held before its first trade is
-named in two of them (US-33.3) (`financial-methodology.md`
-§Synthetic History Coverage Rule). The last row is the weakest outcome: before
-US-31.2 those symbols were never fetched at all, and before US-24.10 a
-round-trip position stayed worth $0 for the whole window — which let its trades
-move cash with no offsetting market value and the TWR publish the step as
-performance.
-
-**Portfolio return basis** (which series a metric is computed from). Three
-bases ship, selected by provenance — see `financial-methodology.md`
-§Rolling Pearson Correlation:
-
-| Basis | Formula | Used by |
-|---|---|---|
-| `portfolio_value` | `(PV_t − external_cash_flow_t)/PV_{t−1} − 1` | **Investor performance** — Dashboard performance series, TWR, money-weighted return, monthly returns, dashboard max drawdown. Cash-inclusive: it is part of what the investor earned |
-| `market_value` | `MV_t / MV_{t−1} − 1` | **Synthetic-history risk statistics** (US-30.5c) — current holdings × historical prices, no trades to neutralise |
-| `market_value_trade_neutral` | `(MV_t − trade_flow_t)/MV_{t−1} − 1` | **Imported ledger-replay risk statistics** (US-24.9) — beta, correlation, volatility, relative risk, volatility regime, factor model. Cash-excluded *and* trade-safe |
-
-`trade_flow` counts only trades in symbols the replay actually values; trading
-an unpriced symbol moves no market value, so neutralising it would fabricate a
-return. A day carrying a material reconciliation adjustment publishes no return
-on any basis.
-
----
-
-## What is intentionally not in the product
-
-- Workspace / ranking / construction / optimizer — removed in Epic 8
-- Backtest tab — removed in Epic 8
-- Monitoring / alert workflows — removed in Epic 8
-- Trade execution of any kind — never planned
+- `attribution.py` — factor-return attribution
+- `cache.py` — cache statistics and clearing
+- `correlation.py` — benchmark and intra-portfolio correlation
+- `currency_risk.py` — currency risk contribution
+- `dashboard_history.py` — dashboard history from snapshot or imported replay
+- `diagnostics.py` — portfolio diagnostics from snapshot or imported replay
+- `distribution.py` — return distribution and VaR analytics
+- `drawdown.py` — drawdown analytics
+- `drift.py` — portfolio drift versus a benchmark
+- `exposure.py` — holdings, sector, factor, and concentration exposure
+- `health.py` — liveness check
+- `imports.py` — statement import, upload, bootstrap analysis, and combination
+- `market_data.py` — lightweight quote and historical-price access
+- `provenance.py` — market-data provenance
+- `stress.py` — factor-shock stress scenarios

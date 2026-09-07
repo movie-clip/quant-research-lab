@@ -17,11 +17,10 @@ For each visible Dashboard value, we want a traceable chain:
 
 ## Current Root Sources
 
-*Rewritten 2026-07-04 (Epic 25 / US-25.4) to match the shipped `DashboardPanel.tsx` — the
-prior version of this section described an "Allocation Overview" draft editor and
-capital-path/MWR-chart helpers that no longer exist anywhere in the codebase
-(grep-verified). Epic 25 was created specifically because this doc had drifted
-from the shipped component; see `docs/product/prd/epic-25-dashboard-performance-risk-summary.md`.*
+*This section was rewritten to match the shipped `DashboardPanel.tsx` after an
+earlier version described an Allocation Overview draft editor and capital-path/
+MWR-chart helpers that no longer exist. It is maintained against the component
+and its contracts, not a historical delivery plan.*
 
 Dashboard currently renders from three root inputs, all passed as props to
 `DashboardPanel` from `apps/desktop/src/app/App.tsx`:

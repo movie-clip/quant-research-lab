@@ -13,10 +13,9 @@ an unmapped FMP sector string through to the caller.
 Truth class: snapshot analytics — a classification derived from current
 market data at snapshot/import time, not broker truth.
 
-Identity gate reuses `instrument_identity.normalize_isin` (US-19.1/US-19.2)
-rather than a second, divergent ISIN-comparison implementation — see
-docs/product/stories/US-37.1-dynamic-equity-sector-classification.md and
-02-quant-research.md § Identity risk.
+Identity gate reuses `instrument_identity.normalize_isin` rather than a second,
+divergent ISIN-comparison implementation; the implementation evidence is kept
+with this module and its tests.
 """
 from __future__ import annotations
 

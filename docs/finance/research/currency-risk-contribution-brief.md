@@ -341,6 +341,5 @@ optional.
 1. `financial-methodology.md` — replace the "stretch, not ready" subsection
    with §2.3.1–2.3.4 verbatim, the citations, and the implementation target.
    Fix the "Curency" typo.
-2. `docs/product/prd/epic-26-currency-exposure-and-risk.md` — flip US-26.2 from
-   "stretch, not ready" to ready, and record that both blockers are cleared
-   with the evidence in §2.3.1 / §2.4.
+2. `docs/product/current-product-state.md` — describe the shipped Currency Risk
+   Contribution card and its evidence boundary, using §2.3.1 / §2.4.

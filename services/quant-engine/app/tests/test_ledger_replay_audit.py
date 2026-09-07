@@ -13,7 +13,8 @@ chain and the magnitudes only make sense in that order.
 All numbers come from the **frozen** `app/scripts/golden_market_data.json`
 (deterministic, network-free), so these are not local FMP-cache artifacts.
 
-See `docs/product/prd/epic-31-ledger-replay-correctness.md` F-1..F-5.
+The regression rationale is retained in this module; the historical delivery
+plan is available through Git history.
 """
 from __future__ import annotations
 

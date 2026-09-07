@@ -1,62 +1,46 @@
-# Context — domain & module vocabulary
+# Context — domain and module vocabulary
 
-Names for the seams in this codebase. Use the term as spelled here in issue
-titles, story text, test names, and refactor proposals; don't drift to a
-synonym.
+Use these names in code, tests, and technical discussion. This glossary
+complements the canonical documentation map in `CLAUDE.md`.
 
-This file covers **module and seam vocabulary** only. It sits on top of the
-canonical doc map in `CLAUDE.md`, which stays authoritative for everything it
-covers:
-
-| For | Read |
+| Topic | Source of truth |
 |---|---|
-| Financial formulas | `docs/finance/financial-methodology.md` |
-| Backend seams, routes, truth classes | `docs/architecture/system-architecture.md` |
-| Field traceability (backend ↔ TS ↔ UI) | `docs/contracts/<area>-fields.md` |
-| Current epic + slice log | `docs/product/epic-roadmap.md` |
-| Dead-code + improvement backlog | `docs/tech-debt-register.md` |
+| Financial formulas and trust semantics | `docs/finance/financial-methodology.md` |
+| Runtime seams, routes, and truth classes | `docs/architecture/system-architecture.md` |
+| Backend ↔ TypeScript ↔ UI fields | `docs/contracts/<area>-fields.md` |
+| Current user-facing scope | `docs/product/current-product-state.md` |
+| Open engineering work | `docs/tech-debt-register.md` |
 
 ## Truth classes
 
-Defined in `CLAUDE.md` and `docs/architecture/system-architecture.md`. Named
-here because the module vocabulary below refers to them: **Broker Truth**,
-**Snapshot Analytics**, **Synthetic History**, **Persisted Imports**. Trust
-ladder: `verified > degraded > withheld > unavailable`.
+- **Broker Truth** — statement-derived positions, balances, and ledger history.
+- **Snapshot Analytics** — calculations over the current portfolio state.
+- **Synthetic History** — a reconstructed daily series from current holdings
+  and historical market data; not imported replay.
+- **Persisted Imports** — desktop-local, immutable import snapshots and metadata.
 
-## Modules
+Trust order: `verified > degraded > withheld > unavailable`.
 
-### synthetic-history construction
+## Module vocabulary
 
-The reconstruction of a daily portfolio-state series from **current holdings ×
-historical market data** — the Synthetic History truth class. Lives in
-`services/synthetic_history.py` (`build_synthetic_snapshot_history_states`,
-`..._with_coverage`) and is consumed by every diagnostics-family engine
-(diagnostics, attribution, correlation, distribution, drawdown, stress). It is
-*not* the imported ledger replay — that is Broker Truth, built in
-`analytics/performance.py` + `engine/portfolio_state.py`.
+### Synthetic-history construction
 
-### factor model
+`services/quant-engine/app/services/synthetic_history.py` builds the daily
+current-holdings × market-data series consumed by diagnostics-family engines.
 
-The statistical (PCA-style) factor decomposition of a return series: fit,
-factor orthogonalisation, rolling loadings, model reliability. The internals
-(`_fit_factor_model`, `_orthogonalize_factors_window`, the factor definitions
-and proxy maps) live in `analytics/factor_model.py`; the response-shaping entry
-points that call them stay in `analytics/risk.py`. Methodology:
-`financial-methodology.md` §Statistical Factor Model.
+### Factor model
 
-### trust gate
+`services/quant-engine/app/analytics/factor_model.py` contains statistical
+factor definitions, orthogonalisation, and model fitting. `analytics/risk.py`
+owns response shaping.
 
-The decision "is this output trustworthy enough to publish, and at what trust
-level" — section-trust rollups, the output-admission policy per section
-(drawdown, investor-economics, benchmark-relative), price-history presence, and
-return-basis classification. Lives in `services/trust_gate.py`; the Dashboard
-history engine and the Diagnostics engine both call it. Each engine keeps its
-own `SectionTrust` builder function (the two sections' shapes differ); only the
-byte-identical primitives are shared.
+### Trust gate
 
-### import bootstrap
+`services/quant-engine/app/services/trust_gate.py` determines whether dashboard
+and diagnostics outputs are publishable and at which trust level.
 
-The single flow that turns broker statement paths (or a snapshot request) into
-an `ImportedBootstrapResponse` — statement import, exposure, history context,
-response assembly. Lives in `services/import_engine.py`; the response-assembly
-step is a private helper, not its own module.
+### Import bootstrap
+
+`services/quant-engine/app/services/import_engine.py` turns statement paths or
+snapshot requests into an `ImportedBootstrapResponse`: import, exposure,
+history context, and response assembly.
