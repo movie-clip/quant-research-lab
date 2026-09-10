@@ -26,6 +26,10 @@ it never executes trades or moves money.
 ### Risk
 
 - Stress scenarios, drawdown analytics, and return distribution/VaR views.
+- Portfolio annualized volatility, published only above a 60 paired-observation
+  history floor: withheld between 1 and 59 paired observations (distinct from
+  unavailable), unavailable at zero. Same scalar and code path as the Dashboard
+  Risk Summary figure, which keeps no such floor.
 
 ## Data and trust model
 

@@ -13,15 +13,21 @@
 import { useEffect, useState } from 'react'
 
 import { runStressEngine } from './portfolioAnalysisAdapter'
+import { AnnualizedVolatilityCard } from './AnnualizedVolatilityCard'
 import { DrawdownAnalyticsCard } from './DrawdownAnalyticsCard'
 import { StressScenariosCard } from './StressScenariosCard'
 import { VarDistributionCard } from './VarDistributionCard'
-import type { StressEngineResponse } from './types'
+import type { DiagnosticsEngineResponse, StressEngineResponse } from './types'
 import type { PortfolioSnapshot } from './workspaceTypes'
 
 
 export type RiskPanelProps = {
   snapshot: PortfolioSnapshot | null
+  /** US-44.1: the already-fetched diagnostics response held in App state
+   *  (`App.tsx`). Threaded in — not re-fetched — so the Risk tab can surface
+   *  the publication-gated annualized volatility figure. `null` while the
+   *  Dashboard's diagnostics fetch is still in flight. */
+  diagnosticsAnalysis: DiagnosticsEngineResponse | null
 }
 
 type StressState =
@@ -30,7 +36,7 @@ type StressState =
   | { kind: 'error'; error: Error }
   | { kind: 'done'; response: StressEngineResponse }
 
-export function RiskPanel({ snapshot }: RiskPanelProps) {
+export function RiskPanel({ snapshot, diagnosticsAnalysis }: RiskPanelProps) {
   const [stress, setStress] = useState<StressState>({ kind: 'idle' })
 
   useEffect(() => {
@@ -96,6 +102,10 @@ export function RiskPanel({ snapshot }: RiskPanelProps) {
         <DrawdownAnalyticsCard snapshot={snapshot} />
         {/* VarDistributionCard (US-13.3) — same self-fetching pattern. */}
         <VarDistributionCard snapshot={snapshot} />
+        {/* AnnualizedVolatilityCard (US-44.1) — prop-driven from the diagnostics
+            response already in App state; no self-fetch. `null` prop = the
+            diagnostics fetch is still in flight (card renders LoadingState). */}
+        <AnnualizedVolatilityCard volatility={diagnosticsAnalysis?.risk_tab_volatility ?? null} />
       </div>
     </main>
   )

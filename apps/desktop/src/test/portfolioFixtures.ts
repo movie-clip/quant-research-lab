@@ -982,6 +982,16 @@ function createImportedDiagnosticsFixture(snapshot: ReturnType<typeof createImpo
     downside_volatility_pct: 10.1,
     tracking_error_pct: 7.2,
   }
+  // US-44.1: Risk-tab publication-gated view of the same scalar. This fixture's
+  // risk_summary carries only 2 paired observations, so the Risk-tab figure is
+  // `withheld` (value null) while the Dashboard's volatility_summary still shows
+  // 18.2 — the intended 2 <= N < 60 cross-surface divergence.
+  const riskTabVolatility = {
+    annualized_volatility_pct: null,
+    trust: 'withheld' as const,
+    observations: 2,
+    minimum_observations: 60,
+  }
   const riskConcentrationSummary = {
     top_1_factor_risk_share: null,
     top_3_factor_risk_share: null,
@@ -1012,6 +1022,7 @@ function createImportedDiagnosticsFixture(snapshot: ReturnType<typeof createImpo
     },
     drawdown_summary: drawdownSummary,
     volatility_summary: volatilitySummary,
+    risk_tab_volatility: riskTabVolatility,
     risk_concentration_summary: riskConcentrationSummary,
     risk_summary: {
       benchmark_symbol: 'SPY',

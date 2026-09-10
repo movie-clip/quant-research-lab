@@ -1,6 +1,6 @@
 from typing import Literal
 
-from app.core.constants import DEFAULT_BENCHMARK_SYMBOL
+from app.core.constants import DEFAULT_BENCHMARK_SYMBOL, RISK_TAB_ANNUALIZED_VOL_MIN_OBSERVATIONS
 from app.analytics.factor_model import FACTOR_PROXY_MAP
 from app.analytics.risk import (
     COLLINEARITY_WARNING_THRESHOLD,
@@ -35,6 +35,7 @@ from app.schemas.diagnostics import (
     DiagnosticsSourceStatus,
     DiagnosticsRiskConcentrationSummary,
     DiagnosticsVolatilitySummary,
+    RiskTabAnnualizedVolatility,
 )
 from app.schemas.return_basis import ReturnBasis, ReturnBasisEvidence
 from app.schemas.reconciliation import (
@@ -411,6 +412,7 @@ def build_historical_diagnostics_result(
             downside_volatility_pct=volatility_regime.snapshot.downside_vol_60d,
             tracking_error_pct=relative_risk.tracking_error_pct,
         ),
+        risk_tab_volatility=_build_risk_tab_annualized_volatility(risk_summary),
         risk_concentration_summary=DiagnosticsRiskConcentrationSummary(
             top_1_factor_risk_share=concentration.top_1_factor_risk_share,
             top_3_factor_risk_share=concentration.top_3_factor_risk_share,
@@ -434,6 +436,44 @@ def build_historical_diagnostics_result(
     )
 
 
+def _build_risk_tab_annualized_volatility(
+    risk_summary: PortfolioRiskSummary,
+) -> RiskTabAnnualizedVolatility:
+    """Publication gate for the Risk-tab annualized volatility figure (US-44.1).
+
+    Classifies server-side on the paired daily-return observation count
+    (``risk_summary.observations``); at or above the floor it copies
+    ``risk_summary.portfolio_volatility_pct`` through unchanged — no
+    recomputation, byte-identical to the Dashboard figure. Rung semantics live
+    on ``RiskTabAnnualizedVolatility``; the floor is grounded in
+    runs/2026-09-09-risk-annualized-volatility/02-quant-research.md § 2.4.
+
+    A constant return series at N >= 60 (sample stdev 0) publishes ``0.00%``
+    straight through: realized volatility is a well-defined dispersion statistic
+    at exactly zero, not an undefined ratio — no ``vol == 0`` branch.
+    """
+    floor = RISK_TAB_ANNUALIZED_VOL_MIN_OBSERVATIONS
+    observations = risk_summary.observations
+    if observations <= 0:
+        return RiskTabAnnualizedVolatility(
+            trust="unavailable",
+            observations=0,
+            minimum_observations=floor,
+        )
+    if observations < floor:
+        return RiskTabAnnualizedVolatility(
+            trust="withheld",
+            observations=observations,
+            minimum_observations=floor,
+        )
+    return RiskTabAnnualizedVolatility(
+        annualized_volatility_pct=risk_summary.portfolio_volatility_pct,
+        trust="synthetic",
+        observations=observations,
+        minimum_observations=floor,
+    )
+
+
 def build_unavailable_diagnostics_result(
     snapshot,
     benchmark_symbol: str,
@@ -441,6 +481,18 @@ def build_unavailable_diagnostics_result(
     reason: DiagnosticsUnavailableReason = "missing_request_history_context",
 ) -> DiagnosticsResult:
     factor_registry = build_factor_registry()
+    risk_summary = PortfolioRiskSummary(
+        benchmark_symbol=benchmark_symbol,
+        methodology='unavailable_without_history_context',
+        start_date=None,
+        end_date=None,
+        observations=0,
+        portfolio_beta=None,
+        portfolio_correlation=None,
+        r_squared=None,
+        portfolio_volatility_pct=None,
+        benchmark_volatility_pct=None,
+    )
 
     return DiagnosticsResult(
         snapshot=snapshot,
@@ -484,19 +536,9 @@ def build_unavailable_diagnostics_result(
         ),
         drawdown_summary=DiagnosticsDrawdownSummary(),
         volatility_summary=DiagnosticsVolatilitySummary(),
+        risk_tab_volatility=_build_risk_tab_annualized_volatility(risk_summary),
         risk_concentration_summary=DiagnosticsRiskConcentrationSummary(),
-        risk_summary=PortfolioRiskSummary(
-            benchmark_symbol=benchmark_symbol,
-            methodology='unavailable_without_history_context',
-            start_date=None,
-            end_date=None,
-            observations=0,
-            portfolio_beta=None,
-            portfolio_correlation=None,
-            r_squared=None,
-            portfolio_volatility_pct=None,
-            benchmark_volatility_pct=None,
-        ),
+        risk_summary=risk_summary,
         rolling_risk=[],
         relative_risk=RelativeRiskSummary(
             benchmark_symbol=benchmark_symbol,

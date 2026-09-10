@@ -2,6 +2,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { RiskPanel } from './RiskPanel'
+import { createDiagnosticsEngineFixture } from '../../test/portfolioFixtures'
 import type { PortfolioSnapshot } from './workspaceTypes'
 import type { DistributionEngineResponse, DrawdownEngineResponse, StressEngineResponse } from './types'
 
@@ -111,7 +112,7 @@ describe('RiskPanel', () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<RiskPanel snapshot={null} />)
+    render(<RiskPanel snapshot={null} diagnosticsAnalysis={null} />)
 
     expect(screen.getByText(/import a portfolio/i)).toBeTruthy()
     expect(fetchMock).not.toHaveBeenCalled()
@@ -124,7 +125,7 @@ describe('RiskPanel', () => {
     // polish replaces it with ExposurePanel's pattern: small
     // panel-label eyebrow + plain <h2> subtitle.
     vi.stubGlobal('fetch', vi.fn())
-    const { container } = render(<RiskPanel snapshot={null} />)
+    const { container } = render(<RiskPanel snapshot={null} diagnosticsAnalysis={null} />)
 
     // The bulky pattern (h2 with panel-label class) MUST NOT appear.
     const bulkyHeader = container.querySelector('h2.panel-label')
@@ -143,7 +144,7 @@ describe('RiskPanel', () => {
     const fetchMock = makeRoutedFetch()
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<RiskPanel snapshot={snapshot} />)
+    render(<RiskPanel snapshot={snapshot} diagnosticsAnalysis={null} />)
 
     // Wait for the async fetch + render
     await waitFor(() => {
@@ -164,7 +165,7 @@ describe('RiskPanel', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<RiskPanel snapshot={snapshot} />)
+    render(<RiskPanel snapshot={snapshot} diagnosticsAnalysis={null} />)
 
     await waitFor(() => {
       expect(screen.getByText('Stress engine failed')).toBeTruthy()
@@ -186,7 +187,7 @@ describe('RiskPanel', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<RiskPanel snapshot={snapshot} />)
+    render(<RiskPanel snapshot={snapshot} diagnosticsAnalysis={null} />)
 
     // Both cards' content eventually visible
     await waitFor(() => expect(screen.getByText('Stress Scenarios')).toBeTruthy())
@@ -202,21 +203,38 @@ describe('RiskPanel', () => {
     expect(urlsCalled.some((u) => u.includes('/engines/drawdown/run'))).toBe(true)
   })
 
-  it('renders all three cards (Stress, Drawdown, VaR & Distribution) when snapshot present', async () => {
+  it('renders all four cards (Stress, Drawdown, VaR & Distribution, Annualized Volatility) when snapshot present', async () => {
     const fetchMock = makeRoutedFetch()
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<RiskPanel snapshot={snapshot} />)
+    const { container } = render(
+      <RiskPanel snapshot={snapshot} diagnosticsAnalysis={createDiagnosticsEngineFixture()} />,
+    )
 
-    // All three card titles must render
+    // All four card titles must render
     await waitFor(() => expect(screen.getByText('Stress Scenarios')).toBeTruthy())
     await waitFor(() => expect(screen.getByText('Drawdown Analytics')).toBeTruthy())
     await waitFor(() => expect(screen.getByText('VaR & Distribution')).toBeTruthy())
+    // US-44.1: the prop-driven AnnualizedVolatilityCard, fed from the threaded
+    // diagnostics response (no fetch of its own).
+    await waitFor(() => expect(screen.getByText('Annualized Volatility')).toBeTruthy())
 
-    // All three engine routes were hit
+    // Four card sections in the stack, and the volatility card mounts last —
+    // after VarDistributionCard (plan 05 § 2: "in .risk-shell-stack after
+    // VarDistributionCard").
+    const stack = container.querySelector('.risk-shell-stack')
+    expect(stack).not.toBeNull()
+    const cardSections = Array.from(stack!.querySelectorAll(':scope > .compact-chart-panel'))
+    expect(cardSections).toHaveLength(4)
+    expect(cardSections[2]?.textContent).toContain('VaR & Distribution')
+    expect(cardSections[3]?.textContent).toContain('Annualized Volatility')
+
+    // The stress / drawdown / distribution routes were hit; the volatility
+    // card added no fourth engine call.
     const urlsCalled = fetchMock.mock.calls.map((c) => String(c[0]))
     expect(urlsCalled.some((u) => u.includes('/engines/stress/run'))).toBe(true)
     expect(urlsCalled.some((u) => u.includes('/engines/drawdown/run'))).toBe(true)
     expect(urlsCalled.some((u) => u.includes('/engines/distribution/run'))).toBe(true)
+    expect(urlsCalled.some((u) => u.includes('/engines/volatility'))).toBe(false)
   })
 })

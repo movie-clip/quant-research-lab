@@ -1133,6 +1133,37 @@ export type DiagnosticsVolatilitySummary = {
   tracking_error_pct: number | null
 }
 
+/** US-44.1: trust vocabulary for the Risk-tab annualized volatility figure.
+ *  A strict superset of the sibling Risk-tab engines' `synthetic | unavailable`
+ *  — this figure adds a `withheld` rung for a below-floor paired sample.
+ *  Mirrors the Pydantic `RiskTabVolatilityTrust`. */
+export type RiskTabVolatilityTrust = 'synthetic' | 'withheld' | 'unavailable'
+
+/** US-44.1: Risk-tab publication-gated view of the SAME scalar as
+ *  `volatility_summary.portfolio_volatility_pct`. Not a recomputation — the
+ *  diagnostics engine copies `risk_summary.portfolio_volatility_pct` through
+ *  when the paired daily-return count meets `minimum_observations` (60), and
+ *  the value is then byte-identical to the Dashboard figure for the same
+ *  response. Mirrors the Pydantic `RiskTabAnnualizedVolatility`. */
+export type RiskTabAnnualizedVolatility = {
+  /** Non-null iff `trust === 'synthetic'`. Percent units (already ×100), 2 dp.
+   *  Below the observation floor it is `null` — never 0, never the Dashboard's
+   *  unfloored number passed through. */
+  annualized_volatility_pct: number | null
+  /** `synthetic` = published (paired observations ≥ `minimum_observations`);
+   *  `withheld` = 1..59 paired observations (the series exists but an annualized
+   *  projection over a sub-quarter sample is not trustworthy); `unavailable` =
+   *  0 paired observations / no history. Never collapsed to `unavailable` when
+   *  the state is `withheld`. */
+  trust: RiskTabVolatilityTrust
+  /** Paired daily-return count; mirror of `risk_summary.observations`. Drives
+   *  the "N of 60" copy in the withheld state. */
+  observations: number
+  /** The publication floor constant (60), echoed on the wire so the card copy
+   *  needs no mirrored frontend constant. */
+  minimum_observations: number
+}
+
 export type DiagnosticsRiskConcentrationSummary = {
   top_1_factor_risk_share: number | null
   top_3_factor_risk_share: number | null
@@ -1314,6 +1345,7 @@ export type ImportedDiagnosticsSource = {
   run_metadata: DiagnosticsRunMetadata
   drawdown_summary: DiagnosticsDrawdownSummary
   volatility_summary: DiagnosticsVolatilitySummary
+  risk_tab_volatility: RiskTabAnnualizedVolatility
   risk_concentration_summary: DiagnosticsRiskConcentrationSummary
   risk_summary: PortfolioRiskSummary
   rolling_risk: RollingRiskPoint[]

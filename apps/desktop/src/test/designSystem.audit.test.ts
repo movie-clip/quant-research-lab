@@ -35,6 +35,9 @@ const CARDS_WITH_BADGE = [
   'StressScenariosCard.tsx',
   'DrawdownAnalyticsCard.tsx',
   'VarDistributionCard.tsx',
+  // US-44.1: the Risk-tab annualized volatility card. Renders a Synthetic badge
+  // in its published state (synthetic history).
+  'AnnualizedVolatilityCard.tsx',
 ]
 
 /** Every card file the design system covers (incl. IndexedReturnChart). */
@@ -73,6 +76,9 @@ const ALL_CARD_FILES = [
   'StressScenariosCard.tsx',
   'DrawdownAnalyticsCard.tsx',
   'VarDistributionCard.tsx',
+  // US-44.1: the Risk-tab annualized volatility card (CardShell + TrustBadge +
+  // EmptyState/LoadingState primitives, tokens only).
+  'AnnualizedVolatilityCard.tsx',
 ]
 
 const HEX_REGEX = /#[0-9a-fA-F]{3,8}\b/g

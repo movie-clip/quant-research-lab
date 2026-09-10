@@ -909,7 +909,7 @@ export function App() {
       {tab === 'risk' ? (
         <section className="grid grid-single">
           <Suspense fallback={<section className="panel"><p className="panel-label">Risk</p><p className="helper">Loading risk analytics...</p></section>}>
-            <RiskPanel snapshot={dashboardSnapshot} />
+            <RiskPanel snapshot={dashboardSnapshot} diagnosticsAnalysis={diagnosticsAnalysis} />
           </Suspense>
         </section>
       ) : null}

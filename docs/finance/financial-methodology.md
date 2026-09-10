@@ -1015,6 +1015,50 @@ Do not mix the two conventions inside one formula.
 realized_vol = stdev(daily_returns) * sqrt(252)
 ```
 
+`stdev` is the sample (N−1) standard deviation of the cash-flow-neutral daily
+portfolio return series. One formula, one code path:
+`_calculate_annualized_volatility` in `analytics/risk.py`. Every surface that
+displays this figure reuses that function's output — nothing re-implements it.
+
+**Risk-tab publication floor (US-44.1).** The Risk tab surfaces this same scalar
+(`risk_tab_volatility.annualized_volatility_pct` on `DiagnosticsResult`, rendered
+by `AnnualizedVolatilityCard`), gated behind a paired-observation floor. `N` is
+`risk_summary.observations` — the count of paired portfolio-and-benchmark daily
+returns the statistic is computed over.
+
+| Paired observations `N` | Risk-tab trust | Value |
+|---|---|---|
+| `N = 0` | `unavailable` | `null` |
+| `1 ≤ N < 60` | `withheld` — never collapsed to `unavailable` | `null` |
+| `N ≥ 60` | `synthetic` (published) | the figure, copied byte-for-byte from `volatility_summary.portfolio_volatility_pct`, not recomputed |
+
+At `N ≥ 60` a genuinely constant return series publishes `0.00%` with
+`trust = "synthetic"` — there is no zero-variance special case. Realized
+volatility is a dispersion statistic whose value over a constant series is
+well-defined and exactly zero (unlike a ratio such as β or ρ, which is `0/0`
+undefined). This is the human ruling on US-44.1 open decision 2; the
+post-implementation quant-audit concurred.
+
+The floor is the constant `RISK_TAB_ANNUALIZED_VOL_MIN_OBSERVATIONS = 60` in
+`services/quant-engine/app/core/constants.py`. It is distinct from
+`MIN_DAILY_OBSERVATIONS` (20, the product-wide per-metric minimum — see
+§Per-position minimum-observation rule) and from `analytics/risk.py`'s
+`WINDOW_MIN_OBSERVATIONS` (the rolling-OLS buffer, which also contains a 60).
+Grounding for the value — the estimation-error cost of annualizing a
+sub-quarter sample by `sqrt(252)` — is the chi-square sampling distribution of
+the sample standard deviation `(N−1)s²/σ² ~ χ²(N−1)` (Casella & Berger 2002
+§5.3; Kenney & Keeping 1951 §7.9), reinforced by Figlewski (1997) and Danielsson
+& Zigrand (2006); worked confidence-interval widths at N = 20 / 60 / 252 are in
+run `2026-09-09-risk-annualized-volatility` `02-quant-research.md` § 2.4.
+
+**The Dashboard surface is unchanged.** `volatility_summary.portfolio_volatility_pct`
+(Dashboard Risk Summary card) retains no explicit floor: it publishes from
+`N ≥ 2` and returns `0.00%` at `N = 1`. For `2 ≤ N < 60` the Dashboard therefore
+shows a number while the Risk tab withholds. Both are the same synthetic-history
+scalar down the same code path — the only difference is this presentation-layer
+publication threshold, so this is neither a truth-class mix nor a traceability
+break.
+
 ### Downside volatility
 
 ```text

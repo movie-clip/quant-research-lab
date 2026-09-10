@@ -223,6 +223,19 @@ Refusal rule:
 - `tracking_error_pct`
   - sourced from `relative_risk.tracking_error_pct`
 
+Risk-tab publication-gated view (US-44.1):
+- `risk_tab_volatility.annualized_volatility_pct` on `DiagnosticsResult` is the
+  Risk-tab view of `volatility_summary.portfolio_volatility_pct` — the same
+  source scalar down the same code path (`_calculate_annualized_volatility` via
+  `build_portfolio_risk_summary`), copied byte-for-byte, never recomputed
+- it adds a 60-paired-observation publication floor keyed on
+  `risk_summary.observations`: `N = 0` → `trust = "unavailable"`,
+  `1 ≤ N < 60` → `trust = "withheld"` (value `null`, not collapsed to
+  unavailable), `N ≥ 60` → published with `trust = "synthetic"`
+- `volatility_summary.portfolio_volatility_pct` itself is unchanged and keeps no
+  observation floor; see `docs/contracts/risk-fields.md` §US-44.1 and
+  `financial-methodology.md` §"Annualized realized volatility"
+
 Benchmark-relative refusal rule:
 - benchmark-relative investor-economics outputs such as `relative_risk.active_return_pct` and `relative_risk.information_ratio` may be `null` even when `availability.status = ok`
 - in that case, `run_metadata.investor_economics_status` is the authoritative explanation for intentional refusal

@@ -511,14 +511,96 @@ unitless). All other scalar cells render `${pct.toFixed(2)}%`.
 
 ---
 
+## US-44.1 — Portfolio Annualized Volatility (Risk tab)
+
+**Not a Risk-tab engine.** Unlike the three sections above, this figure is not
+produced by a dedicated `*/run` engine. It is a publication-gated view of a
+scalar already carried on `DiagnosticsResult` (the diagnostics engine,
+`POST /api/engines/diagnostics/run`), surfaced on the Risk tab with no new
+route, fetch, adapter, or computation — `RiskPanel` threads the
+already-in-App-state `diagnosticsAnalysis` into the card.
+
+Data source: `DiagnosticsResult.risk_tab_volatility`
+
+**Backend schema:** `services/quant-engine/app/schemas/diagnostics.py` —
+  `RiskTabAnnualizedVolatility`, `RiskTabVolatilityTrust`
+**Backend gate:** `services/quant-engine/app/services/diagnostics_engine.py` —
+  `_build_risk_tab_annualized_volatility(risk_summary)`, called on both the
+  populated path and `build_unavailable_diagnostics_result`
+**Backend value source:** `analytics/risk.py` `_calculate_annualized_volatility`
+  via `build_portfolio_risk_summary` — the value is reused, not recomputed
+**Floor constant:** `services/quant-engine/app/core/constants.py` —
+  `RISK_TAB_ANNUALIZED_VOL_MIN_OBSERVATIONS = 60`
+**Frontend types:** `apps/desktop/src/features/portfolio/types.ts` —
+  `RiskTabAnnualizedVolatility`, `RiskTabVolatilityTrust` (mirrored onto
+  `ImportedDiagnosticsSource` / its alias `DiagnosticsEngineResponse`)
+**UI component:** `apps/desktop/src/features/portfolio/AnnualizedVolatilityCard.tsx`
+  — prop-driven, mounted in `.risk-shell-stack` after `VarDistributionCard`
+**Methodology:** §Volatility and Relative Risk → "Annualized realized volatility"
+  (Risk-tab publication floor)
+
+### Trust vocabulary extension
+
+The trust-class preamble at the top of this file describes the Risk-tab set as
+synthetic-or-`unavailable`. **For this one figure the set is
+`synthetic | withheld | unavailable`.** The `withheld` rung (1..59 paired
+observations) is specific to `risk_tab_volatility`; the sibling engines (stress,
+drawdown, distribution) are unchanged and still carry no `withheld` rung. The
+figure is still never `verified` or `degraded` — synthetic-history basis.
+
+### `RiskTabAnnualizedVolatility`
+
+| Field | Backend type (Python) | TS type | UI surface | Nullable | Notes |
+|---|---|---|---|---|---|
+| `annualized_volatility_pct` | `float \| None` (default `None`) | `number \| null` | Stat row `X.XX%` — synthetic state only | Yes | Non-null **iff** `trust == "synthetic"`. Percent units, already ×100, 2 dp. Byte-identical to `volatility_summary.portfolio_volatility_pct` in the same response — copied straight through, never recomputed. |
+| `trust` | `Literal["synthetic", "withheld", "unavailable"]` (default `"unavailable"`) | `'synthetic' \| 'withheld' \| 'unavailable'` | `TrustBadge type="synthetic"` in the header when published; no header badge in the withheld / unavailable states (distinguished by EmptyState copy) | No | `synthetic` = published, `N ≥ 60`. `withheld` = 1..59 paired observations. `unavailable` = 0 paired observations, or no history context. Never serialized as `unavailable` when the state is withheld. |
+| `observations` | `int` (default `0`) | `number` | "{N} of {min}" in the withheld EmptyState | No | Paired portfolio + benchmark daily-return count; mirror of `risk_summary.observations`. |
+| `minimum_observations` | `int` (required, no default) | `number` | "{min}" in the withheld copy and the methodology helper | No | The floor constant, `60`. Echoed on the wire so the card copy and the methodology helper do not hardcode it; the frontend adds no mirrored constant. |
+
+### Trust state semantics
+
+| Paired `observations` | `trust` | `annualized_volatility_pct` | Card render |
+|---|---|---|---|
+| `0` | `"unavailable"` | `null` | `EmptyState` "Annualized volatility unavailable" |
+| `1 .. 59` | `"withheld"` | `null` | `EmptyState` "Annualized volatility withheld" — no number, no `0`, no `—`, no badge |
+| `≥ 60` | `"synthetic"` | the figure (`0.00%` is a legitimate value for a genuinely constant series) | stat row + `TrustBadge type="synthetic"` + methodology helper |
+| prop is `null` (diagnostics fetch still in flight) | — | — | `LoadingState` "Computing annualized volatility…" |
+
+### Verbatim card copy
+
+Pinned by substring assertion in `AnnualizedVolatilityCard.test.tsx` — keep this
+block and the component in lockstep.
+
+- **Card title (all states):** `Annualized Volatility`
+- **Withheld — EmptyState title:** `Annualized volatility withheld`
+- **Withheld — EmptyState detail:** `{observations} of {minimum_observations} paired portfolio and benchmark trading days available. An annualized volatility projected from fewer than {minimum_observations} paired trading days is not published here. The Dashboard shows an unfloored estimate for the same portfolio.`
+- **Unavailable — EmptyState title:** `Annualized volatility unavailable`
+- **Unavailable — EmptyState detail:** `No paired portfolio and benchmark return history is available for this portfolio yet.`
+- **Synthetic — methodology helper:** `Sample (N-1) standard deviation of daily returns × √252, over {observations} paired portfolio and benchmark trading days. Published once at least {minimum_observations} paired trading days are available. See §"Annualized realized volatility" in the methodology.`
+- **Synthetic — `TrustBadge` tooltip:** `Computed from current holdings applied to historical prices. Sample (N-1) standard deviation of daily returns, annualized by √252.`
+
+### Cross-reference
+
+`risk_tab_volatility.annualized_volatility_pct` is the publication-gated Risk-tab
+view of `volatility_summary.portfolio_volatility_pct` — see
+`docs/contracts/diagnostics-fields.md` §`volatility_summary`. Same source scalar,
+same code path; the Risk tab adds a 60-paired-observation floor the Dashboard
+surface does not apply. Methodology: `financial-methodology.md` §"Annualized
+realized volatility".
+
+---
+
 ## UI rendering (Epic 12 design system)
 
-All three Risk-tab cards use the design-system primitives from
+The four Risk-tab cards use the design-system primitives from
 `apps/desktop/src/app/primitives/`:
 
 - `CardShell` — outer wrapper with `role="region"` + `aria-labelledby`
-- `TrustBadge` — `type="synthetic" \| "unavailable"`
-- `WindowSelector` — used by Drawdown + VaR cards (Stress is point-in-time)
+- `TrustBadge` — `type="synthetic" \| "unavailable"` (the primitive was **not**
+  extended for `risk_tab_volatility`'s `withheld` rung; that state renders a
+  distinct `EmptyState` and no header badge)
+- `WindowSelector` — used by Drawdown + VaR cards (Stress and Annualized
+  Volatility are point-in-time / full-history)
 - `ChartShell` + `chartDefaults` — used for Drawdown's AreaChart and
   VaR's BarChart (both with descriptive `ariaLabel`)
 - `EmptyState`, `LoadingState`, `ErrorState` — fail-closed state primitives

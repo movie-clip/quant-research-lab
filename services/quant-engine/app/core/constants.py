@@ -19,6 +19,25 @@ DEFAULT_BENCHMARK_SYMBOL = "SPY"
 MIN_DAILY_OBSERVATIONS = 20
 
 
+# US-44.1 (Epic 44 — Risk tab): publication floor for the Risk-tab surface of the
+# annualized realized volatility figure ONLY. At or above 60 paired daily-return
+# observations the Risk tab publishes the (synthetic) value; 1..59 -> withheld;
+# 0 -> unavailable. The Dashboard surface of the same scalar
+# (``volatility_summary.portfolio_volatility_pct``) is unfloored and unchanged.
+#
+# This is a presentation-layer threshold, deliberately DISTINCT from:
+#   - ``MIN_DAILY_OBSERVATIONS`` (20) above — the product-wide per-metric minimum
+#     for the distribution / correlation / drawdown engines and per-position
+#     vol/beta/rho. This floor is stricter and applies to one portfolio-level
+#     figure on one surface.
+#   - ``risk.py``'s ``WINDOW_MIN_OBSERVATIONS`` ({20: 25, 60: 75, 252: 275}) —
+#     a per-window OLS estimation buffer; a different concept, and its "60" is a
+#     window length, not an observation count.
+# Grounding for the value 60 (sampling distribution / estimation-error argument):
+# runs/2026-09-09-risk-annualized-volatility/02-quant-research.md § 2.4.
+RISK_TAB_ANNUALIZED_VOL_MIN_OBSERVATIONS = 60
+
+
 def lookback_calendar_days(window_trading_days: int) -> int:
     """Calendar days to fetch to cover a trading-day window.
 

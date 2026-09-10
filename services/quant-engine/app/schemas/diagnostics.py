@@ -98,6 +98,41 @@ class DiagnosticsVolatilitySummary(BaseModel):
     tracking_error_pct: float | None = None
 
 
+RiskTabVolatilityTrust = Literal["synthetic", "withheld", "unavailable"]
+
+
+class RiskTabAnnualizedVolatility(BaseModel):
+    """Risk-tab publication-gated view of the SAME scalar as
+    ``volatility_summary.portfolio_volatility_pct`` (US-44.1).
+
+    Not a recomputation: ``annualized_volatility_pct`` is copied straight from
+    ``risk_summary.portfolio_volatility_pct`` when the paired-observation floor
+    (``RISK_TAB_ANNUALIZED_VOL_MIN_OBSERVATIONS`` = 60) is met, and is then
+    byte-identical to the Dashboard figure for the same response.
+
+    Formula (unchanged, one documented code path):
+    ``stdev_sample(daily_returns) * sqrt(252) * 100`` — sample (N-1) standard
+    deviation, square-root-of-time annualization; ``_calculate_annualized_volatility``
+    in ``analytics/risk.py``. Units: percent, already x100 (``_pct`` suffix).
+    Truth class: synthetic history (current holdings x historical prices).
+    Methodology: ``docs/finance/financial-methodology.md`` section
+    "Annualized realized volatility".
+
+    Trust rungs, on the paired daily-return observation count N:
+      * ``N >= 60``     -> ``synthetic``   : published, value non-null
+      * ``1 <= N < 60`` -> ``withheld``    : series exists but the annualized
+                                             projection over a sub-quarter sample
+                                             is not trustworthy; value null
+      * ``N == 0``      -> ``unavailable`` : no return series; value null
+    ``withheld`` is never serialized or collapsed to ``unavailable`` (guardrail 4).
+    """
+
+    annualized_volatility_pct: float | None = None
+    trust: RiskTabVolatilityTrust = "unavailable"
+    observations: int = 0
+    minimum_observations: int
+
+
 class DiagnosticsRiskConcentrationSummary(BaseModel):
     top_1_factor_risk_share: float | None = None
     top_3_factor_risk_share: float | None = None
@@ -114,6 +149,7 @@ class DiagnosticsResult(BaseModel):
     run_metadata: DiagnosticsRunMetadata
     drawdown_summary: DiagnosticsDrawdownSummary
     volatility_summary: DiagnosticsVolatilitySummary
+    risk_tab_volatility: RiskTabAnnualizedVolatility
     risk_concentration_summary: DiagnosticsRiskConcentrationSummary
     risk_summary: PortfolioRiskSummary
     rolling_risk: list[RollingRiskPoint]
