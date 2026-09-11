@@ -1,10 +1,20 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
+import { createDiagnosticsEngineFixture, createExposureEngineFixture } from '../../test/portfolioFixtures'
 import type { ExposureAnalysis } from './types'
+import { composeExposureView } from './portfolioAnalysisAdapter'
 import { BenchmarkPositioningCard } from './BenchmarkPositioningCard'
 
 afterEach(cleanup)
+
+const mockExposureView = composeExposureView(createExposureEngineFixture(), createDiagnosticsEngineFixture())
+
+function getToggle() {
+  // The button's accessible name flips with state, matching RiskSummaryCard's
+  // US-45.1 convention — match on the stable prefix.
+  return screen.getByRole('button', { name: /(Collapse|Expand) Benchmark Positioning/i })
+}
 
 /**
  * CR-1 (2026-08-24-sbio-still-unclassified-bug, quant-audit Finding 1):
@@ -73,7 +83,9 @@ describe('BenchmarkPositioningCard getBenchmarkTrust — single-vintage derivati
       />,
     )
 
-    const text = screen.getByLabelText('Benchmark Positioning').textContent ?? ''
+    // Sub-section is a `role="group"`, not a top-level `summary-card` section
+    // (2026-09-12-combine-sector-benchmark-card) — query by group role/name.
+    const text = screen.getByRole('group', { name: 'Benchmark Positioning' }).textContent ?? ''
     expect(text).toContain('Positioning available versus SPY.')
   })
 
@@ -126,5 +138,65 @@ describe('BenchmarkPositioningCard getBenchmarkTrust — single-vintage derivati
 
     const text = screen.getByLabelText('Benchmark Positioning').textContent ?? ''
     expect(text).toContain('Benchmark-relative positioning unavailable for this snapshot.')
+  })
+})
+
+// 2026-09-12-combine-sector-benchmark-card (test lane, order 02): fold/expand
+// toggle added when BenchmarkPositioningCard became a foldable sub-section of
+// DashboardPanel's combined composition card. Mirrors RiskSummaryCard's
+// US-45.1 fold tests (default-expanded, aria-expanded toggles on click, the
+// detail block hides while collapsed, the always-visible trust line does not).
+describe('BenchmarkPositioningCard — fold/expand', () => {
+  it('defaults to expanded and shows the metrics/lists detail block on first render', () => {
+    render(<BenchmarkPositioningCard exposureResult={mockExposureView} />)
+
+    const toggle = getToggle()
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByText('In benchmark')).toBeTruthy()
+    expect(screen.getByText('Active share')).toBeTruthy()
+  })
+
+  it('clicking the toggle collapses the card and hides the metrics/lists detail block', () => {
+    render(<BenchmarkPositioningCard exposureResult={mockExposureView} />)
+
+    fireEvent.click(getToggle())
+
+    expect(getToggle().getAttribute('aria-expanded')).toBe('false')
+    expect(screen.queryByText('In benchmark')).toBeNull()
+    expect(screen.queryByText('Active share')).toBeNull()
+    // Compact active-weight rows (overweights/underweights) also fold away.
+    expect(screen.queryByText('AAPL')).toBeNull()
+  })
+
+  it('clicking the toggle a second time re-expands and restores the detail block', () => {
+    render(<BenchmarkPositioningCard exposureResult={mockExposureView} />)
+
+    fireEvent.click(getToggle())
+    expect(screen.queryByText('In benchmark')).toBeNull()
+
+    fireEvent.click(getToggle())
+    expect(screen.getByText('In benchmark')).toBeTruthy()
+    expect(screen.getByText('Active share')).toBeTruthy()
+  })
+
+  it('keeps the coverageNote line visible while the detail block is collapsed', () => {
+    render(<BenchmarkPositioningCard exposureResult={mockExposureView} />)
+
+    const group = screen.getByRole('group', { name: 'Benchmark Positioning' })
+    expect(within(group).getByText(/Positioning available versus SPY\./)).toBeTruthy()
+
+    fireEvent.click(getToggle())
+
+    expect(within(group).getByText(/Positioning available versus SPY\./)).toBeTruthy()
+    expect(within(group).queryByText('In benchmark')).toBeNull()
+  })
+
+  it('aria-controls on the toggle points at the rendered detail region id', () => {
+    render(<BenchmarkPositioningCard exposureResult={mockExposureView} />)
+
+    const toggle = getToggle()
+    const controlsId = toggle.getAttribute('aria-controls')
+    expect(controlsId).toBeTruthy()
+    expect(document.getElementById(controlsId!)).toBeTruthy()
   })
 })

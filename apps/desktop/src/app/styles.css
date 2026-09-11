@@ -2270,13 +2270,20 @@ select.path-input option {
   padding: 32px 0;
 }
 
-/* ── Dashboard composition row ─────────────────────────────────────────────── */
+/* ── Dashboard composition card ────────────────────────────────────────────── */
+/* 2026-09-12-combine-sector-benchmark-card: Sector Composition and Benchmark
+   Positioning share one card surface, stacked with a divider between them
+   rather than the former two-card grid row. */
 
-.dashboard-composition-row {
-  display: grid;
-  grid-template-columns: 3fr 2fr;
+.dashboard-composition-card {
+  display: flex;
+  flex-direction: column;
   gap: 16px;
-  align-items: stretch;
+}
+
+.dashboard-composition-divider {
+  border-top: var(--border-thin) solid var(--color-border-subtle);
+  margin: 0;
 }
 
 /* ── Sector Pie Card ───────────────────────────────────────────────────────── */
@@ -3985,8 +3992,7 @@ select.path-input option {
 
   .grid,
   .grid-wide,
-  .split-grid,
-  .dashboard-composition-row {
+  .split-grid {
     grid-template-columns: 1fr;
   }
 

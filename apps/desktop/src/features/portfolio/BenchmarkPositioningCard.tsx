@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 import type { ExposureAnalysis } from './types'
 
 // ─── types ────────────────────────────────────────────────────────────────────
@@ -109,15 +111,27 @@ type BenchmarkPositioningCardProps = {
   exposureResult: ExposureAnalysis | null
 }
 
+// 2026-09-12-combine-sector-benchmark-card: renders as the foldable
+// sub-section inside the shared "Sector Composition + Benchmark Positioning"
+// card surface (`DashboardPanel`'s `dashboard-composition-card`), not its own
+// top-level card. `role="group"` + `aria-label` keep "Benchmark Positioning"
+// discoverable even though it no longer sits in its own
+// `<section className="summary-card">`.
+//
+// Fold convention follows RiskSummaryCard's US-45.1 one-off toggle (local
+// `useState`, `aria-expanded`, no shared fold primitive) rather than
+// introducing a new abstraction.
 export function BenchmarkPositioningCard({ exposureResult }: BenchmarkPositioningCardProps) {
+  const [expanded, setExpanded] = useState(true)
+
   if (!exposureResult) {
     return (
-      <section className="summary-card benchmark-positioning-card" aria-label="Benchmark Positioning">
+      <div className="benchmark-positioning-card" role="group" aria-label="Benchmark Positioning">
         <p className="panel-label">Benchmark Positioning</p>
         <p className="helper" style={{ marginTop: 4 }}>
           Unavailable — import a portfolio to see benchmark-relative positioning.
         </p>
-      </section>
+      </div>
     )
   }
 
@@ -125,69 +139,92 @@ export function BenchmarkPositioningCard({ exposureResult }: BenchmarkPositionin
   const overweights = bm.overweights.slice(0, 5)
   const underweights = bm.underweights.slice(0, 5)
   const hasRows = overweights.length > 0 || underweights.length > 0
+  const detailId = 'benchmark-positioning-detail'
 
   return (
-    <section className="summary-card benchmark-positioning-card" aria-label="Benchmark Positioning">
+    <div className="benchmark-positioning-card" role="group" aria-label="Benchmark Positioning">
       <div className="benchmark-card-header">
         <p className="panel-label">Benchmark Positioning</p>
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-controls={detailId}
+          aria-label={expanded ? 'Collapse Benchmark Positioning' : 'Expand Benchmark Positioning'}
+          onClick={() => { setExpanded(!expanded) }}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            padding: 'var(--space-xs)',
+            cursor: 'pointer',
+            color: 'var(--color-text-secondary)',
+            fontSize: 'var(--font-body-sm)',
+            fontFamily: 'inherit',
+          }}
+        >
+          {expanded ? '▾' : '▸'}
+        </button>
       </div>
 
       <p className="helper benchmark-card-note">{bm.coverageNote}</p>
 
-      <div className="benchmark-card-summary">
-        <div className="benchmark-card-metric">
-          <span className="stat-label">In benchmark</span>
-          <span className="benchmark-card-value">
-            {bm.trust === 'unavailable' ? '—' : formatPct(bm.portfolioInBenchmarkWeight)}
-          </span>
-        </div>
-        <div className="benchmark-card-metric">
-          <span className="stat-label">Active share</span>
-          <span className="benchmark-card-value">
-            {bm.trust === 'unavailable' ? '—' : formatPct(bm.activeShare)}
-          </span>
-        </div>
-      </div>
+      {expanded && (
+        <div id={detailId}>
+          <div className="benchmark-card-summary">
+            <div className="benchmark-card-metric">
+              <span className="stat-label">In benchmark</span>
+              <span className="benchmark-card-value">
+                {bm.trust === 'unavailable' ? '—' : formatPct(bm.portfolioInBenchmarkWeight)}
+              </span>
+            </div>
+            <div className="benchmark-card-metric">
+              <span className="stat-label">Active share</span>
+              <span className="benchmark-card-value">
+                {bm.trust === 'unavailable' ? '—' : formatPct(bm.activeShare)}
+              </span>
+            </div>
+          </div>
 
-      {hasRows ? (
-        <div className="benchmark-card-lists">
-          <div className="benchmark-card-col">
-            <p className="benchmark-card-col-label benchmark-card-col-over">↑ Over</p>
-            <div className="benchmark-card-col-rows">
-              {overweights.map((row) => (
-                <div className="benchmark-card-row" key={`over-${row.symbol}`}>
-                  <span className="benchmark-card-symbol">{row.symbol}</span>
-                  <span className="benchmark-card-active benchmark-card-active-over">
-                    {formatActiveShort(row.activeWeight)}
-                  </span>
+          {hasRows ? (
+            <div className="benchmark-card-lists">
+              <div className="benchmark-card-col">
+                <p className="benchmark-card-col-label benchmark-card-col-over">↑ Over</p>
+                <div className="benchmark-card-col-rows">
+                  {overweights.map((row) => (
+                    <div className="benchmark-card-row" key={`over-${row.symbol}`}>
+                      <span className="benchmark-card-symbol">{row.symbol}</span>
+                      <span className="benchmark-card-active benchmark-card-active-over">
+                        {formatActiveShort(row.activeWeight)}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
+              <div className="benchmark-card-col">
+                <p className="benchmark-card-col-label benchmark-card-col-under">↓ Under</p>
+                <div className="benchmark-card-col-rows">
+                  {underweights.length ? (
+                    underweights.map((row) => (
+                      <div className="benchmark-card-row" key={`under-${row.symbol}`}>
+                        <span className="benchmark-card-symbol">{row.symbol}</span>
+                        <span className="benchmark-card-active benchmark-card-active-under">
+                          {formatActiveShort(row.activeWeight)}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="helper" style={{ fontSize: 11 }}>None</p>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="benchmark-card-col">
-            <p className="benchmark-card-col-label benchmark-card-col-under">↓ Under</p>
-            <div className="benchmark-card-col-rows">
-              {underweights.length ? (
-                underweights.map((row) => (
-                  <div className="benchmark-card-row" key={`under-${row.symbol}`}>
-                    <span className="benchmark-card-symbol">{row.symbol}</span>
-                    <span className="benchmark-card-active benchmark-card-active-under">
-                      {formatActiveShort(row.activeWeight)}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <p className="helper" style={{ fontSize: 11 }}>None</p>
-              )}
+          ) : (
+            <div className="benchmark-card-empty">
+              <p className="empty-state-title">Benchmark-relative positioning unavailable</p>
+              <p className="helper">No benchmark cues shown rather than implying neutral positioning.</p>
             </div>
-          </div>
-        </div>
-      ) : (
-        <div className="benchmark-card-empty">
-          <p className="empty-state-title">Benchmark-relative positioning unavailable</p>
-          <p className="helper">No benchmark cues shown rather than implying neutral positioning.</p>
+          )}
         </div>
       )}
-    </section>
+    </div>
   )
 }

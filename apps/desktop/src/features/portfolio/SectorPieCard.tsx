@@ -191,6 +191,11 @@ export type SectorPieCardProps = {
   exposureResult: ExposureAnalysis | null
 }
 
+// 2026-09-12-combine-sector-benchmark-card: renders as a sub-section inside
+// the shared "Sector Composition + Benchmark Positioning" card surface
+// (`DashboardPanel`'s `dashboard-composition-card`), not its own top-level
+// card. `role="group"` + `aria-label` keep "Sector Composition" discoverable
+// even though it no longer sits in its own `<section className="summary-card">`.
 export function SectorPieCard({ result, exposureResult }: SectorPieCardProps) {
   const [selectedIndex, setSelectedIndex] = useState<number>(0)
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
@@ -199,12 +204,12 @@ export function SectorPieCard({ result, exposureResult }: SectorPieCardProps) {
 
   if (state.kind === 'unavailable') {
     return (
-      <section className="summary-card sector-pie-card" aria-label="Sector Composition">
+      <div className="sector-pie-card" role="group" aria-label="Sector Composition">
         <p className="panel-label">Sector Composition</p>
         <p className="helper" style={{ marginTop: 4 }}>
           Unavailable — import a portfolio to see sector mix.
         </p>
-      </section>
+      </div>
     )
   }
 
@@ -214,7 +219,7 @@ export function SectorPieCard({ result, exposureResult }: SectorPieCardProps) {
   const displayHoldings = state.breakdown[displaySlice?.name] ?? []
 
   return (
-    <section className="summary-card sector-pie-card" aria-label="Sector Composition">
+    <div className="sector-pie-card" role="group" aria-label="Sector Composition">
       <p className="panel-label">Sector Composition</p>
       <div className="sector-pie-body">
         <div className="sector-pie-chart-wrap">
@@ -260,6 +265,6 @@ export function SectorPieCard({ result, exposureResult }: SectorPieCardProps) {
           />
         )}
       </div>
-    </section>
+    </div>
   )
 }

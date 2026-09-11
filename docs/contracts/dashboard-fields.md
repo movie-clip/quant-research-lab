@@ -241,13 +241,15 @@ already used the just-imported statement's own snapshot directly.
 | Risk contribution basis label | `run_metadata.section_trust.risk_contribution_path` | `diagnosticsAnalysis.run_metadata` | `engine-derived` | falls back to "Unavailable" | plain-text label distinct from the Exposure-tab `TrustBadge` primitive; rendered sentence is scoped explicitly to price-field provenance, not overall card trust — shipped copy: "Risk contribution basis (adjusted-close price provenance only): {trust}" (US-45.1, `RiskSummaryCard.tsx:95`) — the caveat does not cover Factor HHI / Position HHI / top-N risk shares |
 | Information Ratio / Active Return (vs benchmark) | `diagnosticsAnalysis.relative_risk.{information_ratio,active_return_pct}` (Epic 25 / US-25.5) | `diagnosticsAnalysis` | `engine-derived`, synthetic-history basis | rows omitted entirely (not `n/a`) when `volatility_summary.tracking_error_pct` is `null` — mathematically dependent, per `financial-methodology.md` §Information Ratio; `n/a` per individually-null field otherwise | already computed in `risk.py` prior to this epic; this story only added the methodology section + UI row |
 
-### Factor / Composition cards (pre-Epic-25, unchanged)
+### Factor / Composition cards (pre-Epic-25, unchanged unless noted)
 
 | UI field | Current UI/provider source | App state source | Truth class | Notes |
 | --- | --- | --- | --- | --- |
-| Rolling Factor Analysis | `RollingFactorLoadingsCard.tsx` | `exposureResult`, `factorModel` | `engine-derived`, synthetic-history basis | unchanged by Epic 25 |
-| Sector composition donut | `SectorPieCard.tsx` | `result`, `exposureResult` | `engine-derived` | unchanged by Epic 25; replaced the earlier editable Allocation Overview draft (no longer present anywhere in the codebase) |
-| Benchmark Positioning | `BenchmarkPositioningCard.tsx` | `exposureResult` | `engine-derived` | unchanged by Epic 25 |
+| Rolling Factor Analysis | `RollingFactorLoadingsCard.tsx` | `exposureResult`, `factorModel` | `engine-derived`, synthetic-history basis | unchanged by Epic 25; its own top-level `summary-card`, not part of the combined composition card below |
+| Sector composition donut | `SectorPieCard.tsx` | `result`, `exposureResult` | `engine-derived` | replaced the earlier editable Allocation Overview draft (no longer present anywhere in the codebase); as of the sector/benchmark card merge it renders as a `role="group"` sub-section, always expanded, not its own top-level card |
+| Benchmark Positioning | `BenchmarkPositioningCard.tsx` | `exposureResult` | `engine-derived` | as of the sector/benchmark card merge it renders as a foldable `role="group"` sub-section (default expanded, `aria-expanded` toggle), sharing one top-level `summary-card` with Sector Composition instead of its own card |
+
+**Sector/Benchmark card merge:** `DashboardPanel.tsx` wraps both sub-components in one `<section className="summary-card dashboard-composition-card" aria-label="Sector and Benchmark Composition">` with a divider between them, replacing the earlier two-card `dashboard-composition-row` layout. Each sub-component's outer element changed from its own `<section className="summary-card">` to a `<div role="group" aria-label="…">`, so each is queryable via `getByRole('group', { name: ... })`. This is a presentational/DOM-shape change only — no field, formula, or trust class changed on either card.
 
 ## Current Provider Chain By Section
 

@@ -124,10 +124,14 @@ export function DashboardPanel({
         <MonthlyReturnsGrid result={result} activeRange={activeRange} />
         <RiskSummaryCard diagnosticsAnalysis={diagnosticsAnalysis} />
         <RollingFactorLoadingsCard result={exposureResult} factorModel={factorModel} />
-        <div className="dashboard-composition-row">
+        {/* 2026-09-12-combine-sector-benchmark-card: one card surface hosting
+            both sub-sections (previously two separate `summary-card`
+            sections); Benchmark Positioning is independently foldable. */}
+        <section className="summary-card dashboard-composition-card" aria-label="Sector and Benchmark Composition">
           <SectorPieCard result={result} exposureResult={exposureResult} />
+          <div className="dashboard-composition-divider" role="presentation" />
           <BenchmarkPositioningCard exposureResult={exposureResult} />
-        </div>
+        </section>
       </div>
 
       <div className="dashboard-shell-footer-notes">
