@@ -1074,9 +1074,14 @@ def test_diagnostics_engine_route_uses_history_context_when_present() -> None:
     assert portfolio_proof["preparation"]["readiness_status"] == "exact_slice_prerequisites_incomplete"
     assert portfolio_proof["preparation"]["all_prerequisite_buckets_supported"] is False
     assert portfolio_proof["evidence"]["investor_economics_proof"]["preparation_status"] == "exact_slice_prerequisites_incomplete"
+    # Fix 1/Fix 2 (2026-09-11 trust-gate fix): investor_economics_status
+    # derives from allow_drawdown_outputs and allow_relative_return_outputs,
+    # both now True whenever historical_sections_available is True — this
+    # request's history_context makes it so, regardless of the
+    # degraded_unverified_return_basis section_trust rung above.
     assert payload["run_metadata"]["investor_economics_status"] == {
-        "status": "withheld",
-        "reason": "withheld_unverified_total_return_equivalence",
+        "status": "available",
+        "reason": None,
     }
     assert payload["provenance"]["note"].endswith(
         "Benchmark and factor return histories remain unverified for adjusted-close or total-return equivalence in this diagnostics slice."
@@ -1085,12 +1090,16 @@ def test_diagnostics_engine_route_uses_history_context_when_present() -> None:
     assert payload["statistical_factor_model"]["status"] == "insufficient_history"
     assert payload["model_reliability"]["status"] == "insufficient_history"
     assert payload["risk_contribution_breakdown"]["status"] == "insufficient_history"
-    assert payload["drawdown_summary"]["current_drawdown_pct"] is None
-    assert payload["drawdown_summary"]["max_drawdown_pct"] is None
-    assert payload["volatility_regime"]["snapshot"]["current_drawdown_pct"] is None
-    assert payload["volatility_regime"]["snapshot"]["max_drawdown_pct"] is None
-    assert payload["relative_risk"]["active_return_pct"] is None
-    assert payload["relative_risk"]["information_ratio"] is None
+    # Fix 1 (2026-09-11 trust-gate fix): drawdown_summary passes through the
+    # already-computed volatility_regime.snapshot values whenever
+    # historical_sections_available is True, instead of unconditionally
+    # withholding them.
+    assert payload["drawdown_summary"]["current_drawdown_pct"] == payload["volatility_regime"]["snapshot"]["current_drawdown_pct"]
+    assert payload["drawdown_summary"]["max_drawdown_pct"] == payload["volatility_regime"]["snapshot"]["max_drawdown_pct"]
+    # Fix 2 (2026-09-11 trust-gate fix): relative_risk passes through
+    # build_relative_risk_summary's own output unmodified.
+    assert payload["relative_risk"]["active_return_pct"] == 0.8
+    assert payload["relative_risk"]["information_ratio"] == 10.15
     assert payload["volatility_summary"]["portfolio_volatility_pct"] == payload["risk_summary"]["portfolio_volatility_pct"]
     assert payload["volatility_summary"]["benchmark_volatility_pct"] == payload["risk_summary"]["benchmark_volatility_pct"]
     assert payload["volatility_summary"]["downside_volatility_pct"] == payload["volatility_regime"]["snapshot"]["downside_vol_60d"]
@@ -2530,9 +2539,14 @@ def test_imported_diagnostics_engine_route_accepts_imported_snapshot_payload() -
         "factor_model_path": "degraded_unverified_return_basis",
         "risk_contribution_path": "degraded_unverified_return_basis",
     }
+    # Fix 1/Fix 2 (2026-09-11 trust-gate fix): investor_economics_status
+    # derives from allow_drawdown_outputs and allow_relative_return_outputs,
+    # both now True whenever historical_sections_available is True (asserted
+    # above), regardless of the degraded_unverified_return_basis section_trust
+    # rung.
     assert payload["run_metadata"]["investor_economics_status"] == {
-        "status": "withheld",
-        "reason": "withheld_unverified_total_return_equivalence",
+        "status": "available",
+        "reason": None,
     }
     assert preparation["readiness_status"] == "exact_slice_prerequisites_incomplete"
     assert preparation["all_prerequisite_buckets_supported"] is False
@@ -2543,6 +2557,12 @@ def test_imported_diagnostics_engine_route_accepts_imported_snapshot_payload() -
     assert payload["statistical_factor_model"]["status"] == "insufficient_history"
     assert payload["model_reliability"]["status"] == "insufficient_history"
     assert payload["risk_contribution_breakdown"]["status"] == "insufficient_history"
+    # Fix 1/Fix 2 (2026-09-11 trust-gate fix): the gates no longer withhold
+    # these fields, but this fixture's single-day history window still leaves
+    # the math layer with fewer than 2 paired observations, so `None` here is
+    # the genuine insufficient-history case, not the reversed categorical
+    # gate — confirmed via a direct TestClient probe against this exact
+    # payload (historical_sections_available is True, values are still None).
     assert payload["drawdown_summary"]["current_drawdown_pct"] is None
     assert payload["drawdown_summary"]["max_drawdown_pct"] is None
     assert payload["volatility_regime"]["snapshot"]["current_drawdown_pct"] is None

@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 import type { DiagnosticsEngineResponse } from './types'
 import { EmptyState } from '../../app/primitives/EmptyState'
 
@@ -34,6 +36,11 @@ type RiskSummaryCardProps = {
 }
 
 export function RiskSummaryCard({ diagnosticsAnalysis }: RiskSummaryCardProps) {
+  // US-45.1: whole-card fold, default-expanded. One-off toggle — not a
+  // reusable primitive (see story § Out of scope). Not persisted across
+  // sessions.
+  const [expanded, setExpanded] = useState(true)
+
   const unavailable =
     !diagnosticsAnalysis
     || diagnosticsAnalysis.availability?.historical_sections_available === false
@@ -60,75 +67,97 @@ export function RiskSummaryCard({ diagnosticsAnalysis }: RiskSummaryCardProps) {
   // rather than rendering a coherence-breaking "n/a beside a real number" pair.
   const showRelativeRisk = vol.tracking_error_pct != null
 
+  const detailId = 'risk-summary-detail'
+
   return (
     <section className="summary-card risk-summary-card" aria-label="Risk Summary">
       <div className="benchmark-card-header">
         <p className="panel-label">Risk Summary</p>
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-controls={detailId}
+          aria-label={expanded ? 'Collapse Risk Summary' : 'Expand Risk Summary'}
+          onClick={() => { setExpanded(!expanded) }}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            padding: 'var(--space-xs)',
+            cursor: 'pointer',
+            color: 'var(--color-text-secondary)',
+            fontSize: 'var(--font-body-sm)',
+            fontFamily: 'inherit',
+          }}
+        >
+          {expanded ? '▾' : '▸'}
+        </button>
       </div>
-      <p className="helper" style={{ marginTop: 'var(--space-xs)' }}>Risk contribution basis: {trust}</p>
+      <p className="helper" style={{ marginTop: 'var(--space-xs)' }}>Risk contribution basis (adjusted-close price provenance only): {trust}</p>
 
-      <div className="benchmark-card-summary">
-        <div className="benchmark-card-metric">
-          <span className="stat-label">Portfolio Volatility</span>
-          <span className="benchmark-card-value">{formatPct(vol.portfolio_volatility_pct)}</span>
+      {expanded && (
+        <div className="benchmark-card-summary" id={detailId}>
+          <div className="benchmark-card-metric">
+            <span className="stat-label">Portfolio Volatility</span>
+            <span className="benchmark-card-value">{formatPct(vol.portfolio_volatility_pct)}</span>
+          </div>
+          <div className="benchmark-card-metric">
+            <span className="stat-label">Tracking Error</span>
+            <span className="benchmark-card-value">{formatPct(vol.tracking_error_pct)}</span>
+          </div>
+          <div className="benchmark-card-metric">
+            <span className="stat-label">Downside Volatility</span>
+            <span className="benchmark-card-value">{formatPct(vol.downside_volatility_pct)}</span>
+          </div>
+          <div className="benchmark-card-metric">
+            <span className="stat-label">Benchmark Volatility</span>
+            <span className="benchmark-card-value">{formatPct(vol.benchmark_volatility_pct)}</span>
+          </div>
+          <div className="benchmark-card-metric">
+            <span className="stat-label">Current Drawdown</span>
+            <span className="benchmark-card-value">{formatPct(dd.current_drawdown_pct)}</span>
+          </div>
+          <div className="benchmark-card-metric">
+            <span className="stat-label">Max Drawdown</span>
+            <span className="benchmark-card-value">{formatPct(dd.max_drawdown_pct)}</span>
+          </div>
+          <div className="benchmark-card-metric">
+            <span className="stat-label">Factor HHI</span>
+            <span className="benchmark-card-value">{formatRatio(conc.factor_hhi)}</span>
+          </div>
+          <div className="benchmark-card-metric">
+            <span className="stat-label">Position HHI</span>
+            <span className="benchmark-card-value">{formatRatio(conc.position_hhi)}</span>
+          </div>
+          <div className="benchmark-card-metric">
+            <span className="stat-label">Top-1 Factor Risk Share</span>
+            <span className="benchmark-card-value">{formatShareAsPct(conc.top_1_factor_risk_share)}</span>
+          </div>
+          <div className="benchmark-card-metric">
+            <span className="stat-label">Top-3 Factor Risk Share</span>
+            <span className="benchmark-card-value">{formatShareAsPct(conc.top_3_factor_risk_share)}</span>
+          </div>
+          <div className="benchmark-card-metric">
+            <span className="stat-label">Top-1 Position Risk Share</span>
+            <span className="benchmark-card-value">{formatShareAsPct(conc.top_1_position_risk_share)}</span>
+          </div>
+          <div className="benchmark-card-metric">
+            <span className="stat-label">Top-5 Position Risk Share</span>
+            <span className="benchmark-card-value">{formatShareAsPct(conc.top_5_position_risk_share)}</span>
+          </div>
+          {showRelativeRisk && (
+            <>
+              <div className="benchmark-card-metric">
+                <span className="stat-label">Information Ratio</span>
+                <span className="benchmark-card-value">{formatRatio(rel.information_ratio)}</span>
+              </div>
+              <div className="benchmark-card-metric">
+                <span className="stat-label">Active Return (vs benchmark)</span>
+                <span className="benchmark-card-value">{formatPct(rel.active_return_pct)}</span>
+              </div>
+            </>
+          )}
         </div>
-        <div className="benchmark-card-metric">
-          <span className="stat-label">Tracking Error</span>
-          <span className="benchmark-card-value">{formatPct(vol.tracking_error_pct)}</span>
-        </div>
-        <div className="benchmark-card-metric">
-          <span className="stat-label">Downside Volatility</span>
-          <span className="benchmark-card-value">{formatPct(vol.downside_volatility_pct)}</span>
-        </div>
-        <div className="benchmark-card-metric">
-          <span className="stat-label">Benchmark Volatility</span>
-          <span className="benchmark-card-value">{formatPct(vol.benchmark_volatility_pct)}</span>
-        </div>
-        <div className="benchmark-card-metric">
-          <span className="stat-label">Current Drawdown</span>
-          <span className="benchmark-card-value">{formatPct(dd.current_drawdown_pct)}</span>
-        </div>
-        <div className="benchmark-card-metric">
-          <span className="stat-label">Max Drawdown</span>
-          <span className="benchmark-card-value">{formatPct(dd.max_drawdown_pct)}</span>
-        </div>
-        <div className="benchmark-card-metric">
-          <span className="stat-label">Factor HHI</span>
-          <span className="benchmark-card-value">{formatRatio(conc.factor_hhi)}</span>
-        </div>
-        <div className="benchmark-card-metric">
-          <span className="stat-label">Position HHI</span>
-          <span className="benchmark-card-value">{formatRatio(conc.position_hhi)}</span>
-        </div>
-        <div className="benchmark-card-metric">
-          <span className="stat-label">Top-1 Factor Risk Share</span>
-          <span className="benchmark-card-value">{formatShareAsPct(conc.top_1_factor_risk_share)}</span>
-        </div>
-        <div className="benchmark-card-metric">
-          <span className="stat-label">Top-3 Factor Risk Share</span>
-          <span className="benchmark-card-value">{formatShareAsPct(conc.top_3_factor_risk_share)}</span>
-        </div>
-        <div className="benchmark-card-metric">
-          <span className="stat-label">Top-1 Position Risk Share</span>
-          <span className="benchmark-card-value">{formatShareAsPct(conc.top_1_position_risk_share)}</span>
-        </div>
-        <div className="benchmark-card-metric">
-          <span className="stat-label">Top-5 Position Risk Share</span>
-          <span className="benchmark-card-value">{formatShareAsPct(conc.top_5_position_risk_share)}</span>
-        </div>
-        {showRelativeRisk && (
-          <>
-            <div className="benchmark-card-metric">
-              <span className="stat-label">Information Ratio</span>
-              <span className="benchmark-card-value">{formatRatio(rel.information_ratio)}</span>
-            </div>
-            <div className="benchmark-card-metric">
-              <span className="stat-label">Active Return (vs benchmark)</span>
-              <span className="benchmark-card-value">{formatPct(rel.active_return_pct)}</span>
-            </div>
-          </>
-        )}
-      </div>
+      )}
     </section>
   )
 }

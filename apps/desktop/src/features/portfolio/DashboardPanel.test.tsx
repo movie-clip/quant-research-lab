@@ -433,15 +433,21 @@ describe('DashboardPanel', () => {
     const diagnostics = createDiagnosticsEngineFixture()
     diagnostics.run_metadata.section_trust.risk_contribution_path = 'verified_adjusted_close'
     const { rerender } = render(<DashboardPanel result={null} diagnosticsAnalysis={diagnostics} />)
-    expect(screen.getByText('Risk contribution basis: Verified')).toBeTruthy()
+    expect(
+      screen.getByText('Risk contribution basis (adjusted-close price provenance only): Verified'),
+    ).toBeTruthy()
 
     const degraded = { ...diagnostics, run_metadata: { ...diagnostics.run_metadata, section_trust: { ...diagnostics.run_metadata.section_trust, risk_contribution_path: 'degraded_unverified_return_basis' as const } } }
     rerender(<DashboardPanel result={null} diagnosticsAnalysis={degraded} />)
-    expect(screen.getByText('Risk contribution basis: Degraded')).toBeTruthy()
+    expect(
+      screen.getByText('Risk contribution basis (adjusted-close price provenance only): Degraded'),
+    ).toBeTruthy()
 
     const unavailableTrust = { ...diagnostics, run_metadata: { ...diagnostics.run_metadata, section_trust: { ...diagnostics.run_metadata.section_trust, risk_contribution_path: 'unavailable' as const } } }
     rerender(<DashboardPanel result={null} diagnosticsAnalysis={unavailableTrust} />)
-    expect(screen.getByText('Risk contribution basis: Unavailable')).toBeTruthy()
+    expect(
+      screen.getByText('Risk contribution basis (adjusted-close price provenance only): Unavailable'),
+    ).toBeTruthy()
   })
 
   it('shows a single EmptyState when diagnosticsAnalysis is absent or unavailable', () => {
@@ -502,6 +508,40 @@ describe('DashboardPanel', () => {
     } as unknown as DiagnosticsEngineResponse
     render(<DashboardPanel result={null} diagnosticsAnalysis={partialDiagnostics} />)
     expect(screen.getByText('Risk metrics unavailable')).toBeTruthy()
+  })
+
+  // ─── US-45.1: Risk Summary card fold/expand — scoped to this card ──────────
+
+  it('collapsing the Risk Summary card leaves sibling Dashboard cards unchanged', () => {
+    const dashboardResult = createImportedDashboardFixture() as unknown as DashboardAnalysis
+    const diagnostics = createDiagnosticsEngineFixture()
+    render(
+      <DashboardPanel
+        result={dashboardResult}
+        exposureResult={mockExposureView}
+        diagnosticsAnalysis={diagnostics}
+      />,
+    )
+
+    // Sibling cards present before the toggle.
+    expect(screen.getByText('Performance & Benchmark')).toBeTruthy()
+    expect(screen.getByText('20.00%')).toBeTruthy() // time_weighted_return_pct
+    expect(screen.getByLabelText('Sector Composition')).toBeTruthy()
+    expect(screen.getByLabelText('Benchmark Positioning')).toBeTruthy()
+
+    const toggle = screen.getByRole('button', { name: /Collapse Risk Summary/i })
+    fireEvent.click(toggle)
+
+    // Risk Summary itself collapsed.
+    expect(screen.queryByText('Portfolio Volatility')).toBeNull()
+    expect(screen.getByRole('button', { name: /Expand Risk Summary/i })).toBeTruthy()
+
+    // Every sibling card's rendered output is unchanged.
+    expect(screen.getByText('Performance & Benchmark')).toBeTruthy()
+    expect(screen.getByText('20.00%')).toBeTruthy()
+    expect(screen.getByLabelText('Sector Composition')).toBeTruthy()
+    expect(screen.getByLabelText('Benchmark Positioning')).toBeTruthy()
+    expect(within(screen.getByLabelText('Sector Composition')).getByLabelText('Sector weights')).toBeTruthy()
   })
 
   // ── US-24.11: replay disclosures reach the researcher ──────────────────────

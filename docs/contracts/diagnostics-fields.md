@@ -210,8 +210,8 @@ These summary blocks exist so downstream consumers can read key diagnostics fiel
   - sourced from `volatility_regime.snapshot.max_drawdown_pct`
 
 Refusal rule:
-- these fields may be `null` even when historical diagnostics are otherwise available
-- when `run_metadata.investor_economics_status = withheld`, treat `null` drawdown values as intentionally refused outputs rather than generic unavailable history
+- these fields may be `null` even when historical diagnostics are otherwise available — solely from math-layer edge cases in `volatility_regime`/`drawdown.py` (e.g. insufficient history), not from a categorical trust gate
+- there is no `withheld` gate on this section: `allow_diagnostics_drawdown_outputs(historical_sections_available=...)` (`trust_gate.py`) passes these fields through whenever `historical_sections_available` is `True` — the only condition exercised in the diagnostics engine's historical path — and `run_metadata.investor_economics_status` resolves `available` under that same condition (US-45.1 fix; previously this section was unconditionally withheld regardless of `investor_economics_status`)
 
 ### `volatility_summary`
 - `portfolio_volatility_pct`
@@ -237,8 +237,8 @@ Risk-tab publication-gated view (US-44.1):
   `financial-methodology.md` §"Annualized realized volatility"
 
 Benchmark-relative refusal rule:
-- benchmark-relative investor-economics outputs such as `relative_risk.active_return_pct` and `relative_risk.information_ratio` may be `null` even when `availability.status = ok`
-- in that case, `run_metadata.investor_economics_status` is the authoritative explanation for intentional refusal
+- `relative_risk.active_return_pct` and `relative_risk.information_ratio` may be `null` even when `availability.status = ok` — solely from their own documented math-layer edge cases (fewer than 2 paired returns → both `null`; `tracking_error = 0` → `information_ratio` only, per `financial-methodology.md` §Information Ratio)
+- there is no separate categorical gate on these two fields: `_allow_diagnostics_relative_return_outputs(historical_sections_available=...)` (`diagnostics_engine.py`) passes `build_relative_risk_summary`'s output through unmodified whenever `historical_sections_available` is `True`. `run_metadata.investor_economics_status` resolves `available` under that same condition but is not itself the explanation for a `null` here — it is a distinct field that happens to key off the same two gate booleans (US-45.1 fix; previously this section was unconditionally withheld regardless of `investor_economics_status`)
 
 ### `risk_concentration_summary`
 - `top_1_factor_risk_share`

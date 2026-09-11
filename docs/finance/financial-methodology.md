@@ -1051,13 +1051,18 @@ the sample standard deviation `(N−1)s²/σ² ~ χ²(N−1)` (Casella & Berger 
 & Zigrand (2006); worked confidence-interval widths at N = 20 / 60 / 252 are in
 run `2026-09-09-risk-annualized-volatility` `02-quant-research.md` § 2.4.
 
-**The Dashboard surface is unchanged.** `volatility_summary.portfolio_volatility_pct`
-(Dashboard Risk Summary card) retains no explicit floor: it publishes from
-`N ≥ 2` and returns `0.00%` at `N = 1`. For `2 ≤ N < 60` the Dashboard therefore
-shows a number while the Risk tab withholds. Both are the same synthetic-history
-scalar down the same code path — the only difference is this presentation-layer
-publication threshold, so this is neither a truth-class mix nor a traceability
-break.
+**The Dashboard surface retains no explicit floor.**
+`volatility_summary.portfolio_volatility_pct` (Dashboard Risk Summary card,
+and the sibling `benchmark_volatility_pct`) publishes from `N ≥ 2` and returns
+`null` at `N = 1` — matching the `None`-at-`N < 2` convention already used by
+`portfolio_beta`, `portfolio_correlation`, and `r_squared` in the same
+`PortfolioRiskSummary` struct (`build_portfolio_risk_summary` guards with
+`len(...) >= 2` before calling the volatility calculation, rather than relying
+on that calculation's own internal `0.0`-at-`N < 2` fallback). For
+`2 ≤ N < 60` the Dashboard therefore shows a number while the Risk tab
+withholds. Both are the same synthetic-history scalar down the same code
+path — the only difference is this presentation-layer publication threshold,
+so this is neither a truth-class mix nor a traceability break.
 
 ### Downside volatility
 
@@ -1141,10 +1146,13 @@ Academic precedent:
 Contract rule:
 - `information_ratio` and `active_return_pct` carry the same trust/
   withholding semantics as `tracking_error_pct` in the same
-  `RelativeRiskSummary` struct: benchmark-relative refusal means these
-  fields may be `null` even when `availability.status = ok`, with
-  `run_metadata.investor_economics_status` as the authoritative explanation
-  (see `docs/contracts/diagnostics-fields.md`).
+  `RelativeRiskSummary` struct: all three are gated only by the math-layer
+  edge cases named above (fewer than 2 paired returns; `tracking_error = 0`
+  for `information_ratio` only) once `historical_sections_available` is
+  `True`. There is no separate categorical gate on these three fields
+  keyed to `run_metadata.investor_economics_status` — that status is a
+  distinct diagnostics-run field, unchanged by and independent of this
+  contract rule (see `docs/contracts/diagnostics-fields.md`).
 - Never fabricate a ratio when `tracking_error = 0`; `null` is the only
   correct output for that edge case.
 

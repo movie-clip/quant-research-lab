@@ -504,8 +504,8 @@ def build_portfolio_risk_summary(daily_states: list, benchmark_rows: list[dict],
         portfolio_beta=round(beta, 4) if beta is not None else None,
         portfolio_correlation=round(correlation, 4) if correlation is not None else None,
         r_squared=round(correlation**2, 4) if correlation is not None else None,
-        portfolio_volatility_pct=round(_calculate_annualized_volatility(portfolio_samples) * 100, 2) if portfolio_samples else None,
-        benchmark_volatility_pct=round(_calculate_annualized_volatility(benchmark_samples) * 100, 2) if benchmark_samples else None,
+        portfolio_volatility_pct=round(_calculate_annualized_volatility(portfolio_samples) * 100, 2) if len(portfolio_samples) >= 2 else None,
+        benchmark_volatility_pct=round(_calculate_annualized_volatility(benchmark_samples) * 100, 2) if len(benchmark_samples) >= 2 else None,
     )
 
 

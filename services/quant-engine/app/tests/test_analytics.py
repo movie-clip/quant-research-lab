@@ -47,7 +47,7 @@ from app.services.dashboard_history_engine import (
     run_dashboard_history_engine,
     run_imported_dashboard_history,
 )
-from app.services.diagnostics_engine import run_diagnostics_engine, run_imported_diagnostics_engine
+from app.services.diagnostics_engine import _allow_diagnostics_relative_return_outputs, run_diagnostics_engine, run_imported_diagnostics_engine
 from app.services.portfolio_proof import build_portfolio_proof_metadata
 from app.services.exposure_engine import build_exposure_result
 from app.services.import_engine import build_import_bootstrap_from_snapshot
@@ -1078,10 +1078,12 @@ def test_run_diagnostics_engine_uses_history_context_for_snapshot_requests(mocke
     assert result.availability.history_context_required is True
     assert result.provenance.snapshot_basis == "snapshot_request"
     assert result.provenance.historical_basis == "market_data_history"
-    assert result.drawdown_summary.current_drawdown_pct is None
-    assert result.drawdown_summary.max_drawdown_pct is None
-    assert result.volatility_regime.snapshot.current_drawdown_pct is None
-    assert result.volatility_regime.snapshot.max_drawdown_pct is None
+    # Fix 1 (2026-09-11 trust-gate fix): drawdown_summary now passes through the
+    # already-computed volatility_regime.snapshot drawdown values whenever
+    # historical_sections_available is True, instead of unconditionally
+    # withholding them.
+    assert result.drawdown_summary.current_drawdown_pct == result.volatility_regime.snapshot.current_drawdown_pct
+    assert result.drawdown_summary.max_drawdown_pct == result.volatility_regime.snapshot.max_drawdown_pct
     assert result.volatility_summary.portfolio_volatility_pct == result.risk_summary.portfolio_volatility_pct
     assert result.volatility_summary.benchmark_volatility_pct == result.risk_summary.benchmark_volatility_pct
     assert result.volatility_summary.downside_volatility_pct == result.volatility_regime.snapshot.downside_vol_60d
@@ -2107,9 +2109,13 @@ def test_run_imported_diagnostics_engine_populates_history_derived_summary_field
         "factor_model_path": "degraded_unverified_return_basis",
         "risk_contribution_path": "degraded_unverified_return_basis",
     }
+    # Fix 1/Fix 2 (2026-09-11 trust-gate fix): investor_economics_status derives
+    # from allow_drawdown_outputs and allow_relative_return_outputs (both now
+    # True whenever historical_sections_available), so it resolves "available"
+    # here instead of "withheld".
     assert result.run_metadata.investor_economics_status.model_dump() == {
-        "status": "withheld",
-        "reason": "withheld_unverified_total_return_equivalence",
+        "status": "available",
+        "reason": None,
     }
     assert result.run_metadata.confidence == "low"
     assert result.statistical_factor_model.status == "insufficient_history"
@@ -2118,11 +2124,16 @@ def test_run_imported_diagnostics_engine_populates_history_derived_summary_field
     assert result.provenance.note.endswith(
         "Benchmark and factor return histories remain unverified for adjusted-close or total-return equivalence in this diagnostics slice."
     )
-    assert result.drawdown_summary.current_drawdown_pct is None
-    assert result.drawdown_summary.max_drawdown_pct is None
-    assert result.volatility_regime.snapshot.current_drawdown_pct is None
-    assert result.volatility_regime.snapshot.max_drawdown_pct is None
-    assert result.relative_risk.active_return_pct is None
+    # Fix 1 (2026-09-11 trust-gate fix): drawdown_summary passes through
+    # volatility_regime.snapshot's already-computed drawdown values whenever
+    # historical_sections_available is True.
+    assert result.drawdown_summary.current_drawdown_pct == result.volatility_regime.snapshot.current_drawdown_pct
+    assert result.drawdown_summary.max_drawdown_pct == result.volatility_regime.snapshot.max_drawdown_pct
+    # Fix 2 (2026-09-11 trust-gate fix): relative_risk passes through
+    # build_relative_risk_summary's own output unmodified; information_ratio
+    # stays None here because tracking_error_pct == 0.0 (its own documented
+    # math-layer null case), not because of a categorical gate.
+    assert result.relative_risk.active_return_pct == 0.0
     assert result.relative_risk.information_ratio is None
     assert result.volatility_summary.portfolio_volatility_pct == result.risk_summary.portfolio_volatility_pct
     assert result.volatility_summary.benchmark_volatility_pct == result.risk_summary.benchmark_volatility_pct
@@ -2190,11 +2201,17 @@ def test_run_imported_diagnostics_engine_marks_verified_adjusted_close_when_all_
         "factor_model_path": "verified_adjusted_close",
         "risk_contribution_path": "verified_adjusted_close",
     }
-    assert result.drawdown_summary.current_drawdown_pct is None
-    assert result.drawdown_summary.max_drawdown_pct is None
-    assert result.volatility_regime.snapshot.current_drawdown_pct is None
-    assert result.volatility_regime.snapshot.max_drawdown_pct is None
-    assert result.relative_risk.active_return_pct is None
+    # Fix 1/Fix 2 (2026-09-11 trust-gate fix): this fixture carries a fully
+    # `verified_adjusted_close` section_trust — historical_sections_available
+    # is True, so drawdown_summary and relative_risk now pass through the
+    # already-computed values instead of being categorically withheld.
+    # information_ratio stays None because tracking_error_pct == 0.0 here
+    # (its own documented math-layer null case), not a gate.
+    assert result.drawdown_summary.current_drawdown_pct == 0.0
+    assert result.drawdown_summary.max_drawdown_pct == 0.0
+    assert result.volatility_regime.snapshot.current_drawdown_pct == 0.0
+    assert result.volatility_regime.snapshot.max_drawdown_pct == 0.0
+    assert result.relative_risk.active_return_pct == 0.1
     assert result.relative_risk.information_ratio is None
     assert result.statistical_factor_model.status != "degraded_unverified_return_basis"
     assert result.model_reliability.status != "degraded_unverified_return_basis"
@@ -2253,18 +2270,28 @@ def test_run_imported_diagnostics_engine_keeps_unverified_status_when_any_factor
         "factor_model_path": "degraded_unverified_return_basis",
         "risk_contribution_path": "degraded_unverified_return_basis",
     }
-    assert result.drawdown_summary.current_drawdown_pct is None
-    assert result.drawdown_summary.max_drawdown_pct is None
-    assert result.volatility_regime.snapshot.current_drawdown_pct is None
-    assert result.volatility_regime.snapshot.max_drawdown_pct is None
-    assert result.relative_risk.active_return_pct is None
+    # Fix 1/Fix 2 (2026-09-11 trust-gate fix): even with a degraded
+    # (not verified) section_trust, historical_sections_available is still
+    # True here, so drawdown_summary and relative_risk pass through the
+    # already-computed values instead of being categorically withheld — the
+    # degraded rung governs the factor-model family, not this gate.
+    assert result.drawdown_summary.current_drawdown_pct == 0.0
+    assert result.drawdown_summary.max_drawdown_pct == 0.0
+    assert result.volatility_regime.snapshot.current_drawdown_pct == 0.0
+    assert result.volatility_regime.snapshot.max_drawdown_pct == 0.0
+    assert result.relative_risk.active_return_pct == 0.1
     assert result.relative_risk.information_ratio is None
     assert result.statistical_factor_model.status == "insufficient_history"
     assert result.model_reliability.status == "insufficient_history"
     assert result.risk_contribution_breakdown.status == "insufficient_history"
 
 
-def test_run_imported_diagnostics_engine_refuses_drawdown_family_even_when_history_is_available(mocker) -> None:
+def test_run_imported_diagnostics_engine_publishes_drawdown_family_when_history_is_available(mocker) -> None:
+    # Renamed 2026-09-11 (Fix 1/Fix 2 trust-gate fix): this test's previous
+    # name and assertions pinned the categorical-withholding policy that Fix 1
+    # reverses. historical_sections_available is True for this fixture, so
+    # drawdown_summary/relative_risk/rolling_series now publish real values
+    # instead of being unconditionally refused.
     market_data = mocker.patch("app.services.diagnostics_engine.MarketDataService")
     service = market_data.return_value
     service.get_historical_prices.return_value = [
@@ -2310,14 +2337,14 @@ def test_run_imported_diagnostics_engine_refuses_drawdown_family_even_when_histo
 
     result = run_imported_diagnostics_engine(snapshot, "SPY")
 
-    assert result.drawdown_summary.current_drawdown_pct is None
-    assert result.drawdown_summary.max_drawdown_pct is None
-    assert result.volatility_regime.snapshot.current_drawdown_pct is None
-    assert result.volatility_regime.snapshot.max_drawdown_pct is None
-    assert result.relative_risk.active_return_pct is None
-    assert result.relative_risk.information_ratio is None
-    assert all(point.drawdown_pct is None for point in result.volatility_regime.rolling_series)
-    assert all(point.wealth_index is None for point in result.volatility_regime.rolling_series)
+    assert result.drawdown_summary.current_drawdown_pct == -4.55
+    assert result.drawdown_summary.max_drawdown_pct == -4.55
+    assert result.volatility_regime.snapshot.current_drawdown_pct == -4.55
+    assert result.volatility_regime.snapshot.max_drawdown_pct == -4.55
+    assert result.relative_risk.active_return_pct == 1.0
+    assert result.relative_risk.information_ratio == 1.84
+    assert any(point.drawdown_pct is not None for point in result.volatility_regime.rolling_series)
+    assert any(point.wealth_index is not None for point in result.volatility_regime.rolling_series)
 
 
 def test_run_imported_dashboard_history_returns_unavailable_without_imported_history_dates(mocker) -> None:
@@ -4240,6 +4267,44 @@ def test_build_portfolio_risk_summary_and_position_contributions() -> None:
     assert relative.tracking_error_pct is not None
     assert relative.active_return_pct is not None
     assert relative.information_ratio is not None
+
+
+def test_build_portfolio_risk_summary_volatility_is_none_not_zero_at_n_equals_one() -> None:
+    """Fix 4 (2026-09-11 trust-gate fix) regression.
+
+    `build_portfolio_risk_summary`'s volatility guard previously checked
+    `if portfolio_samples` (truthy-list, only catches N=0); with exactly one
+    paired observation (N=1), `_calculate_annualized_volatility`'s internal
+    `len(values) < 2` branch silently returned `0.0`, which read as a real,
+    implausibly-low volatility rather than an insufficient-observation state.
+    The fixed guard (`len(...) >= 2`) now returns `None` at N=1, matching
+    `portfolio_beta`/`portfolio_correlation`/`r_squared` in the same struct.
+    """
+    benchmark_rows = [
+        {"date": "2025-01-02", "price": 100.0},
+        {"date": "2025-01-03", "price": 101.0},
+    ]
+    daily_states = [
+        DailyPortfolioState(date="2025-01-02", cash={"USD": 0.0}, positions=[], total_market_value=1000.0, total_portfolio_value=1000.0),
+        DailyPortfolioState(date="2025-01-03", cash={"USD": 0.0}, positions=[], total_market_value=1010.0, total_portfolio_value=1010.0),
+    ]
+
+    summary = build_portfolio_risk_summary(daily_states, benchmark_rows, "SPY")
+
+    assert summary.observations == 1
+    assert summary.portfolio_volatility_pct is None
+    assert summary.benchmark_volatility_pct is None
+    assert summary.portfolio_beta is None
+    assert summary.portfolio_correlation is None
+
+
+def test_allow_diagnostics_relative_return_outputs_passes_through_its_argument() -> None:
+    """Fix 2 (2026-09-11 trust-gate fix): the function was an unconditional
+    `return False` with no prior direct unit coverage of its boolean logic
+    (only exercised indirectly through full diagnostics runs). It now mirrors
+    `historical_sections_available` directly."""
+    assert _allow_diagnostics_relative_return_outputs(historical_sections_available=True) is True
+    assert _allow_diagnostics_relative_return_outputs(historical_sections_available=False) is False
 
 
 def test_build_relative_risk_summary_information_ratio_is_annualized_exact_value() -> None:

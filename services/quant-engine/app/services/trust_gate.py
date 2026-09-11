@@ -241,8 +241,20 @@ def build_diagnostics_section_trust(
     )
 
 
-def allow_diagnostics_drawdown_outputs() -> bool:
-    return False
+def allow_diagnostics_drawdown_outputs(*, historical_sections_available: bool) -> bool:
+    # 2026-09-11 (US-44.1 risk-summary-audit slice, Fix 1): this gate mirrors
+    # the sibling `build_diagnostics_section_trust` above, which already takes
+    # `historical_sections_available` and fails closed to "unavailable" when
+    # it is False (trust_gate.py:217-228's convention). The parameter is
+    # always `True` at its only call site today, because
+    # `build_historical_diagnostics_result` (diagnostics_engine.py) is
+    # structurally only invoked on the available path — the unavailable path
+    # builds its own all-null summary directly and never reaches this
+    # function. It stays a parameter, not a hardcoded `True`, so the shape
+    # matches its sibling and so a future `historical_sections_available=False`
+    # caller is handled correctly by construction rather than by another
+    # audit finding.
+    return historical_sections_available
 
 
 def apply_diagnostics_drawdown_output_policy(

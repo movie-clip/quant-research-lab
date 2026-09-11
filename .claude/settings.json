@@ -36,6 +36,25 @@
             "command": "python \"$CLAUDE_PROJECT_DIR/scripts/hooks/schema_edit_reminder.py\""
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/../.agentic/scripts/hooks/report_artifact_gate.py\""
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/../.agentic/scripts/hooks/report_head_gate.py\""
+          }
+        ]
       }
     ]
   },

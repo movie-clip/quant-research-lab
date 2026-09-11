@@ -184,8 +184,16 @@ def _resolve_diagnostics_confidence(
     return "low"
 
 
-def _allow_diagnostics_relative_return_outputs() -> bool:
-    return False
+def _allow_diagnostics_relative_return_outputs(*, historical_sections_available: bool) -> bool:
+    # 2026-09-11 (US-44.1 risk-summary-audit slice, Fix 2): mirrors
+    # `allow_diagnostics_drawdown_outputs` (trust_gate.py) and the sibling
+    # `build_diagnostics_section_trust`, both of which key off
+    # `historical_sections_available` and fail closed when it is False. The
+    # parameter is always `True` at this function's only call site
+    # (`build_historical_diagnostics_result`, below), which is structurally
+    # only invoked on the available path — the unavailable path builds its
+    # own all-null summary directly and never calls this gate.
+    return historical_sections_available
 
 
 def _apply_diagnostics_relative_return_output_policy(
@@ -323,7 +331,7 @@ def build_historical_diagnostics_result(
     return_basis: ReturnBasis = (
         "market_value" if provenance.historical_basis == "market_data_history" else "market_value_trade_neutral"
     )
-    allow_relative_return_outputs = _allow_diagnostics_relative_return_outputs()
+    allow_relative_return_outputs = _allow_diagnostics_relative_return_outputs(historical_sections_available=True)
     risk_summary = build_portfolio_risk_summary(daily_states, benchmark_rows, benchmark_symbol, return_basis=return_basis)
     rolling_risk = build_rolling_risk_series(daily_states, benchmark_rows, return_basis=return_basis)
     relative_risk = _apply_diagnostics_relative_return_output_policy(
@@ -336,7 +344,7 @@ def build_historical_diagnostics_result(
         benchmark_rows=benchmark_rows,
         factor_histories=factor_histories,
     )
-    allow_drawdown_outputs = allow_diagnostics_drawdown_outputs()
+    allow_drawdown_outputs = allow_diagnostics_drawdown_outputs(historical_sections_available=True)
     volatility_regime = apply_diagnostics_drawdown_output_policy(
         build_volatility_regime_payload(daily_states, benchmark_rows, return_basis=return_basis),
         allow_drawdown_outputs=allow_drawdown_outputs,

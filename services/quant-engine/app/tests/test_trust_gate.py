@@ -94,3 +94,15 @@ def test_engines_bind_the_relocated_trust_gate_symbols_by_reference() -> None:
     )
     for name in diagnostics_former_names:
         assert not hasattr(diagnostics_engine, name)
+
+
+# ── Fix 1 (2026-09-11 trust-gate fix) — the gate's boolean logic ───────────
+
+
+def test_allow_diagnostics_drawdown_outputs_passes_through_its_argument() -> None:
+    """Fix 1: prior to this fix, the only test covering this function pinned
+    object identity under the US-43.3 relocation and never exercised its
+    boolean logic — the function itself was an unconditional `return False`.
+    It now mirrors `historical_sections_available` directly."""
+    assert trust_gate.allow_diagnostics_drawdown_outputs(historical_sections_available=True) is True
+    assert trust_gate.allow_diagnostics_drawdown_outputs(historical_sections_available=False) is False
