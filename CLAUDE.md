@@ -38,6 +38,7 @@ not current product surfaces.
 | Need | Read |
 |---|---|
 | Current product scope | `docs/product/current-product-state.md` |
+| Where stories, epics and the roadmap live | `docs/product/planning.md` |
 | Financial formulas and trust rules | `docs/finance/financial-methodology.md` |
 | Runtime seams, routes, and truth classes | `docs/architecture/system-architecture.md` |
 | Test model and statement refresh | `docs/architecture/testing-architecture.md` |
@@ -103,11 +104,14 @@ cd services/quant-engine && pytest
 cd apps/desktop && npx vitest run
 cd apps/desktop && npx tsc --noEmit
 python scripts/detect_deadcode.py --strict
+
+# Regenerate the planning index after adding or closing a story
+python scripts/build_roadmap.py
 ```
 
 `run_all_tests.py` is the acceptance command. It regenerates deterministic
-dashboard goldens, runs backend/frontend tests, type-checks TypeScript, and
-enforces dead-code checks. Do not bypass a failed test or commit gate.
+dashboard goldens, checks that `docs/product/ROADMAP.md` is current, runs
+backend/frontend tests, type-checks TypeScript, and enforces dead-code checks. Do not bypass a failed test or commit gate.
 
 The frozen suite does not require network access. When replacing
 `docs/IB2026.csv`, read the statement-refresh workflow in

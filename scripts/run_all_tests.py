@@ -116,6 +116,14 @@ def run_all_tests() -> None:
         [sys.executable, "-m", "app.scripts.export_dashboard_goldens"],
         BACKEND_DIR,
     )
+    # Planning-doc index gate: `docs/product/ROADMAP.md` is generated from story
+    # and epic frontmatter, so a stale index is a build failure rather than
+    # something a reader has to notice. Static and offline.
+    run_step(
+        "Roadmap index is current (build_roadmap.py --check)",
+        [sys.executable, str(ROOT / "scripts" / "build_roadmap.py"), "--check"],
+        ROOT,
+    )
     run_step(
         "Run backend tests",
         # `-n auto` (pytest-xdist) parallelizes across CPU cores. Safe since
