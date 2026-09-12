@@ -191,11 +191,13 @@ export type SectorPieCardProps = {
   exposureResult: ExposureAnalysis | null
 }
 
-// 2026-09-12-combine-sector-benchmark-card: renders as a sub-section inside
-// the shared "Sector Composition + Benchmark Positioning" card surface
-// (`DashboardPanel`'s `dashboard-composition-card`), not its own top-level
-// card. `role="group"` + `aria-label` keep "Sector Composition" discoverable
-// even though it no longer sits in its own `<section className="summary-card">`.
+// 2026-09-12-composition-card-row-fold: renders as a sub-section, side by
+// side with Benchmark Positioning, inside the shared "Sector Composition +
+// Benchmark Positioning" card surface (`DashboardPanel`'s
+// `dashboard-composition-card`), not its own top-level card. `role="group"`
+// + `aria-label` keep "Sector Composition" discoverable even though it no
+// longer sits in its own `<section className="summary-card">`. The shared
+// card owns the single fold control for both sub-sections.
 export function SectorPieCard({ result, exposureResult }: SectorPieCardProps) {
   const [selectedIndex, setSelectedIndex] = useState<number>(0)
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)

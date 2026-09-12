@@ -70,6 +70,14 @@ export function DashboardPanel({
   const [selectedRange, setSelectedRange] = useState<string>(rangeKeys[0] ?? '')
   const activeRange = rangeKeys.includes(selectedRange) ? selectedRange : (rangeKeys[0] ?? null)
 
+  // 2026-09-12-composition-card-row-fold: single fold governing both
+  // sub-sections together, superseding the prior per-sub-section fold
+  // (Benchmark Positioning folded independently, Sector Composition did
+  // not). One-off toggle, same convention as RiskSummaryCard's US-45.1
+  // fold — not a shared primitive.
+  const [compositionExpanded, setCompositionExpanded] = useState(true)
+  const compositionDetailId = 'dashboard-composition-detail'
+
   function renderHeaderActions() {
     if (!(onImportPortfolio || onAppendStatement || onClearImportedSession || onResetLocalDatabase)) return null
 
@@ -124,13 +132,38 @@ export function DashboardPanel({
         <MonthlyReturnsGrid result={result} activeRange={activeRange} />
         <RiskSummaryCard diagnosticsAnalysis={diagnosticsAnalysis} />
         <RollingFactorLoadingsCard result={exposureResult} factorModel={factorModel} />
-        {/* 2026-09-12-combine-sector-benchmark-card: one card surface hosting
-            both sub-sections (previously two separate `summary-card`
-            sections); Benchmark Positioning is independently foldable. */}
+        {/* 2026-09-12-composition-card-row-fold: one card surface hosting
+            both sub-sections side by side, with a single fold control for
+            the shared card (superseding the prior per-sub-section fold). */}
         <section className="summary-card dashboard-composition-card" aria-label="Sector and Benchmark Composition">
-          <SectorPieCard result={result} exposureResult={exposureResult} />
-          <div className="dashboard-composition-divider" role="presentation" />
-          <BenchmarkPositioningCard exposureResult={exposureResult} />
+          <div className="benchmark-card-header">
+            <p className="panel-label">Sector &amp; Benchmark Composition</p>
+            <button
+              type="button"
+              aria-expanded={compositionExpanded}
+              aria-controls={compositionDetailId}
+              aria-label={compositionExpanded ? 'Collapse Sector and Benchmark Composition' : 'Expand Sector and Benchmark Composition'}
+              onClick={() => { setCompositionExpanded(!compositionExpanded) }}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                padding: 'var(--space-xs)',
+                cursor: 'pointer',
+                color: 'var(--color-text-secondary)',
+                fontSize: 'var(--font-body-sm)',
+                fontFamily: 'inherit',
+              }}
+            >
+              {compositionExpanded ? '▾' : '▸'}
+            </button>
+          </div>
+          {compositionExpanded && (
+            <div className="dashboard-composition-row" id={compositionDetailId}>
+              <SectorPieCard result={result} exposureResult={exposureResult} />
+              <div className="dashboard-composition-divider" role="presentation" />
+              <BenchmarkPositioningCard exposureResult={exposureResult} />
+            </div>
+          )}
         </section>
       </div>
 

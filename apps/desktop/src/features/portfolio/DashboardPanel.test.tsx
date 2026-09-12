@@ -198,6 +198,43 @@ describe('DashboardPanel', () => {
     expect(screen.queryByText('NVDA')).toBeNull()
   })
 
+  // ── 2026-09-12-composition-card-row-fold: shared composition-card toggle ───
+  // Moved from BenchmarkPositioningCard.test.tsx (test lane, order 02): the
+  // fold is now owned by DashboardPanel's single `dashboard-composition-card`
+  // header, governing both the Sector Composition and Benchmark Positioning
+  // `role="group"` sub-sections together.
+
+  it('composition card fold/expand: defaults to expanded and shows both sub-sections', () => {
+    render(<DashboardPanel result={null} exposureResult={mockExposureView} />)
+
+    const toggle = screen.getByRole('button', { name: /Collapse Sector and Benchmark Composition/i })
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    expect(within(screen.getByLabelText('Sector Composition')).getByLabelText('Sector weights')).toBeTruthy()
+    expect(within(screen.getByLabelText('Benchmark Positioning')).getByText('In benchmark')).toBeTruthy()
+  })
+
+  it('composition card fold/expand: clicking the toggle collapses both sub-sections', () => {
+    render(<DashboardPanel result={null} exposureResult={mockExposureView} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /Collapse Sector and Benchmark Composition/i }))
+
+    expect(screen.getByRole('button', { name: /Expand Sector and Benchmark Composition/i }).getAttribute('aria-expanded')).toBe('false')
+    expect(screen.queryByLabelText('Sector Composition')).toBeNull()
+    expect(screen.queryByLabelText('Benchmark Positioning')).toBeNull()
+  })
+
+  it('composition card fold/expand: clicking the toggle a second time re-expands both sub-sections', () => {
+    render(<DashboardPanel result={null} exposureResult={mockExposureView} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /Collapse Sector and Benchmark Composition/i }))
+    expect(screen.queryByLabelText('Sector Composition')).toBeNull()
+    expect(screen.queryByLabelText('Benchmark Positioning')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /Expand Sector and Benchmark Composition/i }))
+    expect(within(screen.getByLabelText('Sector Composition')).getByLabelText('Sector weights')).toBeTruthy()
+    expect(within(screen.getByLabelText('Benchmark Positioning')).getByText('In benchmark')).toBeTruthy()
+  })
+
   // ─── US-25.1: Performance & Benchmark card ──────────────────────────────────
 
   it('renders the performance chart and summary strip when range_metrics/performance_series are present', () => {

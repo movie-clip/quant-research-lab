@@ -2271,9 +2271,11 @@ select.path-input option {
 }
 
 /* ── Dashboard composition card ────────────────────────────────────────────── */
-/* 2026-09-12-combine-sector-benchmark-card: Sector Composition and Benchmark
-   Positioning share one card surface, stacked with a divider between them
-   rather than the former two-card grid row. */
+/* 2026-09-12-composition-card-row-fold: Sector Composition and Benchmark
+   Positioning share one card surface, laid out side by side in one row with
+   a vertical divider between them, and folded together by a single control
+   at the shared-card level (superseding the prior stacked layout and the
+   prior per-sub-section fold). */
 
 .dashboard-composition-card {
   display: flex;
@@ -2281,9 +2283,27 @@ select.path-input option {
   gap: 16px;
 }
 
+.dashboard-composition-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: stretch;
+  gap: var(--space-lg);
+}
+
 .dashboard-composition-divider {
-  border-top: var(--border-thin) solid var(--color-border-subtle);
+  border-left: var(--border-thin) solid var(--color-border-subtle);
   margin: 0;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-composition-row {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-composition-divider {
+    border-left: none;
+    border-top: var(--border-thin) solid var(--color-border-subtle);
+  }
 }
 
 /* ── Sector Pie Card ───────────────────────────────────────────────────────── */
@@ -2292,6 +2312,7 @@ select.path-input option {
   display: flex;
   flex-direction: column;
   gap: 0;
+  min-width: 0;
 }
 
 .sector-pie-card > .panel-label {
@@ -2459,6 +2480,7 @@ select.path-input option {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 0;
 }
 
 .benchmark-card-header {
