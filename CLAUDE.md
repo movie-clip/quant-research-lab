@@ -7,17 +7,22 @@ or moves money.
 
 ## Non-negotiable guardrails
 
-1. **Methodology traceability** — every displayed financial metric has one
-   documented formula and one executable code path.
-2. **Truth-class separation** — never mix broker truth, snapshot analytics,
-   synthetic history, and persisted imports in one claim or response.
-3. **Trust over fabrication** — preserve `verified > degraded > withheld >
-   unavailable`; do not invent values or turn `withheld` into `unavailable`.
-4. **No execution** — this product is decision support only.
+- **Financial accuracy first.** If the math or the methodology is wrong, nothing
+  else matters. Changing analytics, a factor formula, or trust-state logic means
+  reading `docs/finance/financial-methodology.md` first, updating the relevant
+  contract, and adding or updating regression tests in the same change.
+- **Methodology traceability** — every displayed financial metric has one
+  documented formula and one executable code path.
+- **Truth-class separation** — never mix broker truth, snapshot analytics,
+  synthetic history, and persisted imports in one claim or response.
+- **Trust over fabrication** — preserve `verified > degraded > withheld >
+  unavailable`; do not invent values or turn `withheld` into `unavailable`.
+- **No execution** — this product is decision support only.
 
-Before changing analytics, financial formulas, or trust-state logic, read
-`docs/finance/financial-methodology.md`, update the relevant contract, and add
-or update regression tests in the same change.
+Absolute, and unnumbered on purpose: the agentic network's profile
+(`.agentic/projects/portfolio/project.md` § Hard guardrails) carries the same
+five in the numbering the protocol cites, so a `REFUSED: guardrail 3` from a
+dispatched lane names exactly one thing.
 
 ## Product surface
 
