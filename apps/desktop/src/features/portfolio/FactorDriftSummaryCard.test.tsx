@@ -10,7 +10,7 @@ afterEach(cleanup)
 
 const REQUIRED_LOADING_KEYS = [
   'market', 'growth', 'value', 'small_cap', 'financials', 'health_care', 'energy',
-  'industrials', 'rates_ief', 'rates_tlt', 'credit', 'commodities', 'alpha',
+  'industrials', 'rates_ief', 'rates_tlt', 'credit', 'commodities',
   'r_squared', 'residual_vol',
 ]
 

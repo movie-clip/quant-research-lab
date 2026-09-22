@@ -5,23 +5,6 @@
       "command": "python",
       "args": ["services/quant-engine/app/mcp_server/server.py"],
       "env": { "PYTHONPATH": "services/quant-engine" }
-    },
-    "filesystem": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "C:\\projects\\investments\\portfolio"]
-    },
-    "github": {
-    "type": "http",
-    "url": "https://api.githubcopilot.com/mcp/",
-    "headers": {
-        "Authorization": "Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}"
-      }
-    },
-    "sequential-thinking": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
     }
   }
 }

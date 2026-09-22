@@ -3,6 +3,7 @@ import { Brush, CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContain
 import type { TooltipContentProps } from 'recharts/types/component/Tooltip'
 import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent'
 
+import { TrustBadge } from '../../app/primitives/TrustBadge'
 import type { ExposureAnalysis, ExposureFactorModelResponse } from './types'
 
 type RollingWindow = 20 | 60 | 252
@@ -201,6 +202,22 @@ export function RollingFactorLoadingsCard({ result, factorModel }: { result: Exp
   const factorRegistry = resolvedFactorModel?.factor_registry ?? []
   const factorRegistryByKey = useMemo(() => Object.fromEntries(factorRegistry.map((factor) => [factor.key, factor])), [factorRegistry])
   const selectedWindowSummary = resolvedFactorModel ? getWindowSummary(resolvedFactorModel, rollingWindow) : null
+  const selectedWindowTrustStatus = selectedWindowSummary?.status
+  const modelTrustStatus = resolvedFactorModel?.statistical_factor_model.status
+  const missingFactorKeysForWindow = resolvedFactorModel?.statistical_factor_model.insufficient_history?.find(
+    (item) => item.window_days === rollingWindow,
+  )?.missing_factors ?? null
+  const missingFactorLabelsForWindow = missingFactorKeysForWindow?.map((key) => factorRegistryByKey[key]?.label ?? key) ?? null
+  const modelPartialTooltip = `This fit is missing sufficient history for: ${missingFactorLabelsForWindow?.join(', ') ?? ''}. Loadings for those factors are absent from this chart.`
+  const trustBadge = selectedWindowTrustStatus === 'partial'
+    ? <TrustBadge type="degraded" tooltip="This window has less than the full recommended history; loadings may be noisier than a fully-seasoned window." />
+    : selectedWindowTrustStatus === 'degraded_unverified_return_basis'
+      ? <TrustBadge type="degraded" tooltip="Return basis for the benchmark or a factor proxy is not fully verified (close-only price data, not adjusted-close)." />
+      : (missingFactorKeysForWindow?.length ?? 0) > 0
+        ? <TrustBadge type="degraded" tooltip={modelPartialTooltip} />
+        : modelTrustStatus === 'degraded_unverified_return_basis'
+          ? <TrustBadge type="degraded" tooltip="Return basis for the benchmark or a factor proxy is not fully verified (close-only price data, not adjusted-close)." />
+          : null
 
   const visibleFactorKeys = useMemo(() => {
     const base = factorFilter === 'all' ? DEFAULT_VISIBLE_FACTORS : factorRegistry.map((factor) => factor.key)
@@ -256,7 +273,7 @@ export function RollingFactorLoadingsCard({ result, factorModel }: { result: Exp
   return (
     <section className="dashboard-bottom-grid factor-master-detail-section">
       <div className="section-header-inline sector-list-header">
-        <div><p className="panel-label">Rolling Factor Analysis</p></div>
+        <div><p className="panel-label">Rolling Factor Analysis</p>{trustBadge}</div>
         <p className="helper">{formatCoverageLabel(rollingFactorCoverage)}{scenarioPreview ? ' · scenario edits do not rerun these loadings.' : ''}</p>
       </div>
       <div className="factor-chart-toolbar factor-chart-toolbar-inline">

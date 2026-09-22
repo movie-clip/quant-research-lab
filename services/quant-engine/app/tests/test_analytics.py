@@ -5416,7 +5416,6 @@ def test_build_factor_shift_diagnostics_flags_large_recent_shift() -> None:
             "rates_tlt": -0.01,
             "credit": 0.01,
             "commodities": 0.0,
-            "alpha": None,
             "r_squared": None,
             "residual_vol": None,
         }, market_60, market_252

@@ -11,11 +11,12 @@
  * `withheld`), update both the union here and add a label entry.
  */
 
-type TrustType = 'synthetic' | 'unavailable'
+type TrustType = 'synthetic' | 'unavailable' | 'degraded'
 
 const LABELS: Record<TrustType, string> = {
   synthetic: 'Synthetic',
   unavailable: 'Unavailable',
+  degraded: 'Degraded',
 }
 
 export type TrustBadgeProps = {

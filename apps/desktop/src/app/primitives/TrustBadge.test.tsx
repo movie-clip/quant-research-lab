@@ -15,6 +15,11 @@ describe('TrustBadge', () => {
     expect(screen.getByText('Unavailable')).toBeTruthy()
   })
 
+  it('renders_degraded_label', () => {
+    render(<TrustBadge type="degraded" />)
+    expect(screen.getByText('Degraded')).toBeTruthy()
+  })
+
   it('applies_tooltip_when_provided', () => {
     render(<TrustBadge type="synthetic" tooltip="Computed from current holdings." />)
     const el = screen.getByText('Synthetic')

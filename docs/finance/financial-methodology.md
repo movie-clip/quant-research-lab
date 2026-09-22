@@ -1221,8 +1221,14 @@ For each date t with window w = [t−w+1, t]:
 ```
 
 Edge cases:
-- Window has fewer than `WINDOW_MIN_OBSERVATIONS[w]` dates: return null for all
-  factors on that date; never partial-fill.
+- `WINDOW_MIN_OBSERVATIONS[w]` is a history-length prerequisite, not the
+  estimation window's observation count: it gates whether enough elapsed
+  history exists to emit an estimate at all (fewer dates available than the
+  threshold: return null for all factors on that date; never partial-fill).
+  The estimation window itself always holds exactly `w` observations (20 / 60
+  / 252) fit against `K+1` parameters (16 factors + intercept) — for `w=20`
+  that is 20 observations against 17 parameters, i.e. 3 residual degrees of
+  freedom, not the 25-observations/8-df reading an earlier draft implied.
 - A factor's orthogonalized residual has zero variance (collinear with earlier
   factors in this window): skip that factor's coefficient (null), do not
   propagate to later factors.

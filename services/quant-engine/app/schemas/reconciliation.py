@@ -480,7 +480,6 @@ class RollingFactorLoadingPoint(BaseModel):
     rates_tlt: float | None = None
     credit: float | None = None
     commodities: float | None = None
-    alpha: float | None = None
     r_squared: float | None = None
     residual_vol: float | None = None
 

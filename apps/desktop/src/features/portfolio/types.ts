@@ -836,7 +836,6 @@ export type StatisticalFactorModel = {
     rates_tlt: number | null
     credit: number | null
     commodities: number | null
-    alpha: number | null
     r_squared: number | null
     residual_vol: number | null
   }>
@@ -858,7 +857,6 @@ export type StatisticalFactorModel = {
     rates_tlt: number | null
     credit: number | null
     commodities: number | null
-    alpha: number | null
     r_squared: number | null
     residual_vol: number | null
   }>
@@ -880,7 +878,6 @@ export type StatisticalFactorModel = {
     rates_tlt: number | null
     credit: number | null
     commodities: number | null
-    alpha: number | null
     r_squared: number | null
     residual_vol: number | null
   }>
