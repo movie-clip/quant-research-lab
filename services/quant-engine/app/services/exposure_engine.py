@@ -240,7 +240,7 @@ def _build_current_state_concentration(snapshot: ImportedPortfolioSnapshot, over
     )
 
 
-def _coerce_concentration_item(item: dict[str, float | str], name_key: str) -> ExposureConcentrationItem:
+def _coerce_concentration_item(item: dict[str, float | str | None], name_key: str) -> ExposureConcentrationItem:
     return ExposureConcentrationItem(
         name=str(item.get(name_key) or "n/a"),
         market_value=round(float(item.get("market_value") or 0.0), 2),

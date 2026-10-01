@@ -1,4 +1,4 @@
-import type { BenchmarkStats, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, DistributionEngineResponse, DistributionWindow, DrawdownEngineResponse, DrawdownWindow, DriftResult, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, FactorAttributionResponse, ImportedBaselineSource, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, ImportedSnapshot, IntraCorrelationResult, MultiBenchmarkCorrelationResult, PortfolioBaselineView, ProvenanceResult, StressEngineResponse, CacheStats, CacheClearResult, CurrencyRiskResult } from './types'
+import type { BenchmarkStats, CombinedImportBootstrapRequest, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, DistributionEngineResponse, DistributionWindow, DrawdownEngineResponse, DrawdownWindow, DriftResult, ExposureAnalysis, ExposureEngineResponse, ExposureFactorModelResponse, FactorAttributionResponse, ImportAdmissionSummaryV1, ImportedBaselineSource, ImportedBootstrapResponse, ImportedDashboardSource, ImportedDiagnosticsSource, ImportedExposureSource, ImportedSnapshot, IntraCorrelationResult, MultiBenchmarkCorrelationResult, PortfolioBaselineView, ProvenanceResult, StressEngineResponse, CacheStats, CacheClearResult, CurrencyRiskResult } from './types'
 import type { ImportedHistoryContext, PortfolioSnapshot } from './workspaceTypes'
 import type { ResolveDesktopApiUrlOptions } from '../../app/apiBase'
 import { resolveDesktopApiUrl } from '../../app/apiBase'
@@ -170,22 +170,38 @@ export async function runImportedDiagnosticsEngine(
   return (await response.json()) as DiagnosticsEngineResponse
 }
 
-export async function combineImportedSnapshots(
-  snapshots: ImportedSnapshot[],
+/**
+ * POST /portfolios/import/analyze-combined — the one merge source (US-46.1).
+ * The engine combines the individual statement snapshots flat, recomputes
+ * exposure on the result and rolls up admission (US-46.3); the desktop only
+ * renders what comes back. A refused combine (HTTP 400) throws the server's
+ * `detail` so the caller publishes and saves nothing.
+ */
+export async function analyzeCombinedImport(
+  request: {
+    snapshots: ImportedSnapshot[]
+    carriedAdmissions?: ImportAdmissionSummaryV1[]
+    benchmarkSymbol?: string
+  },
   apiUrlOptions?: ResolveDesktopApiUrlOptions,
-): Promise<ImportedSnapshot> {
-  const response = await fetch(resolvePortfolioEngineUrl('/api/portfolios/import/combine-snapshots', apiUrlOptions), {
+): Promise<ImportedBootstrapResponse> {
+  const body: CombinedImportBootstrapRequest = {
+    snapshots: request.snapshots,
+    ...(request.benchmarkSymbol ? { benchmark_symbol: request.benchmarkSymbol } : {}),
+    ...(request.carriedAdmissions?.length ? { carried_admissions: request.carriedAdmissions } : {}),
+  }
+  const response = await fetch(resolvePortfolioEngineUrl('/api/portfolios/import/analyze-combined', apiUrlOptions), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ snapshots }),
+    body: JSON.stringify(body),
   })
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as { detail?: string } | null
-    throw new Error(payload?.detail ?? 'Combine imported snapshots failed')
+    throw new Error(payload?.detail ?? 'Combined import analysis failed')
   }
 
-  return (await response.json()) as ImportedSnapshot
+  return (await response.json()) as ImportedBootstrapResponse
 }
 
 export async function runDashboardHistoryEngine(

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { buildPortfolioSnapshotFromAnalysis, overlayImportedSnapshot } from './portfolioSnapshot'
+import { IB_TRUTH, ibOverview, ibStatementSnapshot } from '../../test/combinedImportFixtures'
+import * as portfolioAnalysisAdapterModule from './portfolioAnalysisAdapter'
+import * as portfolioSnapshotModule from './portfolioSnapshot'
+import { buildPortfolioSnapshotFromAnalysis, normalizePortfolioSnapshot } from './portfolioSnapshot'
 import type { PortfolioSnapshot } from './workspaceTypes'
 
 function makeSnapshot(
@@ -29,146 +32,72 @@ function makeSnapshot(
   }
 }
 
-function makeSnapshotWithPositions(
-  positions: Array<{ symbol: string; marketValue: number; quantity?: number | null; sector?: string | null }>,
-  cashBalances: Array<{ currency: string; amount: number }> = [],
-  fileName = 'TEST.pdf',
-): PortfolioSnapshot {
-  return {
-    snapshotVersion: 1,
-    baseCurrency: 'USD',
-    importedMeta: {
-      importer: 'interactive_brokers',
-      statementPeriod: '2025-01-01 - 2026-05-25',
-      importedAt: '2026-05-27T00:00:00.000Z',
-      sourceFileNames: [fileName],
-    },
-    positions: positions.map((p) => ({
-      symbol: p.symbol,
-      marketValue: p.marketValue,
-      quantity: p.quantity === undefined ? 1 : p.quantity,
-      currency: 'USD',
-      sector: p.sector ?? null,
-      sourceType: 'equity' as const,
-    })),
-    cashBalances,
-    metadata: { benchmarkSymbol: 'SPY' },
+describe('desktop no longer merges holdings (US-46.1: analyze-combined is the one merge source)', () => {
+  it('has no client-side overlay export left to sum statements with', () => {
+    // Regression guard: the client overlay summed same-symbol rows across statements and doubled a
+    // statement added onto itself (VUAA 160). Merging belongs to the engine.
+    expect('overlayImportedSnapshot' in portfolioSnapshotModule).toBe(false)
+    expect('combineImportedSnapshots' in portfolioAnalysisAdapterModule).toBe(false)
+  })
+})
+
+describe('normalizePortfolioSnapshot dedupe key (US-46.1 AC 8)', () => {
+  function withPositions(
+    positions: Array<{ symbol: string; marketValue: number; quantity: number | null; currency: string | null }>,
+  ): PortfolioSnapshot {
+    return {
+      ...makeSnapshot({}, 0, 'TEST.pdf'),
+      positions: positions.map((position) => ({ ...position, sector: null, sourceType: 'equity' as const })),
+    }
   }
-}
 
-describe('overlayImportedSnapshot', () => {
-  it('applies three sequential overlays correctly (IB -> +FF -> +ESPP)', () => {
-    const ibSnapshot = makeSnapshot({ VUAA: 50_000, XLK: 10_000 }, 1200, 'IB2026.pdf')
-    const ffSnapshot = makeSnapshot({ VTI: 3018.96 }, 52.04, 'FF2026.pdf')
-    const esppSnapshot = makeSnapshot({ MSFT: 3391.24 }, 10.44, 'ESPP2026.pdf')
+  it('never sums two currencies of one symbol', () => {
+    const normalized = normalizePortfolioSnapshot(
+      withPositions([
+        { symbol: 'SXRV', marketValue: 8_823.6, quantity: 6, currency: 'EUR' },
+        { symbol: 'SXRV', marketValue: 1_000, quantity: 1, currency: 'USD' },
+      ]),
+    )
 
-    const afterFf = overlayImportedSnapshot(ibSnapshot, ffSnapshot)
-    const afterEspp = overlayImportedSnapshot(afterFf, esppSnapshot)
-
-    const symbols = afterEspp.positions.map((p) => p.symbol).sort()
-    expect(symbols).toContain('VUAA')
-    expect(symbols).toContain('XLK')
-    expect(symbols).toContain('VTI')
-    expect(symbols).toContain('MSFT')
-    expect(afterEspp.positions).toHaveLength(4)
-
-    // US-14.1: USD cash balances must SUM across statements (was REPLACE).
-    // IB 1200 + FF 52.04 + ESPP 10.44 = 1262.48.
-    const usdBalance = afterEspp.cashBalances.find((b) => b.currency === 'USD')
-    expect(usdBalance).toBeDefined()
-    expect(usdBalance!.amount).toBeCloseTo(1262.48)
-
-    const fileNames = afterEspp.importedMeta.sourceFileNames
-    expect(fileNames).toContain('IB2026.pdf')
-    expect(fileNames).toContain('FF2026.pdf')
-    expect(fileNames).toContain('ESPP2026.pdf')
-    expect(new Set(fileNames).size).toBe(fileNames.length)
+    const rows = normalized.positions.filter((position) => position.symbol === 'SXRV')
+    expect(rows).toHaveLength(2)
+    expect(rows.find((row) => row.currency === 'EUR')).toMatchObject({ marketValue: 8_823.6, quantity: 6 })
+    expect(rows.find((row) => row.currency === 'USD')).toMatchObject({ marketValue: 1_000, quantity: 1 })
   })
 
-  it('does not duplicate symbols when the same symbol appears in two overlays', () => {
-    const ibSnapshot = makeSnapshot({ VUAA: 50_000, VWCE: 5_000 }, 1000, 'IB2026.pdf')
-    const secondSnapshot = makeSnapshot({ VUAA: 99_999 }, 200, 'OTHER.pdf')
+  it('still sums the same symbol in the same currency (US-14.1: distinct accounts holding one line)', () => {
+    const normalized = normalizePortfolioSnapshot(
+      withPositions([
+        { symbol: 'MSFT', marketValue: 50_000, quantity: 100, currency: 'USD' },
+        { symbol: 'MSFT', marketValue: 5_000, quantity: 10, currency: 'USD' },
+      ]),
+    )
 
-    const result = overlayImportedSnapshot(ibSnapshot, secondSnapshot)
-
-    const vuaaRows = result.positions.filter((p) => p.symbol === 'VUAA')
-    expect(vuaaRows).toHaveLength(1)
-    // US-14.1: duplicate-symbol positions now SUM marketValue across statements
-    // (was REPLACE). IB 50_000 + second 99_999 = 149_999.
-    expect(vuaaRows[0].marketValue).toBeCloseTo(149_999)
-    expect(result.positions.find((p) => p.symbol === 'VWCE')).toBeDefined()
+    expect(normalized.positions).toHaveLength(1)
+    expect(normalized.positions[0]).toMatchObject({ symbol: 'MSFT', marketValue: 55_000, quantity: 110 })
   })
 
-  it('accumulates sourceFileNames without duplicating the same file', () => {
-    const snap = makeSnapshot({ VUAA: 1000 }, 100, 'IB2026.pdf')
-    const result = overlayImportedSnapshot(snap, snap)
+  it('keeps a row with no currency apart from the same symbol with a currency', () => {
+    const normalized = normalizePortfolioSnapshot(
+      withPositions([
+        { symbol: 'MSFT', marketValue: 100, quantity: 1, currency: null },
+        { symbol: 'MSFT', marketValue: 200, quantity: 2, currency: 'USD' },
+      ]),
+    )
 
-    expect(result.importedMeta.sourceFileNames).toEqual(['IB2026.pdf'])
+    expect(normalized.positions).toHaveLength(2)
   })
 
-  // ── US-14.1: symbol-collision sum behaviour ────────────────────────────────
+  it('leaves an engine-combined snapshot untouched: 18 distinct IB2026 lines stay 18 (US-46.1 AC 1)', () => {
+    // The engine already returned one row per holding; normalising must not merge or drop any.
+    const built = buildPortfolioSnapshotFromAnalysis(
+      { snapshot: ibStatementSnapshot(), overview: ibOverview() },
+      ['IB2026.csv'],
+    )
 
-  it('sums_marketValue_when_symbol_in_both', () => {
-    const base = makeSnapshotWithPositions([{ symbol: 'MSFT', marketValue: 50_000, quantity: 250 }])
-    const imported = makeSnapshotWithPositions([{ symbol: 'MSFT', marketValue: 5_000, quantity: 25 }])
-
-    const result = overlayImportedSnapshot(base, imported)
-
-    const msft = result.positions.find((p) => p.symbol === 'MSFT')
-    expect(msft).toBeDefined()
-    expect(msft!.marketValue).toBeCloseTo(55_000)
-  })
-
-  it('sums_quantity_when_both_have_non_null_quantity', () => {
-    const base = makeSnapshotWithPositions([{ symbol: 'MSFT', marketValue: 50_000, quantity: 100 }])
-    const imported = makeSnapshotWithPositions([{ symbol: 'MSFT', marketValue: 5_000, quantity: 10 }])
-
-    const result = overlayImportedSnapshot(base, imported)
-
-    const msft = result.positions.find((p) => p.symbol === 'MSFT')
-    expect(msft!.quantity).toBe(110)
-  })
-
-  it('treats_null_quantity_as_zero_when_only_one_side_is_null', () => {
-    const base = makeSnapshotWithPositions([{ symbol: 'MSFT', marketValue: 50_000, quantity: null }])
-    const imported = makeSnapshotWithPositions([{ symbol: 'MSFT', marketValue: 5_000, quantity: 10 }])
-
-    const result = overlayImportedSnapshot(base, imported)
-
-    const msft = result.positions.find((p) => p.symbol === 'MSFT')
-    expect(msft!.quantity).toBe(10) // null treated as 0; sum = 0 + 10
-  })
-
-  it('keeps_quantity_null_when_both_sides_null', () => {
-    const base = makeSnapshotWithPositions([{ symbol: 'MSFT', marketValue: 50_000, quantity: null }])
-    const imported = makeSnapshotWithPositions([{ symbol: 'MSFT', marketValue: 5_000, quantity: null }])
-
-    const result = overlayImportedSnapshot(base, imported)
-
-    const msft = result.positions.find((p) => p.symbol === 'MSFT')
-    // Fail-closed: both unknown → merged unknown. Don't fabricate a 0.
-    expect(msft!.quantity).toBeNull()
-  })
-
-  it('preserves_existing_sector_when_imported_sector_is_null', () => {
-    const base = makeSnapshotWithPositions([{ symbol: 'MSFT', marketValue: 50_000, sector: 'Technology' }])
-    const imported = makeSnapshotWithPositions([{ symbol: 'MSFT', marketValue: 5_000, sector: null }])
-
-    const result = overlayImportedSnapshot(base, imported)
-
-    const msft = result.positions.find((p) => p.symbol === 'MSFT')
-    expect(msft!.sector).toBe('Technology')
-  })
-
-  it('sums_cash_balance_when_currency_in_both', () => {
-    const base = makeSnapshotWithPositions([], [{ currency: 'USD', amount: 1000 }])
-    const imported = makeSnapshotWithPositions([], [{ currency: 'USD', amount: 500 }])
-
-    const result = overlayImportedSnapshot(base, imported)
-
-    const usd = result.cashBalances.find((b) => b.currency === 'USD')
-    expect(usd).toBeDefined()
-    expect(usd!.amount).toBeCloseTo(1500)
+    expect(built.positions).toHaveLength(IB_TRUTH.positionCount)
+    const vuaa = built.positions.find((position) => position.symbol === 'VUAA')
+    expect(vuaa).toMatchObject({ quantity: IB_TRUTH.vuaaQuantity, marketValue: IB_TRUTH.vuaaMarketValue })
   })
 })
 

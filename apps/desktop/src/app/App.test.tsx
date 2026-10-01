@@ -9,11 +9,13 @@ import {
   ib2026DashboardGolden,
   ib2026ImportedDashboardGoldenFixture,
 } from '../test/dashboardGoldens'
+import { combinedResponse, concatDistinctAccounts, esppStatementSnapshot, ibPlusEsppAdmission, ibStatementSnapshot } from '../test/combinedImportFixtures'
+import { installFetchMock, jsonResponse, matchingFetchCalls, requestJsonBody, requestMethod, requestPathname, unhandledOrDrift } from '../test/fetchHarness'
 import { App } from './App'
 import * as portfolioWorkspaceStorage from './portfolioWorkspaceStorage'
 import * as portfolioAnalysisAdapter from '../features/portfolio/portfolioAnalysisAdapter'
 import { mapImportedHistoryContextToWorkspace } from '../features/portfolio/importedBootstrapMapper'
-import type { ExposureEngineResponse, ImportedExposureOverride, ImportedSnapshot, PortfolioOverview } from '../features/portfolio/types'
+import type { CombinedImportBootstrapRequest, ExposureEngineResponse, ImportedExposureOverride, ImportedSnapshot, PortfolioOverview } from '../features/portfolio/types'
 import type { ImportedHistoryContext, ImportedNodeSource, PortfolioNode, PortfolioSnapshot, PortfolioWorkspace, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
 
 vi.mock('@tauri-apps/plugin-dialog', () => ({
@@ -47,76 +49,6 @@ const exposurePayload = createExposureEngineFixture()
 const diagnosticsPayload = createDiagnosticsEngineFixture()
 const bootstrapPayload = createImportedBootstrapResponseFixture()
 const dashboardHistoryPayload = createImportedDashboardHistoryFixture()
-
-function jsonResponse(payload: unknown, status = 200) {
-  return new Response(JSON.stringify(payload), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
-
-// Selecting an Exposure snapshot fires runDriftEngine; most App tests don't
-// register that route, so it previously fell through and logged a noisy
-// "[drift] FAILED: Unhandled fetch" (the app swallows the error, tests still
-// pass). Serve a harmless unavailable DriftResult here so the stub honestly
-// models what the app calls. Genuinely-unknown routes still throw (safety net).
-const _driftFallbackPayload = {
-  windows: [],
-  benchmark_symbol: 'SPY',
-  daily_series: [],
-  availability: 'unavailable' as const,
-}
-
-function unhandledOrDrift(pathname: string, method: string): Response {
-  if (pathname === '/api/engines/drift/run' && method === 'POST') {
-    return jsonResponse(_driftFallbackPayload)
-  }
-  throw new Error(`Unhandled fetch: ${method} ${pathname}`)
-}
-
-function requestUrl(input: RequestInfo | URL) {
-  const rawUrl = typeof input === 'string'
-    ? input
-    : input instanceof URL
-      ? input.toString()
-      : input.url
-  return new URL(rawUrl, 'http://localhost')
-}
-
-function requestPathname(input: RequestInfo | URL) {
-  return requestUrl(input).pathname
-}
-
-function requestSearchParam(input: RequestInfo | URL, key: string) {
-  return requestUrl(input).searchParams.get(key)
-}
-
-function requestMethod(input: RequestInfo | URL, init?: RequestInit) {
-  if (init?.method) return init.method.toUpperCase()
-  if (typeof input !== 'string' && !(input instanceof URL) && input.method) return input.method.toUpperCase()
-  return 'GET'
-}
-
-function requestJsonBody(init?: RequestInit) {
-  return JSON.parse(typeof init?.body === 'string' ? init.body : String(init?.body ?? '{}'))
-}
-
-function matchingFetchCalls(fetchMock: { mock: { calls: ReadonlyArray<ReadonlyArray<unknown>> } }, pathname: string, method?: string) {
-  return fetchMock.mock.calls.filter((call) => {
-    const input = call[0] as RequestInfo | URL
-    const init = call[1] as RequestInit | undefined
-    return requestPathname(input) === pathname
-      && (method == null || requestMethod(input, init) === method.toUpperCase())
-  }) as Array<[RequestInfo | URL, RequestInit | undefined]>
-}
-
-function installFetchMock(handler: (input: RequestInfo | URL, init?: RequestInit) => Response | Promise<Response>) {
-  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-    return await handler(input, init)
-  })
-  vi.stubGlobal('fetch', fetchMock)
-  return fetchMock
-}
 
 function cloneMutable<T>(value: unknown): T {
   return JSON.parse(JSON.stringify(value)) as T
@@ -309,6 +241,13 @@ function buildImportedSource(input: {
   importedHistorySnapshot?: ImportedSnapshot | null
   admissionSummary?: ImportedNodeSource['admissionSummary']
   importedExposureOverride?: ImportedExposureOverride | null
+  importedConstituents?: ImportedSnapshot[]
+  /**
+   * A node saved before derivationVersion existed. Legacy nodes are re-derived through
+   * analyze-combined on every load (rederiveSavedNodes.ts); every other fixture is stamped
+   * derivationVersion 1 so the restore path leaves it alone.
+   */
+  legacy?: boolean
 }): ImportedNodeSource {
   const source: ImportedNodeSource = {
     importedFileNames: input.importedFileNames,
@@ -317,6 +256,8 @@ function buildImportedSource(input: {
     baseCurrency: input.baseCurrency,
     historySource: buildHistorySource(input.historyContext ?? null, input.importedHistorySnapshot ?? null),
   }
+  if (!input.legacy) source.derivationVersion = 1
+  if (input.importedConstituents !== undefined) source.importedConstituents = input.importedConstituents
   if (input.admissionSummary !== undefined) source.admissionSummary = input.admissionSummary
   if (input.importedExposureOverride !== undefined) source.importedExposureOverride = input.importedExposureOverride
   return source
@@ -567,15 +508,19 @@ describe('App', () => {
       history_context: { ...bootstrapPayload.history_context, statement_period: '2026-01-01 - 2026-04-08', source_file_names: ['IB2026.pdf'], history_end_date: '2026-04-08' },
     }
 
-    const fetchMock = vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(bootstrapPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(addSnapshotBootstrapPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ ...appendedExposurePayload, snapshot: { ...appendedExposurePayload.snapshot, statement: { ...appendedExposurePayload.snapshot.statement, statement_period: '2026-01-01 - 2026-04-08' }, statements: [{ ...appendedExposurePayload.snapshot.statements[1], statement_period: '2026-01-01 - 2026-04-08', source_path: 'C:\\docs\\IB2026.pdf' }] } }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ ...appendedDiagnosticsPayload, snapshot: { ...appendedDiagnosticsPayload.snapshot, statement: { ...appendedDiagnosticsPayload.snapshot.statement, statement_period: '2026-01-01 - 2026-04-08' }, statements: [{ ...appendedDiagnosticsPayload.snapshot.statements[1], statement_period: '2026-01-01 - 2026-04-08', source_path: 'C:\\docs\\IB2026.pdf' }] } }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ performance_series: [], daily_states: [], source_status: { performance_history: 'unavailable', monthly_returns: 'unavailable' }, benchmark: null, range_metrics: null }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    // The engine's combined answer for IB2025 + IB2026: covers both files and ends on the later statement.
+    const combinedAddResponse = {
+      ...addSnapshotBootstrapPayload,
+      history_context: { ...addSnapshotBootstrapPayload.history_context, source_file_names: ['IB2025.pdf', 'IB2026.pdf'], history_end_date: '2026-04-08' },
+    }
+    let analyzeCombinedRequestBody: CombinedImportBootstrapRequest | null = null
+    const fetchMock = installAddStatementFetchMock({
+      analyzeUploadResponses: [bootstrapPayload, addSnapshotBootstrapPayload],
+      onAnalyzeCombined: (body) => {
+        analyzeCombinedRequestBody = body
+        return jsonResponse(combinedAddResponse)
+      },
+    })
 
     render(<App />)
 
@@ -598,12 +543,16 @@ describe('App', () => {
     const appendAnalyzeBody = analyzeCalls[1]?.[1]?.body as FormData
     const uploadedFiles = appendAnalyzeBody.getAll('statement_files') as File[]
     expect(uploadedFiles.map((file) => file.name)).toEqual(['IB2026.pdf'])
-    expect(saveImportedSnapshotNodeSpy).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 'workspace-1', parentNodeId: 'node-1', importedFileNames: ['IB2026.pdf'], name: 'IB 2026-04-08' }))
+    // The node covers both statements the engine combined, and is stamped as built by analyze-combined.
+    expect(saveImportedSnapshotNodeSpy).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 'workspace-1', parentNodeId: 'node-1', importedFileNames: ['IB2025.pdf', 'IB2026.pdf'], name: 'IB 2026-04-08', derivationVersion: 1 }))
+    expect(analyzeCombinedRequestBody).not.toBeNull()
+    expect(analyzeCombinedRequestBody!.snapshots).toEqual([bootstrapPayload.snapshot, addSnapshotBootstrapPayload.snapshot])
     expect(saveImportedSnapshotNodeSpy.mock.calls[0]?.[0]?.portfolioSnapshot.importedMeta.sourceFileNames).toContain('IB2026.pdf')
     expect(saveImportedSnapshotNodeSpy.mock.calls[0]?.[0]?.portfolioSnapshot.positions.some((position: { symbol: string }) => position.symbol === 'AAPL')).toBe(true)
     expect(saveImportedSnapshotNodeSpy.mock.calls[0]?.[0]?.historyContext?.sourceFileNames).toEqual(['IB2025.pdf', 'IB2026.pdf'])
     expect(saveImportedSnapshotNodeSpy.mock.calls[0]?.[0]?.historyContext?.historyEndDate).toBe('2026-04-08')
     await waitFor(() => expect(saveImportedSnapshotNodeSpy).toHaveBeenCalled())
+    expect(matchingFetchCalls(fetchMock, '/api/portfolios/import/analyze-combined', 'POST')).toHaveLength(1)
   })
 
 
@@ -915,21 +864,13 @@ describe('App', () => {
 
     const unavailableHistoryPayload = { performance_series: [], daily_states: [], source_status: { performance_history: 'unavailable', monthly_returns: 'unavailable' }, benchmark: null, range_metrics: null }
 
-    vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(bootstrapPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(dashboardHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(exposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(ffBootstrapPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      // T-40.2.2b: add_snapshot's base source is `imported_replay`
-      // (mockImportedWorkspace's root node carries `bootstrapPayload.snapshot`
-      // as its importedHistorySnapshot), so `processImportedFiles` now calls
-      // `combineImportedSnapshots` (POST /api/portfolios/import/combine-snapshots)
-      // before saving the node — an extra fetch not present before T-40.2.2b.
-      .mockResolvedValueOnce(new Response(JSON.stringify(ffBootstrapPayload.snapshot), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(diagnosticsPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(unavailableHistoryPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify(ffExposurePayload), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    // analyze-combined answers with the Freedom24 statement's bootstrap (the engine's combined view).
+    installAddStatementFetchMock({
+      analyzeUploadResponses: [bootstrapPayload, ffBootstrapPayload],
+      onAnalyzeCombined: () => jsonResponse(ffBootstrapPayload),
+      exposure: ffExposurePayload,
+      dashboardHistory: unavailableHistoryPayload,
+    })
 
     render(<App />)
 
@@ -947,17 +888,18 @@ describe('App', () => {
     expect(screen.queryByText('$15000.00')).toBeNull()
   })
 
-  // ─── US-40.2 / T-40.2.3 — add_snapshot preserves imported history ──────────
+  // ─── US-46.1 — add_snapshot goes through analyze-combined, the one merge source ──────────
   //
-  // `processImportedFiles`'s `add_snapshot` branch (App.tsx, per 05-technical-plan.md
-  // § US-40.2 design) now combines the base node's already-frozen
-  // `importedHistorySnapshot` with the newly-imported statement via the new
-  // `POST /api/portfolios/import/combine-snapshots` route, instead of always
-  // passing `importedHistorySnapshot: null` to `saveImportedSnapshotNode`.
+  // `processImportedFiles`'s `add_snapshot` branch posts the base's individual statement snapshots plus
+  // the newly uploaded one to `POST /api/portfolios/import/analyze-combined` and renders whatever the
+  // engine returns. The desktop never merges holdings itself (the US-14.1 overlay is retired), and the
+  // retired `combine-snapshots` route has no in-app caller, so a request to it is an unhandled fetch.
 
-  function installUS402FetchMock(handlers: {
-    onCombineSnapshots?: (body: { snapshots: unknown[] }) => Response | Promise<Response>
+  function installAddStatementFetchMock(handlers: {
+    onAnalyzeCombined?: (body: CombinedImportBootstrapRequest) => Response | Promise<Response>
     analyzeUploadResponses: unknown[]
+    exposure?: unknown
+    dashboardHistory?: unknown
   }) {
     let analyzeUploadCallCount = 0
     return installFetchMock(async (input, init) => {
@@ -968,18 +910,18 @@ describe('App', () => {
         analyzeUploadCallCount += 1
         return jsonResponse(payload)
       }
-      if (pathname === '/api/portfolios/import/combine-snapshots' && method === 'POST') {
-        if (handlers.onCombineSnapshots) return handlers.onCombineSnapshots(requestJsonBody(init))
-        return jsonResponse(requestJsonBody(init).snapshots[requestJsonBody(init).snapshots.length - 1])
+      if (pathname === '/api/portfolios/import/analyze-combined' && method === 'POST') {
+        if (handlers.onAnalyzeCombined) return handlers.onAnalyzeCombined(requestJsonBody(init))
+        throw new Error('Unexpected analyze-combined call')
       }
-      if ((pathname === '/api/engines/exposure/run' || pathname === '/api/engines/exposure/run-imported') && method === 'POST') return jsonResponse(exposurePayload)
+      if ((pathname === '/api/engines/exposure/run' || pathname === '/api/engines/exposure/run-imported') && method === 'POST') return jsonResponse(handlers.exposure ?? exposurePayload)
       if ((pathname === '/api/engines/diagnostics/run' || pathname === '/api/engines/diagnostics/run-imported') && method === 'POST') return jsonResponse(diagnosticsPayload)
-      if ((pathname === '/api/engines/dashboard-history/run' || pathname === '/api/engines/dashboard-history/run-imported') && method === 'POST') return jsonResponse(dashboardHistoryPayload)
+      if ((pathname === '/api/engines/dashboard-history/run' || pathname === '/api/engines/dashboard-history/run-imported') && method === 'POST') return jsonResponse(handlers.dashboardHistory ?? dashboardHistoryPayload)
       return unhandledOrDrift(pathname, method)
     })
   }
 
-  it('add_snapshot combines the base imported_replay history with the new statement and saves it non-null (AC1, AC2)', async () => {
+  it('add_snapshot sends the base statement and the new statement to analyze-combined and saves what the engine returned (US-46.1 AC 6)', async () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
     const importedWorkspace = mockImportedWorkspace()
     mockImportedWorkspaceRestore(importedWorkspace)
@@ -1016,17 +958,18 @@ describe('App', () => {
     vi.spyOn(portfolioWorkspaceStorage, 'clearPortfolioWorkspaceState').mockResolvedValue()
 
     const ffBootstrapPayload = { ...bootstrapPayload, snapshot: { ...bootstrapPayload.snapshot, statement: { ...bootstrapPayload.snapshot.statement, statement_period: '2026-01-01 - 2026-04-08' } } }
-    // The value the combine-snapshots route returns — must be distinct from
-    // both inputs so the assertion below can't pass by the route being a
-    // pass-through of either snapshot alone.
-    const combinedSnapshotFromRoute = { ...appendedExposurePayload.snapshot, statements: [...appendedExposurePayload.snapshot.statements, { ...ffBootstrapPayload.snapshot.statements[0] }] }
+    // The engine's combined answer: distinct from both inputs, so the assertions below cannot pass by
+    // the route echoing either snapshot, and from any client-side sum of them.
+    const engineCombinedSnapshot = { ...appendedExposurePayload.snapshot, statements: [...appendedExposurePayload.snapshot.statements, { ...ffBootstrapPayload.snapshot.statements[0] }] }
+    const engineAdmission = ibPlusEsppAdmission()
+    const engineResponse = { ...ffBootstrapPayload, snapshot: engineCombinedSnapshot, admission_summary: engineAdmission }
 
-    let combineSnapshotsRequestBody: { snapshots: unknown[] } | null = null
-    installUS402FetchMock({
+    let analyzeCombinedRequestBody: CombinedImportBootstrapRequest | null = null
+    installAddStatementFetchMock({
       analyzeUploadResponses: [bootstrapPayload, ffBootstrapPayload],
-      onCombineSnapshots: (body) => {
-        combineSnapshotsRequestBody = body
-        return jsonResponse(combinedSnapshotFromRoute)
+      onAnalyzeCombined: (body) => {
+        analyzeCombinedRequestBody = body
+        return jsonResponse(engineResponse)
       },
     })
 
@@ -1041,57 +984,35 @@ describe('App', () => {
 
     await waitFor(() => expect(saveImportedSnapshotNodeSpy).toHaveBeenCalled())
 
-    // AC1/AC2: the base's frozen importedHistorySnapshot (`bootstrapPayload.snapshot`,
-    // set on the root node by `mockImportedWorkspace()`) and the newly-imported
-    // statement's own snapshot are both sent to combine-snapshots ...
-    expect(combineSnapshotsRequestBody).not.toBeNull()
-    expect(combineSnapshotsRequestBody!.snapshots).toEqual([bootstrapPayload.snapshot, ffBootstrapPayload.snapshot])
-    // ... and the route's own combined result — not `null`, not either input
-    // alone — is what gets persisted, replacing today's literal `null`.
-    expect(saveImportedSnapshotNodeSpy.mock.calls[0]?.[0]?.importedHistorySnapshot).toEqual(combinedSnapshotFromRoute)
+    // The base's stored statement (`bootstrapPayload.snapshot`, set on the root node by
+    // `mockImportedWorkspace()`) and the newly uploaded statement are both sent to the engine ...
+    expect(analyzeCombinedRequestBody).not.toBeNull()
+    expect(analyzeCombinedRequestBody!.snapshots).toEqual([bootstrapPayload.snapshot, ffBootstrapPayload.snapshot])
+    // ... and the engine's own combined snapshot and admission roll-up — not either input, not a
+    // client merge — is what gets persisted, stamped as built by analyze-combined.
+    const savedInput = saveImportedSnapshotNodeSpy.mock.calls[0]?.[0]
+    expect(savedInput?.importedHistorySnapshot).toEqual(engineCombinedSnapshot)
+    expect(savedInput?.admissionSummary).toEqual(engineAdmission)
+    expect(savedInput?.derivationVersion).toBe(1)
   })
 
-  it('add_snapshot discloses degradation and saves a null importedHistorySnapshot when combine-snapshots fails (AC3)', async () => {
+  it.each([
+    ['a base-currency mismatch', 'Cannot combine snapshots with differing base currencies'],
+    ['a statement without an account identity', 'Cannot combine: a statement has no account identity'],
+  ])('add_snapshot with %s is refused: nothing is saved, the prior portfolio stays and the server detail is shown (US-46.1 AC 7)', async (_label, detail) => {
     vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
     const importedWorkspace = mockImportedWorkspace()
     mockImportedWorkspaceRestore(importedWorkspace)
-    const addedSnapshot = { ...persistedSnapshot, positions: [{ symbol: 'JPM', marketValue: 5000, quantity: 20, currency: 'USD', sector: 'Financials', sourceType: 'equity' as const }] }
-    const addedNode: PortfolioNode = {
-      id: 'node-2',
-      workspaceId: 'workspace-1',
-      parentId: 'node-1',
-      kind: 'imported_snapshot',
-      name: 'IB 2026-04-08',
-      createdAt: '2026-04-10T00:05:00Z',
-      changeSummary: { label: 'IB 2026-04-08', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 5000, netCapitalDelta: 5000 },
-      portfolioSnapshot: addedSnapshot,
-      source: buildImportedSource({ importedFileNames: ['IB2026.pdf'], importedAt: '2026-04-10T00:05:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2026-01-01 - 2026-04-08', importedAt: '2026-04-10T00:05:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf', 'IB2026.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2026-04-08' }, importedHistorySnapshot: null }),
-    }
-    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes')
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([importedWorkspace.rootNode, addedNode])
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([importedWorkspace.rootNode])
     vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromImport').mockResolvedValue(importedWorkspace)
-    const saveImportedSnapshotNodeSpy = vi.spyOn(portfolioWorkspaceStorage, 'saveImportedSnapshotNode').mockResolvedValue({
-      node: addedNode,
-      workspace: { ...importedWorkspace.workspace, activeNodeId: 'node-2', updatedAt: '2026-04-10T00:05:00Z' },
-      workspaceState: { ...importedWorkspace.workspaceState, activeNodeId: 'node-2', selectedExposureSnapshotId: 'draft', lastOpenedAt: '2026-04-10T00:05:00Z' },
-    })
-    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockImplementation(async (nodeId: string) => {
-      if (nodeId === 'node-2') return addedNode
-      if (nodeId === 'node-1') return importedWorkspace.rootNode
-      return null
-    })
-    vi.spyOn(portfolioWorkspaceStorage, 'getDraft')
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ ...importedWorkspace.draft, baseNodeId: 'node-2', portfolioSnapshot: addedSnapshot, updatedAt: '2026-04-10T00:05:00Z' })
+    const saveImportedSnapshotNodeSpy = vi.spyOn(portfolioWorkspaceStorage, 'saveImportedSnapshotNode')
     vi.spyOn(portfolioWorkspaceStorage, 'saveDraft').mockResolvedValue()
     vi.spyOn(portfolioWorkspaceStorage, 'clearPortfolioWorkspaceState').mockResolvedValue()
 
-    const ffBootstrapPayload = { ...bootstrapPayload, snapshot: { ...bootstrapPayload.snapshot, statement: { ...bootstrapPayload.snapshot.statement, statement_period: '2026-01-01 - 2026-04-08' } } }
-
-    installUS402FetchMock({
-      analyzeUploadResponses: [bootstrapPayload, ffBootstrapPayload],
-      onCombineSnapshots: () => jsonResponse({ detail: 'Cannot combine snapshots with differing base currencies' }, 400),
+    const secondStatement = { ...bootstrapPayload, snapshot: { ...bootstrapPayload.snapshot, statement: { ...bootstrapPayload.snapshot.statement, statement_period: '2026-01-01 - 2026-04-08' } } }
+    const fetchMock = installAddStatementFetchMock({
+      analyzeUploadResponses: [bootstrapPayload, secondStatement],
+      onAnalyzeCombined: () => jsonResponse({ detail }, 400),
     })
 
     render(<App />)
@@ -1103,21 +1024,24 @@ describe('App', () => {
     fireEvent.click(screen.getByText('Add Statement'))
     fireEvent.change(input, { target: { files: [new File(['ib26'], 'IB2026.pdf', { type: 'application/pdf', lastModified: 2 })] } })
 
-    await waitFor(() => expect(saveImportedSnapshotNodeSpy).toHaveBeenCalled())
-
-    // AC3: degradation is disclosed, not silently dropped or fabricated —
-    // the node is still saved (positions preserved), but with a null
-    // importedHistorySnapshot rather than a fabricated/partial merge.
-    expect(saveImportedSnapshotNodeSpy.mock.calls[0]?.[0]?.importedHistorySnapshot).toBeNull()
-    await waitFor(() => expect(screen.getAllByText(/could not be combined with the existing imported history/).length).toBeGreaterThan(0))
+    // The server detail is displayed, and only then do we assert on what was NOT done.
+    await waitFor(() => expect(screen.getAllByText(detail).length).toBeGreaterThan(0))
+    expect(matchingFetchCalls(fetchMock, '/api/portfolios/import/analyze-combined', 'POST')).toHaveLength(1)
+    expect(saveImportedSnapshotNodeSpy).not.toHaveBeenCalled()
+    // No "keep the merged positions" fallback, no old wording about a degraded save.
+    expect(screen.queryByText(/could not be combined with the existing imported history/)).toBeNull()
+    // The prior portfolio is still on screen.
+    expect(screen.getByText('Account overview')).toBeTruthy()
   })
 
-  it('add_snapshot combines against the already-accumulated chain result, not just the immediate parent (sequential-add regression)', async () => {
-    // The active node is itself a prior add_snapshot result — its own
-    // `source.historySource.importedHistorySnapshot` already represents the
-    // combination of every earlier statement in the chain (multiple
-    // `statements` entries), not just the immediately-preceding statement.
+  it('add_snapshot combines flat from the stored statements, never against the already-combined chain result (sequential-add regression)', async () => {
+    // The active node is itself a prior add_snapshot result. Its `importedHistorySnapshot` is already
+    // the ENGINE's combination of the earlier statements (two statement records). Chaining that into a
+    // second combine is what doubled a re-added account, so the request must carry the individual
+    // stored statements plus the new one — never the combined snapshot.
     const chainAccumulatedSnapshot = { ...bootstrapPayload.snapshot, statements: [...bootstrapPayload.snapshot.statements, { ...bootstrapPayload.snapshot.statements[0] }] }
+    const storedFirst = { ...bootstrapPayload.snapshot, statement: { ...bootstrapPayload.snapshot.statement, statement_period: '2025-01-01 - 2025-12-31' } }
+    const storedSecond = { ...bootstrapPayload.snapshot, statement: { ...bootstrapPayload.snapshot.statement, statement_period: '2026-01-01 - 2026-04-08' } }
     const chainNode: PortfolioNode = {
       id: 'node-2',
       workspaceId: 'workspace-1',
@@ -1127,7 +1051,7 @@ describe('App', () => {
       createdAt: '2026-04-10T00:05:00Z',
       changeSummary: { label: 'IB 2026-04-08', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 5000, netCapitalDelta: 5000 },
       portfolioSnapshot: persistedSnapshot,
-      source: buildImportedSource({ importedFileNames: ['IB2026.pdf'], importedAt: '2026-04-10T00:05:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2026-01-01 - 2026-04-08', importedAt: '2026-04-10T00:05:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf', 'IB2026.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2026-04-08' }, importedHistorySnapshot: chainAccumulatedSnapshot }),
+      source: buildImportedSource({ importedFileNames: ['IB2026.pdf'], importedAt: '2026-04-10T00:05:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2026-01-01 - 2026-04-08', importedAt: '2026-04-10T00:05:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf', 'IB2026.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2026-04-08' }, importedHistorySnapshot: chainAccumulatedSnapshot, importedConstituents: [storedFirst, storedSecond] }),
     }
     const rootNode: PortfolioNode = { id: 'node-1', workspaceId: 'workspace-1', parentId: null, kind: 'imported_base', name: 'Base Import', createdAt: '2026-04-10T00:00:00Z', changeSummary: { label: 'Base Import', changedPositionsCount: 1, changedSectorsCount: 1, grossExposureDelta: 10000, netCapitalDelta: 10000 }, portfolioSnapshot: persistedSnapshot }
     const workspace: PortfolioWorkspace = { id: 'workspace-1', name: 'Portfolio Workspace', createdAt: '2026-04-10T00:00:00Z', updatedAt: '2026-04-10T00:05:00Z', rootNodeId: 'node-1', activeNodeId: 'node-2', source: buildImportedSource({ importedFileNames: ['IB2025.pdf'], importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', baseCurrency: 'USD', historyContext: { benchmarkSymbol: 'SPY', statementPeriod: '2025-01-01 - 2025-12-31', importedAt: '2026-04-10T00:00:00Z', importer: 'interactive_brokers', sourceFileNames: ['IB2025.pdf'], historyStartDate: '2025-01-02', historyEndDate: '2025-03-03' }, importedHistorySnapshot: bootstrapPayload.snapshot }) }
@@ -1148,12 +1072,12 @@ describe('App', () => {
 
     const newStatementPayload = { ...bootstrapPayload, snapshot: { ...bootstrapPayload.snapshot, statement: { ...bootstrapPayload.snapshot.statement, statement_period: '2026-04-09 - 2026-04-20' } } }
 
-    let combineSnapshotsRequestBody: { snapshots: unknown[] } | null = null
-    installUS402FetchMock({
+    let analyzeCombinedRequestBody: CombinedImportBootstrapRequest | null = null
+    installAddStatementFetchMock({
       analyzeUploadResponses: [newStatementPayload],
-      onCombineSnapshots: (body) => {
-        combineSnapshotsRequestBody = body
-        return jsonResponse(newStatementPayload.snapshot)
+      onAnalyzeCombined: (body) => {
+        analyzeCombinedRequestBody = body
+        return jsonResponse(newStatementPayload)
       },
     })
 
@@ -1166,16 +1090,16 @@ describe('App', () => {
 
     await waitFor(() => expect(saveImportedSnapshotNodeSpy).toHaveBeenCalled())
 
-    // The FIRST element combine-snapshots is called with is the chain node's
-    // own already-accumulated snapshot (multiple `statements` entries), not
-    // the workspace root's raw single-statement snapshot — a chained
-    // add_snapshot combines against the previous step's own combined result.
-    expect(combineSnapshotsRequestBody).not.toBeNull()
-    expect(combineSnapshotsRequestBody!.snapshots[0]).toEqual(chainAccumulatedSnapshot)
-    expect(combineSnapshotsRequestBody!.snapshots[0]).not.toEqual(bootstrapPayload.snapshot)
+    expect(analyzeCombinedRequestBody).not.toBeNull()
+    expect(analyzeCombinedRequestBody!.snapshots).toEqual([storedFirst, storedSecond, newStatementPayload.snapshot])
+    expect(analyzeCombinedRequestBody!.snapshots).not.toContainEqual(chainAccumulatedSnapshot)
+    // constituents are known, so no carried evidence is sent
+    expect(analyzeCombinedRequestBody!.carried_admissions ?? []).toEqual([])
+    // and the new node keeps the flat list for the next add
+    expect(saveImportedSnapshotNodeSpy.mock.calls[0]?.[0]?.importedConstituents).toEqual([storedFirst, storedSecond, newStatementPayload.snapshot])
   })
 
-  it('replace-mode import is unaffected by US-40.2 — still passes the fresh analyze-upload snapshot directly, no combine-snapshots call (AC4)', async () => {
+  it('replace-mode import makes no analyze-combined call and stamps the fresh statement as its own constituent (US-46.1 AC 9)', async () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
     vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([])
     const createWorkspaceFromImportSpy = vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromImport').mockResolvedValue(mockImportedWorkspace())
@@ -1184,7 +1108,7 @@ describe('App', () => {
     vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue(mockImportedWorkspace().draft)
     vi.spyOn(portfolioWorkspaceStorage, 'saveDraft').mockResolvedValue()
 
-    const fetchMock = installUS402FetchMock({ analyzeUploadResponses: [bootstrapPayload] })
+    const fetchMock = installAddStatementFetchMock({ analyzeUploadResponses: [bootstrapPayload] })
 
     render(<App />)
 
@@ -1192,10 +1116,50 @@ describe('App', () => {
     fireEvent.change(input, { target: { files: [new File(['ib'], 'IB2025.pdf', { type: 'application/pdf', lastModified: 1 })] } })
 
     await waitFor(() => expect(createWorkspaceFromImportSpy).toHaveBeenCalled())
-    expect(createWorkspaceFromImportSpy.mock.calls[0]?.[0]?.importedHistorySnapshot).toEqual(bootstrapPayload.snapshot)
-    expect(matchingFetchCalls(fetchMock, '/api/portfolios/import/combine-snapshots', 'POST')).toHaveLength(0)
+    const created = createWorkspaceFromImportSpy.mock.calls[0]?.[0]
+    expect(created?.importedHistorySnapshot).toEqual(bootstrapPayload.snapshot)
+    expect(created?.importedConstituents).toEqual([bootstrapPayload.snapshot])
+    expect(created?.derivationVersion).toBe(1)
+    expect(matchingFetchCalls(fetchMock, '/api/portfolios/import/analyze-combined', 'POST')).toHaveLength(0)
   })
 
+  it('a multi-file first import stores the per-file snapshots the upload route returned as its constituents (path independence)', async () => {
+    vi.spyOn(portfolioWorkspaceStorage, 'getLastOpenedWorkspaceState').mockResolvedValue(null)
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspaceNodes').mockResolvedValue([])
+    const createWorkspaceFromImportSpy = vi.spyOn(portfolioWorkspaceStorage, 'createWorkspaceFromImport').mockResolvedValue(mockImportedWorkspace())
+    vi.spyOn(portfolioWorkspaceStorage, 'getWorkspace').mockResolvedValue(mockImportedWorkspace().workspace)
+    vi.spyOn(portfolioWorkspaceStorage, 'getNode').mockResolvedValue(mockImportedWorkspace().rootNode)
+    vi.spyOn(portfolioWorkspaceStorage, 'getDraft').mockResolvedValue(mockImportedWorkspace().draft)
+    vi.spyOn(portfolioWorkspaceStorage, 'saveDraft').mockResolvedValue()
+
+    const ibSnapshot = ibStatementSnapshot()
+    const esppSnapshot = esppStatementSnapshot()
+    const uploadResponse = combinedResponse({
+      snapshot: concatDistinctAccounts(ibSnapshot, esppSnapshot),
+      admission: ibPlusEsppAdmission(),
+      constituents: [ibSnapshot, esppSnapshot],
+    })
+    installAddStatementFetchMock({ analyzeUploadResponses: [uploadResponse] })
+
+    render(<App />)
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    fireEvent.change(input, {
+      target: {
+        files: [
+          new File(['ib'], 'IB2026.csv', { type: 'text/csv', lastModified: 1 }),
+          new File(['espp'], 'ESPP2026.pdf', { type: 'application/pdf', lastModified: 2 }),
+        ],
+      },
+    })
+
+    await waitFor(() => expect(createWorkspaceFromImportSpy).toHaveBeenCalled())
+    const created = createWorkspaceFromImportSpy.mock.calls[0]?.[0]
+    expect(created?.importedConstituents).toEqual([ibSnapshot, esppSnapshot])
+    // the root's replay snapshot is the combined one; the constituents are what later adds are built from
+    expect(created?.importedHistorySnapshot).toEqual(uploadResponse.snapshot)
+    expect(created?.analysis.admission_summary).toEqual(ibPlusEsppAdmission())
+  })
 
   it('restores IB2026 dashboard values consistently from persisted imported state', async () => {
     const snapshot = {
@@ -2092,6 +2056,7 @@ describe('App', () => {
       const method = requestMethod(input, init)
       if (pathname === '/api/backtests/monitor-definitions/recovered-alert-review-queue' && method === 'GET') return jsonResponse({ items: [] })
       if (pathname === '/api/portfolios/import/interactive-brokers/analyze-upload' && method === 'POST') return jsonResponse(bootstrapPayload)
+      if (pathname === '/api/portfolios/import/analyze-combined' && method === 'POST') return jsonResponse(bootstrapPayload)
       if ((pathname === '/api/engines/exposure/run' || pathname === '/api/engines/exposure/run-imported') && method === 'POST') return jsonResponse(sbioLossy)
       if ((pathname === '/api/engines/diagnostics/run' || pathname === '/api/engines/diagnostics/run-imported') && method === 'POST') return jsonResponse(diagnosticsPayload)
       if ((pathname === '/api/engines/dashboard-history/run' || pathname === '/api/engines/dashboard-history/run-imported') && method === 'POST') return jsonResponse(dashboardHistoryPayload)

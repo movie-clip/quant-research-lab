@@ -77,6 +77,11 @@ export type ImportedNodeSource = {
   historySource: ImportedHistorySource
   admissionSummary?: ImportAdmissionSummaryV1 | null
   importedExposureOverride?: ImportedExposureOverride | null
+  /** US-46.1: the individual input snapshots behind a combined import. Set on new root imports and new add
+   *  nodes; absent on legacy nodes and on nodes derived from a stored combined snapshot. */
+  importedConstituents?: ImportedSnapshot[]
+  /** 1 = built by analyze-combined. Absent = legacy, to be re-derived in memory on load. */
+  derivationVersion?: number
 }
 
 export type PortfolioWorkspaceSource = ImportedNodeSource

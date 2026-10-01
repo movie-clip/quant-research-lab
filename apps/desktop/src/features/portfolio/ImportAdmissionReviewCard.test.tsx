@@ -1,6 +1,7 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { admissionCheck, constituentOf, esppAdmission, ibAdmission, ibPlusEsppAdmission, rolledUpAdmission } from '../../test/combinedImportFixtures'
 import type { ImportAdmissionSummaryV1 } from './types'
 import { ImportAdmissionReviewCard } from './ImportAdmissionReviewCard'
 
@@ -134,5 +135,143 @@ describe('ImportAdmissionReviewCard', () => {
     render(<ImportAdmissionReviewCard summary={makeSummary()} />)
     expect(fetchSpy).not.toHaveBeenCalled()
     vi.unstubAllGlobals()
+  })
+})
+
+describe('ImportAdmissionReviewCard roll-up (US-46.3 AC 1, 8, 10)', () => {
+  function badgesIn(scope: HTMLElement) {
+    return {
+      decision: within(scope).getByText(/^Decision: /).textContent,
+      trust: within(scope).getByText(/^Trust: /).textContent,
+    }
+  }
+
+  function cardHeader() {
+    return screen.getByText('Import Admission Review').parentElement as HTMLElement
+  }
+
+  it('shows the portfolio label as degraded / degraded for IB2026 + ESPP2026, not admitted / verified', () => {
+    render(<ImportAdmissionReviewCard summary={ibPlusEsppAdmission()} />)
+
+    const header = cardHeader()
+    expect(within(header).getByText('Decision: Degraded')).toBeTruthy()
+    expect(within(header).getByText('Trust: Degraded')).toBeTruthy()
+    expect(within(header).queryByText(/Admitted|Verified/)).toBeNull()
+  })
+
+  it('renders the rule and the combined-snapshot labels the engine delivered', () => {
+    render(<ImportAdmissionReviewCard summary={ibPlusEsppAdmission()} />)
+
+    expect(screen.getByText(/weakest of each statement's own admission/i)).toBeTruthy()
+    const combined = screen.getByText('Combined snapshot check').parentElement as HTMLElement
+    expect(badgesIn(combined)).toEqual({ decision: 'Decision: Degraded', trust: 'Trust: Degraded' })
+  })
+
+  it('renders each constituent statement with its own labels and checks, alongside the portfolio label (AC 8)', () => {
+    render(<ImportAdmissionReviewCard summary={ibPlusEsppAdmission()} />)
+
+    const ib = screen.getByRole('group', { name: /IB2026\.csv/ })
+    const espp = screen.getByRole('group', { name: /ESPP2026\.pdf/ })
+    expect(badgesIn(ib)).toEqual({ decision: 'Decision: Degraded', trust: 'Trust: Degraded' })
+    expect(badgesIn(espp)).toEqual({ decision: 'Decision: Admitted', trust: 'Trust: Verified' })
+    expect(within(ib).getByText(/Open positions lack imported instrument identity for: SBIO\./)).toBeTruthy()
+    expect(within(espp).queryByText(/Open positions lack imported instrument identity/)).toBeNull()
+  })
+
+  it('keeps the combined snapshot checks separate from the constituent checks', () => {
+    render(<ImportAdmissionReviewCard summary={ibPlusEsppAdmission()} />)
+
+    expect(screen.getByText('Combined snapshot checks')).toBeTruthy()
+    const combinedCheck = screen.getByText(/Combined snapshot NAV comparability could not be verified\./)
+    expect(combinedCheck.closest('[role="group"]')).toBeNull()
+  })
+
+  it('marks a carried constituent as an earlier review, distinct from a statement', () => {
+    const summary = rolledUpAdmission({
+      topLabel: { decision: 'degraded', trustLevel: 'degraded' },
+      combinedSnapshotLabel: { decision: 'admitted', trustLevel: 'verified' },
+      constituents: [constituentOf('statement', esppAdmission()), constituentOf('carried', ibAdmission())],
+      sourceNames: ['ESPP2026.pdf', 'IB2026.csv'],
+    })
+    render(<ImportAdmissionReviewCard summary={summary} />)
+
+    const carried = screen.getByRole('group', { name: /Earlier review \(carried\).*IB2026\.csv/ })
+    expect(badgesIn(carried)).toEqual({ decision: 'Decision: Degraded', trust: 'Trust: Degraded' })
+    expect(screen.getByRole('group', { name: /^Statement 1: ESPP2026\.pdf/ })).toBeTruthy()
+  })
+
+  it('renders the engine label verbatim and never lowers it to match the constituents', () => {
+    // Every constituent and the combined snapshot say admitted / verified, the engine's top label says
+    // withheld. The card must show what it was given: ranking is the engine's job.
+    const summary = rolledUpAdmission({
+      topLabel: { decision: 'withheld', trustLevel: 'withheld' },
+      combinedSnapshotLabel: { decision: 'admitted', trustLevel: 'verified' },
+      constituents: [constituentOf('statement', esppAdmission())],
+      sourceNames: ['ESPP2026.pdf'],
+    })
+    render(<ImportAdmissionReviewCard summary={summary} />)
+
+    expect(within(cardHeader()).getByText('Decision: Withheld')).toBeTruthy()
+    expect(within(cardHeader()).getByText('Trust: Withheld')).toBeTruthy()
+  })
+
+  it('renders the engine label verbatim and never raises it to match the constituents', () => {
+    const summary = rolledUpAdmission({
+      topLabel: { decision: 'admitted', trustLevel: 'verified' },
+      combinedSnapshotLabel: { decision: 'admitted', trustLevel: 'verified' },
+      constituents: [constituentOf('statement', ibAdmission())],
+      sourceNames: ['IB2026.csv'],
+    })
+    render(<ImportAdmissionReviewCard summary={summary} />)
+
+    expect(within(cardHeader()).getByText('Decision: Admitted')).toBeTruthy()
+    expect(within(cardHeader()).getByText('Trust: Verified')).toBeTruthy()
+  })
+
+  it('keeps withheld and unavailable trust distinct in the constituent rows', () => {
+    const withheld = { ...ibAdmission(), decision: 'withheld' as const, trust_level: 'withheld' as const }
+    const unavailable = { ...esppAdmission(), decision: 'withheld' as const, trust_level: 'unavailable' as const }
+    const summary = rolledUpAdmission({
+      topLabel: { decision: 'withheld', trustLevel: 'unavailable' },
+      combinedSnapshotLabel: { decision: 'withheld', trustLevel: 'withheld' },
+      constituents: [constituentOf('statement', withheld), constituentOf('statement', unavailable)],
+      sourceNames: ['IB2026.csv', 'ESPP2026.pdf'],
+      combinedChecks: [admissionCheck('nav_market_value_comparability', 'unavailable')],
+    })
+    render(<ImportAdmissionReviewCard summary={summary} />)
+
+    expect(badgesIn(screen.getByRole('group', { name: /IB2026\.csv/ })).trust).toBe('Trust: Withheld')
+    expect(badgesIn(screen.getByRole('group', { name: /ESPP2026\.pdf/ })).trust).toBe('Trust: Unavailable')
+  })
+
+  it('renders a single statement exactly as before when there is no roll-up (AC 10)', () => {
+    render(<ImportAdmissionReviewCard summary={ibAdmission()} />)
+
+    expect(screen.queryByRole('group')).toBeNull()
+    expect(screen.queryByText(/weakest of/i)).toBeNull()
+    expect(screen.queryByText('Combined snapshot checks')).toBeNull()
+  })
+
+  it('treats a null roll-up like an absent one (ESPP2026 alone stays admitted / verified)', () => {
+    render(<ImportAdmissionReviewCard summary={{ ...esppAdmission(), rollup: null }} />)
+
+    expect(screen.queryByRole('group')).toBeNull()
+    expect(screen.getByText('Decision: Admitted')).toBeTruthy()
+    expect(screen.getByText('Trust: Verified')).toBeTruthy()
+  })
+
+  it('shows an empty state for a constituent with no recorded checks, never an all-clear', () => {
+    const noChecks = { ...esppAdmission(), checks: [] }
+    const summary = rolledUpAdmission({
+      topLabel: { decision: 'degraded', trustLevel: 'degraded' },
+      combinedSnapshotLabel: { decision: 'degraded', trustLevel: 'degraded' },
+      constituents: [constituentOf('statement', noChecks)],
+      sourceNames: ['ESPP2026.pdf'],
+    })
+    render(<ImportAdmissionReviewCard summary={summary} />)
+
+    const group = screen.getByRole('group', { name: /ESPP2026\.pdf/ })
+    expect(within(group).getByText('No admission checks were recorded for this statement.')).toBeTruthy()
+    expect(within(group).queryByText(/Pass/)).toBeNull()
   })
 })

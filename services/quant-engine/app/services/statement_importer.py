@@ -63,14 +63,48 @@ def import_statements(paths: Sequence[str | Path]) -> ImportedPortfolioSnapshot:
     return combine_imported_snapshots(snapshots)
 
 
+def scrub_legacy_freedom24_cost_basis(snapshot: ImportedPortfolioSnapshot) -> ImportedPortfolioSnapshot:
+    """Null the invented cost basis a pre-US-46.4 Freedom24 import stored (D-5, D-12).
+
+    Freedom24 statements never state a position's cost basis or unrealized P&L.
+    Builds before US-46.4 stored ``cost_basis = ending quantity * price`` and
+    ``unrealized_pnl = 0.00`` inside ``ImportedSnapshot.positions``; re-deriving
+    from that stored snapshot would reproduce them. When any of the snapshot's
+    statements is a ``freedom24`` import, every position's ``cost_basis`` and
+    ``unrealized_pnl`` becomes None (unavailable).
+
+    Exact for a single-broker Freedom24 snapshot. For a stored ``multi_broker``
+    snapshot that includes Freedom24 it also nulls the IB/ESPP positions' stated
+    values (the per-position origin is not stored); the overview aggregate is
+    unavailable for such a snapshot anyway (null-propagation). Idempotent, and a
+    no-op (the same object is returned) on fresh data and on snapshots with no
+    Freedom24 statement. The input is not mutated.
+    """
+    statements = snapshot.statements or [snapshot.statement]
+    if not any(statement.importer == "freedom24" for statement in statements):
+        return snapshot
+    if all(position.cost_basis is None and position.unrealized_pnl is None for position in snapshot.positions):
+        return snapshot
+    return snapshot.model_copy(
+        update={
+            "positions": [
+                position.model_copy(update={"cost_basis": None, "unrealized_pnl": None})
+                for position in snapshot.positions
+            ]
+        }
+    )
+
+
 def combine_imported_snapshots(snapshots: list[ImportedPortfolioSnapshot]) -> ImportedPortfolioSnapshot:
     if not snapshots:
         raise ValueError("At least one imported snapshot is required")
+    _reject_repeated_combined_account_parts(snapshots)
     if len(snapshots) == 1:
         return snapshots[0]
 
     ordered = sorted(snapshots, key=_snapshot_sort_key)
     _validate_compatible_snapshots(ordered)
+    _reject_combined_input_sharing_account(ordered)
 
     statements = _collect_statements(ordered)
     latest_snapshot = ordered[-1]
@@ -145,6 +179,65 @@ def _validate_compatible_snapshots(snapshots: list[ImportedPortfolioSnapshot]) -
             "account (positions should replace) or a different account (positions "
             "should sum). Re-check the statement's account/client ID field."
         )
+
+_COMBINED_ACCOUNT_SEPARATOR = " + "
+
+
+def _snapshot_account_ids(snapshot: ImportedPortfolioSnapshot) -> set[str]:
+    return {
+        statement.account_id
+        for statement in (snapshot.statements or [snapshot.statement])
+        if statement.account_id
+    }
+
+
+def _reject_repeated_combined_account_parts(snapshots: list[ImportedPortfolioSnapshot]) -> None:
+    """Fail closed on a stored snapshot already doubled by the legacy chained merge.
+
+    A combined snapshot's ``statement.account_id`` is its distinct account ids
+    joined by `` + ``. A repeated part (``A + B + B``) can only come from
+    combining an already-combined snapshot with a same-account statement, which
+    summed that account instead of replacing it (US-46.1). Its positions are not
+    trustworthy, so it is refused rather than re-combined.
+    """
+    for snapshot in snapshots:
+        account_id = snapshot.statement.account_id
+        if not account_id or _COMBINED_ACCOUNT_SEPARATOR not in account_id:
+            continue
+        parts = account_id.split(_COMBINED_ACCOUNT_SEPARATOR)
+        if len(parts) != len(set(parts)):
+            raise ValueError(
+                f"Cannot combine: the saved combined statement '{account_id}' repeats an account "
+                "identifier, so its positions were summed for one account and cannot be trusted. "
+                "Re-import the original statements."
+            )
+
+
+def _reject_combined_input_sharing_account(snapshots: list[ImportedPortfolioSnapshot]) -> None:
+    """Fail closed when an already-combined input shares an account with another input.
+
+    `_latest_snapshot_by_account` keys terminal snapshots by ``statement.account_id``.
+    A combined input is keyed by its joined id (``A + B``), which never equals
+    ``A``, so a same-account statement would be summed against it instead of
+    superseding it (US-46.1, chained-combine doubling). Callers combine flat from
+    the individual statements instead.
+    """
+    account_sets = [_snapshot_account_ids(snapshot) for snapshot in snapshots]
+    for index, accounts in enumerate(account_sets):
+        if len(accounts) < 2:
+            continue
+        for other_index, other_accounts in enumerate(account_sets):
+            if other_index == index:
+                continue
+            shared = accounts & other_accounts
+            if shared:
+                raise ValueError(
+                    "Cannot combine: an already-combined portfolio shares account "
+                    f"{', '.join(sorted(shared))} with another statement, so the same account "
+                    "cannot be confirmed to replace rather than add. Combine the individual "
+                    "statements together instead."
+                )
+
 
 def _build_combined_statement_period(snapshots: list[ImportedPortfolioSnapshot]) -> str | None:
     dated_periods = [parsed for snapshot in snapshots if (parsed := _parse_statement_period(snapshot.statement.statement_period)) is not None]
@@ -276,9 +369,20 @@ def _merge_terminal_positions(snapshots: list[ImportedPortfolioSnapshot]) -> lis
                 merged[key] = ImportedPosition.model_validate(position.model_dump())
                 continue
             total_quantity = existing.quantity + position.quantity
-            total_cost_basis = round(existing.cost_basis + position.cost_basis, 2)
+            # US-46.4 (F4): cost basis and unrealized P&L are summed only when
+            # BOTH inputs state them; either None makes the combined value None
+            # (null-propagation, § Multi-Statement Snapshot Merge).
+            total_cost_basis = (
+                None
+                if existing.cost_basis is None or position.cost_basis is None
+                else round(existing.cost_basis + position.cost_basis, 2)
+            )
             total_market_value = round(existing.market_value + position.market_value, 2)
-            total_unrealized_pnl = round(existing.unrealized_pnl + position.unrealized_pnl, 2)
+            total_unrealized_pnl = (
+                None
+                if existing.unrealized_pnl is None or position.unrealized_pnl is None
+                else round(existing.unrealized_pnl + position.unrealized_pnl, 2)
+            )
             merged[key] = ImportedPosition(
                 as_of_date=position.as_of_date,
                 symbol=position.symbol,

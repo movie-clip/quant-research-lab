@@ -7,16 +7,29 @@
  * at import (`build_import_admission_summary`), delivered with the bootstrap
  * response, and lives in workspace state; this card never re-fetches or
  * recomputes it (truth class: persisted import artifact).
+ *
+ * US-46.3: when the summary carries a `rollup` (a portfolio combined from
+ * several statements), the card renders the engine's roll-up as delivered —
+ * the rule, the combined-snapshot labels, and each constituent's own labels
+ * and checks. The weakest-of label is the engine's; nothing here ranks,
+ * lowers, or raises a label.
  */
-import type { ImportAdmissionSummaryV1 } from './types'
+import type {
+  ImportAdmissionCheck,
+  ImportAdmissionConstituent,
+  ImportAdmissionDecision,
+  ImportAdmissionRollup,
+  ImportAdmissionSummaryV1,
+  ImportAdmissionTrustLevel,
+} from './types'
 
 import { CardShell } from '../../app/primitives/CardShell'
 import { EmptyState } from '../../app/primitives/EmptyState'
 
-type AdmissionCheck = ImportAdmissionSummaryV1['checks'][number]
+type AdmissionCheck = ImportAdmissionCheck
 type CheckStatus = AdmissionCheck['status']
-type Decision = ImportAdmissionSummaryV1['decision']
-type TrustLevel = ImportAdmissionSummaryV1['trust_level']
+type Decision = ImportAdmissionDecision
+type TrustLevel = ImportAdmissionTrustLevel
 type Tone = 'ok' | 'warn' | 'negative' | 'neutral'
 
 const TONE_COLOR: Record<Tone, string> = {
@@ -59,6 +72,17 @@ const TRUST_TONE: Record<TrustLevel, Tone> = {
   degraded: 'warn',
   withheld: 'negative',
   unavailable: 'neutral',
+}
+
+// Display copy for the engine's rule identifier; the identifier itself is the contract.
+const ROLLUP_RULE_TEXT: Record<ImportAdmissionRollup['rule'], string> = {
+  weakest_of_constituents_and_combined_snapshot:
+    "The portfolio label is the weakest of each statement's own admission and the check on the combined snapshot.",
+}
+
+const CONSTITUENT_ORIGIN_LABEL: Record<ImportAdmissionConstituent['origin'], string> = {
+  statement: 'Statement',
+  carried: 'Earlier review (carried)',
 }
 
 function titleCase(text: string): string {
@@ -148,6 +172,77 @@ function CheckRow({ check }: { check: AdmissionCheck }) {
   )
 }
 
+function LabelBadges({ decision, trustLevel }: { decision: Decision; trustLevel: TrustLevel }) {
+  return (
+    <span style={{ display: 'inline-flex', gap: 'var(--space-xs)', alignItems: 'center' }}>
+      <Badge tone={DECISION_TONE[decision]}>{`Decision: ${titleCase(decision)}`}</Badge>
+      <Badge tone={TRUST_TONE[trustLevel]}>{`Trust: ${titleCase(trustLevel)}`}</Badge>
+    </span>
+  )
+}
+
+function CheckList({ checks, emptyTitle }: { checks: AdmissionCheck[]; emptyTitle: string }) {
+  if (checks.length === 0) {
+    return <EmptyState title={emptyTitle} />
+  }
+  return (
+    <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+      {checks.map((check) => (
+        <CheckRow key={check.check_id} check={check} />
+      ))}
+    </ul>
+  )
+}
+
+function SubHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <h4
+      style={{
+        margin: 0,
+        color: 'var(--color-text-primary)',
+        fontSize: 'var(--font-body-sm)',
+        fontWeight: 600,
+      }}
+    >
+      {children}
+    </h4>
+  )
+}
+
+function constituentTitle(constituent: ImportAdmissionConstituent, index: number): string {
+  const names = constituent.source_names.length > 0 ? constituent.source_names : constituent.statement_ids
+  const prefix = `${CONSTITUENT_ORIGIN_LABEL[constituent.origin]} ${index + 1}`
+  return names.length > 0 ? `${prefix}: ${names.join(', ')}` : prefix
+}
+
+function RollupSection({ rollup }: { rollup: ImportAdmissionRollup }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
+      <p style={{ margin: 0, color: 'var(--color-text-secondary)', fontSize: 'var(--font-body-sm)' }}>
+        {ROLLUP_RULE_TEXT[rollup.rule]}
+      </p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+        <SubHeading>Combined snapshot check</SubHeading>
+        <LabelBadges decision={rollup.combined_snapshot_decision} trustLevel={rollup.combined_snapshot_trust_level} />
+      </div>
+      {rollup.constituents.map((constituent, index) => (
+        <div
+          key={`${constituent.origin}-${index}`}
+          role="group"
+          aria-label={constituentTitle(constituent, index)}
+          style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+            <SubHeading>{constituentTitle(constituent, index)}</SubHeading>
+            <LabelBadges decision={constituent.decision} trustLevel={constituent.trust_level} />
+          </div>
+          <CheckList checks={constituent.checks} emptyTitle="No admission checks were recorded for this statement." />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function ImportAdmissionReviewCard({
   summary,
 }: {
@@ -164,25 +259,20 @@ export function ImportAdmissionReviewCard({
     )
   }
 
+  const rollup = summary.rollup ?? null
+
   return (
     <CardShell
       title="Import Admission Review"
-      badge={
-        <span style={{ display: 'inline-flex', gap: 'var(--space-xs)', alignItems: 'center' }}>
-          <Badge tone={DECISION_TONE[summary.decision]}>{`Decision: ${titleCase(summary.decision)}`}</Badge>
-          <Badge tone={TRUST_TONE[summary.trust_level]}>{`Trust: ${titleCase(summary.trust_level)}`}</Badge>
-        </span>
-      }
+      badge={<LabelBadges decision={summary.decision} trustLevel={summary.trust_level} />}
     >
-      {summary.checks.length === 0 ? (
-        <EmptyState title="No admission checks were recorded for this import." />
-      ) : (
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-          {summary.checks.map((check) => (
-            <CheckRow key={check.check_id} check={check} />
-          ))}
-        </ul>
-      )}
+      {rollup ? (
+        <>
+          <RollupSection rollup={rollup} />
+          <SubHeading>Combined snapshot checks</SubHeading>
+        </>
+      ) : null}
+      <CheckList checks={summary.checks} emptyTitle="No admission checks were recorded for this import." />
     </CardShell>
   )
 }

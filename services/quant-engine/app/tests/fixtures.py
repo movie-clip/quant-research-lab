@@ -88,6 +88,58 @@ def imported_snapshot(
     }
 
 
+def account_snapshot(
+    account_id: str | None,
+    *,
+    positions: list[dict],
+    cash: float = 100.0,
+    stock_total: float | None = None,
+    with_totals: bool = True,
+    as_of_date: str = "2026-03-31",
+    base_currency: str = "USD",
+    source_name: str | None = None,
+) -> dict:
+    """One synthetic single-account statement payload that passes every admission
+    check by default (US-46.3).
+
+    Built on `imported_snapshot`/`position`. Positions are re-dated to
+    `as_of_date`; an instrument row is emitted per position (so the symbol
+    identity check passes) and `statement_totals` is derived from the positions
+    and `cash` — so, untouched, `build_import_admission_summary` gives
+    admitted/verified. Every knob below breaks exactly one thing:
+
+    - `stock_total`: overrides the statement's stock total while the parsed
+      position values stay put, so the position-value check sees a delta of
+      `sum(position MV) - stock_total` (NAV stays self-consistent). Two accounts
+      with deltas +x / -x are the offsetting-delta pair.
+    - `with_totals=False`: no `statement_totals` at all, so the numeric checks are
+      `unavailable` and the statement is `degraded`.
+    - `account_id=None`: the statement has no parsed account identity.
+    """
+    dated = [{**item, "as_of_date": as_of_date} for item in positions]
+    market_value = sum(item["market_value"] for item in dated)
+    stock = market_value if stock_total is None else stock_total
+    name = source_name or f"{account_id or 'unknown'}-{as_of_date}.csv"
+    payload = imported_snapshot(
+        positions=dated,
+        instruments=[{"symbol": item["symbol"], "currency": item["currency"]} for item in dated],
+        cash_balances=[{"currency": base_currency, "ending_cash": cash}],
+        statement_overrides={
+            "account_id": account_id,
+            "base_currency": base_currency,
+            "source_path": f"/test/{name}",
+            "statement_period": f"2026-01-01 - {as_of_date}",
+        },
+    )
+    if with_totals:
+        payload["statement_totals"] = {
+            "cash_total": cash,
+            "stock_total": stock,
+            "ending_nav": stock + cash,
+        }
+    return payload
+
+
 def price_rows(
     n_days: int = 80,
     *,

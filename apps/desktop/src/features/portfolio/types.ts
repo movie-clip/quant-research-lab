@@ -53,17 +53,22 @@ export type PortfolioOverview = {
   base_currency?: string | null
   statement_period?: string | null
   total_market_value: number
-  total_cost_basis?: number
-  total_unrealized_pnl: number
+  /** Statement-stated broker value; null = unavailable (never zero). */
+  total_cost_basis?: number | null
+  /** Statement-stated broker value; null = unavailable (never zero). */
+  total_unrealized_pnl: number | null
   positions_count: number
   instruments_count?: number
   ledger_entries_count: number
-  top_positions: Array<{ symbol: string; market_value: number; weight: number; unrealized_pnl: number }>
+  top_positions: Array<{ symbol: string; market_value: number; weight: number; unrealized_pnl: number | null }>
   sector_allocation: Array<{ sector: string; market_value: number; weight: number }>
   sector_position_breakdown: Record<string, Array<{ symbol: string; market_value: number; weight: number }>>
   cash_by_currency: Record<string, number>
   ledger_counts?: Record<string, number>
   realized_cash_flow?: Record<string, number>
+  /** 'stated' = every contributing value is statement-stated broker truth; 'unavailable' = a total is null.
+   *  Optional: persisted overrides pre-date it. */
+  cost_basis_trust?: 'stated' | 'unavailable'
 }
 
 export type BenchmarkSummary = {
@@ -1180,22 +1185,44 @@ export type ImportedHistoryContext = {
   history_end_date: string | null
 }
 
+export type ImportAdmissionCheck = {
+  check_id: string
+  status: 'pass' | 'warn' | 'fail' | 'unavailable'
+  severity: 'info' | 'warning' | 'error'
+  trust_impact: 'none' | 'degraded' | 'withheld' | 'unavailable'
+  message: string
+  affected_fields?: string[]
+  observed?: { label: string; value: number | string | null } | null
+  comparison?: { label: string; value: number | string | null } | null
+  delta?: number | null
+  currency?: string | null
+}
+
+export type ImportAdmissionDecision = 'admitted' | 'degraded' | 'withheld'
+export type ImportAdmissionTrustLevel = 'verified' | 'degraded' | 'withheld' | 'unavailable'
+
+/** One input to a combined portfolio. `carried` = evidence recorded earlier (legacy nodes only). */
+export type ImportAdmissionConstituent = {
+  origin: 'statement' | 'carried'
+  statement_ids: string[]
+  source_names: string[]
+  decision: ImportAdmissionDecision
+  trust_level: ImportAdmissionTrustLevel
+  checks: ImportAdmissionCheck[]
+}
+
+export type ImportAdmissionRollup = {
+  rule: 'weakest_of_constituents_and_combined_snapshot'
+  combined_snapshot_decision: ImportAdmissionDecision
+  combined_snapshot_trust_level: ImportAdmissionTrustLevel
+  constituents: ImportAdmissionConstituent[]
+}
+
 export type ImportAdmissionSummaryV1 = {
   schema_version: 'import_admission_summary_v1'
-  decision: 'admitted' | 'degraded' | 'withheld'
-  trust_level: 'verified' | 'degraded' | 'withheld' | 'unavailable'
-  checks: Array<{
-    check_id: string
-    status: 'pass' | 'warn' | 'fail' | 'unavailable'
-    severity: 'info' | 'warning' | 'error'
-    trust_impact: 'none' | 'degraded' | 'withheld' | 'unavailable'
-    message: string
-    affected_fields?: string[]
-    observed?: { label: string; value: number | string | null } | null
-    comparison?: { label: string; value: number | string | null } | null
-    delta?: number | null
-    currency?: string | null
-  }>
+  decision: ImportAdmissionDecision
+  trust_level: ImportAdmissionTrustLevel
+  checks: ImportAdmissionCheck[]
   provenance: {
     importer: string | null
     statement_ids: string[]
@@ -1203,6 +1230,8 @@ export type ImportAdmissionSummaryV1 = {
     generated_at: string
     tolerance_policy: string
   }
+  /** Null/absent for a single input with no carried evidence. */
+  rollup?: ImportAdmissionRollup | null
 }
 
 export type ImportedBootstrapResponse = {
@@ -1216,6 +1245,18 @@ export type ImportedBootstrapResponse = {
   risk_summary: PortfolioRiskSummary
   admission_summary: ImportAdmissionSummaryV1
   history_context?: ImportedHistoryContext | null
+  /** Individual input snapshots when more than one file was combined by an upload route; empty otherwise
+   *  and always empty on analyze-combined (the caller already holds them). */
+  constituent_snapshots?: ImportedSnapshot[]
+}
+
+/** POST /portfolios/import/analyze-combined request body (CombinedImportBootstrapRequest). */
+export type CombinedImportBootstrapRequest = {
+  snapshots: ImportedSnapshot[]
+  benchmark_symbol?: string
+  symbol_overrides?: Record<string, string[]>
+  /** Legacy nodes only: admissions recorded earlier, folded into the engine's roll-up. */
+  carried_admissions?: ImportAdmissionSummaryV1[]
 }
 
 export type ImportedPortfolioSnapshotSource = {

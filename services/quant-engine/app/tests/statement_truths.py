@@ -84,6 +84,14 @@ IB_TOTALS_2DP = {
 }
 IB_TWR_PCT = 5.506619  # Time Weighted Rate of Return, 6dp
 
+# ── Statement-stated cost basis / unrealized P&L, base currency (US-46.4) ────
+# What build_portfolio_overview reports for IB2026 alone: every position's
+# Cost Basis / Unrealized P/L cell is stated, so the totals are broker truth.
+# Consumed only by test_cost_basis_unavailable.py; update on a refresh with the
+# rest of this module.
+IB_TOTAL_COST_BASIS_2DP = 62255.14
+IB_TOTAL_UNREALIZED_PNL_2DP = 3491.53
+
 # Statement-implied FX rates (base restatement of Open Positions totals).
 IB_IMPLIED_FX_4DP = {"EURUSD": 1.1583, "GBPUSD": 1.3535}
 

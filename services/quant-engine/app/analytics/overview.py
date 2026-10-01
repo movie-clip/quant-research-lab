@@ -40,8 +40,17 @@ def build_portfolio_overview(
     valued_positions = [(position, to_base(position.market_value, position)) for position in snapshot.positions]
 
     total_market_value = round(sum(value for _, value in valued_positions), 2)
-    total_cost_basis = round(sum(to_base(p.cost_basis, p) for p in snapshot.positions), 2)
-    total_unrealized_pnl = round(sum(to_base(p.unrealized_pnl, p) for p in snapshot.positions), 2)
+    # US-46.4 (F4): a total is None when ANY contributing position's value is
+    # None (null-propagation precedent, § Multi-Statement Snapshot Merge) —
+    # never a partial sum, never a zero-fill. Zero positions still sums to 0.0.
+    def base_or_none(value: float | None, position) -> float | None:
+        return None if value is None else to_base(value, position)
+
+    cost_basis_values = [base_or_none(p.cost_basis, p) for p in snapshot.positions]
+    unrealized_pnl_values = [base_or_none(p.unrealized_pnl, p) for p in snapshot.positions]
+    total_cost_basis = None if any(v is None for v in cost_basis_values) else round(sum(cost_basis_values), 2)
+    total_unrealized_pnl = None if any(v is None for v in unrealized_pnl_values) else round(sum(unrealized_pnl_values), 2)
+    cost_basis_trust = "unavailable" if total_cost_basis is None or total_unrealized_pnl is None else "stated"
 
     cash_by_currency = {
         balance.currency: round(balance.ending_cash or 0, 2)
@@ -53,7 +62,9 @@ def build_portfolio_overview(
             "symbol": position.symbol,
             "market_value": round(value, 2),
             "weight": round(value / total_market_value, 4) if total_market_value else 0,
-            "unrealized_pnl": round(to_base(position.unrealized_pnl, position), 2),
+            "unrealized_pnl": (
+                None if position.unrealized_pnl is None else round(to_base(position.unrealized_pnl, position), 2)
+            ),
         }
         for position, value in sorted(valued_positions, key=lambda item: item[1], reverse=True)[:10]
     ]
@@ -99,6 +110,7 @@ def build_portfolio_overview(
         total_market_value=total_market_value,
         total_cost_basis=total_cost_basis,
         total_unrealized_pnl=total_unrealized_pnl,
+        cost_basis_trust=cost_basis_trust,
         cash_by_currency=cash_by_currency,
         top_positions=top_positions,
         sector_allocation=sector_allocation,

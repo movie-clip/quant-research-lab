@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import UTC, datetime
 import math
 from pathlib import Path
@@ -5,8 +6,12 @@ from pathlib import Path
 from app.schemas.import_bootstrap import (
     ImportAdmissionCheckV1,
     ImportAdmissionCheckValue,
+    ImportAdmissionConstituentV1,
+    ImportAdmissionDecision,
     ImportAdmissionProvenanceV1,
+    ImportAdmissionRollupV1,
     ImportAdmissionSummaryV1,
+    ImportAdmissionTrustLevel,
 )
 from app.schemas.imports import ImportedCashBalance, ImportedInstrument, ImportedPortfolioSnapshot, ImportedPosition
 from app.services.instrument_identity import detect_instrument_identity_mismatches
@@ -14,6 +19,11 @@ from app.services.instrument_identity import detect_instrument_identity_mismatch
 
 CURRENCY_TOLERANCE_ABSOLUTE = 0.01
 TOLERANCE_POLICY = "absolute_currency_delta_lte_0.01_same_currency_only"
+
+# Roll-up ladders (US-46.3, D-3): weakest = highest rank. The roll-up only
+# compares labels; it never changes a tolerance and never raises a rung.
+DECISION_RANK: dict[ImportAdmissionDecision, int] = {"admitted": 0, "degraded": 1, "withheld": 2}
+TRUST_LEVEL_RANK: dict[ImportAdmissionTrustLevel, int] = {"verified": 0, "degraded": 1, "withheld": 2, "unavailable": 3}
 
 
 def _rounded(value: float | None) -> float | None:
@@ -490,4 +500,75 @@ def build_import_admission_summary(snapshot: ImportedPortfolioSnapshot) -> Impor
             generated_at=datetime.now(UTC),
             tolerance_policy=TOLERANCE_POLICY,
         ),
+    )
+
+
+def build_combined_admission_summary(
+    inputs: Sequence[ImportedPortfolioSnapshot],
+    combined: ImportedPortfolioSnapshot,
+    carried: Sequence[ImportAdmissionSummaryV1] = (),
+) -> ImportAdmissionSummaryV1:
+    """Admission of a portfolio combined from several statements (US-46.3, D-3).
+
+    Top-level ``decision`` / ``trust_level`` are the weakest across the
+    admission recomputed on ``combined``, every input snapshot's own admission
+    (superseded same-account inputs included) and every carried summary, on the
+    ladders ``DECISION_RANK`` / ``TRUST_LEVEL_RANK``. Recompute alone is
+    insufficient: offsetting per-account deltas net to a pass in summed totals.
+    Top-level ``checks`` and ``provenance`` stay the combined snapshot's own.
+
+    A single input with no carried evidence is the single-statement case and
+    returns ``build_import_admission_summary(combined)`` unchanged, ``rollup``
+    None.
+    """
+    combined_summary = build_import_admission_summary(combined)
+    if len(inputs) <= 1 and not carried:
+        return combined_summary
+
+    constituents = [_statement_constituent(snapshot) for snapshot in inputs]
+    constituents.extend(_carried_constituent(summary) for summary in carried)
+
+    decision = max(
+        [combined_summary.decision, *(constituent.decision for constituent in constituents)],
+        key=DECISION_RANK.__getitem__,
+    )
+    trust_level = max(
+        [combined_summary.trust_level, *(constituent.trust_level for constituent in constituents)],
+        key=TRUST_LEVEL_RANK.__getitem__,
+    )
+
+    return combined_summary.model_copy(
+        update={
+            "decision": decision,
+            "trust_level": trust_level,
+            "rollup": ImportAdmissionRollupV1(
+                rule="weakest_of_constituents_and_combined_snapshot",
+                combined_snapshot_decision=combined_summary.decision,
+                combined_snapshot_trust_level=combined_summary.trust_level,
+                constituents=constituents,
+            ),
+        }
+    )
+
+
+def _statement_constituent(snapshot: ImportedPortfolioSnapshot) -> ImportAdmissionConstituentV1:
+    summary = build_import_admission_summary(snapshot)
+    return ImportAdmissionConstituentV1(
+        origin="statement",
+        statement_ids=_statement_ids(snapshot),
+        source_names=_source_names(snapshot),
+        decision=summary.decision,
+        trust_level=summary.trust_level,
+        checks=summary.checks,
+    )
+
+
+def _carried_constituent(summary: ImportAdmissionSummaryV1) -> ImportAdmissionConstituentV1:
+    return ImportAdmissionConstituentV1(
+        origin="carried",
+        statement_ids=list(summary.provenance.statement_ids),
+        source_names=list(summary.provenance.source_names),
+        decision=summary.decision,
+        trust_level=summary.trust_level,
+        checks=summary.checks,
     )

@@ -19,7 +19,10 @@ export function normalizePortfolioSnapshot(snapshot: PortfolioSnapshot): Portfol
     .sort((left, right) => left.symbol.localeCompare(right.symbol))
 
   const deduped = positions.reduce<PortfolioPositionSnapshot[]>((accumulator, position) => {
-    const existing = accumulator.find((item) => item.symbol === position.symbol)
+    // Dedupe on symbol AND currency (US-46.1 AC 8): two currencies of one symbol are
+    // different holdings and are never summed. Same symbol + same currency still sums
+    // (US-14.1: distinct accounts holding one line).
+    const existing = accumulator.find((item) => item.symbol === position.symbol && (item.currency ?? null) === (position.currency ?? null))
     if (!existing) {
       accumulator.push(position)
       return accumulator
@@ -87,81 +90,6 @@ export function buildPortfolioSnapshotFromAnalysis(
 
 export function clonePortfolioSnapshot(snapshot: PortfolioSnapshot): PortfolioSnapshot {
   return normalizePortfolioSnapshot(JSON.parse(JSON.stringify(snapshot)) as PortfolioSnapshot)
-}
-
-export function overlayImportedSnapshot(baseSnapshot: PortfolioSnapshot, importedSnapshot: PortfolioSnapshot): PortfolioSnapshot {
-  const next = clonePortfolioSnapshot(baseSnapshot)
-
-  // US-14.1: when the same ticker appears in BOTH the existing portfolio and
-  // the newly-added statement, SUM marketValue + quantity rather than letting
-  // the new statement REPLACE the existing position. Two statements covering
-  // the same ticker represent two lots of the same security (e.g. IB-brokerage
-  // MSFT + ESPP-held MSFT both being held by the same investor). The previous
-  // REPLACE behaviour silently lost the base statement's dollars whenever any
-  // ticker overlapped.
-  //
-  // Quantity null-handling:
-  //   both non-null → sum
-  //   one null, one non-null → non-null wins (treat null as 0 in the sum)
-  //   both null → keep null (no fabrication; null means "unknown")
-  const positionBySymbol = new Map(next.positions.map((position) => [position.symbol, position]))
-  for (const importedPosition of importedSnapshot.positions) {
-    const existing = positionBySymbol.get(importedPosition.symbol)
-    if (existing) {
-      const summedQuantity =
-        existing.quantity == null && importedPosition.quantity == null
-          ? null
-          : (existing.quantity ?? 0) + (importedPosition.quantity ?? 0)
-      positionBySymbol.set(importedPosition.symbol, {
-        ...existing,
-        ...importedPosition,
-        marketValue: existing.marketValue + importedPosition.marketValue,
-        quantity: summedQuantity,
-        sector: importedPosition.sector ?? existing.sector ?? null,
-        currency: importedPosition.currency ?? existing.currency ?? next.baseCurrency,
-        sourceType: importedPosition.sourceType ?? existing.sourceType,
-        name: importedPosition.name ?? existing.name,
-      })
-    } else {
-      positionBySymbol.set(importedPosition.symbol, {
-        ...importedPosition,
-        sector: importedPosition.sector ?? null,
-        currency: importedPosition.currency ?? next.baseCurrency,
-      })
-    }
-  }
-
-  // US-14.1: same fix shape for cash balances — when both statements report
-  // a balance in the same currency, sum the amounts rather than letting the
-  // new statement's balance replace the existing one.
-  const cashByCurrency = new Map(next.cashBalances.map((balance) => [balance.currency, balance]))
-  for (const importedCashBalance of importedSnapshot.cashBalances) {
-    const existing = cashByCurrency.get(importedCashBalance.currency)
-    if (existing) {
-      cashByCurrency.set(importedCashBalance.currency, {
-        currency: importedCashBalance.currency,
-        amount: existing.amount + importedCashBalance.amount,
-      })
-    } else {
-      cashByCurrency.set(importedCashBalance.currency, importedCashBalance)
-    }
-  }
-
-  next.baseCurrency = importedSnapshot.baseCurrency ?? next.baseCurrency
-  next.importedMeta = {
-    importer: importedSnapshot.importedMeta.importer ?? next.importedMeta.importer,
-    statementPeriod: importedSnapshot.importedMeta.statementPeriod ?? next.importedMeta.statementPeriod,
-    importedAt: importedSnapshot.importedMeta.importedAt,
-    sourceFileNames: Array.from(new Set([...next.importedMeta.sourceFileNames, ...importedSnapshot.importedMeta.sourceFileNames])),
-  }
-  next.positions = Array.from(positionBySymbol.values())
-  next.cashBalances = Array.from(cashByCurrency.values())
-  next.metadata = {
-    ...next.metadata,
-    benchmarkSymbol: importedSnapshot.metadata.benchmarkSymbol ?? next.metadata.benchmarkSymbol,
-  }
-
-  return normalizePortfolioSnapshot(next)
 }
 
 export function getPortfolioSnapshotGrossExposure(snapshot: PortfolioSnapshot) {

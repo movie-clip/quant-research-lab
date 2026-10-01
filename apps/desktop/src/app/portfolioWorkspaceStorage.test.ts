@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createImportedBootstrapResponseFixture } from '../test/portfolioFixtures'
 import { projectImportedBootstrap } from '../features/portfolio/importedBootstrapMapper'
+import { buildSavedWorkspace, esppStatementSnapshot, ibAdmission, ibPlusEsppAdmission, ibStatementSnapshot, portfolioSnapshotOf, seedSavedWorkspace } from '../test/combinedImportFixtures'
+import { createFakePortfolioDb } from '../test/fakePortfolioDb'
 import * as portfolioDb from './portfolioDb'
 import * as portfolioWorkspaceStorage from './portfolioWorkspaceStorage'
 import { buildPersistedImportedSource } from './portfolioWorkspaceStorage'
@@ -29,63 +31,6 @@ function createHistoryContext(): ImportedHistoryContext {
 afterEach(() => {
   vi.restoreAllMocks()
 })
-
-// Minimal in-memory stand-in for IndexedDB, backing both `withStore` and
-// `withStores` from a single shared map so a value written through one
-// entry point (e.g. createWorkspaceFromImport's `withStores` transaction) is
-// readable through the other (e.g. saveImportedSnapshotNode's `withStore`
-// reads) — real cross-function flows in this module mix both. Reuse this
-// rather than the narrower ad hoc store stubs used elsewhere in this file
-// when a test needs more than one storage function to see the same data.
-function createFakePortfolioDb() {
-  const stores = new Map<string, Map<string, unknown>>()
-  function storeFor(name: string) {
-    if (!stores.has(name)) stores.set(name, new Map())
-    return stores.get(name)!
-  }
-  function keyFor(value: unknown): string {
-    const v = value as { id?: string; workspaceId?: string }
-    return v.id ?? v.workspaceId ?? ''
-  }
-  function makeStoreApi(name: string) {
-    const map = storeFor(name)
-    return {
-      get(key: string) {
-        const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: map.get(key) }
-        queueMicrotask(() => request.onsuccess?.())
-        return request as unknown as IDBRequest
-      },
-      put(value: unknown) {
-        map.set(keyFor(value), structuredClone(value))
-        const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null }
-        queueMicrotask(() => request.onsuccess?.())
-        return request as unknown as IDBRequest
-      },
-      index(_indexName: string) {
-        return {
-          getAll(key: string) {
-            const results = Array.from(map.values()).filter((v) => (v as { workspaceId?: string }).workspaceId === key)
-            const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null, result: results }
-            queueMicrotask(() => request.onsuccess?.())
-            return request as unknown as IDBRequest
-          },
-        }
-      },
-    } as unknown as IDBObjectStore
-  }
-  return {
-    stores,
-    install() {
-      vi.spyOn(portfolioDb, 'withStore').mockImplementation(async (storeName, _mode, handler) => {
-        return new Promise((resolve, reject) => handler(makeStoreApi(storeName), resolve, reject))
-      })
-      vi.spyOn(portfolioDb, 'withStores').mockImplementation(async (_storeNames, _mode, handler) => {
-        const transaction = { objectStore: (name: string) => makeStoreApi(name) } as unknown as IDBTransaction
-        return new Promise((resolve, reject) => handler(transaction, resolve, reject))
-      })
-    },
-  }
-}
 
 describe('portfolioWorkspaceStorage', () => {
   it('builds persisted sources with historySource only', () => {
@@ -390,5 +335,159 @@ describe('portfolioWorkspaceStorage', () => {
       baseNodeId: 'node-1',
       status: 'clean',
     })
+  })
+})
+
+describe('portfolioWorkspaceStorage constituents and derivationVersion (US-46.1 C6)', () => {
+  const ib = ibStatementSnapshot()
+  const espp = esppStatementSnapshot()
+
+  function sourceWith(extra: Partial<ImportedNodeSource>): ImportedNodeSource {
+    return {
+      ...buildPersistedImportedSource({
+        importedFileNames: ['IB2026.csv', 'ESPP2026.pdf'],
+        importedAt: '2026-04-10T00:00:00Z',
+        importer: 'interactive_brokers',
+        baseCurrency: 'USD',
+        importedHistorySnapshot: ib,
+      }),
+      ...extra,
+    }
+  }
+
+  it('buildPersistedImportedSource carries both fields when given', () => {
+    const source = buildPersistedImportedSource({
+      importedFileNames: ['IB2026.csv'],
+      importedAt: '2026-04-10T00:00:00Z',
+      importer: 'interactive_brokers',
+      baseCurrency: 'USD',
+      importedConstituents: [ib, espp],
+      derivationVersion: 1,
+    })
+
+    expect(source.importedConstituents).toEqual([ib, espp])
+    expect(source.derivationVersion).toBe(1)
+  })
+
+  it('leaves a legacy source legacy: neither field appears unless it was given', () => {
+    const source = buildPersistedImportedSource({
+      importedFileNames: ['IB2026.csv'],
+      importedAt: '2026-04-10T00:00:00Z',
+      importer: 'interactive_brokers',
+      baseCurrency: 'USD',
+    })
+
+    expect('derivationVersion' in source).toBe(false)
+    expect('importedConstituents' in source).toBe(false)
+  })
+
+  it('keeps importedConstituents and derivationVersion through the read sanitiser on workspace, node and node list', async () => {
+    const db = createFakePortfolioDb()
+    db.install()
+    const source = sourceWith({ importedConstituents: [ib, espp], derivationVersion: 1 })
+    const saved = buildSavedWorkspace({
+      nodes: [
+        { id: 'node-1', parentId: null, replaySnapshot: ib, admission: ibAdmission(), portfolioSnapshot: portfolioSnapshotOf(ib, ['IB2026.csv']), fileNames: ['IB2026.csv'] },
+        { id: 'node-2', parentId: 'node-1', replaySnapshot: ib, admission: ibAdmission(), portfolioSnapshot: portfolioSnapshotOf(ib, ['IB2026.csv']), fileNames: ['IB2026.csv'] },
+      ],
+    })
+    saved.workspace.source = source
+    saved.nodes[1].source = source
+    seedSavedWorkspace(db, saved)
+
+    const workspace = await portfolioWorkspaceStorage.getWorkspace('workspace-1')
+    const node = await portfolioWorkspaceStorage.getNode('node-2')
+    const nodes = await portfolioWorkspaceStorage.getWorkspaceNodes('workspace-1')
+
+    expect(workspace?.source).toMatchObject({ derivationVersion: 1, importedConstituents: [ib, espp] })
+    expect(node?.source).toMatchObject({ derivationVersion: 1, importedConstituents: [ib, espp] })
+    expect(nodes.find((item) => item.id === 'node-2')?.source).toMatchObject({ derivationVersion: 1, importedConstituents: [ib, espp] })
+    expect(db.writes).toEqual([])
+  })
+
+  it('does not stamp a version onto a legacy node when reading it', async () => {
+    const db = createFakePortfolioDb()
+    db.install()
+    const saved = buildSavedWorkspace({
+      nodes: [{ id: 'node-1', parentId: null, replaySnapshot: ib, admission: ibAdmission(), portfolioSnapshot: portfolioSnapshotOf(ib, ['IB2026.csv']), fileNames: ['IB2026.csv'] }],
+    })
+    seedSavedWorkspace(db, saved)
+
+    const workspace = await portfolioWorkspaceStorage.getWorkspace('workspace-1')
+
+    expect(workspace?.source).toBeDefined()
+    expect(workspace && 'derivationVersion' in workspace.source).toBe(false)
+    expect(db.writes).toEqual([])
+  })
+
+  it('persists both fields on a new root import and on a new add node, and reads them back', async () => {
+    const db = createFakePortfolioDb()
+    db.install()
+    const bootstrap = createImportedBootstrapResponseFixture()
+    const analysis = projectImportedBootstrap(bootstrap).workspace
+
+    const created = await portfolioWorkspaceStorage.createWorkspaceFromImport({
+      analysis,
+      importedFileNames: ['IB2026.csv'],
+      importedHistorySnapshot: ib,
+      importedConstituents: [ib],
+      derivationVersion: 1,
+    })
+    expect(created.workspace.source).toMatchObject({ derivationVersion: 1, importedConstituents: [ib] })
+
+    const added = await portfolioWorkspaceStorage.saveImportedSnapshotNode({
+      workspaceId: created.workspace.id,
+      parentNodeId: created.rootNode.id,
+      portfolioSnapshot: created.draft.portfolioSnapshot,
+      importedFileNames: ['IB2026.csv', 'ESPP2026.pdf'],
+      importedHistorySnapshot: ib,
+      importedConstituents: [ib, espp],
+      derivationVersion: 1,
+      name: 'IB + ESPP',
+    })
+    expect(added.node.source).toMatchObject({ derivationVersion: 1, importedConstituents: [ib, espp] })
+
+    const reread = await portfolioWorkspaceStorage.getNode(added.node.id)
+    expect(reread?.source).toMatchObject({ derivationVersion: 1, importedConstituents: [ib, espp] })
+  })
+
+  it('saves an add node without constituents when none are given (a node derived from a stored combined snapshot)', async () => {
+    const db = createFakePortfolioDb()
+    db.install()
+    const analysis = projectImportedBootstrap(createImportedBootstrapResponseFixture()).workspace
+    const created = await portfolioWorkspaceStorage.createWorkspaceFromImport({ analysis, importedFileNames: ['IB2026.csv'] })
+
+    const added = await portfolioWorkspaceStorage.saveImportedSnapshotNode({
+      workspaceId: created.workspace.id,
+      parentNodeId: created.rootNode.id,
+      portfolioSnapshot: created.draft.portfolioSnapshot,
+      importedFileNames: ['IB2026.csv'],
+      derivationVersion: 1,
+      name: 'derived',
+    })
+
+    expect(added.node.source && 'importedConstituents' in added.node.source).toBe(false)
+    expect(added.node.source?.derivationVersion).toBe(1)
+  })
+
+  it('persists the admission roll-up with the node so a reload shows the same combined label (US-46.3 AC 12)', async () => {
+    const db = createFakePortfolioDb()
+    db.install()
+    const analysis = projectImportedBootstrap(createImportedBootstrapResponseFixture()).workspace
+    const created = await portfolioWorkspaceStorage.createWorkspaceFromImport({ analysis, importedFileNames: ['IB2026.csv'] })
+
+    const added = await portfolioWorkspaceStorage.saveImportedSnapshotNode({
+      workspaceId: created.workspace.id,
+      parentNodeId: created.rootNode.id,
+      portfolioSnapshot: created.draft.portfolioSnapshot,
+      importedFileNames: ['IB2026.csv', 'ESPP2026.pdf'],
+      admissionSummary: ibPlusEsppAdmission(),
+      derivationVersion: 1,
+      name: 'IB + ESPP',
+    })
+
+    const reread = await portfolioWorkspaceStorage.getNode(added.node.id)
+    expect(reread?.source?.admissionSummary).toMatchObject({ decision: 'degraded', trust_level: 'degraded' })
+    expect(reread?.source?.admissionSummary?.rollup?.constituents).toHaveLength(2)
   })
 })

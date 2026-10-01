@@ -5,9 +5,13 @@ from pathlib import Path
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
-from app.schemas.import_bootstrap import ImportedBootstrapResponse
+from app.schemas.import_bootstrap import CombinedImportBootstrapRequest, ImportedBootstrapResponse
 from app.schemas.imports import CombineImportedSnapshotsRequest, ImportedPortfolioSnapshot, SnapshotAnalysisRequest
-from app.services.import_engine import build_import_bootstrap, build_import_bootstrap_from_portfolio_snapshot_request
+from app.services.import_engine import (
+    build_combined_import_bootstrap,
+    build_import_bootstrap,
+    build_import_bootstrap_from_portfolio_snapshot_request,
+)
 from app.services.statement_importer import combine_imported_snapshots, import_statements
 
 
@@ -52,6 +56,21 @@ def combine_snapshots(
 ) -> ImportedPortfolioSnapshot:
     try:
         return combine_imported_snapshots(request.snapshots)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/analyze-combined", response_model=ImportedBootstrapResponse)
+def analyze_combined_snapshots(
+    request: CombinedImportBootstrapRequest,
+) -> ImportedBootstrapResponse:
+    try:
+        return build_combined_import_bootstrap(
+            request.snapshots,
+            request.benchmark_symbol,
+            request.symbol_overrides,
+            request.carried_admissions,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

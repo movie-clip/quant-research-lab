@@ -36,10 +36,13 @@ def build_imported_snapshot_from_request(request: PortfolioEngineRequest | Snaps
                 as_of_date=imported_at.date(),
                 symbol=item.symbol,
                 quantity=item.quantity or 0,
-                cost_basis=item.market_value,
+                # US-46.4 (F4): the request carries no statement-stated cost basis
+                # or unrealized P&L, so both are unavailable (None) — never
+                # market value / 0.
+                cost_basis=None,
                 close_price=item.market_value / item.quantity if item.quantity not in (None, 0) else item.market_value,
                 market_value=item.market_value,
-                unrealized_pnl=0,
+                unrealized_pnl=None,
                 currency=item.currency or request.base_currency or 'USD',
             )
             for item in request.positions

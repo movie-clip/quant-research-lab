@@ -26,8 +26,6 @@ class Freedom24Preview:
     page_count: int
 
 
-GROUPED_ENTRY_DAY = 1
-
 # ── Freedom24 statement format constants (US-24.4) ────────────────────────────
 # The Freedom24 PDF parser walks fixed page + line offsets; these name the format
 # assumptions that were previously inline literals across the parsers.
@@ -41,14 +39,6 @@ _PAGE_CASH_MOVEMENTS = 4
 _PAGE_TRANSACTIONS = 6
 _PAGE_COMMISSIONS = 7
 _PAGE_CASH_BALANCES = 9
-
-
-def _statement_grouped_date(period: str | None) -> date:
-    if period is None:
-        return date(2026, 1, 1)
-    start_date_str, _ = period.split(" - ")
-    start_date = date.fromisoformat(start_date_str)
-    return date(start_date.year, start_date.month, GROUPED_ENTRY_DAY)
 
 
 def _extract_text_by_page(path: str | Path) -> list[str]:
@@ -75,6 +65,19 @@ def _merge_split_date(lines: list[str], index: int) -> tuple[str | None, int]:
     if re.fullmatch(r"\d{4}-\d{2}-\d{2}", current):
         return current, index + 1
     return None, index
+
+
+def _parse_trade_date(cell: str) -> date:
+    """Date part of a Transactions "Trade date" cell.
+
+    Raises ValueError when the cell does not start with a valid YYYY-MM-DD; the
+    caller skips the record (importer resilience rule). No substitute date is
+    ever derived from the statement period or a constant.
+    """
+    candidate = cell.strip()[:10]
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", candidate):
+        raise ValueError(f"unparseable Freedom24 trade date: {cell!r}")
+    return date.fromisoformat(candidate)
 
 
 def _is_ticker(value: str) -> bool:
@@ -158,7 +161,9 @@ def _parse_positions(page_texts: list[str], as_of_date: date) -> list[ImportedPo
             # index+3 = asset type, index+4..8 = balances / price / currency / value.
             account = lines[index + 2].strip()
             asset_type = lines[index + 3].strip()
-            beginning_balance = _normalize_number(lines[index + 4])
+            # Beginning balance is still parsed as a layout guard (a non-numeric
+            # cell skips the record) but no longer feeds a cost basis (US-46.4).
+            _normalize_number(lines[index + 4])
             ending_balance = _normalize_number(lines[index + 5])
             price_raw = lines[index + 6].strip()
             currency_or_value = lines[index + 7].strip()
@@ -176,20 +181,16 @@ def _parse_positions(page_texts: list[str], as_of_date: date) -> list[ImportedPo
 
             if account.lower() == "trading" and asset_type.lower() == "funds" and ending_balance > 0:
                 symbol = ticker.replace(_US_SUFFIX, "")
-                trade_delta = ending_balance - beginning_balance
-                if beginning_balance > 0 and trade_delta > 0:
-                    cost_basis = round((trade_delta * close_price) + (beginning_balance * close_price), 2)
-                else:
-                    cost_basis = round(ending_balance * close_price, 2)
                 positions.append(
                     ImportedPosition(
                         as_of_date=as_of_date,
                         symbol=symbol,
                         quantity=ending_balance,
-                        cost_basis=cost_basis,
+                        # US-46.4 (F4): the FF statement states neither; unavailable, never derived.
+                        cost_basis=None,
                         close_price=close_price,
                         market_value=market_value,
-                        unrealized_pnl=round(market_value - cost_basis, 2),
+                        unrealized_pnl=None,
                         currency=currency,
                     )
                 )
@@ -232,7 +233,7 @@ def _parse_cash_balances(page_texts: list[str]) -> list[ImportedCashBalance]:
     return balances
 
 
-def _parse_transactions(page_texts: list[str], grouped_trade_date: date) -> list[ImportedLedgerEntry]:
+def _parse_transactions(page_texts: list[str]) -> list[ImportedLedgerEntry]:
     lines = (page_texts[_PAGE_TRANSACTIONS] if len(page_texts) > _PAGE_TRANSACTIONS else "").splitlines()
     entries: list[ImportedLedgerEntry] = []
     index = 13
@@ -251,6 +252,9 @@ def _parse_transactions(page_texts: list[str], grouped_trade_date: date) -> list
             # index + 7 = realized P&L — not modeled in ImportedLedgerEntry (deferred
             # scope decision, US-24.4 / tech-debt-register); intentionally unused.
             fee = _normalize_number(lines[index + 8])
+            # index + 9 = trade timestamp ("YYYY-MM-DD HH:MM:SS"); index + 10 is the
+            # settlement date and is deliberately not read (trade-date accounting).
+            trade_date = _parse_trade_date(lines[index + 9])
             symbol = ticker.replace(_US_SUFFIX, "")
             gross_amount = -amount if direction == "Buy" else amount
             net_amount = gross_amount - fee
@@ -258,7 +262,7 @@ def _parse_transactions(page_texts: list[str], grouped_trade_date: date) -> list
             entries.append(
                 ImportedLedgerEntry(
                     entry_type="BUY" if direction == "Buy" else "SELL",
-                    trade_date=grouped_trade_date,
+                    trade_date=trade_date,
                     symbol=symbol,
                     description=f"Freedom24 grouped {direction.lower()} trade for statement period",
                     quantity=quantity,
@@ -280,7 +284,7 @@ def _parse_transactions(page_texts: list[str], grouped_trade_date: date) -> list
     return entries
 
 
-def _parse_cash_movements(page_texts: list[str], grouped_trade_date: date) -> list[ImportedLedgerEntry]:
+def _parse_cash_movements(page_texts: list[str]) -> list[ImportedLedgerEntry]:
     lines = (page_texts[_PAGE_CASH_MOVEMENTS] if len(page_texts) > _PAGE_CASH_MOVEMENTS else "").splitlines()
     entries: list[ImportedLedgerEntry] = []
     index = 7
@@ -345,39 +349,6 @@ def _parse_cash_movements(page_texts: list[str], grouped_trade_date: date) -> li
     return entries
 
 
-def _parse_commissions(page_texts: list[str], grouped_trade_date: date) -> list[ImportedLedgerEntry]:
-    lines = (page_texts[_PAGE_COMMISSIONS] if len(page_texts) > _PAGE_COMMISSIONS else "").splitlines()
-    if len(lines) < 10:
-        return []
-
-    entries: list[ImportedLedgerEntry] = []
-    index = 6
-    while index < len(lines):
-        if lines[index].strip() == "Total commissions for the period":
-            if index + 1 < len(lines):
-                total_line = lines[index + 1].strip()
-                match = re.fullmatch(r"([A-Z]{3})\s*:\s*([\d ]+\.\d+)", total_line)
-                if match:
-                    amount = _normalize_number(match.group(2))
-                    currency = match.group(1)
-                    entries.append(
-                        ImportedLedgerEntry(
-                            entry_type="FEE",
-                            trade_date=grouped_trade_date,
-                            description="Freedom24 grouped trading fee for statement period",
-                            gross_amount=-amount,
-                            net_amount=-amount,
-                            fee=amount,
-                            currency=currency,
-                            source_section="Commissions",
-                            source_line=" | ".join(lines[index:index + 2]),
-                        )
-                    )
-            break
-        index += 1
-    return entries
-
-
 def _parse_instruments(positions: list[ImportedPosition], page_texts: list[str]) -> list[ImportedInstrument]:
     lines = (page_texts[_PAGE_POSITIONS] if len(page_texts) > _PAGE_POSITIONS else "").splitlines()
     instruments: list[ImportedInstrument] = []
@@ -422,12 +393,10 @@ def import_statement(path: str | Path) -> ImportedPortfolioSnapshot:
 
     _, end_date_str = preview.period.split(" - ")
     as_of_date = date.fromisoformat(end_date_str)
-    grouped_trade_date = _statement_grouped_date(preview.period)
     positions = _parse_positions(page_texts, as_of_date)
     ledger_entries = [
-        *_parse_transactions(page_texts, grouped_trade_date),
-        *_parse_cash_movements(page_texts, grouped_trade_date),
-        *_parse_commissions(page_texts, grouped_trade_date),
+        *_parse_transactions(page_texts),
+        *_parse_cash_movements(page_texts),
     ]
 
     statement = ImportedStatement(

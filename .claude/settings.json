@@ -59,6 +59,8 @@
     ]
   },
   "enabledPlugins": {
-    "agentic-core@agentic": true
+    "frontend-design@claude-plugins-official": true,
+    "agentic-core@agentic": true,
+    "mattpocock-skills@claude-plugins-official": true
   }
 }

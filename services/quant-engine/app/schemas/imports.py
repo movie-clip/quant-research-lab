@@ -60,10 +60,14 @@ class ImportedPosition(BaseModel):
     as_of_date: date
     symbol: str
     quantity: float
-    cost_basis: float
+    # US-46.4 (F4): statement-stated broker values. None = the statement states
+    # none = unavailable; never derived from market value / close price /
+    # trade history, never zero-filled. No per-position trust field: null is
+    # the unavailable rung (docs/contracts/imports-fields.md).
+    cost_basis: float | None = None
     close_price: float
     market_value: float
-    unrealized_pnl: float
+    unrealized_pnl: float | None = None
     currency: str = Field(min_length=3, max_length=3)
 
 

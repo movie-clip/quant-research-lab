@@ -1,7 +1,7 @@
 from app.engine.portfolio_state import PortfolioStateEngine
 from app.analytics.risk import selected_history_price_map
 from app.schemas.imports import ImportedPortfolioSnapshot
-from app.schemas.reconciliation import DailyPortfolioState, EnrichedPosition, PerformancePoint, PerformanceSummary
+from app.schemas.reconciliation import DailyPortfolioState, PerformancePoint, PerformanceSummary
 from typing import Literal
 
 from app.services.market_data import HistoryReturnBasisContract, classify_history_return_basis_contract
@@ -27,44 +27,6 @@ _PUBLISHING_PORTFOLIO_BASES: frozenset[str] = frozenset(
 _PUBLISHING_BENCHMARK_BASES: frozenset[str] = frozenset(
     {"verified_total_return", "price_return_only"}
 )
-
-
-def _coerce_float(value: object) -> float | None:
-    if value is None:
-        return None
-
-    return float(str(value))
-
-
-def build_enriched_positions(snapshot: ImportedPortfolioSnapshot, quotes: dict[str, dict]) -> list[EnrichedPosition]:
-    positions: list[EnrichedPosition] = []
-    for position in sorted(snapshot.positions, key=lambda item: item.market_value, reverse=True):
-        quote = quotes.get(position.symbol, {})
-        latest_price_float = _coerce_float(quote.get("price"))
-        daily_change_float = _coerce_float(quote.get("change"))
-        latest_market_value = round(latest_price_float * position.quantity, 2) if latest_price_float is not None else None
-        previous_price_float = (latest_price_float - daily_change_float) if latest_price_float is not None and daily_change_float is not None else None
-        daily_change_pct = None
-        if daily_change_float is not None and previous_price_float is not None and previous_price_float != 0:
-            previous_price = float(previous_price_float)
-            daily_change_pct = round((daily_change_float / previous_price) * 100, 2)
-
-        positions.append(
-            EnrichedPosition(
-                symbol=position.symbol,
-                quantity=position.quantity,
-                statement_price=position.close_price,
-                statement_market_value=position.market_value,
-                latest_price=latest_price_float,
-                latest_market_value=latest_market_value,
-                daily_change=daily_change_float,
-                daily_change_pct=daily_change_pct,
-                unrealized_pnl=position.unrealized_pnl,
-                currency=position.currency,
-            )
-        )
-
-    return positions
 
 
 def build_replay_currency_context(

@@ -3,14 +3,15 @@ import type { ChangeEvent } from 'react'
 
 import { canUseImportedReplay, collapseToHistoryContextSource, resolveEffectiveHistorySource } from '../features/portfolio/historySource'
 import { projectImportedBootstrap } from '../features/portfolio/importedBootstrapMapper'
-import { buildExposureFactorModel, buildPortfolioBaselineView, combineImportedSnapshots, composeDashboardAnalysisFromEngines, composeDashboardAnalysisWithHistory, runDashboardHistoryEngine, runDiagnosticsEngine, runExposureEngine, composeExposureView, runImportedDashboardHistory, runImportedDiagnosticsEngine } from '../features/portfolio/portfolioAnalysisAdapter'
+import { analyzeCombinedImport, buildExposureFactorModel, buildPortfolioBaselineView, composeDashboardAnalysisFromEngines, composeDashboardAnalysisWithHistory, runDashboardHistoryEngine, runDiagnosticsEngine, runExposureEngine, composeExposureView, runImportedDashboardHistory, runImportedDiagnosticsEngine } from '../features/portfolio/portfolioAnalysisAdapter'
 import { formatVariantNodeLabel, formatWorkingDraftLabel } from '../features/portfolio/variantLabels'
-import { buildPortfolioSnapshotFromAnalysis, overlayImportedSnapshot } from '../features/portfolio/portfolioSnapshot'
+import { buildPortfolioSnapshotFromAnalysis } from '../features/portfolio/portfolioSnapshot'
 import { composeDashboardSession, type DashboardSession } from './dashboardSession'
 import { resolveImportedWorkspaceStartupTruth } from './startupSelectionValidation'
 import type { ImportedBootstrapResponse, ImportedExposureOverride, ImportedSnapshot, ImportedStatementImporter, DashboardAnalysis, DashboardHistoryEngineResponse, DiagnosticsEngineResponse, ExposureAnalysis, ExposureFactorModelResponse } from '../features/portfolio/types'
 import type { ImportedHistoryContext, ImportedHistorySource, PortfolioNode, PortfolioWorkspace, WorkingDraft, WorkspaceState } from '../features/portfolio/workspaceTypes'
 import { clearPortfolioWorkspaceState, createWorkspaceFromImport, getDraft, getLastOpenedWorkspaceState, getNode, getWorkspace, getWorkspaceNodes, resetLocalPortfolioDatabase, saveImportedSnapshotNode, setSelectedExposureSnapshot } from './portfolioWorkspaceStorage'
+import { rederiveSavedNodes } from './rederiveSavedNodes'
 import { DashboardPanel } from '../features/portfolio/DashboardPanel'
 const ExposurePanel = lazy(async () => ({ default: (await import('../features/portfolio/ExposurePanel')).ExposurePanel }))
 const RiskPanel = lazy(async () => ({ default: (await import('../features/portfolio/RiskPanel')).RiskPanel }))
@@ -347,41 +348,57 @@ export function App() {
   ) {
     const isActive = options?.isActive ?? (() => true)
     const sessionRestored = options?.restoredSession ?? true
-    const [workspace, node, persistedDraft] = await Promise.all([
+    const [storedWorkspace, storedNode, persistedDraft] = await Promise.all([
       getWorkspace(restoredWorkspaceState.workspaceId),
       getNode(restoredWorkspaceState.activeNodeId),
       getDraft(restoredWorkspaceState.workspaceId),
     ])
 
     if (!isActive()) return
-    if (!workspace || !node) {
+    if (!storedWorkspace || !storedNode) {
       throw new Error('Unable to restore previous portfolio workspace')
     }
 
-    let nodes: PortfolioNode[]
+    let storedNodes: PortfolioNode[]
     if (sessionRestored) {
-      const authoritativeNodes = await getWorkspaceNodes(workspace.id).catch(() => {
+      const authoritativeNodes = await getWorkspaceNodes(storedWorkspace.id).catch(() => {
         throw new Error('Unable to restore previous portfolio workspace: authoritative workspace nodes are unavailable on startup')
       })
       if (!authoritativeNodes.length) {
         throw new Error('Unable to restore previous portfolio workspace: authoritative workspace nodes are unavailable on startup')
       }
-      nodes = authoritativeNodes
+      storedNodes = authoritativeNodes
     } else {
-      const persistedNodes = await getWorkspaceNodes(workspace.id).catch(() => [node])
-      nodes = persistedNodes.length ? persistedNodes : [node]
+      const persistedNodes = await getWorkspaceNodes(storedWorkspace.id).catch(() => [storedNode])
+      storedNodes = persistedNodes.length ? persistedNodes : [storedNode]
     }
     const startupTruth = resolveImportedWorkspaceStartupTruth({
       sessionRestored,
-      isImportedWorkspace: isImportedWorkspaceSource(workspace.source),
+      isImportedWorkspace: isImportedWorkspaceSource(storedWorkspace.source),
       restoredWorkspaceState,
-      authoritativeNodes: nodes,
+      authoritativeNodes: storedNodes,
       restoredDraft: persistedDraft,
-      restoredActiveNode: node,
+      restoredActiveNode: storedNode,
     })
-    const draft = startupTruth.restoredDraft
 
     if (!isActive()) return
+
+    // Saved nodes from before derivationVersion are re-derived through the engine, in memory only
+    // (US-46.1 AC 10-12, US-46.3 AC 13-15, US-46.4 AC 11). A node that cannot be re-derived comes back
+    // with no snapshot, and the server detail is shown through importError.
+    const rederived = await rederiveSavedNodes({
+      workspace: storedWorkspace,
+      nodes: storedNodes,
+      activeNode: storedNode,
+      draft: startupTruth.restoredDraft,
+      isActive,
+    })
+
+    if (!isActive()) return
+    const { workspace, activeNode: node, nodes, draft } = rederived
+    if (rederived.importError) {
+      setImportError(rederived.importError)
+    }
 
     setActiveWorkspace(workspace)
     setActiveNode(node)
@@ -719,6 +736,9 @@ export function App() {
     }
 
     importModeRef.current = mode
+    // A failed import (including a refused combine) must leave the prior portfolio as it was.
+    const priorExposureAnalysis = exposureAnalysis
+    const priorExposureFactorModel = exposureFactorModel
     setImportingPortfolio(true)
     setImportError(null)
     setExposureAnalysis(null)
@@ -764,44 +784,58 @@ export function App() {
       const importedViews = projectImportedBootstrap(nextAnalysis)
       const importedFileNames = files.map((file) => file.name)
       const importedSnapshot = buildPortfolioSnapshotFromAnalysis(importedViews.workspace, importedFileNames)
+      // Individual statement snapshots behind this upload: the per-file snapshots when
+      // several files were combined by the upload route, else the single snapshot.
+      const uploadedConstituents = nextAnalysis.constituent_snapshots?.length
+        ? nextAnalysis.constituent_snapshots
+        : [nextAnalysis.snapshot]
       if (mode === 'add_snapshot') {
         if (!activeWorkspace) {
           throw new Error('No active workspace available for adding a statement')
         }
 
-        const baseSnapshot = workingDraft?.portfolioSnapshot ?? activeNode?.portfolioSnapshot
-        if (!baseSnapshot) {
-          throw new Error('No active snapshot available for adding a statement')
-        }
-        const overlaidSnapshot = overlayImportedSnapshot(baseSnapshot, importedSnapshot)
+        // The add starts from the imported base node, not from a dirty working draft.
         const baseNode = workingDraft
           ? (workspaceNodes.find((item) => item.id === workingDraft.baseNodeId) ?? activeNode)
           : activeNode
         const baseSource = getEffectiveNodeImportSource(baseNode, workspaceNodes, activeWorkspace)
-        const mergedHistoryContext = mergeHistoryContext(getNodeHistorySource(baseSource)?.historyContext ?? null, importedViews.historyContext)
-
-        const baseImportedHistorySnapshot = canUseImportedReplay(baseSource) ? (baseSource?.historySource.importedHistorySnapshot ?? null) : null
-        // No prior replay data to combine with -> adopt the new statement's own
-        // snapshot alone. Still strictly better than discarding it outright, and
-        // honest: there is nothing to combine.
-        let combinedHistorySnapshot: ImportedSnapshot | null = nextAnalysis.snapshot
-        if (baseImportedHistorySnapshot) {
-          try {
-            combinedHistorySnapshot = await combineImportedSnapshots([baseImportedHistorySnapshot, nextAnalysis.snapshot])
-          } catch {
-            combinedHistorySnapshot = null
-            setImportError('Added statement could not be combined with the existing imported history (for example, a differing base currency) — this snapshot keeps the merged positions but not full replay history.')
-          }
+        const baseReplaySnapshot = canUseImportedReplay(baseSource) ? (baseSource?.historySource.importedHistorySnapshot ?? null) : null
+        if (!baseSource || !baseReplaySnapshot) {
+          // Adopting the new statement alone would silently drop the base holdings.
+          throw new Error('This portfolio has no stored statement history to add to, so the statement was not added. Re-import the original statements to combine them.')
         }
+
+        // Combine flat from the individual statements when they are stored; a base without
+        // constituents goes in as one input with its own admission carried as evidence.
+        // Never chain a combined snapshot into a second combine when constituents exist.
+        const baseConstituents = baseSource.importedConstituents?.length ? baseSource.importedConstituents : null
+        const combinedResponse = await analyzeCombinedImport({
+          snapshots: [...(baseConstituents ?? [baseReplaySnapshot]), ...uploadedConstituents],
+          carriedAdmissions: baseConstituents || !baseSource.admissionSummary ? [] : [baseSource.admissionSummary],
+        })
+        const combinedViews = projectImportedBootstrap(combinedResponse)
+        const combinedSnapshot = buildPortfolioSnapshotFromAnalysis(
+          combinedViews.workspace,
+          Array.from(new Set([...baseSource.importedFileNames, ...importedFileNames])),
+        )
+        // The node is stamped with the added statement's import time, not the combined snapshot's first statement.
+        const addedNodeSnapshot = {
+          ...combinedSnapshot,
+          importedMeta: { ...combinedSnapshot.importedMeta, importedAt: importedSnapshot.importedMeta.importedAt },
+        }
+        const mergedHistoryContext = mergeHistoryContext(getNodeHistorySource(baseSource)?.historyContext ?? null, combinedViews.historyContext)
 
         const savedNode = await saveImportedSnapshotNode({
           workspaceId: activeWorkspace.id,
           parentNodeId: baseNode?.id ?? activeWorkspace.rootNodeId,
-          portfolioSnapshot: overlaidSnapshot,
-          importedFileNames,
+          portfolioSnapshot: addedNodeSnapshot,
+          importedFileNames: addedNodeSnapshot.importedMeta.sourceFileNames,
           historyContext: mergedHistoryContext,
-          importedHistorySnapshot: combinedHistorySnapshot,
-          admissionSummary: nextAnalysis.admission_summary,
+          importedHistorySnapshot: combinedResponse.snapshot,
+          admissionSummary: combinedResponse.admission_summary,
+          // A legacy base (no stored constituents) does not hand the new node any either.
+          ...(baseConstituents ? { importedConstituents: [...baseConstituents, ...uploadedConstituents] } : {}),
+          derivationVersion: 1,
           name: buildImportedSnapshotName(nextAnalysis.snapshot),
         })
         await restoreImportedWorkspaceFromPersistedState(savedNode.workspaceState, { restoredSession: false })
@@ -813,9 +847,13 @@ export function App() {
         importedFileNames,
         historyContext: importedViews.historyContext,
         importedHistorySnapshot: nextAnalysis.snapshot,
+        importedConstituents: uploadedConstituents,
+        derivationVersion: 1,
       })
       await restoreImportedWorkspaceFromPersistedState(workspaceResult.workspaceState, { restoredSession: false })
     } catch (caughtError) {
+      setExposureAnalysis(priorExposureAnalysis)
+      setExposureFactorModel(priorExposureFactorModel)
       setImportError(caughtError instanceof Error ? caughtError.message : 'Import failed')
     } finally {
       setImportingPortfolio(false)

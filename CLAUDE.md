@@ -24,6 +24,13 @@ Absolute, and unnumbered on purpose: the agentic network's profile
 five in the numbering the protocol cites, so a `REFUSED: guardrail 3` from a
 dispatched lane names exactly one thing.
 
+A request to build, fix or investigate something here goes to
+`agentic-core:orchestrate-feature` first, including "this number looks wrong".
+The `mattpocock-skills` plugin is enabled for the network's dispatched lanes,
+and their capability packs say when each skill fires. It is not an entry point
+for a request: `diagnosing-bugs` on a wrong number, run outside a lane, fixes
+a formula with no quant audit.
+
 ## Product surface
 
 The desktop has three tabs:

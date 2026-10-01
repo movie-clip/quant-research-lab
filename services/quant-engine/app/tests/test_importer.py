@@ -284,8 +284,12 @@ def test_import_freedom24_statement_returns_expected_snapshot() -> None:
     assert snapshot.statement_totals is not None
     assert round(snapshot.statement_totals.starting_nav or 0, 2) == 2900.12
     assert round(snapshot.statement_totals.ending_nav or 0, 2) == 3071.00
-    assert len(snapshot.ledger_entries) == 8
-    assert {entry.trade_date.isoformat() for entry in snapshot.ledger_entries} == {"2025-12-01", "2026-03-31", "2026-04-01"}
+    # US-46.2: 3 trades + 2 dividends + 2 withholding-tax rows. There is no period
+    # FEE row any more (commission lives on each trade), so 7 entries, not 8.
+    assert len(snapshot.ledger_entries) == 7
+    # AC 2: exactly the dates the statement states - never the 2025-12-01 statement-
+    # start-month fabrication, never the 2026-04-08 settlement date.
+    assert {entry.trade_date.isoformat() for entry in snapshot.ledger_entries} == {"2026-03-31", "2026-04-01", "2026-04-07"}
     assert any(entry.entry_type == "DIVIDEND" and entry.trade_date.isoformat() == "2026-03-31" for entry in snapshot.ledger_entries)
     assert any(entry.entry_type == "WITHHOLDING_TAX" and entry.trade_date.isoformat() == "2026-04-01" for entry in snapshot.ledger_entries)
     # US-24.4: the Freedom24 ISIN already flows to ImportedInstrument; pin it so
@@ -328,8 +332,9 @@ def test_freedom24_parsers_skip_malformed_records_without_raising() -> None:
     assert _parse_positions(_page(_PAGE_POSITIONS, pos_lines), date(2026, 1, 1)) == []
 
     # _parse_transactions starts at line 13: a ticker with a garbled quantity.
-    txn_lines = ["filler"] * 13 + ["VTI.US", "x", "x", "Buy", "GARBAGE", "1", "2", "3", "4", "x", "x", "x"]
-    assert _parse_transactions(_page(_PAGE_TRANSACTIONS, txn_lines), date(2026, 1, 1)) == []
+    # US-46.2: the parser no longer takes a fallback date - the date comes from the record.
+    txn_lines = ["filler"] * 13 + ["VTI.US", "x", "x", "Buy", "GARBAGE", "1", "2", "3", "4", "2026-04-07 10:00:00", "2026-04-08", "x"]
+    assert _parse_transactions(_page(_PAGE_TRANSACTIONS, txn_lines)) == []
 
     # _parse_cash_balances starts at line 7: a currency with a garbled balance.
     cash_lines = ["filler"] * 7 + ["USD", "GARBAGE", "x", "x", "x", "x"]

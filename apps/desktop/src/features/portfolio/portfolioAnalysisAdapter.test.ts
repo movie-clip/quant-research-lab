@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createDiagnosticsEngineFixture, createExposureEngineFixture, createImportedBootstrapResponseFixture, createImportedDashboardHistoryFixture } from '../../test/portfolioFixtures'
 import type { ResolveDesktopApiUrlOptions } from '../../app/apiBase'
-import { clearCache, runDashboardHistoryEngine, runDiagnosticsEngine, runDistributionEngine, runDrawdownEngine, runDriftEngine, runExposureEngine, runImportedDashboardHistory, runImportedDiagnosticsEngine, runIntraCorrelationEngine, runProvenanceEngine, runStressEngine } from './portfolioAnalysisAdapter'
+import { combinedResponse, esppAdmission, esppStatementSnapshot, ibAdmission, ibStatementSnapshot } from '../../test/combinedImportFixtures'
+import { analyzeCombinedImport, clearCache, runDashboardHistoryEngine, runDiagnosticsEngine, runDistributionEngine, runDrawdownEngine, runDriftEngine, runExposureEngine, runImportedDashboardHistory, runImportedDiagnosticsEngine, runIntraCorrelationEngine, runProvenanceEngine, runStressEngine } from './portfolioAnalysisAdapter'
 import type { DistributionEngineResponse, DrawdownEngineResponse, StressEngineResponse } from './types'
 import type { ImportedHistoryContext, PortfolioSnapshot } from './workspaceTypes'
 
@@ -312,5 +313,70 @@ describe('runExposureEngine fx_rates plumbing (US-30.5a)', () => {
     const init = fetchMock.mock.calls[0]?.[1] as { body?: string } | undefined
     const body = JSON.parse(init!.body!) as { fx_rates?: Record<string, number> }
     expect(body.fx_rates).toBeUndefined()
+  })
+})
+
+describe('analyzeCombinedImport (US-46.1: the one merge source)', () => {
+  function bodyOf(fetchMock: { mock: { calls: unknown[][] } }) {
+    return JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body)) as Record<string, unknown>
+  }
+
+  it('posts every constituent snapshot to /api/portfolios/import/analyze-combined and returns the engine response untouched', async () => {
+    const ib = ibStatementSnapshot()
+    const espp = esppStatementSnapshot()
+    const response = combinedResponse({ snapshot: ib, admission: ibAdmission() })
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(response))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await analyzeCombinedImport({ snapshots: [ib, espp] })
+
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/portfolios/import/analyze-combined')
+    expect((fetchMock.mock.calls[0][1] as RequestInit).method).toBe('POST')
+    expect(bodyOf(fetchMock).snapshots).toEqual([ib, espp])
+    expect(result).toEqual(response)
+  })
+
+  it('sends carried_admissions only when there is legacy evidence to carry', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(combinedResponse({ snapshot: ibStatementSnapshot(), admission: ibAdmission() })))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await analyzeCombinedImport({ snapshots: [ibStatementSnapshot()], carriedAdmissions: [] })
+    expect('carried_admissions' in bodyOf(fetchMock)).toBe(false)
+
+    fetchMock.mockClear()
+    await analyzeCombinedImport({ snapshots: [ibStatementSnapshot()], carriedAdmissions: [esppAdmission()] })
+    expect(bodyOf(fetchMock).carried_admissions).toEqual([esppAdmission()])
+  })
+
+  it('carries an explicit benchmark symbol as benchmark_symbol', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(combinedResponse({ snapshot: ibStatementSnapshot(), admission: ibAdmission() })))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await analyzeCombinedImport({ snapshots: [ibStatementSnapshot()], benchmarkSymbol: 'QQQ' })
+
+    expect(bodyOf(fetchMock).benchmark_symbol).toBe('QQQ')
+  })
+
+  it('throws the server detail on a refused combine so the caller can publish nothing', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ detail: 'Cannot combine snapshots with differing base currencies' }, 400)))
+
+    await expect(analyzeCombinedImport({ snapshots: [ibStatementSnapshot(), esppStatementSnapshot()] })).rejects.toThrow(
+      'Cannot combine snapshots with differing base currencies',
+    )
+  })
+
+  it('falls back to a fixed message when the error body has no detail', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('not json', { status: 500 })))
+
+    await expect(analyzeCombinedImport({ snapshots: [ibStatementSnapshot()] })).rejects.toThrow('Combined import analysis failed')
+  })
+
+  it('resolves the packaged desktop origin like every other engine call', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(combinedResponse({ snapshot: ibStatementSnapshot(), admission: ibAdmission() })))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await analyzeCombinedImport({ snapshots: [ibStatementSnapshot()] }, packagedApiOptions)
+
+    expect(fetchMock.mock.calls[0][0]).toBe('https://desktop-backend.example/api/portfolios/import/analyze-combined')
   })
 })

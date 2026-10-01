@@ -15,6 +15,8 @@ export function buildPersistedImportedSource(input: {
   importedHistorySnapshot?: ImportedSnapshot | null
   admissionSummary?: ImportAdmissionSummaryV1 | null
   importedExposureOverride?: ImportedExposureOverride | null
+  importedConstituents?: ImportedSnapshot[]
+  derivationVersion?: number
 }): ImportedNodeSource {
   const source: ImportedNodeSource = {
     importedFileNames: input.importedFileNames,
@@ -32,6 +34,12 @@ export function buildPersistedImportedSource(input: {
   if (input.importedExposureOverride !== undefined) {
     source.importedExposureOverride = input.importedExposureOverride
   }
+  if (input.importedConstituents !== undefined) {
+    source.importedConstituents = input.importedConstituents
+  }
+  if (input.derivationVersion !== undefined) {
+    source.derivationVersion = input.derivationVersion
+  }
   return source
 }
 
@@ -48,6 +56,13 @@ function sanitizeImportedNodeSource(value: ImportedNodeSource): ImportedNodeSour
   }
   if (value.importedExposureOverride !== undefined) {
     source.importedExposureOverride = structuredClone(value.importedExposureOverride)
+  }
+  // The sanitizer is a whitelist: any field not copied here is silently dropped on the first read.
+  if (value.importedConstituents !== undefined) {
+    source.importedConstituents = structuredClone(value.importedConstituents)
+  }
+  if (value.derivationVersion !== undefined) {
+    source.derivationVersion = value.derivationVersion
   }
   return source
 }
@@ -98,6 +113,8 @@ export async function createWorkspaceFromImport(input: {
   importedFileNames: string[]
   historyContext?: ImportedHistoryContext | null
   importedHistorySnapshot?: ImportedSnapshot | null
+  importedConstituents?: ImportedSnapshot[]
+  derivationVersion?: number
 }): Promise<{ workspace: PortfolioWorkspace; rootNode: PortfolioNode; draft: WorkingDraft; workspaceState: WorkspaceState }> {
   const portfolioSnapshot = buildPortfolioSnapshotFromAnalysis(input.analysis, input.importedFileNames)
   const importedAt = portfolioSnapshot.importedMeta.importedAt
@@ -119,6 +136,8 @@ export async function createWorkspaceFromImport(input: {
       historyContext: input.historyContext ?? null,
       importedHistorySnapshot: input.importedHistorySnapshot ?? null,
       admissionSummary: input.analysis.admission_summary ?? null,
+      importedConstituents: input.importedConstituents,
+      derivationVersion: input.derivationVersion,
       importedExposureOverride: {
         overview: input.analysis.overview,
         lookthrough: input.analysis.lookthrough,
@@ -306,6 +325,8 @@ export async function saveImportedSnapshotNode(input: {
   historyContext?: ImportedHistoryContext | null
   importedHistorySnapshot?: ImportedSnapshot | null
   admissionSummary?: ImportAdmissionSummaryV1 | null
+  importedConstituents?: ImportedSnapshot[]
+  derivationVersion?: number
   name: string
 }) {
   const workspace = await getWorkspace(input.workspaceId)
@@ -323,6 +344,8 @@ export async function saveImportedSnapshotNode(input: {
     historyContext: input.historyContext ?? null,
     importedHistorySnapshot: input.importedHistorySnapshot ?? null,
     admissionSummary: input.admissionSummary ?? workspace.source.admissionSummary ?? null,
+    importedConstituents: input.importedConstituents,
+    derivationVersion: input.derivationVersion,
   })
 
   const node: PortfolioNode = {

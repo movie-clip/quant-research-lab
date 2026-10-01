@@ -240,7 +240,9 @@ def reconstruct_position_lots(snapshot: ImportedPortfolioSnapshot) -> list[Posit
         lots: list[PositionLot] = []
         if opening_quantity > 1e-9:
             estimated_unit_cost = None
-            if ending_position is not None and ending_position.quantity > 0:
+            # US-46.4 (F4): no estimate when the statement states no cost basis;
+            # the opening lot then carries unit_cost/remaining_cost_basis None.
+            if ending_position is not None and ending_position.quantity > 0 and ending_position.cost_basis is not None:
                 estimated_unit_cost = round(ending_position.cost_basis / ending_position.quantity, 6)
 
             lots.append(

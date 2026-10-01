@@ -56,7 +56,7 @@ state sanitizers, CLI entry-point scripts) → add a **reasoned** entry to
 integrity risk: **every entry must name why it is a false positive** — an
 unreasoned entry silently re-opens the door. Improvement findings (hardcodes /
 magic numbers / anti-patterns) are catalogued in
-[`docs/tech-debt-register.md`](../tech-debt-register.md) → Epic 24, not added to
+[`docs/tech-debt-register.md`](../tech-debt-register.md), not added to
 the allowlist. The register also carries the **removal protocol** (the "confirmed
 dead" checklist). **ESLint is deliberately not used** for this — `tsc` + `knip`
 cover the dead-code goal; ESLint's in-file `no-unused-vars` is redundant with
@@ -103,7 +103,7 @@ Current high-value shared helpers:
 
 The active real-statement references are:
 
-- `docs/IB2026.pdf`
+- `docs/IB2026.csv`
 - `docs/FF2026.pdf`
 - `docs/ESPP2026.pdf`
 

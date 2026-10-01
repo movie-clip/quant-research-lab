@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 
@@ -26,14 +26,28 @@ class PortfolioOverview(BaseModel):
     instruments_count: int
     ledger_entries_count: int
     total_market_value: float
-    total_cost_basis: float
-    total_unrealized_pnl: float
+    # US-46.4 (F4): None when any contributing position's value is None
+    # (null-propagation, § Multi-Statement Snapshot Merge); `cost_basis_trust`
+    # is "unavailable" exactly then. "stated" = every contributing value is
+    # statement-stated broker truth. Never withheld / degraded. Zero positions
+    # sums to 0.0 and stays "stated".
+    total_cost_basis: float | None
+    total_unrealized_pnl: float | None
     cash_by_currency: dict[str, float]
-    top_positions: list[dict[str, float | str]]
+    # Only `unrealized_pnl` may be None (unavailable for that position).
+    top_positions: list[dict[str, float | str | None]]
     sector_allocation: list[dict[str, float | str]]
     sector_position_breakdown: dict[str, list[dict[str, float | str]]]
     ledger_counts: dict[str, int]
     realized_cash_flow: dict[str, float]
+    # Defaults to "stated" so overrides persisted before US-46.4 still validate.
+    cost_basis_trust: Literal["stated", "unavailable"] = "stated"
+
+    @model_validator(mode="after")
+    def _stated_requires_totals(self) -> "PortfolioOverview":
+        if self.cost_basis_trust == "stated" and (self.total_cost_basis is None or self.total_unrealized_pnl is None):
+            raise ValueError("cost_basis_trust 'stated' requires non-null total_cost_basis and total_unrealized_pnl")
+        return self
 
 
 class PortfolioActivityPoint(BaseModel):
@@ -67,19 +81,6 @@ class BenchmarkComparison(BaseModel):
     return_pct: float | None
     return_basis_contract: Literal["verified_total_return", "price_return_only", "unverified_adjusted_proxy", "unavailable"] = "unavailable"
     points: list[BenchmarkPoint]
-
-
-class EnrichedPosition(BaseModel):
-    symbol: str
-    quantity: float
-    statement_price: float
-    statement_market_value: float
-    latest_price: float | None
-    latest_market_value: float | None
-    daily_change: float | None
-    daily_change_pct: float | None
-    unrealized_pnl: float
-    currency: str
 
 
 class PortfolioRiskSummary(BaseModel):
