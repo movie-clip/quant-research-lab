@@ -19,7 +19,7 @@ at the run directory and I score it against the rubric below.
    asks at all* is part of what is being measured, so don't pre-empt it in the
    prompt.
 4. **Capture.** Note the run slug. The network writes everything to
-   `C:\projects\investments\.agentic\projects\portfolio\runs\<YYYY-MM-DD>-<slug>\`.
+   `C:\projects\investments\portfolio\agentic\runs\<YYYY-MM-DD>-<slug>\`.
 5. **Reset.** `git reset --hard main && git switch main && git branch -D canary/<date>`,
    then `mcp__project__reset_goldens` if goldens moved. Keep the run dir — dated
    run dirs are the performance history. Do **not** merge the canary branch.
