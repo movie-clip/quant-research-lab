@@ -20,7 +20,7 @@ or moves money.
 - **No execution** — this product is decision support only.
 
 Absolute, and unnumbered on purpose: the agentic network's profile
-(`.agentic/projects/portfolio/project.md` § Hard guardrails) carries the same
+(`agentic/project.md` § Hard guardrails) carries the same
 five in the numbering the protocol cites, so a `REFUSED: guardrail 3` from a
 dispatched lane names exactly one thing.
 

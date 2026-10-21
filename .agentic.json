@@ -1,4 +1,5 @@
 {
   "agenticRoot": "../.agentic",
-  "project": "portfolio"
+  "project": "portfolio",
+  "projectDir": "agentic"
 }

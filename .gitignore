@@ -38,3 +38,4 @@ target/
 
 # Test-pass marker written by run_all_tests.py (consumed by pre_commit_gate hook)
 .claude/.last-test-pass
+agentic/runs/**/*.png
